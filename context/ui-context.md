@@ -122,7 +122,13 @@ SRS progression uses a light-to-dark green progression.
 
 Dark mode may adjust these values for contrast while preserving the same ordering from light green to deep green.
 
+The core SRS progression has nine stages (Beginner 1-4, Familiar 1-2, Intermediate, Master, Fluent), but color is grouped by stage name rather than assigned per sub-stage: all Beginner sub-stages (1-4) use `--srs-beginner`, and both Familiar sub-stages (1-2) use `--srs-familiar`. Sub-stage number is communicated through text, not a separate color.
+
 SRS color is supporting information. Text labels must remain present; color alone must never communicate stage.
+
+### Skill Progress Labels
+
+Speaking, listening, and other skill-practice stages are displayed using the active language's translated stage labels (for example, Spanish terms) rather than the English SRS stage names, so learners never confuse a skill-practice stage with a core SRS stage.
 
 ---
 
@@ -145,15 +151,21 @@ Use a subtle square grid over `--bg-base`.
 
 ### Primary UI Font
 
-Use the **existing handwritten Polyglot font currently used in the reference design** as the primary application font.
-
-The implementation agent should preserve the font family already configured in the existing project rather than replacing it with a generic SaaS font.
+Polyglot's primary application font is **Shantell Sans**, a warm handwritten Google Font.
 
 Map it to:
 
 ```css
 --font-sans
 ```
+
+Load it with a realistic fallback stack, for example:
+
+```css
+--font-sans: "Shantell Sans", "Comic Sans MS", cursive, sans-serif;
+```
+
+Shantell Sans supports Latin Extended, which covers Spanish diacritics (á, é, í, ó, ú, ü, ñ).
 
 The handwritten typeface is intentional and should be used for:
 
@@ -294,7 +306,7 @@ Use a **top navigation bar only**.
 Layout:
 
 ```text
-[ polyglot logo ]                     [ levels ] [ decks ] [ practice ] [ journey ] [ profile ]
+[ polyglot logo ]          [ levels ] [ reviews ] [ decks ] [ practice ] [ journey ] [ profile ]
 ```
 
 - Logo remains on the left.

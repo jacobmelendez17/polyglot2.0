@@ -179,6 +179,23 @@ Owns:
 
 Language identifiers must be data-driven. Application logic must not assume `"spanish"` is the only possible language.
 
+## `access`
+
+Owns:
+
+- Access-tier definitions (`free`, `premium`)
+- Level-to-tier mapping configuration
+- Access-tier evaluation for a given user/level
+- Future Stripe subscription/entitlement state
+
+Does not own:
+
+- Curriculum content
+- SRS state
+- Payment-provider integration details (kept behind a provider boundary when Stripe is introduced)
+
+During the v1 beta, `access` evaluates every authenticated user as fully entitled. At production launch, it begins enforcing the premium gate at Level 4+, except for the `beta-tester` role, which remains fully entitled.
+
 ## `curriculum`
 
 Owns:
@@ -245,6 +262,8 @@ Owns:
 - Free study
 - Skill-specific progression rules
 
+Verb conjugation practice references the base verb's existing vocabulary item rather than storing conjugated forms as separate curriculum items. Conjugation-practice progress is tracked separately from the base verb's core SRS state.
+
 Practice may read core curriculum and SRS data but may not mutate core SRS state unless explicitly routed through the `srs` domain.
 
 ## `tests`
@@ -277,14 +296,15 @@ Journal content must not be emitted into analytics or error logs.
 
 Owns:
 
-- User-created decks
-- Imported decks
+- Admin-authored default decks
+- User-created decks (deferred beyond v1)
+- Imported decks (deferred beyond v1)
 - Deck-only learning items
 - Deck duplicate validation
 - Deck study progress
 - Future deck sharing
 
-Custom-deck progress is independent from official curriculum progress.
+Default decks reference canonical official curriculum items. Deck study progress, whether from default or custom decks, is independent from official curriculum progress.
 
 ## `dashboard`
 
@@ -355,6 +375,7 @@ src/
     auth/
     users/
     languages/
+    access/
     curriculum/
     lessons/
     srs/
@@ -427,10 +448,10 @@ Examples:
 
 Initial roles:
 
-- `user`
-- `admin`
-- `beta-tester`
-- `developer`
+- `user` — normal learner; access governed by the standard access-tier rules
+- `admin` — manages official curriculum and administrative workflows
+- `beta-tester` — retains unrestricted full curriculum access regardless of access-tier gating, including after production billing launches; used to grant early-access users permanent free access
+- `developer` — free access to the isolated admin/developer sandbox to test any curriculum level, SRS state, or unlock behavior without affecting real learner data
 
 The Polyglot database is authoritative for roles and permissions.
 
@@ -759,6 +780,8 @@ Fluent
 ```
 
 Speaking, listening, reading, sentence practice, and other skills may use these common labels.
+
+Skill-stage labels are displayed to the learner using the active language's translated terms (for example, Spanish equivalents) rather than the English SRS stage names, to avoid confusing skill-practice stages with core SRS stages that use the same English words. Translated stage labels are language-configuration data, not hardcoded strings.
 
 Each practice type may define different configurable advancement requirements.
 
@@ -1113,13 +1136,13 @@ Levels/content should reference access policy rather than hardcoding checks such
 level <= 3
 ```
 
-Levels 1-3 are configured as free-tier curriculum.
+Levels 1-3 are configured as free-tier curriculum. Later curriculum (Level 4+) is marked premium.
 
-Later curriculum may be marked premium.
+During the v1 beta, access enforcement is configured so all authenticated users may access all currently available curriculum regardless of tier. This is a deliberate beta-testing configuration, not a bug — there is no paying customer yet, so the premium gate stays open.
 
-Until production billing is implemented, access enforcement is configured so authenticated users may access all currently available curriculum.
+At production launch, Stripe billing is introduced and the same entitlement service begins enforcing the premium gate at Level 4+ without requiring curriculum restructuring.
 
-When Stripe is added later, the same entitlement service will begin enforcing premium access without requiring curriculum restructuring.
+Users with the `beta-tester` role keep full access permanently, even after the premium gate activates at launch.
 
 Payment-provider logic must remain outside curriculum and SRS domains.
 

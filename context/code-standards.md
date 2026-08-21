@@ -575,6 +575,7 @@ src/
     auth/
     users/
     languages/
+    access/
     curriculum/
     lessons/
     srs/

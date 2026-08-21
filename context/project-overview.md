@@ -27,20 +27,21 @@ The first supported curriculum is Latin American Spanish focused on Mexican usag
 
 1. A new visitor lands on the Polyglot landing page.
 2. The visitor either signs in, creates an account, or opens the limited demo experience.
-3. A signed-in user selects their active language in settings.
-4. The user arrives at the dashboard for that language.
-5. The dashboard shows the user's current level, available lessons, reviews due, progress, review history, review forecast, and available practice activities.
-6. The user starts a lesson session.
-7. The lesson system selects available items using curriculum priority, favoring lower unlocked levels before higher ones.
-8. The user studies each item through its meaning, pronunciation, metadata, examples, and supporting information.
-9. The user completes a comprehension quiz for the lesson batch.
-10. Each vocabulary item is tested in both target-language-to-English and English-to-target-language directions. Grammar items use an appropriate question format for the grammar concept.
-11. Incorrect lesson answers return later in the same lesson quiz until the learner answers them correctly. Lesson mistakes do not carry an SRS penalty.
-12. After the lesson quiz is completed, newly learned SRS items enter the first SRS stage.
-13. The user returns to the dashboard and later completes scheduled reviews when they become due.
-14. Review results update SRS progress, item statistics, dashboard data, and curriculum unlock progress.
-15. As the user's level and learned content increase, additional practice modes and testing categories become available.
-16. The user can return at any time to review progress, practice unlocked material, edit settings, manage their profile, or continue lessons and reviews.
+3. A new account completes onboarding, including selecting an active language. Only Latin American Spanish is available in v1, but the step exists so onboarding does not silently assume a language as more languages are added later.
+4. A signed-in user selects their active language in settings.
+5. The user arrives at the dashboard for that language.
+6. The dashboard shows the user's current level, available lessons, reviews due, progress, review history, review forecast, and available practice activities.
+7. The user starts a lesson session.
+8. The lesson system selects available items using curriculum priority, favoring lower unlocked levels before higher ones.
+9. The user studies each item through its meaning, pronunciation, metadata, examples, and supporting information.
+10. The user completes a comprehension quiz for the lesson batch.
+11. Each vocabulary item is tested in both target-language-to-English and English-to-target-language directions. Grammar items use an appropriate question format for the grammar concept.
+12. Incorrect lesson answers return later in the same lesson quiz until the learner answers them correctly. Lesson mistakes do not carry an SRS penalty.
+13. After the lesson quiz is completed, newly learned SRS items enter the first SRS stage.
+14. The user returns to the dashboard and later completes scheduled reviews when they become due.
+15. Review results update SRS progress, item statistics, dashboard data, and curriculum unlock progress.
+16. As the user's level and learned content increase, additional practice modes and testing categories become available.
+17. The user can return at any time to review progress, practice unlocked material, edit settings, manage their profile, or continue lessons and reviews.
 
 ## Curriculum
 
@@ -72,7 +73,6 @@ Official SRS learning items may include:
 
 - Vocabulary
 - Grammar
-- Sentences
 - Radicals
 - Kanji
 
@@ -105,9 +105,9 @@ Spanish nouns require the appropriate article as part of learning and testing.
 
 A learning item may support multiple accepted meanings, spellings, synonyms, or variations. Answer checking should tolerate minor spelling errors when the user's intended answer is clearly correct.
 
-Verb conjugations are associated with a base verb rather than treated as unrelated duplicate vocabulary items.
+Verb conjugations are associated with a base verb rather than treated as unrelated duplicate vocabulary items. Conjugated forms are not stored as separate curriculum items; verb conjugation practice references the base verb's vocabulary item directly and tracks its own progress separately from the base verb's core SRS state.
 
-Example sentences are supporting content and do not independently determine official curriculum SRS progress.
+Example sentences are supporting content attached to vocabulary/grammar items. They are not an independent SRS learning-item type and never carry their own SRS stage or independently determine official curriculum SRS progress.
 
 ## Lessons
 
@@ -315,10 +315,11 @@ The product may contain the following primary pages:
 
 - Landing Page
 - Dashboard
-- Learn
+- Levels
 - Reviews
+- Decks
 - Practice
-- Progress
+- Journey
 - Journal
 - Settings
 - Profile
@@ -393,7 +394,17 @@ Official curriculum is authored by administrators.
 
 Normal users may add personal notes and accepted synonyms to items but cannot modify the official curriculum.
 
-## Custom Decks
+## Decks
+
+### Default Decks
+
+Polyglot provides admin-authored default decks as curated study collections (for example, themed or supplemental groupings of existing official curriculum items).
+
+Default decks reference canonical official curriculum items rather than duplicating them.
+
+Default deck study is separate from the official sequential curriculum and must not bypass official curriculum level gating.
+
+### Custom Decks
 
 Polyglot is intended to support user-created or user-imported custom decks for additional practice.
 
@@ -413,6 +424,7 @@ Custom deck creation/import is a planned product capability but is not required 
 - Landing page
 - Clerk authentication
 - Demo experience
+- Onboarding language selection
 - Configurable dashboard widgets
 - Sequential curriculum levels
 - Vocabulary and grammar lessons
@@ -428,6 +440,7 @@ Custom deck creation/import is a planned product capability but is not required 
 - Listening practice
 - Reading practice
 - Writing/journaling
+- Default admin-authored decks and deck study
 - Leech review
 - Testing and test-history flows required by the configured Spanish curriculum
 - Changelog
@@ -435,7 +448,7 @@ Custom deck creation/import is a planned product capability but is not required 
 - CSV curriculum import and validation
 - Administrator sandbox/testing mode
 - Streaks, XP, rank, and profile achievements
-- Free access model reserving the first three curriculum levels as the free tier
+- Access-tier data model (free Levels 1-3 / premium Level 4+), unenforced during the v1 beta so all authenticated users have full access
 
 ### Out of Scope for v1
 
@@ -444,6 +457,7 @@ Custom deck creation/import is a planned product capability but is not required 
 - AI-generated official curriculum
 - Stripe or payment processing
 - Additional language curriculum content beyond Latin American Spanish
+- Custom/user-created deck creation and import
 - Native iOS application
 - Native Android application
 - Apple Pencil-specific native learning features
