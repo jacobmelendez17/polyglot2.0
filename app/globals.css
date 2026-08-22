@@ -1,1 +1,181 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+    --font-heading: var(--font-sans);
+    --font-sans: var(--font-sans);
+    --font-mono: var(--font-mono);
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar: var(--sidebar);
+    --color-chart-5: var(--chart-5);
+    --color-chart-4: var(--chart-4);
+    --color-chart-3: var(--chart-3);
+    --color-chart-2: var(--chart-2);
+    --color-chart-1: var(--chart-1);
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-foreground: var(--foreground);
+    --color-background: var(--background);
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+    /* Polyglot design tokens — see ui-context.md */
+    --bg-base: #F8EFE7;
+    --bg-surface: #FFFFFF;
+    --bg-warm: #F3DDD3;
+    --bg-soft: #F1E7D9;
+    --text-primary: #3E4440;
+    --text-muted: #97938A;
+    --accent-primary: #7FA69C;
+    --accent-primary-hover: #6E978C;
+    --accent-foreground: #27322E;
+    --border-default: #E1D4C2;
+    --grid-line: #EFE3D4;
+    --accent-peach: #EBC4B4;
+    --state-error: #BE7068;
+    --state-success: #6F9B7F;
+    --state-warning: #D4A85F;
+    --learning-vocabulary: #7FA8C2;
+    --learning-grammar: #C98279;
+    --srs-beginner: #CFE1D8;
+    --srs-familiar: #ADCCBE;
+    --srs-intermediate: #8CB5A4;
+    --srs-master: #69947F;
+    --srs-fluent: #405F50;
+
+    /* shadcn/ui contract, aliased to the Polyglot tokens above */
+    --radius: 0.5rem;
+    --background: var(--bg-base);
+    --foreground: var(--text-primary);
+    --card: var(--bg-surface);
+    --card-foreground: var(--text-primary);
+    --popover: var(--bg-surface);
+    --popover-foreground: var(--text-primary);
+    --primary: var(--accent-primary);
+    --primary-foreground: var(--accent-foreground);
+    --secondary: var(--bg-warm);
+    --secondary-foreground: var(--text-primary);
+    --muted: var(--bg-soft);
+    --muted-foreground: var(--text-muted);
+    --accent: var(--accent-peach);
+    --accent-foreground: var(--text-primary);
+    --destructive: var(--state-error);
+    --border: var(--border-default);
+    --input: var(--border-default);
+    --ring: var(--accent-primary);
+    --chart-1: var(--srs-beginner);
+    --chart-2: var(--srs-familiar);
+    --chart-3: var(--srs-intermediate);
+    --chart-4: var(--srs-master);
+    --chart-5: var(--srs-fluent);
+    --sidebar: var(--bg-surface);
+    --sidebar-foreground: var(--text-primary);
+    --sidebar-primary: var(--accent-primary);
+    --sidebar-primary-foreground: var(--accent-foreground);
+    --sidebar-accent: var(--bg-warm);
+    --sidebar-accent-foreground: var(--text-primary);
+    --sidebar-border: var(--border-default);
+    --sidebar-ring: var(--accent-primary);
+}
+
+.dark {
+    /* Polyglot design tokens — see ui-context.md */
+    --bg-base: #202521;
+    --bg-surface: #292F2B;
+    --bg-warm: #3B302C;
+    --bg-soft: #32352F;
+    --text-primary: #F3ECE4;
+    --text-muted: #B8B0A6;
+    --accent-primary: #8DB5AA;
+    --accent-primary-hover: #9BC3B8;
+    --accent-foreground: #1F2925;
+    --border-default: #444B45;
+    --grid-line: #343A35;
+    --accent-peach: #9B7061;
+    --state-error: #D3877F;
+    --state-success: #87B395;
+    --state-warning: #D8B371;
+    --learning-vocabulary: #8DB5CE;
+    --learning-grammar: #D79289;
+    /* SRS stage hexes are not yet redefined for dark contrast — see progress-tracker.md */
+    --srs-beginner: #CFE1D8;
+    --srs-familiar: #ADCCBE;
+    --srs-intermediate: #8CB5A4;
+    --srs-master: #69947F;
+    --srs-fluent: #405F50;
+
+    /* shadcn/ui contract, aliased to the Polyglot tokens above */
+    --background: var(--bg-base);
+    --foreground: var(--text-primary);
+    --card: var(--bg-surface);
+    --card-foreground: var(--text-primary);
+    --popover: var(--bg-surface);
+    --popover-foreground: var(--text-primary);
+    --primary: var(--accent-primary);
+    --primary-foreground: var(--accent-foreground);
+    --secondary: var(--bg-warm);
+    --secondary-foreground: var(--text-primary);
+    --muted: var(--bg-soft);
+    --muted-foreground: var(--text-muted);
+    --accent: var(--accent-peach);
+    --accent-foreground: var(--text-primary);
+    --destructive: var(--state-error);
+    --border: var(--border-default);
+    --input: var(--border-default);
+    --ring: var(--accent-primary);
+    --chart-1: var(--srs-beginner);
+    --chart-2: var(--srs-familiar);
+    --chart-3: var(--srs-intermediate);
+    --chart-4: var(--srs-master);
+    --chart-5: var(--srs-fluent);
+    --sidebar: var(--bg-surface);
+    --sidebar-foreground: var(--text-primary);
+    --sidebar-primary: var(--accent-primary);
+    --sidebar-primary-foreground: var(--accent-foreground);
+    --sidebar-accent: var(--bg-warm);
+    --sidebar-accent-foreground: var(--text-primary);
+    --sidebar-border: var(--border-default);
+    --sidebar-ring: var(--accent-primary);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    }
+  body {
+    @apply bg-background text-foreground;
+    }
+  html {
+    @apply font-sans;
+    }
+}
