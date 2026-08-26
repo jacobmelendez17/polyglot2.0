@@ -73,6 +73,20 @@
     --srs-master: #69947F;
     --srs-fluent: #405F50;
 
+    /* RGB triplet of --bg-warm, for compositing at partial opacity */
+    --bg-warm-rgb: 243 221 211;
+
+    /* Layout, z-index, and motion tokens — see context/feature-specs/02-landing-page.md */
+    --nav-h: 64px;
+    --z-header: 40;
+    --z-sheet: 50;
+    --z-skip: 60;
+    --dur-fast: 140ms;
+    --dur-base: 240ms;
+    --dur-slow: 520ms;
+    --ease-out: cubic-bezier(.22, .61, .36, 1);
+    --ease-soft: cubic-bezier(.4, 0, .2, 1);
+
     /* shadcn/ui contract, aliased to the Polyglot tokens above */
     --radius: 0.5rem;
     --background: var(--bg-base);
@@ -127,6 +141,7 @@
     --state-warning: #D8B371;
     --learning-vocabulary: #8DB5CE;
     --learning-grammar: #D79289;
+    --bg-warm-rgb: 59 48 44;
     /* SRS stage hexes are not yet redefined for dark contrast — see progress-tracker.md */
     --srs-beginner: #CFE1D8;
     --srs-familiar: #ADCCBE;
@@ -166,6 +181,43 @@
     --sidebar-accent-foreground: var(--text-primary);
     --sidebar-border: var(--border-default);
     --sidebar-ring: var(--accent-primary);
+}
+
+/* --nav-h grows at the `md` breakpoint — see context/feature-specs/02-landing-page.md */
+@media (min-width: 768px) {
+    :root {
+        --nav-h: 80px;
+    }
+}
+
+@layer utilities {
+    /* Opt an in-page anchor target into clearing the sticky navbar on scroll-to. */
+    .scroll-anchor {
+        scroll-margin-top: var(--nav-h);
+    }
+}
+
+/* site-header.tsx scrolled state: translucent + blurred, falling back to a
+   solid warm surface where backdrop-filter is unsupported. */
+.site-header[data-scrolled="true"] {
+    background-color: var(--bg-warm);
+    border-color: var(--border-default);
+}
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+    .site-header[data-scrolled="true"] {
+        background-color: rgb(var(--bg-warm-rgb) / 0.85);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+    }
+}
+
+/* site-nav-mobile.tsx sheet panel: skip the slide/fade entirely under reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+    .mobile-nav-sheet {
+        transition: none !important;
+        animation: none !important;
+    }
 }
 
 @layer base {
