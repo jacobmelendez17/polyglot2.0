@@ -56,16 +56,24 @@ export function SrsSection() {
               )}
               style={{ borderLeftColor: STAGE_ACCENT_VAR[stage.colorGroup] }}
             >
-              <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                Stage {stage.position} of {SRS_STAGES.length}
-              </p>
-              <p
-                data-testid="srs-stage-name"
-                className="mt-1 text-lg font-semibold text-foreground"
-              >
-                {stage.name}
-              </p>
-              <p className="mt-2 text-sm text-muted-foreground">
+              <div className="flex items-center gap-3">
+                <span
+                  aria-hidden="true"
+                  className="animate-bob flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground"
+                  style={{ animationDelay: `${index * 90}ms` }}
+                >
+                  {stage.position}
+                </span>
+                <div>
+                  <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                    Stage {stage.position} of {SRS_STAGES.length}
+                  </p>
+                  <p data-testid="srs-stage-name" className="text-lg font-semibold text-foreground">
+                    {stage.name}
+                  </p>
+                </div>
+              </div>
+              <p className="mt-3 text-sm text-muted-foreground">
                 {stage.interval ? `Next review in ${stage.interval}` : "No further reviews scheduled"}
               </p>
             </div>

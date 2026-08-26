@@ -195,6 +195,54 @@
     .scroll-anchor {
         scroll-margin-top: var(--nav-h);
     }
+
+    /* Decorative, CSS-only landing-page motion — see context/feature-specs/03-landing-page.md.
+       transform-only per that spec's animation rule, so these never fight Reveal's own
+       transform/opacity transition on the same element. */
+    .animate-float {
+        animation: lp-float 8s ease-in-out infinite;
+    }
+    .animate-bob {
+        animation: lp-bob 3.2s ease-in-out infinite;
+    }
+    .animate-marquee {
+        animation: lp-marquee 36s linear infinite;
+    }
+}
+
+@keyframes lp-float {
+    0%, 100% {
+        transform: translateY(0) rotate(0deg);
+    }
+    50% {
+        transform: translateY(-10px) rotate(-3deg);
+    }
+}
+
+@keyframes lp-bob {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-4px);
+    }
+}
+
+@keyframes lp-marquee {
+    from {
+        transform: translateX(0);
+    }
+    to {
+        transform: translateX(-50%);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .animate-float,
+    .animate-bob,
+    .animate-marquee {
+        animation: none !important;
+    }
 }
 
 /* site-header.tsx scrolled state: translucent + blurred, falling back to a

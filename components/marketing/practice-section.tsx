@@ -72,7 +72,11 @@ export function PracticeSection() {
                 tabIndex={0}
                 className="h-full rounded-xl border border-border bg-card p-6 outline-none transition-transform duration-[var(--dur-fast)] ease-[var(--ease-out)] hover:-translate-y-1 focus-visible:-translate-y-1 focus-visible:ring-3 focus-visible:ring-ring/50"
               >
-                <Icon className="h-6 w-6 text-primary" aria-hidden="true" />
+                <Icon
+                  className="animate-bob h-6 w-6 text-primary"
+                  aria-hidden="true"
+                  style={{ animationDelay: `${(index % 3) * 150}ms` }}
+                />
                 <p className="mt-3 text-lg font-semibold text-foreground">{mode.title}</p>
                 <p className="mt-2 text-sm text-muted-foreground">{mode.description}</p>
               </div>
