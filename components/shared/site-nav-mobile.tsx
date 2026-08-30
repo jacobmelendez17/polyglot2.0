@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { MenuIcon } from "lucide-react";
+import { SignInButton, SignUpButton, Show, UserButton } from "@clerk/nextjs";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -16,7 +17,6 @@ import {
 const MOBILE_LINKS = [
   { label: "About", href: "/about" },
   { label: "Demo", href: "/demo" },
-  { label: "Log in", href: "/sign-in" },
 ] as const;
 
 export function SiteNavMobile() {
@@ -50,6 +50,24 @@ export function SiteNavMobile() {
               </Link>
             </SheetClose>
           ))}
+          <Show when="signed-out">
+            <SignInButton>
+              <button className="rounded-lg px-3 py-2 text-left text-sm font-medium text-foreground transition-colors hover:bg-muted">
+                Log in
+              </button>
+            </SignInButton>
+            <SignUpButton>
+              <button className="rounded-lg px-3 py-2 text-left text-sm font-medium text-foreground transition-colors hover:bg-muted">
+                Sign up
+              </button>
+            </SignUpButton>
+          </Show>
+          <Show when="signed-in">
+            <div className="flex items-center gap-2 px-3 py-2">
+              <UserButton />
+              <span className="text-sm font-medium text-foreground">Account</span>
+            </div>
+          </Show>
         </nav>
       </SheetContent>
     </Sheet>

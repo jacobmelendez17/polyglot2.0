@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SignInButton, SignUpButton, Show, UserButton } from "@clerk/nextjs";
 
 import { Button } from "@/components/ui/button";
 import { SkipLink } from "@/components/shared/skip-link";
@@ -31,17 +32,23 @@ export function SiteHeader() {
                   {link.label}
                 </Link>
               ))}
-              <Link
-                href="/sign-in"
-                className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-              >
-                Log in
-              </Link>
+              <Show when="signed-out">
+                <SignInButton>
+                  <button className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
+                    Log in
+                  </button>
+                </SignInButton>
+              </Show>
             </nav>
 
-            <Button asChild className="rounded-full">
-              <Link href="/sign-up">Sign up</Link>
-            </Button>
+            <Show when="signed-out">
+              <SignUpButton>
+                <Button className="rounded-full">Sign up</Button>
+              </SignUpButton>
+            </Show>
+            <Show when="signed-in">
+              <UserButton />
+            </Show>
 
             <SiteNavMobile />
           </div>

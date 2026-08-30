@@ -2,6 +2,8 @@ import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
 import { Shantell_Sans, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import "@/lib/env";
+import { clerkAppearance } from "@/lib/clerk-appearance";
 
 const shantellSans = Shantell_Sans({
   variable: "--font-sans",
@@ -25,7 +27,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${shantellSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <ClerkProvider>
+        <ClerkProvider appearance={clerkAppearance}>
           {children}
         </ClerkProvider>
       </body>

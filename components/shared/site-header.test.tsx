@@ -1,18 +1,44 @@
-import { describe, expect, it } from "vitest";
+import type { ReactNode } from "react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { SiteHeader } from "@/components/shared/site-header";
 
+const { mockAuthState } = vi.hoisted(() => ({
+  mockAuthState: { signedIn: false },
+}));
+
+vi.mock("@clerk/nextjs", () => ({
+  Show: ({ when, children }: { when: "signed-in" | "signed-out"; children: ReactNode }) =>
+    (when === "signed-in") === mockAuthState.signedIn ? children : null,
+  SignInButton: ({ children }: { children: ReactNode }) => children,
+  SignUpButton: ({ children }: { children: ReactNode }) => children,
+  UserButton: () => <div data-testid="user-button" />,
+}));
+
 describe("SiteHeader", () => {
-  it("renders the wordmark and all four links with the expected hrefs", () => {
+  beforeEach(() => {
+    mockAuthState.signedIn = false;
+  });
+
+  it("renders the wordmark, nav links, and signed-out auth controls", () => {
     render(<SiteHeader />);
 
     expect(screen.getByRole("link", { name: "Polyglot" })).toHaveAttribute("href", "/");
     expect(screen.getByRole("link", { name: "About" })).toHaveAttribute("href", "/about");
     expect(screen.getByRole("link", { name: "Demo" })).toHaveAttribute("href", "/demo");
-    expect(screen.getByRole("link", { name: "Log in" })).toHaveAttribute("href", "/sign-in");
-    expect(screen.getByRole("link", { name: "Sign up" })).toHaveAttribute("href", "/sign-up");
+    expect(screen.getByRole("button", { name: "Log in" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sign up" })).toBeInTheDocument();
+  });
+
+  it("renders a user button instead of sign-in/sign-up controls when signed in", () => {
+    mockAuthState.signedIn = true;
+    render(<SiteHeader />);
+
+    expect(screen.getByTestId("user-button")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Log in" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Sign up" })).not.toBeInTheDocument();
   });
 
   it("toggles aria-expanded on the mobile trigger when opened", async () => {
