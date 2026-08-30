@@ -505,6 +505,58 @@ Polyglot v1 is successful when:
 13. The landing page and dashboard provide a polished, responsive, animation-friendly interface that remains understandable to a new user.
 14. The system supports a complete Level 1 demo experience without requiring an account.
 15. The codebase and data model remain prepared for future languages while v1 exposes only the Latin American Spanish curriculum.
+16. Every change reaches production through an automated pipeline that blocks deployment when checks fail.
+17. Schema changes deploy without downtime and without corrupting existing progress.
+18. A database restore has been performed and verified before real learner data is at risk.
+19. Errors are captured with enough context to diagnose them, without exposing user learning content.
+
+## Non-Functional Requirements
+
+The criteria above describe what the product does. These describe how well it must do it. They are product requirements, not implementation details, and the mechanisms that satisfy them are specified in `architecture.md`.
+
+### Reliability
+
+A learner's progress is the product. Losing it is the most damaging failure the system can produce.
+
+- A submitted review that the interface reports as saved is durably saved.
+- A duplicate or retried submission never awards progress twice.
+- A failed submission leaves the item's previous state intact rather than in a partial state.
+- Interrupting a session never corrupts progress already earned.
+
+### Performance
+
+The product is used in short, repetitive sessions. Latency compounds across dozens of reviews.
+
+- Review submission feels immediate.
+- Dashboard and review queues load without a perceptible wait on a normal connection.
+- The application remains usable on mid-range mobile hardware and slower networks.
+
+### Availability
+
+- Target 99.5% monthly availability during beta.
+- Analytics or monitoring outages never interrupt a learning session.
+- Media unavailability degrades to text-only learning rather than a broken session.
+
+### Security and Privacy
+
+- A user's learning data, journal entries, and notes are visible only to that user.
+- Administrative capability is enforced server-side on every request.
+- Journal content and typed answers are never sent to analytics or error monitoring.
+- Speech recordings are processed transiently and never persisted.
+
+### Accessibility
+
+- Every interactive element is keyboard reachable and operable.
+- Correctness, progress, and errors are never communicated by color alone.
+- All functionality remains available under reduced motion.
+
+### Scale Assumptions for v1
+
+v1 targets a beta population in the low thousands of users, one published language, and curriculum in the low tens of thousands of items. The architecture must not foreclose growth beyond this, but the product does not need to be built for it yet.
+
+The scaling triggers in `architecture.md` define when these assumptions are revisited.
+
+---
 
 ## Critical Product Workflows
 

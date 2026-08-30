@@ -728,6 +728,63 @@ Do not invent elaborate mascots, illustrations, particle systems, or major graph
 
 ---
 
+## Interface States
+
+Every view that loads data has four states. All four are part of the design, not fallbacks bolted on afterward. A view shipped with only its success state is incomplete.
+
+### Loading
+
+- Use skeleton placeholders matching the shape and approximate size of the content they replace, so layout does not shift when data arrives.
+- Skeletons use a subtle surface tone and a slow pulse, disabled under reduced motion.
+- Never use a full-page spinner for a partial data load. Keep the surrounding layout stable and load regions independently.
+- Do not show a loading state for content expected to resolve almost immediately; a flash of skeleton is worse than a brief pause.
+
+### Empty
+
+- Empty is a designed state with an explanation and a next action, not a blank region.
+- Say why it is empty and what to do about it. "No reviews due" with the time of the next one is useful; an empty box is not.
+- Distinguish "nothing yet" from "nothing matches your filter". These need different copy and different actions.
+- Zero reviews due is a success state, not a failure. It should feel like an accomplishment.
+
+### Error
+
+- Say what failed and what the user can do. Never surface a raw error code or stack trace.
+- Distinguish recoverable errors, which offer a retry, from permanent ones, which offer a route out.
+- Errors are shown in place, scoped to the region that failed. One failed widget must not blank the dashboard.
+- Never communicate an error by color alone. Pair the color with an icon and text.
+- An error during a learning session must state clearly whether progress was saved. Ambiguity about saved progress is the worst possible message.
+
+### Success
+
+The normal populated state, as specified throughout this document.
+
+---
+
+## Frontend Performance
+
+Animation quality is a product goal, and animation quality is mostly a performance problem.
+
+### Budgets
+
+| Metric | Target |
+| --- | --- |
+| Largest Contentful Paint, p75 | under 2.5 s |
+| Interaction to Next Paint, p75 | under 200 ms |
+| Cumulative Layout Shift | under 0.1 |
+| Animation frame rate | 60 fps, no dropped frames during review feedback |
+
+### Rules
+
+- Animate only `transform` and `opacity`. Animating layout properties forces reflow and drops frames.
+- Reserve space for images, media, and asynchronously loaded content so nothing shifts on arrival.
+- Fonts load with a defined display strategy and a metric-compatible fallback, so text is readable during load and does not reflow when the font arrives.
+- Load heavy client-only libraries dynamically. Animation and charting libraries must not sit in the initial bundle for routes that do not use them.
+- Prefer Server Components. Push client boundaries as low in the tree as possible.
+- Review interactions must feel instantaneous. Never gate the next question on an animation completing.
+- Serve media in modern formats with explicit dimensions and long cache lifetimes.
+
+---
+
 ## Responsive Layout
 
 Use a mobile-first responsive system.

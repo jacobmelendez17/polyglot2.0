@@ -200,6 +200,11 @@ Rules:
 - Do not manually alter schema as a substitute for migrations.
 - Do not perform destructive data resets unless explicitly approved.
 - If a migration is needed, include it in the implementation plan.
+- Never edit a migration that has already been merged. Corrections are new migrations.
+- Every migration must be safe against the previously deployed application version, since deployment and migration are not atomic.
+- Renames, type changes, and column removals use expand-and-contract across separate deployments. The contract phase requires explicit approval.
+- Review generated migrations before committing. Generators emit destructive statements without warning.
+- State in the plan whether a migration is destructive, whether it requires a backfill, and whether it can run while the application is serving traffic.
 
 ---
 
@@ -308,6 +313,11 @@ When relevant, verification should include:
 2. linting
 3. relevant unit/integration tests
 4. `npm run build`
+5. migration checks when the change touches the schema
+
+Verification must match what CI will run. A unit is not verified because it works locally; it is verified when every check the pipeline enforces would pass. If a check cannot be run in the current environment, say which one and why rather than implying the whole set passed.
+
+Claude must never state or imply that a check passed without running it. Reporting an unrun check as passing is worse than reporting it as skipped, because it removes the user's ability to catch the gap.
 
 Claude should also verify the feature itself conceptually against the current spec:
 
@@ -350,8 +360,42 @@ A meaningful implementation unit is not complete until all of the following are 
 5. Required verification steps were run, or their absence was explicitly reported.
 6. `progress-tracker.md` reflects the completed work.
 7. Any context-file changes required for spec synchronization have been made.
+8. Every check the CI pipeline enforces would pass on this change.
+9. Any schema change ships as a reviewed migration meeting the rules above.
+10. Any progress-affecting mutation is idempotent, rate limited, and authorized server-side.
+11. Frontend work handles loading, empty, error, and success states.
 
 Claude should not mark work complete merely because code was written.
+
+---
+
+## Non-Functional Review
+
+Before declaring a unit complete, check it against the operational concerns in `architecture.md`. Not every question applies to every unit, but each should be consciously dismissed rather than forgotten.
+
+- **Authorization** — is every mutation authorized server-side, with ownership verified?
+- **Validation** — is untrusted input validated at the boundary with a schema?
+- **Idempotency** — can this mutation be safely replayed?
+- **Rate limiting** — can this endpoint be abused by repetition?
+- **Query cost** — is any new query paginated where unbounded and indexed where filtered?
+- **Failure behavior** — what happens when the database, provider, or network fails partway through?
+- **Observability** — would a failure here be diagnosable from logs, without exposing user content?
+- **States** — does the interface handle loading, empty, error, and success?
+- **Accessibility** — keyboard reachable, labelled, and usable under reduced motion?
+
+These are not optional polish. A feature that works only on the happy path with one user is not finished.
+
+---
+
+## Infrastructure and Pipeline Changes
+
+CI workflows, deployment configuration, and environment definitions are infrastructure. Treat them with more care than application code, because a mistake blocks every future change rather than one feature.
+
+- Changes to workflow files, branch protection, or environment configuration must be stated explicitly in the plan and never bundled into an unrelated feature unit.
+- Do not weaken, skip, or bypass a CI check to make a unit pass. If a check is wrong, fix the check deliberately as its own unit and explain why.
+- Do not add a test retry to resolve a failure in domain logic. A flaky domain test indicates a real defect.
+- New infrastructure dependencies — a cache, a queue, a rate-limit store, a monitoring service — are architecture decisions requiring approval, not routine dependency additions.
+- Never commit credentials, connection strings, or tokens, including in workflow files, test fixtures, or example configuration.
 
 ---
 
@@ -424,6 +468,8 @@ Before moving to the next implementation unit, ensure:
 4. `npm run build` passes.
 5. Relevant tests, linting, and type checks have been run when applicable.
 6. Any blocked or unresolved items are recorded explicitly.
+7. The non-functional review above has been considered.
+8. No CI check was weakened, skipped, or bypassed to reach completion.
 
 If those conditions are not satisfied, Claude should not casually proceed as though the work is done.
 

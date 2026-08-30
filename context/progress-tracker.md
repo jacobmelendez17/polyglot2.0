@@ -8,7 +8,7 @@ Implementation / feature specs
 
 ## Current Goal
 
-Work through `context/feature-specs/` in order. Specs 01–03 are complete. Next unit is the handwriting "hola" stroke animation deferred by spec 03.
+Work through `context/feature-specs/` in order. Specs 01–03 are complete. Spec 04 (Clerk auth) is next but implementation is paused pending user decisions — see Open Questions. The handwriting "hola" stroke animation deferred by spec 03 follows after that.
 
 ## Completed
 
@@ -26,12 +26,36 @@ None.
 
 ## Next Up
 
-1. Handwriting "hola" stroke animation — `hero-section.tsx` isolates the word in its own `<span>` so the swap touches only that node.
-2. Real footer — still the spec 02 placeholder.
-3. `/about`, `/demo`, `/sign-up`, `/sign-in` — linked from the navbar, currently 404.
+1. Spec 04 — Auth (Clerk) — blocked pending answers to the auth open questions below.
+2. Handwriting "hola" stroke animation — `hero-section.tsx` isolates the word in its own `<span>` so the swap touches only that node.
+3. Real footer — still the spec 02 placeholder.
+4. `/about`, `/demo` — linked from the navbar, currently 404. (`/sign-up`, `/sign-in` are part of spec 04.)
+
+## Infrastructure Status
+
+None of the following exists yet. All are now specified in `architecture.md` and `code-standards.md`.
+
+| Area | Status |
+| --- | --- |
+| GitHub Actions workflows | Not started |
+| Branch protection and required checks | Not started |
+| Preview environment and ephemeral database branching | Not started |
+| Migration pipeline and drift detection | Not started |
+| Rate limiting provider | Not started |
+| Idempotency keys | Not started |
+| Health endpoints | Not started |
+| Sentry and PostHog wiring | Not started |
+| Backup and restore drill | Not started |
+| Integration test database harness | Not started |
+| Playwright authentication strategy | Not started |
 
 ## Open Questions
 
+- **Spec 04 redirect/landing behavior.** `context/feature-specs/04-auth.md` says `/` should redirect authenticated users to `/editor` and unauthenticated users to `/sign-in`. Polyglot has no `/editor` route, and `project-overview.md`'s core user flow requires the landing page to stay reachable by signed-out visitors (sign in, sign up, or demo) rather than force-redirecting them away — the marketing landing page (spec 03) already implements that flow. Neither `/dashboard` nor onboarding exists yet to send signed-in users to. Flagged to the user 2026-08-29; asked whether this unit should skip forced redirects (show signed-in vs. signed-out nav state only) and defer the real post-auth redirect to when `/dashboard`/onboarding exist, or add a redirect to a not-yet-built destination now.
+- **Spec 04 unit scope vs. Neon user record.** `architecture.md` requires every authenticated Clerk user to get a corresponding Polyglot user record in Neon, with roles resolved from that authoritative database record — but no database layer exists yet (Infrastructure Status below shows nothing started: no Drizzle, no `db/`, no schema). Asked the user 2026-08-29 whether spec 04 stays Clerk-wiring-only (provider, `proxy.ts` route protection, sign-in/up pages, nav auth controls) with the Neon sync + role resolution tracked as its own follow-up unit, or expands scope to stand up a minimal database layer now.
+- **Rate limit store.** `architecture.md` requires rate limiting in v1 behind a provider interface but does not choose the backing store. Candidates: a managed serverless Redis, the hosting platform's key-value store, or a PostgreSQL token bucket. The PostgreSQL option adds no dependency but puts write load on the primary database. Decide before implementing the provider.
+- **Integration test database.** Options: an ephemeral branch per CI run, a Dockerized PostgreSQL service container, or an in-process PostgreSQL. Branching gives the highest fidelity; a service container is fastest and works offline. Decide before writing the first integration test, because the choice shapes the test harness.
+- **Playwright authentication.** Whether end-to-end tests use the auth provider's testing tokens or a seeded test user with stored authentication state. Decide before the first end-to-end test.
 - **Free-tier level count in marketing copy.** `architecture.md` configures free Levels 1–3, premium Level 4+. Spec 03 instructed that no level count appear in landing copy pending confirmation that the access-tier config is also the public promise. Resolve before the pricing or about pages are written.
 
 ## Architecture Decisions
@@ -48,4 +72,5 @@ None.
 - `app/page.tsx` was removed. `app/(marketing)/page.tsx` owns `/`. Do not recreate the former — route groups add no URL segment and the two collide.
 - Components reading a media query must set initial state with a lazy `useState` initializer. The effect-driven pattern fails the `react-hooks/set-state-in-effect` lint rule. See `components/shared/reveal.tsx`.
 - Decorative keyframes `lp-float`, `lp-bob`, and `lp-marquee` exist in `globals.css`. Reuse them; they are transform-only and already gated behind `prefers-reduced-motion`.
+- Operational architecture pass (2026-08-29): added environments, CI/CD pipeline, migration strategy, idempotency, rate limiting, scalability and performance, availability and SLOs, disaster recovery, release management, supply chain security, and cost posture to `architecture.md`; invariants 36-48; ADR-011 through ADR-016. Added testing strategy tiers, CI requirements, pull request conventions, migration authoring, idempotency, pagination, feature flags, observability, and performance rules to `code-standards.md`. Added non-functional requirements to `project-overview.md`, interface states and frontend performance budgets to `ui-context.md`, and CI parity, migration safety, non-functional review, and infrastructure change rules to `ai-workflow-rules.md`. All are specification only; no implementation yet.
 - No browser-verification skill exists for this repo. Spec 03 installed Playwright ad hoc into a scratch directory, not the project lockfile. Consider capturing this as a project skill if browser checks become routine.

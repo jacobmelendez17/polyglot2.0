@@ -518,6 +518,178 @@ Do not optimize for an arbitrary global coverage percentage. Require strong cove
 
 Tests should not depend on production Clerk, Neon, R2, PostHog, or Sentry resources.
 
+## Testing Strategy
+
+The tiers below extend the Testing section above. Each tier answers a different question, and a test in the wrong tier is slow, flaky, or both.
+
+| Tier | Question | Tool | Database | Target runtime |
+| --- | --- | --- | --- | --- |
+| Unit | Is this rule correct? | Vitest | None | Milliseconds |
+| Integration | Do these pieces work together against real SQL? | Vitest | Ephemeral | Seconds |
+| End-to-end | Can a user complete this journey? | Playwright | Preview | Under ten minutes total |
+
+Most tests should be unit tests of domain rules. Domain logic is pure and has no excuse for needing a database.
+
+### Unit Tests
+
+- Domain rules are pure functions and are tested without mocks, fakes, or a database.
+- If a domain rule cannot be tested without mocking a repository, the rule and its data access are not properly separated. Fix the separation rather than adding the mock.
+- Time-dependent logic accepts an injected clock. Never call `Date.now()` inside a domain rule.
+- Randomness accepts an injected seed or generator. Review queue ordering must be reproducible in tests.
+
+### Integration Tests
+
+- Run against a real ephemeral PostgreSQL instance with migrations applied, never against a mock or an in-memory substitute with different SQL semantics.
+- Each test runs in a transaction that is rolled back, or against a uniquely named schema. Tests must not depend on execution order or on leftover state.
+- Cover: authorization and ownership enforcement, transaction boundaries and their rollback behavior, constraint violations, concurrent submission handling, and idempotency replay.
+- The transactional invariants in `architecture.md` — a failed review leaving state unchanged, a failed enrollment enrolling nothing — are only meaningfully verifiable at this tier.
+
+### End-to-End Tests
+
+- Cover critical paths only. An end-to-end test that duplicates a unit test costs a hundred times more to run and is far more likely to flake.
+- Authenticate through a dedicated test user and a stored authentication state, not by scripting the sign-in form on every test.
+- Never assert against production data or production services.
+- Seed the required state through the application's own seeding path, so tests exercise real code rather than fixtures that drift from it.
+
+### Test Data
+
+- Build test data with factory functions exposing sensible defaults and accepting overrides. Do not share mutable fixture objects between tests.
+- Every test creates the data it needs. A test that only passes after another test has run is a broken test.
+- Seed scripts live in a clearly marked seed directory and are the only place hardcoded sample content is permitted.
+
+### Determinism and Flake Policy
+
+- Fixed timestamps for anything time-dependent. No wall-clock reads in assertions.
+- Never add a retry to make a domain test pass. A flaky domain test indicates a real race, an ordering dependency, or a hidden clock read.
+- Retries are acceptable only in end-to-end tests, and only for genuine environmental flakiness.
+- A test quarantined for flakiness gets a tracking note in `progress-tracker.md` and a fix, not indefinite skipping.
+
+---
+
+## Continuous Integration
+
+The pipeline is defined in `architecture.md`. This section covers what the repository must provide for it to work.
+
+### Required Scripts
+
+`package.json` must expose stable script names, because CI depends on them:
+
+```text
+typecheck     tsc --noEmit
+lint          eslint
+format:check  prettier --check
+test          vitest run
+test:watch    vitest
+test:e2e      playwright test
+build         next build
+db:generate   generate a migration from schema changes
+db:migrate    apply pending migrations
+db:check      detect drift between schema and migration history
+db:seed       load fixture data
+```
+
+Renaming a script is a breaking change to CI. Update the workflow in the same commit.
+
+### Local Parity
+
+Anything CI will reject should be catchable locally. Typecheck, lint, and unit tests must all be runnable without network access or cloud credentials.
+
+Do not open a pull request without running typecheck, lint, and tests locally first. Discovering a type error from a CI run wastes several minutes for something that takes seconds locally.
+
+---
+
+## Pull Requests and Commits
+
+- Conventional commit messages: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:`, `perf:`.
+- Branch names describe the unit: `feat/review-queue-ordering`.
+- One feature unit per pull request, as defined in `ai-workflow-rules.md`.
+- Pull request descriptions state what changed, how it was verified, and whether a migration is included.
+- A pull request containing a migration says so in its title. Schema changes deserve a different level of review attention than component changes.
+- Never merge with a failing required check.
+
+---
+
+## Migration Authoring
+
+Extends the Drizzle Schema and Migrations section above.
+
+- Generate migrations; do not hand-write them unless the generator cannot express the change, and say why in a comment when that happens.
+- Review every generated migration before committing. Generators produce destructive statements without warning.
+- One logical schema change per migration. A migration doing four unrelated things cannot be reasoned about when it fails halfway.
+- Never edit a migration that has been merged.
+- Index creation on a populated table uses the concurrent form and sits in its own migration.
+- Adding a non-nullable column to a populated table requires a default or a backfill-then-constrain sequence across separate migrations.
+- Backfills are batched and resumable. A single statement updating every row will lock the table.
+- A migration introducing a query pattern also introduces its supporting index.
+
+---
+
+## Idempotency
+
+Implements the architecture section of the same name.
+
+- Progress-affecting mutations accept an idempotency key from the client and validate it as a UUID.
+- The key, user ID, endpoint, and a hash of the request payload are persisted under a unique constraint, in the same transaction as the effect.
+- A replay with a matching key and payload returns the stored result. A replay with a matching key and a different payload is a conflict error.
+- Never implement deduplication with a "check whether it exists, then insert" sequence. That is a race, not a guarantee. Rely on the unique constraint and handle the violation.
+- Client code generates one key per logical operation and reuses it across retries. A key regenerated on retry provides no protection.
+
+---
+
+## Pagination and Query Conventions
+
+- Every list endpoint is paginated. There is no unbounded list endpoint.
+- Use keyset pagination for unbounded tables: review history, journal entries, audit logs, admin content lists. Offset pagination degrades linearly and breaks under concurrent inserts.
+- Pagination responses return the items and an opaque cursor. Never expose raw database offsets or internal ordering keys.
+- Enforce a maximum page size server-side. A client-supplied page size is validated and clamped.
+- Select explicit columns.
+- Any query filtered or ordered on an unindexed column ships with its index in the same change.
+- Aggregate counts over large tables are approximate or cached. An exact count on an unbounded table is a full scan.
+
+---
+
+## Rate Limiting Usage
+
+- Call the rate-limit provider through its interface. Domain code never talks to the underlying store.
+- Limits are named constants resolved from configuration, not literals in handlers.
+- Exceeding a limit returns the structured `RATE_LIMITED` error. Never fail silently and never return a generic 500.
+- Progress-affecting mutations fail closed if the limiter is unreachable.
+- Rate-limit decisions are logged with the subject and the surface, never with request content.
+
+---
+
+## Feature Flags
+
+- Risky domain changes ship behind a server-evaluated flag.
+- Flags are evaluated server-side. A client-evaluated flag is a suggestion, not a gate.
+- Every flag has an owner and a removal condition recorded when it is introduced.
+- Flags are short-lived. A flag that has outlived its rollout is configuration and belongs in the configuration module.
+- Never branch domain logic on a flag deep inside a rule. Branch at the boundary and keep each path independently testable.
+
+---
+
+## Observability in Code
+
+- Every request carries a correlation identifier, included in every log line emitted while handling it. Without one, logs from concurrent users are uncorrelatable.
+- Log at boundaries — request entry, external calls, mutations — not inside pure domain functions.
+- Structured logs only. No string concatenation into log messages.
+- Never log tokens, passwords, session identifiers, journal content, or a user's typed answers.
+- Expected domain errors are logged at warning level with their structured code. Unexpected errors are logged at error level with a stack trace and reported to monitoring.
+- Instrument the two hot paths — the due-review query and review submission — with timing, so budget regressions are visible rather than inferred.
+
+---
+
+## Performance Rules
+
+- No N+1 queries. Batch related lookups.
+- No sequential awaits for independent asynchronous work. Use concurrent resolution.
+- Keep client bundles small. Prefer Server Components; push client boundaries as low in the tree as possible.
+- Dynamically import heavy client-only libraries.
+- Never block a response on analytics or non-critical external calls.
+- Cache reads with an explicit tag and an explicit invalidation point. A cache with no defined invalidation is a bug that has not surfaced yet.
+- Authoritative learning decisions never read from cache, per `architecture.md`.
+
+---
 ## Comments and Documentation
 
 - Comments should explain **why**, not restate obvious code.
@@ -560,6 +732,9 @@ Default/approved choices include:
 - Validate environment variables at startup through a typed configuration module.
 - Application code should read environment values through that module rather than scattering `process.env.*` access across the codebase.
 - Maintain separate development, preview, and production configuration.
+- Environment identity comes from a single `APP_ENV` value, not from `NODE_ENV`. Preview and production are both production builds and are not distinguishable by `NODE_ENV`.
+- Fail fast at startup on missing or malformed required variables. A misconfigured deployment should refuse to start rather than fail unpredictably under load.
+- Adding a variable means updating `.env.example`, the typed configuration module, and the deployment environment in the same change.
 
 ## File Organization
 
@@ -647,11 +822,17 @@ Before a meaningful implementation is considered complete:
 
 1. Relevant TypeScript checks pass.
 2. ESLint passes.
-3. Relevant tests pass.
+3. Relevant tests pass, including new tests for the behavior added.
 4. `npm run build` passes.
 5. No invariant in `architecture.md` was violated.
 6. Relevant context documentation is updated.
 7. `progress-tracker.md` reflects the current state when the change is meaningful.
+8. Any schema change ships as a reviewed migration that is safe against the previous application version.
+9. Any new query is paginated where unbounded and indexed where filtered or ordered.
+10. Any progress-affecting mutation is idempotent, rate limited, and authorized server-side.
+11. Frontend work handles loading, empty, error, and success states.
+12. No secret, token, or user learning content is logged.
+13. Every check the CI pipeline runs would pass on this change.
 
 ## AI Implementation Rules
 

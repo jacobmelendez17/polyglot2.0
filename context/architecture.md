@@ -1385,6 +1385,359 @@ Database constraints should enforce important integrity rules where appropriate 
 
 ---
 
+# Environments
+
+Polyglot runs in three environments. Each is fully isolated: no environment may read or write another environment's data, and production credentials are never present outside production.
+
+| Environment | Purpose | App | Database | Auth | Media |
+| --- | --- | --- | --- | --- | --- |
+| `development` | Local machine | `next dev` | Neon development branch, or local PostgreSQL | Clerk development instance | R2 development bucket |
+| `preview` | Per-pull-request deploy | Vercel preview | Ephemeral Neon branch per pull request | Clerk development instance | R2 preview bucket |
+| `production` | Live users | Vercel production | Neon production branch | Clerk production instance | R2 production bucket |
+
+Rules:
+
+- Preview environments are seeded from curriculum fixtures. Production user data is never copied into preview or development.
+- Ephemeral Neon branches are created when a pull request opens and deleted when it closes.
+- Each environment has its own Sentry environment tag and PostHog project or environment property, so preview noise never contaminates production metrics.
+- Environment configuration is resolved through the typed configuration module described in `code-standards.md`. No environment branching on hostname or on `NODE_ENV` inside domain code.
+- A single `APP_ENV` value identifies the environment to application code. `NODE_ENV` is not sufficient, because preview and production are both production builds.
+
+---
+
+# CI/CD Pipeline
+
+Continuous integration runs on GitHub Actions. Continuous deployment runs through Vercel's Git integration, gated on required GitHub status checks.
+
+## Pipeline Stages
+
+Every pull request runs the following stages. Later stages do not run if an earlier stage fails.
+
+```text
+1. setup        install dependencies from the lockfile (npm ci), restore caches
+2. verify       typecheck, lint, format check          (parallel)
+3. test         unit and integration tests             (parallel with verify)
+4. migrate      apply migrations to an ephemeral database, check for schema drift
+5. build        next build
+6. e2e          Playwright against the preview deployment
+7. deploy       Vercel promotes only when every required check is green
+```
+
+## Workflows
+
+| Workflow | Trigger | Responsibility |
+| --- | --- | --- |
+| `ci.yml` | pull request, push to `main` | typecheck, lint, unit and integration tests, build |
+| `migrate.yml` | pull request touching `db/migrations/**`, and pre-production promotion | migration application, drift detection, destructive-change detection |
+| `e2e.yml` | preview deployment ready | Playwright critical-path suite |
+| `security.yml` | pull request, weekly schedule | dependency audit, secret scanning, static analysis |
+| `preview-cleanup.yml` | pull request closed | delete the pull request's Neon branch and preview resources |
+
+## Required Checks
+
+`main` is protected. Merging requires:
+
+- typecheck, lint, and format check passing
+- unit and integration tests passing
+- build passing
+- migration check passing
+- no high or critical severity dependency advisories
+- at least one approving review once the project has more than one contributor
+
+Deployment to production is impossible while any required check is failing. This is enforced by branch protection, not by convention.
+
+## Pipeline Requirements
+
+- Use `npm ci`, never `npm install`, in CI. The lockfile is authoritative.
+- Cache the npm cache directory, the Next.js build cache, and Playwright browser binaries. Cache keys include the lockfile hash.
+- Use concurrency groups keyed by branch, cancelling superseded in-progress runs.
+- Upload Playwright traces, screenshots, and videos as artifacts on failure only.
+- Pull request feedback should complete in under ten minutes. If the suite grows past that, shard it rather than removing coverage.
+- CI must never require production credentials. Any job needing a database uses an ephemeral one.
+- Workflows use minimum-scope permissions and pin third-party actions to a commit SHA.
+
+## Deployment
+
+- Trunk-based development. `main` is always deployable.
+- Vercel builds every pull request as a preview deployment.
+- Merging to `main` deploys to production once checks pass.
+- Rollback is a Vercel instant rollback to the previous deployment. Database changes are never rolled back this way; see the migration strategy below.
+
+---
+
+# Database Migration Strategy
+
+Migrations are the highest-risk routine operation in the system, because they are the one change that cannot be undone by redeploying the previous build.
+
+## Authoring Rules
+
+- All schema changes are generated Drizzle migrations, committed to the repository.
+- A migration that has been merged to `main` is immutable. Corrections are made by adding a new migration.
+- Migrations run as a discrete, gated pipeline step. They never run on application boot, and never inside a request handler.
+- Every migration must be safe to run while the previous application version is still serving traffic. Deployments are not atomic with migrations, so both versions overlap.
+
+## Forward-Only in Production
+
+Production migrations are forward-only. A mistake is corrected by writing a new compensating migration, not by reversing history.
+
+Local and preview environments may reset freely.
+
+## Expand and Contract
+
+Renames, type changes, and column removals use a three-phase sequence across separate deployments:
+
+```text
+1. expand    add the new column or table; write to both; read from the old
+2. migrate   backfill existing rows in batches; switch reads to the new
+3. contract  stop writing the old; drop it in a later, separate deployment
+```
+
+Never combine expand and contract in one deployment. The contract phase requires explicit approval, per the destructive-change rules in `ai-workflow-rules.md`.
+
+## Operational Safety
+
+- Index creation on populated tables uses `CREATE INDEX CONCURRENTLY`, outside a transaction.
+- Migrations set a lock timeout so a blocked migration fails fast rather than queueing behind long-running queries and stalling the application.
+- Data backfills are batched, resumable, and separate from the schema migration that enables them.
+- Adding a `NOT NULL` column to a populated table requires a default or a backfill-then-constrain sequence.
+
+## CI Verification
+
+The migration workflow must:
+
+1. Apply every migration from empty to head against an ephemeral database.
+2. Detect schema drift between the Drizzle schema definition and the migration history.
+3. Flag destructive statements (`DROP`, `ALTER ... TYPE`, `NOT NULL` on existing columns) for explicit human approval.
+4. Apply migrations to a database seeded with fixture data, so backfills are exercised rather than only running against an empty schema.
+
+---
+
+# Idempotency and Exactly-Once Effects
+
+Network retries, double-clicks, and offline resubmissions must never award progress twice. Invariants 9, 16, 20, and 25 depend on this section being implemented.
+
+## Requirement
+
+Every mutation that changes SRS state, awards XP, or consumes a limited resource must accept an idempotency key supplied by the client.
+
+Applies to:
+
+- Review item completion
+- Lesson enrollment commit
+- XP and points awards
+- Test submission
+- Journal entry creation
+- CSV import commit
+- Media upload finalization
+
+## Mechanism
+
+- The key is a client-generated UUID, unique per logical operation, reused across retries of that same operation.
+- The server records the key alongside the user ID, endpoint, and a hash of the request payload, under a unique constraint.
+- A replay with a matching key and matching payload returns the original stored result without re-executing the effect.
+- A replay with a matching key but a different payload is rejected as a conflict. This catches key reuse bugs rather than silently accepting them.
+- The key record is written in the same transaction as the effect. A key stored outside the transaction provides no guarantee.
+- Keys expire after a configurable retention window.
+
+Idempotency is a server-side guarantee. Client-side deduplication is a convenience and is never sufficient.
+
+---
+
+# Rate Limiting and Abuse Prevention
+
+The product specification identifies progress farming as a real risk. Rate limiting is the enforcement mechanism and is required in v1.
+
+## Provider Boundary
+
+Rate limiting is accessed through a provider interface in `providers/rate-limit`, consistent with ADR-009. Domain code expresses intent — "this action, for this subject, at this cost" — and never talks to the underlying store directly.
+
+## Required Limits
+
+| Surface | Rationale |
+| --- | --- |
+| Authentication-adjacent routes | Credential stuffing and enumeration |
+| Review submission | Progress and XP farming |
+| Lesson completion | Progress farming |
+| Journal writes | Storage abuse |
+| Test submission | Score farming |
+| Admin mutations | Blast-radius containment on a compromised session |
+| CSV import | Expensive operation |
+| Media upload | Storage and bandwidth cost |
+| Support and feedback forms | Spam |
+| Demo session creation | Unauthenticated resource exhaustion |
+
+## Rules
+
+- Limits are keyed by authenticated user ID where available, falling back to IP address for unauthenticated surfaces.
+- Progress-affecting mutations fail closed. If the rate limiter is unavailable, the mutation is rejected rather than allowed through unchecked.
+- Read-only surfaces may fail open.
+- Exceeding a limit returns the structured `RATE_LIMITED` error with a `Retry-After` value.
+- Limit values are configuration, not literals in handlers.
+- Edge-level protection through the hosting platform's firewall complements application limits. It does not replace them, because it cannot reason about user identity or business meaning.
+
+---
+
+# Scalability and Performance
+
+## Workload Shape
+
+Polyglot's load is read-heavy and bursty. Dashboards and curriculum pages dominate reads. Writes arrive in concentrated bursts during review sessions, where one user may submit dozens of mutations in a few minutes.
+
+This shape means the review-due query and the review-submit transaction are the two paths that matter. Optimize those; treat the rest as ordinary.
+
+## Database Access
+
+- Serverless functions must not hold long-lived connection pools. Use the Neon serverless driver for request-scoped access, and a pooled connection string only for long-running work such as migrations and imports.
+- Select explicit columns. `SELECT *` is prohibited in application queries.
+- N+1 query patterns are prohibited. Batch related lookups.
+- Every list endpoint is paginated. Keyset (cursor) pagination is required for tables that grow without bound — review history, journal entries, audit logs, admin content lists. Offset pagination is acceptable only for small bounded sets.
+- Any query filtered or sorted on a column without a supporting index requires an index in the same migration that introduces the query.
+
+## Required Indexes
+
+At minimum, indexes must support:
+
+- The due-review query, filtered by user, language, and next-review timestamp.
+- The level-unlock aggregate, counting items at or above a stage within a level.
+- The leech window, retrieving an item's most recent review outcomes.
+- Admin content search and listing.
+- Foreign keys used in joins.
+
+The due-review query runs on nearly every authenticated page load. It is the single query most worth keeping fast.
+
+## Read Models
+
+Dashboard forecasts, streaks, and aggregate counters may be maintained as derived read models rather than recomputed from full history on each request.
+
+Rules for any read model:
+
+- It is derived, never authoritative.
+- It can be fully recomputed from source data by a documented procedure.
+- It is updated in the same transaction as its source change, or explicitly marked as eventually consistent in the UI.
+- It is never used to authorize an action or to decide review eligibility.
+
+## Performance Budgets
+
+| Metric | Target |
+| --- | --- |
+| Review submission, server p95 | under 300 ms |
+| Due-review query, p95 | under 100 ms |
+| Dashboard load, server p95 | under 500 ms |
+| Largest Contentful Paint, p75 | under 2.5 s |
+| Interaction to Next Paint, p75 | under 200 ms |
+| Database queries per request | under 10 |
+
+Budgets are targets, not gates, until measurement exists. Once measurement exists, a regression past budget is a defect.
+
+## Scaling Triggers
+
+Do not build for scale that has not arrived. Introduce the following only when the corresponding trigger fires:
+
+| Trigger | Response |
+| --- | --- |
+| A workload exceeds request-handler time limits | Introduce a background queue boundary (ADR-010) |
+| Read load saturates the primary database | Add a read replica for analytics and dashboard reads |
+| Cache invalidation becomes cross-instance | Introduce a shared cache tier |
+| A second client, such as mobile, ships | Formalize the versioned public API surface |
+| One domain's scaling profile diverges sharply | Extract that domain, per ADR-001 |
+
+---
+
+# Availability and Service Levels
+
+## Health Endpoints
+
+- `/api/health` — liveness. Returns success if the process is serving. No dependency checks. Used by uptime monitoring.
+- `/api/health/ready` — readiness. Verifies database connectivity and critical provider configuration. Used by deployment verification.
+
+Health endpoints must not require authentication, must not expose version details, connection strings, or dependency internals, and must be rate limited.
+
+## Service Level Objectives
+
+Beta targets:
+
+| Objective | Target |
+| --- | --- |
+| Application availability | 99.5% monthly |
+| Review submission success rate | 99.9% of well-formed submissions |
+| Unhandled error rate | under 0.1% of requests |
+
+These are commitments to the user's learning progress, not vanity metrics. A failed review submission that silently loses progress is the most damaging failure mode in the product.
+
+## Graceful Degradation
+
+Dependency failures must degrade rather than cascade:
+
+| Dependency | Behavior when unavailable |
+| --- | --- |
+| PostHog | Analytics silently dropped; application unaffected |
+| Sentry | Errors logged locally; application unaffected |
+| R2 | Audio unavailable with a clear message; text learning continues |
+| Speech provider | Speaking practice unavailable; other practice continues |
+| Neon | Application is unavailable; fail loudly rather than serving stale or fabricated progress |
+
+Analytics and monitoring outages must never break a learning session.
+
+---
+
+# Disaster Recovery
+
+## Objectives
+
+| Metric | Beta | Production |
+| --- | --- | --- |
+| Recovery Point Objective | 24 hours | 1 hour |
+| Recovery Time Objective | 8 hours | 4 hours |
+
+## Coverage
+
+- Database recovery uses Neon's automated backups in beta and point-in-time recovery in production.
+- **Database backups do not cover R2.** Object storage requires its own versioning and a scheduled mirror to a separate bucket or account. This is the most commonly missed piece of a backup strategy and must be implemented before production launch.
+- A restore is not a backup until it has been tested. Perform a documented restore drill into a scratch environment on a defined cadence, and record the result.
+
+## Runbook Requirements
+
+A written recovery runbook must exist before production launch, covering: how to restore the database to a point in time, how to restore media, how to verify integrity after restore, and who is notified.
+
+---
+
+# Release Management
+
+- Trunk-based development with short-lived branches.
+- Conventional commit messages, so history is machine-readable and changelog generation is possible later.
+- Risky domain changes ship behind a feature flag, evaluated server-side. Flags are short-lived and removed once a change is proven; a permanent flag is a configuration value and belongs in configuration.
+- Rollback for application code is an instant redeploy of the previous build. Rollback for schema is a new forward migration.
+- Incidents affecting learning progress or authentication take priority over feature work.
+
+---
+
+# Supply Chain and Platform Security
+
+Extends the existing validation, authorization, and error-model sections.
+
+- The lockfile is committed and authoritative. CI installs with `npm ci`.
+- Automated dependency update pull requests run on a weekly schedule, reviewed rather than auto-merged.
+- CI fails on high or critical severity advisories.
+- Secret scanning and static analysis run on every pull request.
+- Response security headers are set, including a Content Security Policy, HSTS, `X-Content-Type-Options`, and a restrictive `Referrer-Policy`.
+- Inbound webhooks verify their signature before any processing. An unverified webhook is an unauthenticated request from the public internet.
+- Route handlers using cookie-based authentication require CSRF protection. Server Actions carry framework-level protection and do not.
+- CI verifies that no server-only secret is exposed through a `NEXT_PUBLIC_` variable.
+- Third-party GitHub Actions are pinned to a commit SHA, not a mutable tag.
+
+---
+
+# Cost Posture
+
+The stack is chosen to run on free tiers during beta. Cost is a design constraint, not an afterthought.
+
+- Track usage against free-tier ceilings for the database, hosting, authentication, and object storage.
+- Define an upgrade trigger for each, so a limit is reached deliberately rather than discovered through an outage.
+- Media is the most likely first cost driver. Audio assets must be compressed appropriately and served with long cache lifetimes.
+- Preview environments are ephemeral specifically to avoid accumulating idle paid resources.
+
+---
+
 # Critical Invariants
 
 The codebase must never violate the following rules:
@@ -1424,6 +1777,19 @@ The codebase must never violate the following rules:
 33. Admin authorization is rechecked server-side for every administrative mutation.
 34. Earned curriculum unlocks remain unlocked even if earlier SRS items later fall below the unlock threshold.
 35. AI features may consume approved learning context in the future but may not directly mutate official curriculum without an explicit administrative workflow.
+36. A progress-affecting mutation replayed with the same idempotency key produces its effect exactly once.
+37. Migrations never run at application boot or inside a request handler.
+38. A migration merged to `main` is immutable; corrections are new migrations.
+39. Every deployed migration is safe against the previously deployed application version.
+40. Production credentials, data, and secrets never exist in development or preview environments.
+41. Production deployment is impossible while a required CI check is failing.
+42. Progress-affecting mutations fail closed when the rate limiter is unavailable.
+43. Derived read models are never authoritative and never used to authorize an action or decide review eligibility.
+44. Analytics or monitoring provider failure never breaks a learning session.
+45. Database backups do not cover object storage; media has its own independent backup path.
+46. A backup is not considered valid until a restore has been tested and recorded.
+47. Health endpoints expose no version, dependency, or configuration detail.
+48. Inbound webhooks verify their signature before any processing occurs.
 
 ---
 
@@ -1489,6 +1855,42 @@ The codebase must never violate the following rules:
 
 **Why:** Reviews are timestamp-driven and current v1 workflows do not justify queue infrastructure.
 
+## ADR-011 — GitHub Actions for CI, Vercel for CD
+
+**Decision:** Continuous integration runs in GitHub Actions. Deployment runs through Vercel's Git integration, gated on required GitHub status checks.
+
+**Why:** Keeps the gate that decides whether code is safe in the same place as the code and its review, while leaving build and deploy to the platform already hosting the application.
+
+## ADR-012 — Ephemeral Preview Databases
+
+**Decision:** Each pull request gets its own database branch, created on open and deleted on close, seeded from curriculum fixtures.
+
+**Why:** Migrations and destructive changes must be exercised against a real database before reaching production, without any pathway from production data into a preview environment.
+
+## ADR-013 — Forward-Only Production Migrations
+
+**Decision:** Production schema changes are never reversed. Mistakes are corrected by a new compensating migration, and renames or removals use expand-and-contract across separate deployments.
+
+**Why:** Down-migrations are rarely tested and frequently destructive. Requiring a forward fix keeps the recovery path the same one exercised on every normal deploy.
+
+## ADR-014 — Server-Enforced Idempotency
+
+**Decision:** Every progress-affecting mutation accepts a client-supplied idempotency key, recorded transactionally with its effect.
+
+**Why:** Retries and duplicate submissions are normal on mobile networks. Exactly-once progress is a product guarantee and cannot be delegated to the client.
+
+## ADR-015 — Rate Limiting Behind a Provider Interface
+
+**Decision:** Rate limiting is required in v1 and is accessed through a provider boundary, with the concrete store treated as a replaceable implementation detail.
+
+**Why:** Progress farming is an identified product risk, and the appropriate store changes with scale. Domain code should not need to know which one is in use.
+
+## ADR-016 — Budgets Over Speculative Optimization
+
+**Decision:** Define explicit performance budgets and named scaling triggers rather than building for anticipated scale.
+
+**Why:** The workload is known to be read-heavy with bursty writes. Two paths matter, and the rest should stay simple until measurement says otherwise.
+
 ---
 
 # Parameters That Must Remain Configurable
@@ -1509,5 +1911,10 @@ The following values must not be silently invented or duplicated in code:
 - Rank thresholds
 - Leech thresholds
 - Access-tier rules
+- Rate limit thresholds and windows per surface
+- Idempotency key retention window
+- Cache time-to-live values per cache tag
+- Performance budget thresholds
+- Free-tier usage alert thresholds
 
 If one of these values has not yet been explicitly defined, implementation should treat it as an unresolved product configuration rather than choosing an arbitrary value.
