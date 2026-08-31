@@ -1,9 +1,14 @@
-import { clerkMiddleware } from "@clerk/nextjs/server";
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
-// Public by default. No authenticated routes exist yet (no /dashboard), so
-// there is nothing to gate with `auth.protect()` — see progress-tracker.md.
-// Add route protection here when the first authenticated page ships.
-export default clerkMiddleware();
+// Public by default — see progress-tracker.md. `/dashboard` is the first
+// authenticated page, so it is the first route gated here.
+const isProtectedRoute = createRouteMatcher(["/dashboard(.*)"]);
+
+export default clerkMiddleware(async (auth, req) => {
+  if (isProtectedRoute(req)) {
+    await auth.protect();
+  }
+});
 
 export const config = {
   matcher: [
