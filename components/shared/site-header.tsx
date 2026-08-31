@@ -33,7 +33,7 @@ export function SiteHeader() {
                 </Link>
               ))}
               <Show when="signed-out">
-                <SignInButton>
+                <SignInButton forceRedirectUrl="/dashboard">
                   <button className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
                     Log in
                   </button>
@@ -42,7 +42,7 @@ export function SiteHeader() {
             </nav>
 
             <Show when="signed-out">
-              <SignUpButton>
+              <SignUpButton forceRedirectUrl="/dashboard">
                 <Button className="rounded-full">Sign up</Button>
               </SignUpButton>
             </Show>

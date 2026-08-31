@@ -51,12 +51,12 @@ export function SiteNavMobile() {
             </SheetClose>
           ))}
           <Show when="signed-out">
-            <SignInButton>
+            <SignInButton forceRedirectUrl="/dashboard">
               <button className="rounded-lg px-3 py-2 text-left text-sm font-medium text-foreground transition-colors hover:bg-muted">
                 Log in
               </button>
             </SignInButton>
-            <SignUpButton>
+            <SignUpButton forceRedirectUrl="/dashboard">
               <button className="rounded-lg px-3 py-2 text-left text-sm font-medium text-foreground transition-colors hover:bg-muted">
                 Sign up
               </button>
