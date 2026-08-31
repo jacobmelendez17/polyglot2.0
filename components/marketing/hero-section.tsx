@@ -1,8 +1,6 @@
-import Link from "next/link";
-
-import { Button } from "@/components/ui/button";
 import { Reveal } from "@/components/shared/reveal";
 import { HandwritingWord } from "@/components/marketing/handwriting-word";
+import { LandingCta } from "@/components/marketing/landing-cta";
 
 // Decorative only (ui-context.md: "Multilingual words around the hero... Languages
 // saying forms of hello") — not a product claim, so it doesn't need to trace to
@@ -51,14 +49,7 @@ export function HeroSection() {
           equally important study items. Every word and grammar point you learn is scheduled for
           review by a spaced-repetition system, so what you learn actually sticks.
         </p>
-        <div className="flex flex-col items-center gap-3 sm:flex-row">
-          <Button asChild size="lg" className="rounded-full">
-            <Link href="/sign-up">Sign up</Link>
-          </Button>
-          <Button asChild variant="ghost" size="lg">
-            <Link href="/demo">Try the demo</Link>
-          </Button>
-        </div>
+        <LandingCta />
         <p className="text-sm text-muted-foreground">
           Latin American Spanish, focused on Mexican usage.
         </p>
