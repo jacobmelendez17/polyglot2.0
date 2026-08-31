@@ -10,4 +10,10 @@ describe("HeroSection", () => {
     expect(screen.getByRole("link", { name: "Sign up" })).toHaveAttribute("href", "/sign-up");
     expect(screen.getByRole("link", { name: "Try the demo" })).toHaveAttribute("href", "/demo");
   });
+
+  it("reads semantically as 'Fluency begins ここ'", () => {
+    render(<HeroSection />);
+
+    expect(screen.getByRole("heading", { name: /Fluency begins ここ/ })).toBeInTheDocument();
+  });
 });

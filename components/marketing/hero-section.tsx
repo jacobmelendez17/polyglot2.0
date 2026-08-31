@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { Reveal } from "@/components/shared/reveal";
+import { HandwritingWord } from "@/components/marketing/handwriting-word";
 
 // Decorative only (ui-context.md: "Multilingual words around the hero... Languages
 // saying forms of hello") — not a product claim, so it doesn't need to trace to
@@ -35,7 +36,15 @@ export function HeroSection() {
 
       <Reveal className="relative z-10 mx-auto flex max-w-3xl flex-col items-center gap-6">
         <h1 className="text-balance text-4xl leading-tight font-semibold text-foreground sm:text-5xl md:text-6xl lg:text-7xl">
-          say <span className="text-[color:var(--accent-primary-hover)]">hola</span> to fluency
+          Fluency begins{" "}
+          <HandwritingWord
+            basePath="/animations/hero-here/Japanese_Here"
+            frameCount={31}
+            msPerFrame={25}
+            width={1800}
+            height={600}
+            word="ここ"
+          />
         </h1>
         <p className="max-w-xl text-balance text-base text-muted-foreground sm:text-lg">
           Polyglot teaches Spanish through a structured curriculum where vocabulary and grammar are
