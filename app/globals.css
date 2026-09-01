@@ -192,13 +192,6 @@
     --sidebar-ring: var(--accent-primary);
 }
 
-/* Dark-theme square for the body graph-paper background above — a data: URI
-   can't read the live --grid-line/--text-primary custom properties, so this
-   is the dark-mode precomputed equivalent of the light one. */
-.dark body {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28'%3E%3Crect x='12.5' y='12.5' width='3' height='3' fill='%23535651'/%3E%3C/svg%3E");
-}
-
 /* --nav-h grows at the `md` breakpoint — see context/feature-specs/02-landing-page.md */
 @media (min-width: 768px) {
     :root {
@@ -258,7 +251,7 @@
         background-position: 0 0;
     }
     to {
-        background-position: 28px 28px;
+        background-position: 56px 56px;
     }
 }
 
@@ -304,19 +297,18 @@
   body {
     @apply bg-background text-foreground;
     /* Notebook/graph-paper background — ui-context.md's "recurring brand motif".
-       Small square markers, not circles or the earlier solid-line grid;
-       drifts diagonally by exactly one tile so the loop is seamless. CSS
-       gradients can only draw circles/ellipses (radial-gradient) or
-       directional bands (linear-gradient) — there is no native way to paint
-       an isolated square without a second masking layer — so this is a tiny
-       inline SVG tile instead. Colors are baked in per theme (light/dark
-       hexes below) rather than referencing --grid-line/--text-primary
-       directly, because a data: URI is static text at parse time and can't
-       read a live CSS custom property; the values are the same color-mix(in
-       oklch, var(--grid-line), var(--text-primary) 16%) calibration used
-       before, precomputed. Update both if that calibration changes. */
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28'%3E%3Crect x='12.5' y='12.5' width='3' height='3' fill='%23d3cabc'/%3E%3C/svg%3E");
-    background-size: 28px 28px;
+       A real grid of squares (thin lines, both directions), not isolated
+       dots/markers. Two linear-gradients — one drawing the vertical lines,
+       one the horizontal — each a 1px line against transparent, tiled at
+       28px. Ordinary gradients (unlike the earlier data: URI attempt) read
+       live custom properties, so this goes back to color-mix() directly and
+       adapts to the dark theme automatically without a separate override.
+       Drifts diagonally by exactly one tile so the loop is seamless. */
+    --graph-paper-line: color-mix(in oklch, var(--grid-line), var(--text-primary) 3%);
+    background-image:
+      linear-gradient(to right, var(--graph-paper-line) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--graph-paper-line) 1px, transparent 1px);
+    background-size: 56px 56px;
     animation: graph-paper-drift 16s linear infinite;
     }
   html {
