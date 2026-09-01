@@ -10,6 +10,8 @@
     --font-mono: var(--font-mono);
     --color-learning-vocabulary: var(--learning-vocabulary);
     --color-learning-grammar: var(--learning-grammar);
+    --color-state-success: var(--state-success);
+    --color-state-warning: var(--state-warning);
     --color-srs-beginner: var(--srs-beginner);
     --color-srs-familiar: var(--srs-familiar);
     --color-srs-intermediate: var(--srs-intermediate);

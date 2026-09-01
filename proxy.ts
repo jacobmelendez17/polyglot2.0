@@ -1,8 +1,10 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
-// Public by default — see progress-tracker.md. `/dashboard` is the first
-// authenticated page, so it is the first route gated here.
-const isProtectedRoute = createRouteMatcher(["/dashboard(.*)"]);
+// Public by default — see progress-tracker.md. Each authenticated route
+// group (`(app)`, `(focus)`) lists its real URL prefix here as it ships —
+// Next.js route groups don't appear in the URL, so the matcher can't
+// reference the group name itself.
+const isProtectedRoute = createRouteMatcher(["/dashboard(.*)", "/lessons(.*)"]);
 
 export default clerkMiddleware(async (auth, req) => {
   if (isProtectedRoute(req)) {

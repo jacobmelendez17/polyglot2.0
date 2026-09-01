@@ -7,6 +7,7 @@ const envSchema = z.object({
   NEXT_PUBLIC_CLERK_SIGN_UP_URL: z.string().min(1),
   NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL: z.string().min(1),
   NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL: z.string().min(1),
+  LESSON_STATE_SECRET: z.string().min(32),
 });
 
 export const env = envSchema.parse({
@@ -18,4 +19,5 @@ export const env = envSchema.parse({
     process.env.NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL,
   NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL:
     process.env.NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL,
+  LESSON_STATE_SECRET: process.env.LESSON_STATE_SECRET,
 });

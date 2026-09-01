@@ -1891,6 +1891,27 @@ The codebase must never violate the following rules:
 
 **Why:** The workload is known to be read-heavy with bursty writes. Two paths matter, and the rest should stay simple until measurement says otherwise.
 
+## ADR-017 — Stateless Signed Lesson Sessions
+
+**Decision:** Unfinished lesson state is carried through a server-signed
+ephemeral lesson-state token rather than persisted in a lesson-session
+database table.
+
+Each authoritative lesson interaction validates the token and returns an
+updated signed state. Quiz answers are evaluated server-side. Final SRS
+enrollment requires a valid completed lesson state plus fresh server-side
+eligibility and curriculum revalidation.
+
+**Why:** This preserves Polyglot's intentional ephemeral-lesson model while
+preventing the client from falsely claiming that a comprehension quiz was
+completed. It avoids persistent unfinished-session infrastructure while
+keeping lesson completion authoritative and verifiable.
+
+**Relationship to existing decisions:** Implements ADR-006's ephemeral-lesson
+model. Depends on ADR-014 for exactly-once enrollment and ADR-015 for the
+rate-limit boundary. The token is an integrity mechanism only; the database
+remains authoritative per the database-authority rule.
+
 ---
 
 # Parameters That Must Remain Configurable
