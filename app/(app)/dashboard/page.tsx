@@ -16,7 +16,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl px-3 py-6 sm:px-6 lg:px-8">
-      <div className="mb-4 flex justify-end">
+      <div className="mb-4 flex justify-start">
         <WelcomeGreeting name={name} />
       </div>
 
