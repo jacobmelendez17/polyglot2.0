@@ -251,7 +251,7 @@
         background-position: 0 0;
     }
     to {
-        background-position: 24px 24px;
+        background-position: 28px 28px;
     }
 }
 
@@ -298,10 +298,16 @@
     @apply bg-background text-foreground;
     /* Notebook/graph-paper background — ui-context.md's "recurring brand motif".
        Dots, not the earlier solid-line grid; drifts diagonally by exactly one
-       tile so the loop is seamless. Kept slow and low-contrast so it supports
-       the page rather than competing with content. */
-    background-image: radial-gradient(circle, var(--grid-line) 1px, transparent 1.5px);
-    background-size: 24px 24px;
+       tile so the loop is seamless. --grid-line alone is nearly the same
+       lightness as --bg-base (too subtle to read on a real display), so the
+       dot color is darkened a bit via color-mix — same pattern already used
+       for the secondary-button hover state below. */
+    background-image: radial-gradient(
+      circle,
+      color-mix(in oklch, var(--grid-line), var(--text-primary) 16%) 1.25px,
+      transparent 2px
+    );
+    background-size: 28px 28px;
     animation: graph-paper-drift 50s linear infinite;
     }
   html {
