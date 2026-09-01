@@ -246,11 +246,23 @@
     }
 }
 
+@keyframes graph-paper-drift {
+    from {
+        background-position: 0 0;
+    }
+    to {
+        background-position: 24px 24px;
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
     .animate-float,
     .animate-bob,
     .animate-marquee,
     .animate-pulse {
+        animation: none !important;
+    }
+    body {
         animation: none !important;
     }
 }
@@ -284,6 +296,13 @@
     }
   body {
     @apply bg-background text-foreground;
+    /* Notebook/graph-paper background — ui-context.md's "recurring brand motif".
+       Dots, not the earlier solid-line grid; drifts diagonally by exactly one
+       tile so the loop is seamless. Kept slow and low-contrast so it supports
+       the page rather than competing with content. */
+    background-image: radial-gradient(circle, var(--grid-line) 1px, transparent 1.5px);
+    background-size: 24px 24px;
+    animation: graph-paper-drift 50s linear infinite;
     }
   html {
     @apply font-sans;

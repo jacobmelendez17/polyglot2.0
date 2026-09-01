@@ -4,8 +4,8 @@ type WelcomeGreetingProps = {
 
 export function WelcomeGreeting({ name }: WelcomeGreetingProps) {
   return (
-    <p className="font-heading text-base text-muted-foreground sm:text-lg">
+    <h1 className="font-heading text-3xl font-semibold text-muted-foreground sm:text-4xl">
       Welcome back, <span className="text-foreground">{name}</span>.
-    </p>
+    </h1>
   );
 }
