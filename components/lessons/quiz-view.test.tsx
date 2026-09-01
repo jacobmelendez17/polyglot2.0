@@ -144,6 +144,48 @@ describe("QuizView", () => {
     expect(screen.getByText(/no progress was affected/i)).toBeInTheDocument();
   });
 
+  it("never disables the answer input, even while a request is pending — disabling forces a browser blur that silently breaks the Enter-to-advance keyboard flow", () => {
+    render(
+      <QuizView
+        question={QUESTION}
+        feedback={null}
+        awaitingAdvance={false}
+        quizStats={STATS}
+        segments={[]}
+        characterHelpers={[]}
+        isPending
+        onSubmit={() => {}}
+        onAdvance={() => {}}
+        onExit={() => {}}
+      />,
+    );
+
+    const input = screen.getByRole("textbox", { name: "Your answer" });
+    expect(input).not.toBeDisabled();
+    expect(input).toHaveAttribute("readonly");
+  });
+
+  it("keeps the answer input readOnly (not disabled) while awaiting advance, so it stays focusable for the second Enter press", () => {
+    render(
+      <QuizView
+        question={QUESTION}
+        feedback={{ kind: "correct" }}
+        awaitingAdvance
+        quizStats={STATS}
+        segments={[]}
+        characterHelpers={[]}
+        isPending={false}
+        onSubmit={() => {}}
+        onAdvance={() => {}}
+        onExit={() => {}}
+      />,
+    );
+
+    const input = screen.getByRole("textbox", { name: "Your answer" });
+    expect(input).not.toBeDisabled();
+    expect(input).toHaveAttribute("readonly");
+  });
+
   it("explains a missing-article mistake specifically", () => {
     render(
       <QuizView

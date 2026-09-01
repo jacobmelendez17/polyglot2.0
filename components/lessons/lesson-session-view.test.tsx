@@ -152,4 +152,54 @@ describe("LessonSessionView", () => {
     await waitFor(() => expect(screen.getByText("gato")).toBeInTheDocument(), { timeout: 3000 });
     expect(screen.getByText("Spanish → English")).toBeInTheDocument();
   });
+
+  it("keeps the just-answered item's segment marked current until the learner advances past feedback, instead of jumping to the next item immediately", async () => {
+    const QUIZ_INITIAL: LessonSessionResult = {
+      ...INITIAL,
+      phase: "quiz",
+      currentQuestion: QUESTION,
+      itemStates: { "vocab-gato": "current", "vocab-perro": "not-started" },
+      quizStats: { requiredCount: 4, satisfiedCount: 0, attempts: 0, correctAttempts: 0 },
+    };
+
+    submitQuizAnswerAction.mockResolvedValue({
+      ok: true,
+      data: {
+        token: "t2",
+        phase: "quiz",
+        sessionId: "session-1",
+        batch: INITIAL.batch,
+        viewedItemIds: [],
+        // Server-computed states already reflect perro as the *next* current
+        // item — the component must not apply this until the learner advances.
+        currentQuestion: {
+          questionId: "vocab-perro::targetToEnglish",
+          itemId: "vocab-perro",
+          itemType: "vocabulary",
+          direction: "targetToEnglish",
+          prompt: "perro",
+          directionLabel: "Spanish → English",
+        },
+        itemStates: { "vocab-gato": "complete", "vocab-perro": "current" },
+        quizStats: { requiredCount: 4, satisfiedCount: 1, attempts: 1, correctAttempts: 1 },
+        feedback: { kind: "correct" },
+      },
+    });
+
+    const user = userEvent.setup();
+    render(<LessonSessionView initial={QUIZ_INITIAL} />);
+
+    await user.type(screen.getByRole("textbox", { name: "Your answer" }), "cat{Enter}");
+    await waitFor(() => expect(screen.getByText("Correct!")).toBeInTheDocument());
+
+    // Still showing gato's prompt, and gato's segment should still read "current" — not perro's.
+    expect(screen.getByText("gato")).toBeInTheDocument();
+    expect(screen.getByLabelText("Vocabulary item 1 of 2, current")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Vocabulary item 2 of 2, current")).not.toBeInTheDocument();
+
+    await user.keyboard("{Enter}");
+
+    await waitFor(() => expect(screen.getByText("perro")).toBeInTheDocument());
+    expect(screen.getByLabelText("Vocabulary item 2 of 2, current")).toBeInTheDocument();
+  });
 });

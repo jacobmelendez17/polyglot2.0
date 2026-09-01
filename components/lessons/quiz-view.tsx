@@ -141,8 +141,7 @@ function QuestionAnswerField({
         onChange={(event) => setAnswer(event.target.value)}
         onKeyDown={handleKeyDown}
         state={inputState}
-        disabled={isPending}
-        readOnly={awaitingAdvance}
+        readOnly={awaitingAdvance || isPending}
         aria-label="Your answer"
       />
       <AccentHelpers characters={characterHelpers} onInsert={insertCharacter} />

@@ -40,7 +40,9 @@ type SessionState = {
   currentQuestion: QuizQuestionView | null;
   pendingQuestion: QuizQuestionView | null;
   itemStates: Record<string, ItemSegmentState>;
+  pendingItemStates: Record<string, ItemSegmentState> | null;
   quizStats: QuizStats | null;
+  pendingQuizStats: QuizStats | null;
   feedback: QuizAnswerFeedback | null;
   completion: LessonCompletionPreview | null;
   error: ActionError | null;
@@ -69,7 +71,9 @@ function sessionReducer(state: SessionState, action: SessionAction): SessionStat
         currentQuestion: action.result.currentQuestion ?? null,
         pendingQuestion: null,
         itemStates: action.result.itemStates ?? state.itemStates,
+        pendingItemStates: null,
         quizStats: action.result.quizStats ?? state.quizStats,
+        pendingQuizStats: null,
         feedback: null,
       };
     case "ANSWER_SUBMITTED": {
@@ -77,18 +81,34 @@ function sessionReducer(state: SessionState, action: SessionAction): SessionStat
         // Spec 07 §28: an empty submission does nothing.
         return state;
       }
+      // itemStates/quizStats already reflect the just-graded answer, but the
+      // displayed question (currentQuestion) deliberately stays on the old
+      // question until the learner advances past feedback (§28) — so these
+      // are held as "pending" and applied together with the question swap in
+      // ADVANCE_QUESTION, rather than updating immediately. Applying them
+      // immediately would jump the progress segment to the next item while
+      // the just-answered item's prompt/feedback was still on screen.
       return {
         ...state,
         token: action.result.token,
         phase: action.result.phase,
         pendingQuestion: action.result.currentQuestion ?? null,
-        itemStates: action.result.itemStates ?? state.itemStates,
-        quizStats: action.result.quizStats ?? state.quizStats,
+        pendingItemStates: action.result.itemStates ?? null,
+        pendingQuizStats: action.result.quizStats ?? null,
         feedback: action.result.feedback ?? null,
       };
     }
     case "ADVANCE_QUESTION":
-      return { ...state, currentQuestion: state.pendingQuestion, pendingQuestion: null, feedback: null };
+      return {
+        ...state,
+        currentQuestion: state.pendingQuestion,
+        pendingQuestion: null,
+        itemStates: state.pendingItemStates ?? state.itemStates,
+        pendingItemStates: null,
+        quizStats: state.pendingQuizStats ?? state.quizStats,
+        pendingQuizStats: null,
+        feedback: null,
+      };
     case "LESSON_COMPLETED":
       return { ...state, completion: action.completion };
     case "ERROR":
@@ -122,7 +142,9 @@ export function LessonSessionView({ initial }: LessonSessionViewProps) {
     currentQuestion: initial.currentQuestion ?? null,
     pendingQuestion: null,
     itemStates: initial.itemStates ?? {},
+    pendingItemStates: null,
     quizStats: initial.quizStats ?? null,
+    pendingQuizStats: null,
     feedback: null,
     completion: null,
     error: null,
@@ -148,14 +170,16 @@ export function LessonSessionView({ initial }: LessonSessionViewProps) {
 
   // Mark the first study item viewed on mount — merely rendering it isn't enough on its
   // own to unlock the quiz (§18), so this establishes the server-authoritative record.
+  // Guarded to the study phase: a lesson always starts in "study" in practice, but this
+  // keeps the effect a no-op if the session ever mounts already past it.
   useEffect(() => {
-    if (hasMarkedFirstItem.current) return;
+    if (hasMarkedFirstItem.current || state.phase !== "study") return;
     hasMarkedFirstItem.current = true;
     const first = studyItems[0];
     if (first && !state.viewedItemIds.includes(first.itemId)) {
       markViewed(first.itemId);
     }
-  }, [markViewed, state.viewedItemIds, studyItems]);
+  }, [markViewed, state.phase, state.viewedItemIds, studyItems]);
 
   // Once the server confirms the quiz is complete, request the (non-persisting)
   // completion preview exactly once — see lesson-completion-preview.ts.
