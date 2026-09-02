@@ -13,5 +13,9 @@ export default defineConfig(({ mode }) => ({
     environment: "jsdom",
     setupFiles: ["./vitest.setup.ts"],
     env: loadEnv(mode, process.cwd(), ""),
+    // Database integration tests (spec 08 §43) live in a separate Vitest
+    // project (vitest.integration.config.mts, `npm run test:integration`) so
+    // this normal fast suite never requires a real database connection.
+    exclude: ["**/node_modules/**", "**/*.integration.test.ts"],
   },
 }));

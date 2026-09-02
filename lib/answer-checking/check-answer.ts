@@ -1,13 +1,5 @@
 import type { CheckAnswerInput, CheckAnswerResult } from "./answer-checking-types";
-
-/**
- * Normalizes for comparison without erasing meaningful diacritics/accents,
- * per architecture.md's duplicate-normalization rule ("si" and "sí" must
- * remain distinct terms). Only whitespace and case are collapsed.
- */
-function normalize(value: string): string {
-  return value.trim().toLowerCase().replace(/\s+/g, " ");
-}
+import { normalizeForComparison as normalize } from "./normalize";
 
 /** Levenshtein edit distance, used only to tolerate minor typos. */
 function editDistance(a: string, b: string): number {
