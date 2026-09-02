@@ -14,88 +14,63 @@ function resolveInitialReducedMotion(): boolean {
   );
 }
 
-function framePath(basePath: string, frame: number) {
-  return `${basePath}-${frame}.png`;
-}
+/** Shape of the JSON written by scripts/build-sprites.mjs — see that file. */
+export type SpriteManifest = {
+  image: string;
+  frameWidth: number;
+  frameHeight: number;
+  columns: number;
+  rows: number;
+  frameCount: number;
+};
 
 type Phase = "loading" | "playing" | "done" | "error";
 
 export function HandwritingWord({
-  basePath,
-  frameCount,
+  manifest,
   msPerFrame,
-  width,
-  height,
   word,
 }: {
-  /** Path prefix shared by every frame, e.g. "/animations/hero-here/Japanese_Here". */
-  basePath: string;
-  /** Total frames, numbered 1..frameCount. Frame frameCount draws first, frame 1 is complete. */
-  frameCount: number;
+  /** The sprite sheet + grid layout produced by `npm run sprites:build`. Frame `frameCount` draws first, frame 1 is complete. */
+  manifest: SpriteManifest;
   msPerFrame: number;
-  /** Intrinsic pixel size of every frame — reserves layout space before any frame loads. */
-  width: number;
-  height: number;
   /** The literal word, for the always-present accessible text and the load-failure fallback. */
   word: string;
 }) {
   const [prefersReducedMotion] = useState(resolveInitialReducedMotion);
   const [phase, setPhase] = useState<Phase>("loading");
-  const [frame, setFrame] = useState(frameCount);
+  const [frame, setFrame] = useState(manifest.frameCount);
 
-  // Preload, then either jump straight to the final frame (reduced motion) or wait for
-  // every frame before starting playback so it can't flash/stall mid-sequence.
+  // Preload the one sprite sheet, then either jump straight to the final frame (reduced
+  // motion) or start playback once it's fully decoded.
   useEffect(() => {
     let cancelled = false;
+    const img = new Image();
 
-    if (prefersReducedMotion) {
-      const img = new Image();
-      img.onload = () => {
-        if (!cancelled) {
-          setFrame(1);
-          setPhase("done");
-        }
-      };
-      img.onerror = () => {
-        if (!cancelled) setPhase("error");
-      };
-      img.src = framePath(basePath, 1);
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    let loadedCount = 0;
-    let failed = false;
-    const images: HTMLImageElement[] = [];
-
-    for (let i = 1; i <= frameCount; i++) {
-      const img = new Image();
-      img.onload = () => {
-        loadedCount += 1;
-        if (!cancelled && !failed && loadedCount === frameCount) {
-          setPhase("playing");
-        }
-      };
-      img.onerror = () => {
-        if (!failed) {
-          failed = true;
-          if (!cancelled) setPhase("error");
-        }
-      };
-      img.src = framePath(basePath, i);
-      images.push(img);
-    }
+    img.onload = () => {
+      if (cancelled) return;
+      if (prefersReducedMotion) {
+        setFrame(1);
+        setPhase("done");
+      } else {
+        setPhase("playing");
+      }
+    };
+    img.onerror = () => {
+      if (!cancelled) setPhase("error");
+    };
+    img.src = manifest.image;
 
     return () => {
       cancelled = true;
     };
-  }, [basePath, frameCount, prefersReducedMotion]);
+  }, [manifest.image, prefersReducedMotion]);
 
   // Elapsed-time-tracked rAF loop rather than one timer per frame.
   useEffect(() => {
     if (phase !== "playing") return;
 
+    const frameCount = manifest.frameCount;
     let rafId: number;
     let startTime: number | null = null;
 
@@ -114,28 +89,39 @@ export function HandwritingWord({
 
     rafId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafId);
-  }, [phase, frameCount, msPerFrame]);
+  }, [phase, manifest.frameCount, msPerFrame]);
 
   if (phase === "error") {
     return <span className="text-[color:var(--accent-primary-hover)]">{word}</span>;
   }
 
+  const index = frame - 1;
+  const col = index % manifest.columns;
+  const row = Math.floor(index / manifest.columns);
+  // Standard percentage-based CSS sprite positioning: background-size oversizes the
+  // sheet to (columns*100%, rows*100%) of this element, and background-position at
+  // col/(columns-1)*100% steps through each column in turn — this accounts for the
+  // oversized background automatically, so it stays correct at any rendered size
+  // without measuring layout in JS.
+  const backgroundPositionX = manifest.columns > 1 ? (col / (manifest.columns - 1)) * 100 : 0;
+  const backgroundPositionY = manifest.rows > 1 ? (row / (manifest.rows - 1)) * 100 : 0;
+
   return (
     <span
       className="relative inline-block h-[1.05em] align-[-0.12em]"
-      style={{ aspectRatio: `${width} / ${height}` }}
+      style={{ aspectRatio: `${manifest.frameWidth} / ${manifest.frameHeight}` }}
     >
       <span className="sr-only">{word}</span>
       {(phase === "playing" || phase === "done") && (
-        // eslint-disable-next-line @next/next/no-img-element -- swaps src across 31 preloaded frames every ~25ms; next/image's optimization pipeline isn't built for that.
-        <img
-          src={framePath(basePath, frame)}
-          width={width}
-          height={height}
-          alt=""
+        <span
           aria-hidden="true"
-          draggable={false}
-          className="absolute inset-0 h-full w-full object-contain object-left"
+          className="absolute inset-0"
+          style={{
+            backgroundImage: `url(${manifest.image})`,
+            backgroundSize: `${manifest.columns * 100}% ${manifest.rows * 100}%`,
+            backgroundPosition: `${backgroundPositionX}% ${backgroundPositionY}%`,
+            backgroundRepeat: "no-repeat",
+          }}
         />
       )}
     </span>

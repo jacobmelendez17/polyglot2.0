@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, render, screen, waitFor } from "@testing-library/react";
 
-import { HandwritingWord } from "@/components/marketing/handwriting-word";
+import { HandwritingWord, type SpriteManifest } from "@/components/marketing/handwriting-word";
 
 let imageLoadBehavior: "success" | "error" = "success";
 
@@ -42,14 +42,35 @@ function stubRaf() {
   };
 }
 
-const props = {
-  basePath: "/x/f",
+const manifest: SpriteManifest = {
+  image: "/sprites/x.deadbeef.png",
+  frameWidth: 1800,
+  frameHeight: 600,
+  columns: 6,
+  rows: 6,
   frameCount: 31,
+};
+
+const props = {
+  manifest,
   msPerFrame: 25,
-  width: 1800,
-  height: 600,
   word: "ここ",
 };
+
+/** Reads the currently-displayed frame's background-position off the sprite layer. */
+function currentBackgroundPosition() {
+  const layer = document.querySelector('[aria-hidden="true"]');
+  return (layer as HTMLElement | null)?.style.backgroundPosition ?? null;
+}
+
+function positionForFrame(frame: number) {
+  const index = frame - 1;
+  const col = index % manifest.columns;
+  const row = Math.floor(index / manifest.columns);
+  const x = manifest.columns > 1 ? (col / (manifest.columns - 1)) * 100 : 0;
+  const y = manifest.rows > 1 ? (row / (manifest.rows - 1)) * 100 : 0;
+  return `${x}% ${y}%`;
+}
 
 describe("HandwritingWord", () => {
   beforeEach(() => {
@@ -70,14 +91,14 @@ describe("HandwritingWord", () => {
 
     // First tick only establishes the start time — still on the starting frame.
     raf.tick(0);
-    expect(document.querySelector("img")).toHaveAttribute("src", "/x/f-31.png");
+    expect(currentBackgroundPosition()).toBe(positionForFrame(31));
 
     raf.tick(25);
-    expect(document.querySelector("img")).toHaveAttribute("src", "/x/f-30.png");
+    expect(currentBackgroundPosition()).toBe(positionForFrame(30));
 
     // Jump straight to the last step.
     raf.tick(30 * 25);
-    expect(document.querySelector("img")).toHaveAttribute("src", "/x/f-1.png");
+    expect(currentBackgroundPosition()).toBe(positionForFrame(1));
 
     // Done — no further frame is scheduled, so it can't loop.
     expect(raf.hasPending()).toBe(false);
@@ -89,19 +110,37 @@ describe("HandwritingWord", () => {
 
     render(<HandwritingWord {...props} />);
 
-    await waitFor(() =>
-      expect(document.querySelector("img")).toHaveAttribute("src", "/x/f-1.png")
-    );
+    await waitFor(() => expect(currentBackgroundPosition()).toBe(positionForFrame(1)));
   });
 
-  it("falls back to visible static text when a frame fails to load", async () => {
+  it("preloads only the single sprite sheet, not one request per frame", async () => {
+    const srcs: string[] = [];
+    class TrackingImage extends FakeImage {
+      set src(value: string) {
+        srcs.push(value);
+        super.src = value;
+      }
+      get src() {
+        return super.src;
+      }
+    }
+    vi.stubGlobal("Image", TrackingImage);
+    stubRaf();
+
+    render(<HandwritingWord {...props} />);
+
+    await waitFor(() => expect(srcs).toHaveLength(1));
+    expect(srcs[0]).toBe(manifest.image);
+  });
+
+  it("falls back to visible static text when the sprite fails to load", async () => {
     imageLoadBehavior = "error";
     vi.stubGlobal("Image", FakeImage);
 
     render(<HandwritingWord {...props} />);
 
     await waitFor(() => expect(screen.getByText("ここ")).not.toHaveClass("sr-only"));
-    expect(document.querySelector("img")).not.toBeInTheDocument();
+    expect(document.querySelector('[aria-hidden="true"]')).not.toBeInTheDocument();
   });
 
   it("keeps the word accessible even before the sequence has loaded", () => {
