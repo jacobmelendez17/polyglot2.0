@@ -8,7 +8,7 @@ import { testDb } from "@/db/test/test-client";
 import { withTestTransaction, type TestTx } from "@/db/test/with-test-transaction";
 
 import { getDefaultLanguageCode } from "./provisioning-config";
-import { findUserByClerkUserId, provisionUser } from "./user-repository";
+import { findUserById, findUserByClerkUserId, provisionUser } from "./user-repository";
 
 /**
  * Seeds the minimal §38 prerequisite (the configured default language and
@@ -16,13 +16,40 @@ import { findUserByClerkUserId, provisionUser } from "./user-repository";
  * test using `withTestTransaction` is self-contained and order-independent.
  * The real deterministic fixture set (spec 08 §37) is Unit 4's concern —
  * this is intentionally the smallest slice Unit 3's provisioning tests need.
+ *
+ * Idempotent by design (`onConflictDoNothing` + reselect on conflict) rather
+ * than a plain insert: the default language now permanently exists in the
+ * shared dev/test Neon branch (seeded for real by `npm run db:seed`, spec 08
+ * unit 4 — see `db/seed/test-fixtures.ts`), so a plain insert of the same
+ * code would fail with a unique-constraint violation. A real deployment
+ * needs this row to exist permanently for provisioning to work at all, so
+ * this helper has to tolerate that rather than assume a clean slate.
  */
 async function seedDefaultLanguageAndLevel1(tx: TestTx) {
-  const [language] = await tx
+  const languageCode = getDefaultLanguageCode();
+  const [insertedLanguage] = await tx
     .insert(languages)
-    .values({ code: getDefaultLanguageCode(), slug: `spanish-${randomUUID()}`, name: "Spanish" })
+    .values({ code: languageCode, slug: `spanish-${randomUUID()}`, name: "Spanish" })
+    .onConflictDoNothing({ target: languages.code })
     .returning();
-  const [level1] = await tx.insert(levels).values({ languageId: language.id, levelNumber: 1 }).returning();
+  const language =
+    insertedLanguage ?? (await tx.select().from(languages).where(eq(languages.code, languageCode)).limit(1))[0];
+
+  const [insertedLevel1] = await tx
+    .insert(levels)
+    .values({ languageId: language.id, levelNumber: 1 })
+    .onConflictDoNothing({ target: [levels.languageId, levels.levelNumber] })
+    .returning();
+  const level1 =
+    insertedLevel1 ??
+    (
+      await tx
+        .select()
+        .from(levels)
+        .where(and(eq(levels.languageId, language.id), eq(levels.levelNumber, 1)))
+        .limit(1)
+    )[0];
+
   return { language, level1 };
 }
 
@@ -53,6 +80,27 @@ describe("provisionUser / findUserByClerkUserId", () => {
 
       const rows = await tx.select().from(users).where(eq(users.clerkUserId, clerkUserId));
       expect(rows).toHaveLength(1);
+    });
+  });
+
+  it("resolves the same user by internal ID and by Clerk ID (spec §62)", async () => {
+    await withTestTransaction(async (tx) => {
+      await seedDefaultLanguageAndLevel1(tx);
+      const provisioned = await provisionUser(tx, "clerk-by-both-ids");
+
+      const byClerkId = await findUserByClerkUserId(tx, "clerk-by-both-ids");
+      const byInternalId = await findUserById(tx, provisioned.id);
+
+      expect(byClerkId?.id).toBe(provisioned.id);
+      expect(byInternalId?.id).toBe(provisioned.id);
+      expect(byInternalId?.clerkUserId).toBe("clerk-by-both-ids");
+    });
+  });
+
+  it("returns null from findUserById for a nonexistent internal ID", async () => {
+    await withTestTransaction(async (tx) => {
+      const result = await findUserById(tx, "00000000-0000-0000-0000-000000000000");
+      expect(result).toBeNull();
     });
   });
 
@@ -109,7 +157,13 @@ describe("provisionUser / findUserByClerkUserId", () => {
 
   it("fails provisioning cleanly when the configured default language does not exist", async () => {
     await withTestTransaction(async (tx) => {
-      // Deliberately does not seed the default language fixture.
+      // The default language now permanently exists in the shared dev/test
+      // database (spec 08 unit 4's real seed data) — deleting it here would
+      // violate the RESTRICT foreign key from `levels`, so this simulates
+      // "absent" by temporarily renaming its code within this rolled-back
+      // transaction only, rather than by simply not seeding anything.
+      await tx.update(languages).set({ code: "temporarily-renamed" }).where(eq(languages.code, getDefaultLanguageCode()));
+
       await expect(provisionUser(tx, "clerk-no-language")).rejects.toThrow(
         expect.objectContaining({ code: "PROVISIONING_FAILED" }),
       );

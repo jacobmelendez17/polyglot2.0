@@ -44,9 +44,6 @@ export function HeroSection() {
           review by a spaced-repetition system, so what you learn actually sticks.
         </p>
         <LandingCta />
-        <p className="text-sm text-muted-foreground">
-          Latin American Spanish, focused on Mexican usage.
-        </p>
       </Reveal>
 
       <GreetingMarquee />

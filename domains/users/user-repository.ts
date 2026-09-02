@@ -42,6 +42,11 @@ export async function findUserByClerkUserId(db: DbClient, clerkUserId: string): 
   return row ? toPolyglotUser(row) : null;
 }
 
+export async function findUserById(db: DbClient, id: string): Promise<PolyglotUser | null> {
+  const [row] = await db.select().from(users).where(eq(users.id, id)).limit(1);
+  return row ? toPolyglotUser(row) : null;
+}
+
 /**
  * Race-safe provisioning (spec 08 §10, §11). Two concurrent callers for the
  * same brand-new `clerkUserId` must not create two user rows or two Level 1
