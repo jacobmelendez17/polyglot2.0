@@ -1,0 +1,143 @@
+name: CI
+
+# Spec 08 unit 8 (§46's CI Scope) — this covers only what a database
+# foundation needs: fast checks with no database, plus real integration
+# tests against an ephemeral Neon branch. It intentionally does NOT include
+# e2e (Playwright), dependency/security scanning, or deployment — those are
+# separate workflows (`e2e.yml`, `security.yml`) architecture.md reserves,
+# out of scope for this spec.
+#
+# UNVERIFIED: written and reviewable, but never run for real — it needs
+# repository secrets (NEON_API_KEY, CI_CLERK_PUBLISHABLE_KEY,
+# CI_CLERK_SECRET_KEY, CI_LESSON_STATE_SECRET) and variables
+# (NEON_PROJECT_ID, NEON_TEST_PARENT_BRANCH — a non-production branch to
+# fork ephemeral test branches from) that only the project owner can add.
+# See progress-tracker.md's spec 08 unit 8 entry for the full list and why.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "22"
+
+jobs:
+  verify:
+    name: Typecheck, lint, unit tests, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      # This repo requires --legacy-peer-deps locally (shadcn/babel tree vs.
+      # @vitejs/plugin-react's optional Babel 8 prerelease peer — see
+      # progress-tracker.md's Environment Notes); npm ci needs it too.
+      - run: npm ci --legacy-peer-deps
+      - run: npx tsc --noEmit
+      - run: npx eslint .
+      # Fast, database-free suite only (vitest.config.mts excludes
+      # *.integration.test.ts) — real database coverage is the
+      # `db-integration` job below.
+      - run: npm run test
+      - name: Build
+        run: npm run build
+        env:
+          # `next build` never queries the database (every DB-backed route
+          # is server-rendered on demand, not statically generated — see
+          # progress-tracker.md), so DATABASE_URL only needs to satisfy
+          # lib/env.ts's non-empty check, not actually be reachable. The
+          # Clerk/lesson-state values below are genuine secrets and must be
+          # configured for real (a development Clerk instance's keys are
+          # fine here — never the production instance).
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.CI_CLERK_PUBLISHABLE_KEY }}
+          CLERK_SECRET_KEY: ${{ secrets.CI_CLERK_SECRET_KEY }}
+          NEXT_PUBLIC_CLERK_SIGN_IN_URL: /sign-in
+          NEXT_PUBLIC_CLERK_SIGN_UP_URL: /sign-up
+          NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL: /dashboard
+          NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL: /dashboard
+          LESSON_STATE_SECRET: ${{ secrets.CI_LESSON_STATE_SECRET }}
+          APP_ENV: preview
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_placeholder
+
+  db-integration:
+    name: Database integration tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --legacy-peer-deps
+
+      # Spec 08 §44: one ephemeral Neon branch for this job only, deleted in
+      # the cleanup step below regardless of outcome. Never the production
+      # branch, never cloned production data — `parent_branch` must point at
+      # a schema-bearing but non-production branch (see the repo variable's
+      # own description). Requires Neon's GitHub integration (which
+      # auto-populates NEON_PROJECT_ID/NEON_API_KEY) or those configured
+      # manually — see `Configuration required` below.
+      - name: Create ephemeral Neon branch
+        id: neon-branch
+        uses: neondatabase/create-branch-action@72ed4f69a12b6be9c16aebfad893f6a21e9aba8b # v6.4.0
+        with:
+          api_key: ${{ secrets.NEON_API_KEY }}
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          parent_branch: ${{ vars.NEON_TEST_PARENT_BRANCH }}
+          branch_name: ci-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Mask the ephemeral connection string
+        # create-branch-action's db_url_pooled output is a freshly-generated
+        # value GitHub doesn't know to redact on its own (§44: "do not
+        # expose the test connection string in normal log output") — this
+        # registers it for masking before any step can print it.
+        run: echo "::add-mask::${{ steps.neon-branch.outputs.db_url_pooled }}"
+
+      - name: Apply migrations
+        run: npm run db:migrate
+        env:
+          DATABASE_URL: ${{ steps.neon-branch.outputs.db_url_pooled }}
+
+      - name: Seed deterministic fixtures
+        run: npm run db:seed
+        env:
+          DATABASE_URL: ${{ steps.neon-branch.outputs.db_url_pooled }}
+
+      - name: Run integration tests
+        run: npm run test:integration
+        env:
+          TEST_DATABASE_URL: ${{ steps.neon-branch.outputs.db_url_pooled }}
+          # lib/env.ts's other required vars — integration tests exercise
+          # domains/users, which imports lib/env.ts transitively.
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.CI_CLERK_PUBLISHABLE_KEY }}
+          CLERK_SECRET_KEY: ${{ secrets.CI_CLERK_SECRET_KEY }}
+          NEXT_PUBLIC_CLERK_SIGN_IN_URL: /sign-in
+          NEXT_PUBLIC_CLERK_SIGN_UP_URL: /sign-up
+          NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL: /dashboard
+          NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL: /dashboard
+          LESSON_STATE_SECRET: ${{ secrets.CI_LESSON_STATE_SECRET }}
+          APP_ENV: preview
+          DATABASE_URL: ${{ steps.neon-branch.outputs.db_url_pooled }}
+
+      - name: Verify no schema drift (spec 08 §45)
+        run: npm run db:verify
+        env:
+          DATABASE_URL: ${{ steps.neon-branch.outputs.db_url_pooled }}
+
+      - name: Delete ephemeral Neon branch
+        if: always()
+        uses: neondatabase/delete-branch-action@4468d825d5a88ef4012f1705a82f02ec3072f776 # v3.2.1
+        with:
+          api_key: ${{ secrets.NEON_API_KEY }}
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          branch: ${{ steps.neon-branch.outputs.branch_id }}

@@ -1,0 +1,124 @@
+name: Migrate
+
+# Spec 08 unit 8 (§44, §45, §47) — migration application, drift detection,
+# and destructive-change flagging, against an ephemeral Neon branch. Never
+# the production branch; never production data (§44).
+#
+# UNVERIFIED: written and reviewable, but never run for real — it needs
+# repository secrets/variables only the project owner can add. See
+# ci.yml's own note and progress-tracker.md.
+
+on:
+  pull_request:
+    paths:
+      - "db/migrations/**"
+      - "db/schema/**"
+  workflow_dispatch: {} # manual run, e.g. before a production promotion
+
+concurrency:
+  group: migrate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  # Only needed for the destructive-statement check's PR label read below;
+  # no write scope is granted anywhere in this workflow.
+  pull-requests: read
+
+env:
+  NODE_VERSION: "22"
+
+jobs:
+  migrate-and-verify:
+    name: Apply, seed, and verify migrations
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # needed for the destructive-statement diff below
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --legacy-peer-deps
+
+      - name: Create ephemeral Neon branch
+        id: neon-branch
+        uses: neondatabase/create-branch-action@72ed4f69a12b6be9c16aebfad893f6a21e9aba8b # v6.4.0
+        with:
+          api_key: ${{ secrets.NEON_API_KEY }}
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          parent_branch: ${{ vars.NEON_TEST_PARENT_BRANCH }}
+          branch_name: migrate-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Mask the ephemeral connection string
+        run: echo "::add-mask::${{ steps.neon-branch.outputs.db_url_pooled }}"
+
+      - name: Reset to a genuinely empty database (spec 08 §45's "Empty Database" case)
+        # The ephemeral branch forks from NEON_TEST_PARENT_BRANCH, which
+        # already has this project's schema applied (it's a real
+        # development branch, not a from-scratch one) — Neon has no
+        # "create a branch with zero history" primitive exposed here. This
+        # step makes the starting point genuinely empty regardless, so
+        # "empty → all migrations → schema head" is actually exercised, not
+        # merely a no-op against an already-migrated database. Safe only
+        # because this is the disposable ephemeral branch, never anything
+        # durable.
+        run: |
+          psql "${{ steps.neon-branch.outputs.db_url_pooled }}" \
+            -c 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;'
+
+      - name: Apply every migration from empty to head
+        run: npm run db:migrate
+        env:
+          DATABASE_URL: ${{ steps.neon-branch.outputs.db_url_pooled }}
+
+      - name: Detect schema drift between Drizzle schema and migration history
+        run: npm run db:verify
+        env:
+          DATABASE_URL: ${{ steps.neon-branch.outputs.db_url_pooled }}
+
+      - name: Apply migrations to a fixture-seeded database (spec 08 §45's "Fixture Database" case)
+        run: npm run db:seed
+        env:
+          DATABASE_URL: ${{ steps.neon-branch.outputs.db_url_pooled }}
+
+      - name: Check for potentially destructive migration statements
+        id: destructive-check
+        if: github.event_name == 'pull_request'
+        run: |
+          changed=$(git diff --name-only "origin/${{ github.event.pull_request.base.ref }}...HEAD" -- db/migrations/ || true)
+          if [ -z "$changed" ]; then
+            echo "No migration files changed in this PR."
+            echo "destructive=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "Changed migration files:"
+          echo "$changed"
+          # Best-effort static check (§47/architecture.md's destructive-change
+          # rules) — DROP, a type change, or adding NOT NULL to an existing
+          # column all require explicit human approval before merging.
+          # Refine this pattern set as real migrations start using it.
+          if echo "$changed" | xargs -r grep -iE 'drop |alter .* type|set not null' > /tmp/destructive-statements.txt; then
+            echo "Potentially destructive statements found:"
+            cat /tmp/destructive-statements.txt
+            echo "destructive=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "destructive=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Require explicit approval for destructive migrations
+        if: >
+          steps.destructive-check.outputs.destructive == 'true' &&
+          !contains(github.event.pull_request.labels.*.name, 'migration-approved')
+        run: |
+          echo "::error::This PR touches a migration with a potentially destructive statement (DROP / ALTER ... TYPE / SET NOT NULL). Add the 'migration-approved' label after explicit human review (architecture.md's destructive-change approval process) and re-run this workflow."
+          exit 1
+
+      - name: Delete ephemeral Neon branch
+        if: always()
+        uses: neondatabase/delete-branch-action@4468d825d5a88ef4012f1705a82f02ec3072f776 # v3.2.1
+        with:
+          api_key: ${{ secrets.NEON_API_KEY }}
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          branch: ${{ steps.neon-branch.outputs.branch_id }}

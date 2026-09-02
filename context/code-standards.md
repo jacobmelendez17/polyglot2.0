@@ -540,6 +540,7 @@ Most tests should be unit tests of domain rules. Domain logic is pure and has no
 ### Integration Tests
 
 - Run against a real ephemeral PostgreSQL instance with migrations applied, never against a mock or an in-memory substitute with different SQL semantics.
+- Tests consume `TEST_DATABASE_URL`, deliberately separate from the application runtime's `DATABASE_URL` (spec 08). CI provisions an ephemeral Neon PostgreSQL branch per run and never points this at the production branch. Locally, it may point at a dedicated Neon development/test branch or a local real PostgreSQL instance — never SQLite, an in-memory PostgreSQL imitation, or a mocked/faked repository.
 - Each test runs in a transaction that is rolled back, or against a uniquely named schema. Tests must not depend on execution order or on leftover state.
 - Cover: authorization and ownership enforcement, transaction boundaries and their rollback behavior, constraint violations, concurrent submission handling, and idempotency replay.
 - The transactional invariants in `architecture.md` — a failed review leaving state unchanged, a failed enrollment enrolling nothing — are only meaningfully verifiable at this tier.

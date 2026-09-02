@@ -1551,6 +1551,8 @@ The product specification identifies progress farming as a real risk. Rate limit
 
 Rate limiting is accessed through a provider interface in `providers/rate-limit`, consistent with ADR-009. Domain code expresses intent — "this action, for this subject, at this cost" — and never talks to the underlying store directly.
 
+The v1 backing store is **Upstash Redis**, implemented behind that same `providers/rate-limit` boundary (spec 08). Local development and every automated test use a credential-free in-memory implementation of the same interface instead — no test run requires Upstash credentials to exist. Rate-limit state never lives in the application's own PostgreSQL database.
+
 ## Required Limits
 
 | Surface | Rationale |
@@ -1911,6 +1913,80 @@ keeping lesson completion authoritative and verifiable.
 model. Depends on ADR-014 for exactly-once enrollment and ADR-015 for the
 rate-limit boundary. The token is an integrity mechanism only; the database
 remains authoritative per the database-authority rule.
+
+---
+
+## ADR-018 — Progress Rows Exist Only After Enrollment
+
+**Decision:** `user_item_progress` has no row for a learning item until the
+learner actually enrolls in it. There is no "unlocked but not learned"
+progress row with a null SRS stage — `srs_stage` is `NOT NULL`. Whether an
+item is merely unlocked (available to appear in a lesson) is tracked
+entirely separately, in `user_level_progress`, which is level-scoped, not
+item-scoped.
+
+**Why:** Blurring "unlocked" and "learned" into one nullable-stage row on
+every curriculum item a user could ever see would require a row per
+user-per-item at unlock time, most of which would never be touched, and
+would make "has this item been learned" ambiguous between "no row" and "row
+with a null stage." Two separate, narrower tables keep each one's rows
+meaningful: a `user_item_progress` row always means "this learner has
+studied this item at least once," and a `user_level_progress` row always
+means "this level is available to this learner," independent of how much of
+it they've actually done.
+
+**Relationship to existing decisions:** Implements ADR-008's data-driven
+unlocks — the unlock state this establishes is exactly what that decision's
+threshold logic reads.
+
+---
+
+## ADR-019 — Denormalized `language_id` on `user_item_progress`
+
+**Decision:** `user_item_progress.language_id` duplicates data already
+reachable through `learning_items.language_id`. A composite foreign key on
+`(learning_item_id, language_id)` referencing `learning_items(id,
+language_id)` makes a progress row whose `language_id` disagrees with its
+own learning item's structurally impossible — the denormalization can never
+silently drift from the truth.
+
+**Why:** The due-review query — every item due for review, for one user, in
+one language — is the single most frequent progress read and needs a
+composite index on `(user_id, language_id, next_review_at)`. An index can't
+span a join, so without this column the query would need to join through
+`learning_items` on every review-queue load. Trading one duplicated column,
+made safe by a composite foreign key, for an indexable hot-path query is a
+better tradeoff than joining on every read.
+
+**Relationship to existing decisions:** Depends on ADR-002's choice of
+Postgres, whose composite foreign keys make this safe; a database without
+them would make this denormalization a real correctness risk instead of a
+constrained one.
+
+---
+
+## ADR-020 — Developer Sandbox Isolated at the User Boundary
+
+**Decision:** The admin/developer sandbox is not a flag on progress rows. It
+is a normal user row (`users.is_sandbox`, `users.sandbox_owner_user_id`,
+`clerk_user_id` left null) owned by a real developer account, enforced by a
+check constraint requiring the owner column exactly when the flag is set.
+Every progress, note, synonym, and unlock row already hangs off `user_id`,
+so a sandbox user inherits complete isolation from constraints that already
+exist — no progress table needed a schema change.
+
+**Why:** The alternative — a per-row `is_sandbox` flag on every progress
+table — means every query everywhere must remember to filter it, and one
+forgotten filter corrupts real learner data or leaks it into an aggregate. A
+separate PostgreSQL schema for sandbox data would duplicate the entire
+migration history. Routing sandbox state through an ordinary, isolated user
+row costs two columns and one constraint instead.
+
+**Relationship to existing decisions:** Composes with ADR-002's Postgres
+foreign-key/constraint machinery the same way ADR-019 does. Normal learner
+queries, aggregates, and dashboard data must still explicitly exclude users
+where `is_sandbox` is true — this decision makes that the only place
+isolation needs enforcing, not a guarantee that no code will ever forget to.
 
 ---
 

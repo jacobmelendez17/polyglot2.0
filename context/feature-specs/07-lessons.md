@@ -29,33 +29,43 @@ Do not implement lesson recovery after refresh.
 
 ## Prerequisites
 
-This spec cannot be completed end to end against the repository as it exists
-today. Per `progress-tracker.md`, none of the following exists yet:
+**Resolved by spec 08 (2026-09-02).** Every mechanism/domain row below now
+exists and is tested against real PostgreSQL — see
+`progress-tracker.md`'s spec 08 entry for what each unit built.
 
 | Requirement | Needed by | Status |
 | --- | --- | --- |
-| Database layer (Drizzle + Neon) | §45, §46, §49, §61 | Not started |
-| Internal user record / `users` domain | §10, §44 | Not started (Next Up #3) |
-| `curriculum` domain and real curriculum data | §15, §16, §24, §29 | Not started (Next Up #4) |
-| `srs` domain | §46, §47, §48 | Not started (Next Up #4) |
-| `progress` domain | §44, §53 | Not started (Next Up #4) |
-| Rate-limit provider | §50 | Not started; backing store is an open question |
-| Idempotency key storage | §49 | Not started |
-| Integration test harness | §79, §80 | Not started; harness choice is an open question |
-| `media` / R2 storage | §15 pronunciation audio | Not started |
+| Database layer (Drizzle + Neon) | §45, §46, §49, §61 | Done (spec 08 unit 1) |
+| Internal user record / `users` domain | §10, §44 | Done (spec 08 unit 3) |
+| `curriculum` domain and real curriculum data | §15, §16, §24, §29 | Domain done (spec 08 unit 4) — see caveat below |
+| `srs` domain | §46, §47, §48 | Done (spec 08 unit 5) |
+| `progress` domain | §44, §53 | Done (spec 08 unit 4) |
+| Rate-limit provider | §50 | Done (spec 08 unit 7) — Upstash Redis; not wired to any route yet |
+| Idempotency key storage | §49 | Done (spec 08 unit 6) — `withIdempotency`; no real consumer yet |
+| Integration test harness | §79, §80 | Done (spec 08 units 1–3) — real Neon via `TEST_DATABASE_URL` |
+| `media` / R2 storage | §15 pronunciation audio | Not started — unrelated to unit 6, still deferred |
 
-Units 1 through 5 and unit 7 in §90 can be implemented now against a
-fixture-backed curriculum service, following the pattern established by the
-spec 06 architecture decision (a real `async` domain service with a temporary
-fixture implementation, swappable in one file).
+**Curriculum-data caveat, read before starting unit 6:** spec 08 deliberately
+built the real `domains/curriculum`/`domains/progress` as *additive* code
+alongside — not replacing — this spec's fixture curriculum
+(`domains/curriculum/curriculum-fixtures.ts`, `FIXTURE_LANGUAGE_ID`), per an
+explicit user decision recorded in `progress-tracker.md` to avoid touching
+this spec's already-shipped, browser-verified lesson flow. The fixture's
+`LearningItem` IDs are toy strings (`"vocab-gato"`) and `languageId`/`levelId`
+are not real database UUIDs — they cannot be written into `user_item_progress`
+as-is, since that table's foreign keys require real `learning_items` rows.
+**Unit 6 is the point where this gap must actually close**: either rewire
+`app/(focus)/lessons/actions.ts` and `domains/lessons` to resolve the user's
+real `activeLanguageId` (via `domains/users`) and read real curriculum rows
+(via `domains/curriculum/server.ts`) before enrollment, or introduce an
+explicit mapping step from fixture IDs to real seeded rows. Do not invent a
+third option that persists fixture-shaped IDs into real foreign-keyed tables.
 
 Unit 6 — final revalidation, atomic SRS enrollment, idempotency, and rate
-limiting — cannot begin until the database layer and the `users`, `curriculum`,
-`srs`, and `progress` domains exist. Do not fake it. Do not stand up a
-throwaway SRS implementation inside `domains/lessons/` to unblock this spec.
-
-If unit 6 is blocked, complete units 1–5 and 7, record the block in
-`progress-tracker.md`, and stop.
+limiting — can now begin. Do not fake it. Do not stand up a throwaway SRS
+implementation inside `domains/lessons/` to unblock this spec — use the real
+`domains/srs`, `domains/progress`, `domains/idempotency`, and
+`providers/rate-limit` spec 08 already built.
 
 ---
 
