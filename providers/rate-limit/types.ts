@@ -1,4 +1,4 @@
-export type RateLimitPolicyName = "lesson-complete";
+export type RateLimitPolicyName = "lesson-complete" | "review-submit";
 
 export type RateLimitPolicy = {
   windowSeconds: number;

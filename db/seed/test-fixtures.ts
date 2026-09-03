@@ -168,6 +168,7 @@ export async function seedTestFixtures(db: DbClient): Promise<TestFixtureIds> {
       structure: "y",
       primaryMeaning: "and",
       explanation: "Connects two words, phrases, or clauses.",
+      requiredQuestions: [{ format: "translation", direction: "targetToEnglish" }],
     })
     .onConflictDoNothing({ target: grammarItems.learningItemId });
 

@@ -1,4 +1,5 @@
-import { foreignKey, integer, pgEnum, pgTable, text, unique, uuid } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { foreignKey, integer, jsonb, pgEnum, pgTable, text, unique, uuid } from "drizzle-orm/pg-core";
 
 import { timestamps } from "./columns";
 import { languages } from "./languages";
@@ -120,9 +121,31 @@ export const vocabularyItems = pgTable("vocabulary_items", {
 });
 
 /**
+ * Direction/format of one required grammar review question (spec 09 §7).
+ * Mirrors `domains/curriculum/curriculum-types.ts`'s fixture-domain shape
+ * exactly (`GrammarItem.requiredQuestions`) rather than inventing a new one.
+ * "translation" is the only format implemented anywhere in this codebase
+ * today (spec 09's review UI doesn't build anything else, e.g. word banks) —
+ * the JSONB shape leaves room to add a format without another migration.
+ */
+export type GrammarQuestionDirection = "targetToEnglish" | "englishToTarget";
+export type GrammarQuestionFormat = "translation";
+export type GrammarQuestionRequirement = { format: GrammarQuestionFormat; direction: GrammarQuestionDirection };
+
+/** The one currently-real default: every grammar item seeded before this column existed only ever required a single targetToEnglish translation question. */
+const DEFAULT_REQUIRED_QUESTIONS: GrammarQuestionRequirement[] = [{ format: "translation", direction: "targetToEnglish" }];
+
+/**
  * Grammar-specific fields (spec 08 §19), one-to-one with `learning_items`.
  * `structure` is the short display label (e.g. "y") matching spec 07's
  * `GrammarItem.structure`; `title` is an optional longer descriptive name.
+ *
+ * `requiredQuestions` (spec 09 §7, added in spec 09 unit 3): the configured
+ * review question requirements for this grammar concept. `NOT NULL` with a
+ * database-level default matching every real grammar row's current actual
+ * behavior, so the migration adding this column backfills existing rows
+ * safely in one statement rather than needing a separate expand/contract
+ * pass — every future insert should still set it explicitly.
  */
 export const grammarItems = pgTable("grammar_items", {
   learningItemId: uuid("learning_item_id")
@@ -134,6 +157,13 @@ export const grammarItems = pgTable("grammar_items", {
   explanation: text("explanation").notNull(),
   category: text("category"),
   creatorNotes: text("creator_notes"),
+  requiredQuestions: jsonb("required_questions")
+    .$type<GrammarQuestionRequirement[]>()
+    .notNull()
+    // `sql.raw` (not `sql` with a template param) — drizzle-kit can't emit a
+    // migration DEFAULT clause with a bound parameter, only a SQL literal.
+    // Safe here: the JSON is fixed, known content, not external input.
+    .default(sql.raw(`'${JSON.stringify(DEFAULT_REQUIRED_QUESTIONS)}'::jsonb`)),
   ...timestamps(),
 });
 

@@ -1,0 +1,1 @@
+ALTER TABLE "grammar_items" ADD COLUMN "required_questions" jsonb DEFAULT '[{"format":"translation","direction":"targetToEnglish"}]'::jsonb NOT NULL;

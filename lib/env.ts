@@ -14,6 +14,7 @@ const envSchema = z.object({
   NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL: z.string().min(1),
   NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL: z.string().min(1),
   LESSON_STATE_SECRET: z.string().min(32),
+  REVIEW_STATE_SECRET: z.string().min(32),
   APP_ENV: z.enum(["development", "preview", "production"]),
   DATABASE_URL: z.string().min(1),
 });
@@ -28,6 +29,7 @@ export const env = envSchema.parse({
   NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL:
     process.env.NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL,
   LESSON_STATE_SECRET: process.env.LESSON_STATE_SECRET,
+  REVIEW_STATE_SECRET: process.env.REVIEW_STATE_SECRET,
   APP_ENV: resolvedAppEnv,
   DATABASE_URL: process.env.DATABASE_URL,
 });

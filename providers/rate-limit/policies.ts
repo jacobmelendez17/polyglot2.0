@@ -12,4 +12,16 @@ export const RATE_LIMIT_POLICIES: Record<RateLimitPolicyName, RateLimitPolicy> =
     maxRequests: 5,
     failOpen: false,
   },
+  // Spec 09 §13 — every authoritative review submission (each question
+  // answered, not just each item completed) goes through this. Generous
+  // enough for real interactive keyboard-driven use (spec 09 §16's "Enter
+  // remains the primary review hotkey" implies rapid consecutive
+  // submissions are normal, unlike a once-per-lesson completion), while
+  // still bounding abuse. Fails closed like every other progress-affecting
+  // mutation (spec 09 §13's explicit requirement).
+  "review-submit": {
+    windowSeconds: 60,
+    maxRequests: 60,
+    failOpen: false,
+  },
 };

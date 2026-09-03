@@ -46,6 +46,13 @@ export interface CurriculumVocabularyDetail {
   creatorNotes: string | null;
 }
 
+export type CurriculumGrammarQuestionDirection = "targetToEnglish" | "englishToTarget";
+export type CurriculumGrammarQuestionFormat = "translation";
+export type CurriculumGrammarQuestionRequirement = {
+  format: CurriculumGrammarQuestionFormat;
+  direction: CurriculumGrammarQuestionDirection;
+};
+
 export interface CurriculumGrammarDetail {
   title: string | null;
   structure: string;
@@ -53,6 +60,8 @@ export interface CurriculumGrammarDetail {
   explanation: string;
   category: string | null;
   creatorNotes: string | null;
+  /** The configured review question requirements for this concept (spec 09 §7) — never assume bidirectional translation. */
+  requiredQuestions: CurriculumGrammarQuestionRequirement[];
 }
 
 interface CurriculumLearningItemBase {

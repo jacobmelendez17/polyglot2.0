@@ -12,6 +12,10 @@ export async function getLanguageByCode(code: string) {
   return repository.getLanguageByCode(db, code);
 }
 
+export async function getLanguageById(id: string) {
+  return repository.getLanguageById(db, id);
+}
+
 export async function getLevelById(levelId: string) {
   return repository.getLevelById(db, levelId);
 }
@@ -26,6 +30,10 @@ export async function getVocabularyGroup(id: string) {
 
 export async function getLearningItem(id: string) {
   return repository.getLearningItem(db, id);
+}
+
+export async function getLearningItemsByIds(ids: string[]) {
+  return repository.getLearningItemsByIds(db, ids);
 }
 
 export async function getLevelItems(levelId: string) {

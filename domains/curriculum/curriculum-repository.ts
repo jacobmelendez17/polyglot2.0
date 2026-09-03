@@ -1,4 +1,4 @@
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, inArray } from "drizzle-orm";
 
 import type { DbClient } from "@/db/client";
 import { grammarItems, languages, learningItems, levels, vocabularyGroups, vocabularyItems } from "@/db/schema";
@@ -64,6 +64,7 @@ function toCurriculumGrammarDetail(row: typeof grammarItems.$inferSelect): Curri
     explanation: row.explanation,
     category: row.category,
     creatorNotes: row.creatorNotes,
+    requiredQuestions: row.requiredQuestions,
   };
 }
 
@@ -107,6 +108,11 @@ export async function getLanguageByCode(db: DbClient, code: string): Promise<Cur
   return row ? toCurriculumLanguage(row) : null;
 }
 
+export async function getLanguageById(db: DbClient, id: string): Promise<CurriculumLanguage | null> {
+  const [row] = await db.select().from(languages).where(eq(languages.id, id)).limit(1);
+  return row ? toCurriculumLanguage(row) : null;
+}
+
 export async function getLevelById(db: DbClient, levelId: string): Promise<CurriculumLevel | null> {
   const [row] = await db.select().from(levels).where(eq(levels.id, levelId)).limit(1);
   return row ? toCurriculumLevel(row) : null;
@@ -134,4 +140,66 @@ export async function getLevelItems(db: DbClient, levelId: string): Promise<Curr
     .where(eq(learningItems.levelId, levelId))
     .orderBy(asc(learningItems.position));
   return Promise.all(items.map((item) => attachDetail(db, item)));
+}
+
+/**
+ * Batch fetch by id, in a bounded number of queries regardless of how many
+ * ids are requested — 1 for the shared identity rows, plus at most 1 each
+ * for vocabulary/grammar detail (never one query per item, unlike
+ * `attachDetail`'s per-item `getLearningItem` path). Built for spec 09's
+ * review-session loading, where a due-review queue can span many items and
+ * §20's "database queries/request < 10" target matters. Order matches the
+ * input `ids`, silently dropping any id that no longer resolves — callers
+ * that need to detect a missing id compare lengths themselves.
+ */
+export async function getLearningItemsByIds(db: DbClient, ids: string[]): Promise<CurriculumLearningItem[]> {
+  if (ids.length === 0) return [];
+
+  const items = await db.select().from(learningItems).where(inArray(learningItems.id, ids));
+  const vocabularyItemIds = items.filter((item) => item.type === "vocabulary").map((item) => item.id);
+  const grammarItemIds = items.filter((item) => item.type === "grammar").map((item) => item.id);
+
+  const [vocabularyDetails, grammarDetails] = await Promise.all([
+    vocabularyItemIds.length > 0
+      ? db.select().from(vocabularyItems).where(inArray(vocabularyItems.learningItemId, vocabularyItemIds))
+      : Promise.resolve([]),
+    grammarItemIds.length > 0
+      ? db.select().from(grammarItems).where(inArray(grammarItems.learningItemId, grammarItemIds))
+      : Promise.resolve([]),
+  ]);
+
+  const vocabularyById = new Map(vocabularyDetails.map((detail) => [detail.learningItemId, detail]));
+  const grammarById = new Map(grammarDetails.map((detail) => [detail.learningItemId, detail]));
+  const itemById = new Map(items.map((item) => [item.id, item]));
+
+  const results: CurriculumLearningItem[] = [];
+  for (const id of ids) {
+    const item = itemById.get(id);
+    if (!item) continue;
+
+    const base = {
+      id: item.id,
+      languageId: item.languageId,
+      levelId: item.levelId,
+      status: item.status,
+      position: item.position,
+      lessonPriority: item.lessonPriority,
+    };
+
+    if (item.type === "vocabulary") {
+      const detail = vocabularyById.get(item.id);
+      if (!detail) {
+        throw new Error(`Data integrity error: learning item ${item.id} is type "vocabulary" with no vocabulary_items row.`);
+      }
+      results.push({ ...base, type: "vocabulary", vocabulary: toCurriculumVocabularyDetail(detail) });
+    } else {
+      const detail = grammarById.get(item.id);
+      if (!detail) {
+        throw new Error(`Data integrity error: learning item ${item.id} is type "grammar" with no grammar_items row.`);
+      }
+      results.push({ ...base, type: "grammar", grammar: toCurriculumGrammarDetail(detail) });
+    }
+  }
+
+  return results;
 }

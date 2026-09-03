@@ -87,7 +87,10 @@ describe("InMemoryRateLimiter", () => {
     const limiter = new InMemoryRateLimiter({
       appEnv: "test",
       simulateFailure: () => true,
-      policies: { "lesson-complete": { windowSeconds: 60, maxRequests: 5, failOpen: true } },
+      policies: {
+        "lesson-complete": { windowSeconds: 60, maxRequests: 5, failOpen: true },
+        "review-submit": { windowSeconds: 60, maxRequests: 5, failOpen: true },
+      },
     });
 
     const result = await limiter.check({ policy: "lesson-complete", subject: "user-8" });

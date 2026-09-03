@@ -16,7 +16,15 @@ import { seedTestFixtures } from "@/db/seed/test-fixtures";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
 import { getDefaultLanguageCode } from "@/domains/users";
 
-import { getLanguageByCode, getLearningItem, getLevelById, getLevelItems, getVocabularyGroup } from "./curriculum-repository";
+import {
+  getLanguageByCode,
+  getLanguageById,
+  getLearningItem,
+  getLearningItemsByIds,
+  getLevelById,
+  getLevelItems,
+  getVocabularyGroup,
+} from "./curriculum-repository";
 
 describe("curriculum repository", () => {
   it("resolves the language by code and returns a domain projection, not a raw row", async () => {
@@ -29,6 +37,14 @@ describe("curriculum repository", () => {
       expect(language?.slug).toBe("spanish");
       // A domain projection, not the Drizzle row: no createdAt/updatedAt leak through.
       expect(language).not.toHaveProperty("createdAt");
+    });
+  });
+
+  it("resolves the language by id", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      const language = await getLanguageById(tx, languageId);
+      expect(language?.code).toBe(getDefaultLanguageCode());
     });
   });
 
@@ -110,7 +126,30 @@ describe("curriculum repository", () => {
       if (item?.type === "grammar") {
         expect(item.grammar.structure).toBe("y");
         expect(item.grammar.primaryMeaning).toBe("and");
+        expect(item.grammar.requiredQuestions).toEqual([{ format: "translation", direction: "targetToEnglish" }]);
       }
+    });
+  });
+
+  it("backfills requiredQuestions via the column default for a row inserted without it (spec 09 §7 migration safety)", async () => {
+    await withTestTransaction(async (tx) => {
+      const { level1Id, languageId } = await seedTestFixtures(tx);
+      const [rawItem] = await tx
+        .insert(learningItems)
+        .values({ languageId, levelId: level1Id, type: "grammar", status: "published", position: 99, lessonPriority: 99 })
+        .returning();
+      await tx.insert(grammarItems).values({
+        learningItemId: rawItem!.id,
+        structure: "pero",
+        primaryMeaning: "but",
+        explanation: "Introduces a contrast.",
+        // requiredQuestions deliberately omitted — proves the migration's DEFAULT clause backfills it.
+      });
+
+      const item = await getLearningItem(tx, rawItem!.id);
+      expect(item?.type === "grammar" && item.grammar.requiredQuestions).toEqual([
+        { format: "translation", direction: "targetToEnglish" },
+      ]);
     });
   });
 
@@ -140,6 +179,26 @@ describe("curriculum repository", () => {
           explanation: "duplicate",
         }),
       ).rejects.toThrow();
+    });
+  });
+
+  it("getLearningItemsByIds batch-fetches mixed vocabulary/grammar items, preserving input order and dropping unknown ids", async () => {
+    await withTestTransaction(async (tx) => {
+      const { gatoId, grammarYId, casaId } = await seedTestFixtures(tx);
+      const unknownId = "00000000-0000-0000-0000-000000000000";
+
+      const items = await getLearningItemsByIds(tx, [casaId, unknownId, grammarYId, gatoId]);
+
+      expect(items.map((item) => item.id)).toEqual([casaId, grammarYId, gatoId]);
+      expect(items.find((item) => item.id === grammarYId)?.type).toBe("grammar");
+      expect(items.find((item) => item.id === gatoId)?.type).toBe("vocabulary");
+    });
+  });
+
+  it("getLearningItemsByIds returns an empty array for an empty input without querying", async () => {
+    await withTestTransaction(async (tx) => {
+      const items = await getLearningItemsByIds(tx, []);
+      expect(items).toEqual([]);
     });
   });
 

@@ -10,7 +10,9 @@
  */
 export {
   getLanguageByCode,
+  getLanguageById,
   getLearningItem,
+  getLearningItemsByIds,
   getLevelById,
   getLevelItems,
   getLevelsByLanguage,
