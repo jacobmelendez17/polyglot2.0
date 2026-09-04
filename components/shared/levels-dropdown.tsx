@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { usePathname } from "next/navigation";
-import { ChevronDown } from "lucide-react";
 
 import { LevelLink } from "@/components/shared/level-link";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -25,14 +24,10 @@ export function LevelsDropdown() {
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        className="flex items-center gap-1 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground aria-expanded:text-foreground"
-        aria-label="Levels"
-      >
+      <PopoverTrigger className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground aria-expanded:text-foreground">
         Levels
-        <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-auto p-3">
+      <PopoverContent align="center" className="w-auto p-3">
         <div className="grid grid-cols-10 gap-1">
           {LEVEL_NUMBERS.map((levelNumber) => (
             <LevelLink
