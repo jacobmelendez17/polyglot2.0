@@ -4,7 +4,10 @@ type AccentHelpersProps = {
 };
 
 /**
- * Language-configurable character helpers (spec 07 §27). No bordered chip,
+ * Language-configurable character helpers (spec 07 §27), shared across any
+ * typed-answer flow — moved here from `components/lessons/` when spec 09's
+ * review UI became its second consumer (code-standards.md: reusable
+ * application-level UI belongs in `components/shared/`). No bordered chip,
  * filled background, or button surface — spacing and hover/focus state
  * alone distinguish them. Each glyph keeps a 44px touch target even though
  * the visible character is smaller.

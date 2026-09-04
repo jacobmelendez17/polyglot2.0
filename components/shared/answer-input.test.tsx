@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 
-import { AnswerInput } from "@/components/lessons/answer-input";
+import { AnswerInput } from "@/components/shared/answer-input";
 
 describe("AnswerInput", () => {
   it("renders with a bottom border only, no other borders/fill/radius/shadow", () => {

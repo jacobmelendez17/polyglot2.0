@@ -10,9 +10,12 @@ export type { IntervalUnit, SrsInterval, SrsStage } from "./srs-types";
 export {
   BEGINNER_PENALTY_STAGES,
   FAMILIAR_PLUS_PENALTY_FACTOR,
+  getCharacterHelpers,
   getReviewRetrySpacingMinimum,
   getReviewStateTokenTtlSeconds,
   isBeginnerTier,
+  LEVEL_UNLOCK_MINIMUM_STAGE,
+  LEVEL_UNLOCK_RATIO,
   MAX_INCORRECT_ADJUSTMENT_COUNT_PER_ITEM,
   MINIMUM_REVIEW_STAGE,
   VOCABULARY_REQUIRED_DIRECTIONS,

@@ -9,7 +9,7 @@ import { ReviewError } from "@/lib/errors/review-errors";
 
 import { getReviewQuestionAnswerSpec } from "./review-answer-spec";
 import { applyReviewCompletion } from "./review-completion";
-import { getReviewRetrySpacingMinimum, getReviewStateTokenTtlSeconds } from "./review-config";
+import { getCharacterHelpers, getReviewRetrySpacingMinimum, getReviewStateTokenTtlSeconds } from "./review-config";
 import { buildReviewQuestions, interleaveReviewQuestions } from "./review-queue";
 import { rescheduleReviewAfterIncorrect } from "./review-retry";
 import { signReviewState, verifyReviewState } from "./review-token";
@@ -163,7 +163,15 @@ export async function startReviewSession(
   const token = await signReviewState(state);
   const currentQuestion = await buildQuestionView(db, state, queue[0], curriculumItems, language);
 
-  return { kind: "session", token, sessionId: state.sessionId, phase: "in_progress", currentQuestion, stats };
+  return {
+    kind: "session",
+    token,
+    sessionId: state.sessionId,
+    phase: "in_progress",
+    currentQuestion,
+    characterHelpers: getCharacterHelpers(language.code),
+    stats,
+  };
 }
 
 export type SubmitReviewAnswerInput = {
@@ -216,6 +224,7 @@ export async function submitReviewAnswer(
       sessionId: state.sessionId,
       phase: "in_progress",
       currentQuestion,
+      characterHelpers: getCharacterHelpers(language.code),
       stats: state.stats,
       feedback: { kind: "empty" },
     };
@@ -272,6 +281,7 @@ export async function submitReviewAnswer(
 
   // Item completion: every required question for this item is now satisfied, and it hasn't already fired.
   let completedItem: ReviewSessionResult["completedItem"];
+  let staleItem: ReviewSessionResult["staleItem"];
   if (result.isCorrect && !nextState.completedItemIds.includes(question.itemId)) {
     const requiredIds = requiredQuestionIdsForItem(nextState, question.itemId);
     const allSatisfied = requiredIds.every((id) => nextState.satisfiedQuestionIds.includes(id));
@@ -281,17 +291,28 @@ export async function submitReviewAnswer(
       if (!snapshot) throw new ReviewError("INVALID_REVIEW_STATE");
 
       const hadIncorrectRequiredAnswer = requiredIds.some((id) => nextState.failedQuestionIds.includes(id));
-      completedItem = await applyReviewCompletion(db, {
-        userId,
-        languageId,
-        learningItemId: question.itemId,
-        expectedVersion: snapshot.version,
-        requiredQuestionCount: requiredIds.length,
-        hadIncorrectRequiredAnswer,
-        now: new Date(now),
-        idempotencyKey,
-        sessionId: state.sessionId,
-      });
+      try {
+        completedItem = await applyReviewCompletion(db, {
+          userId,
+          languageId,
+          learningItemId: question.itemId,
+          expectedVersion: snapshot.version,
+          requiredQuestionCount: requiredIds.length,
+          hadIncorrectRequiredAnswer,
+          now: new Date(now),
+          idempotencyKey,
+          sessionId: state.sessionId,
+        });
+      } catch (error) {
+        // Spec 09 §11: another tab/device already completed this exact item.
+        // The learner's own answer was still graded correctly above — don't
+        // discard that or block the rest of the session over it. Advance
+        // past this item as already resolved, just not by this request.
+        const isAlreadyResolvedElsewhere =
+          error instanceof ReviewError && (error.code === "STALE_REVIEW" || error.code === "REVIEW_NOT_DUE");
+        if (!isAlreadyResolvedElsewhere) throw error;
+        staleItem = { itemId: question.itemId };
+      }
 
       nextState = {
         ...nextState,
@@ -311,8 +332,10 @@ export async function submitReviewAnswer(
     sessionId: nextState.sessionId,
     phase,
     currentQuestion,
+    characterHelpers: getCharacterHelpers(language.code),
     stats: nextState.stats,
     feedback,
     completedItem,
+    staleItem,
   };
 }

@@ -527,6 +527,59 @@ describe("atomic review completion (spec 09 unit 4)", () => {
     });
   });
 
+  it("submitReviewAnswer recovers gracefully when the completing submission turns out stale — grades the answer, reports staleItem, and still advances the session (spec 09 §11)", async () => {
+    await withTestTransaction(async (tx) => {
+      const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
+      await markDue(tx, learnerId, gatoId, languageId, { srsStage: "beginner_1" });
+
+      const started = await startReviewSession(tx, { userId: learnerId, languageId });
+      if (started.kind !== "session") throw new Error("expected a session");
+      const first = await submitReviewAnswer(tx, {
+        token: started.token,
+        userId: learnerId,
+        languageId,
+        questionId: started.currentQuestion!.questionId,
+        answer: "cat",
+        idempotencyKey: crypto.randomUUID(),
+      });
+      expect(first.completedItem).toBeUndefined();
+
+      // Simulate a second device completing gato's review in between, out
+      // from under this session's snapshot — bump the row's version
+      // directly, as a real concurrent completion would leave it.
+      await tx
+        .update(userItemProgress)
+        .set({ version: 99 })
+        .where(and(eq(userItemProgress.userId, learnerId), eq(userItemProgress.learningItemId, gatoId)));
+
+      const final = await submitReviewAnswer(tx, {
+        token: first.token,
+        userId: learnerId,
+        languageId,
+        questionId: first.currentQuestion!.questionId,
+        answer: "el gato",
+        idempotencyKey: crypto.randomUUID(),
+      });
+
+      // The learner's own answer was still graded correctly...
+      expect(final.feedback).toEqual({ kind: "correct" });
+      // ...but no completion preview, since this request didn't actually apply one...
+      expect(final.completedItem).toBeUndefined();
+      // ...and the UI is told specifically why, per spec 09 §11's exact instruction.
+      expect(final.staleItem).toEqual({ itemId: gatoId });
+      // The session still advances past the item rather than getting stuck retrying it forever.
+      expect(final.phase).toBe("complete");
+      expect(final.stats.itemsCompleted).toBe(1);
+
+      // And the real row is untouched by this request — still at the other device's version.
+      const [row] = await tx
+        .select()
+        .from(userItemProgress)
+        .where(and(eq(userItemProgress.userId, learnerId), eq(userItemProgress.learningItemId, gatoId)));
+      expect(row?.version).toBe(99);
+    });
+  });
+
   it("the same idempotency key with the same payload applies the mutation exactly once on replay", async () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);

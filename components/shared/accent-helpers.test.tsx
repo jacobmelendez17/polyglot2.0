@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { AccentHelpers } from "@/components/lessons/accent-helpers";
+import { AccentHelpers } from "@/components/shared/accent-helpers";
 
 describe("AccentHelpers", () => {
   it("inserts the character when activated", async () => {

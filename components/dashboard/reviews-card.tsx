@@ -1,9 +1,7 @@
 import Link from "next/link";
-import { RotateCcw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { EmptyState } from "@/components/dashboard/empty-state";
 import type { DashboardData } from "@/domains/dashboard";
 import { formatRelativeTime } from "@/lib/time/format-relative-time";
 
@@ -11,6 +9,13 @@ type ReviewsCardProps = {
   reviews: DashboardData["reviews"];
 };
 
+/**
+ * Whenever nothing is due — whether because everything is already reviewed
+ * or because the learner has never had any reviews yet — this renders one
+ * consistent, non-clickable "No reviews due yet" state rather than two
+ * different card shapes (one of which used to offer a "Start lessons"
+ * link). There is nothing to click through to until something is actually due.
+ */
 export function ReviewsCard({ reviews }: ReviewsCardProps) {
   const hasReviews = reviews.availableCount > 0;
 
@@ -19,7 +24,7 @@ export function ReviewsCard({ reviews }: ReviewsCardProps) {
       <CardHeader>
         <CardTitle>Reviews</CardTitle>
         <CardDescription>
-          {hasReviews ? `${reviews.availableCount} ready for review` : "You're all caught up"}
+          {hasReviews ? `${reviews.availableCount} ready for review` : "No reviews due yet"}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -27,17 +32,12 @@ export function ReviewsCard({ reviews }: ReviewsCardProps) {
           <Button asChild>
             <Link href="/reviews">Start reviews</Link>
           </Button>
-        ) : reviews.nextReviewAt ? (
-          <p className="text-sm text-muted-foreground">
-            Next review {formatRelativeTime(new Date(reviews.nextReviewAt), new Date())}
-          </p>
         ) : (
-          <EmptyState
-            icon={RotateCcw}
-            title="No reviews yet"
-            description="Complete a lesson to start your first reviews."
-            action={{ label: "Start lessons", href: "/lessons" }}
-          />
+          <p className="text-sm text-muted-foreground">
+            {reviews.nextReviewAt
+              ? `Next review ${formatRelativeTime(new Date(reviews.nextReviewAt), new Date())}`
+              : "Complete a lesson to start your first reviews."}
+          </p>
         )}
       </CardContent>
     </Card>

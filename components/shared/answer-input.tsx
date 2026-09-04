@@ -18,6 +18,8 @@ const STATE_CLASSES: Record<AnswerInputState, string> = {
  * A single underline, per spec 07 §26: bottom border only, no side/top
  * border, no fill, no radius, no shadow. Focus thickens the rule as well as
  * changing color, so focus stays visible without relying on color alone.
+ * Shared across any typed-answer flow — moved here from `components/lessons/`
+ * when spec 09's review UI became its second consumer.
  */
 export const AnswerInput = forwardRef<HTMLInputElement, AnswerInputProps>(function AnswerInput(
   { className, state = "default", ...props },

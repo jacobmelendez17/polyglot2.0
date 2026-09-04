@@ -11,7 +11,7 @@ import {
 } from "@/app/(focus)/lessons/actions";
 import { Button } from "@/components/ui/button";
 import { CategoryBadge } from "@/components/lessons/category-badge";
-import { ExitLessonButton } from "@/components/lessons/exit-lesson-button";
+import { ExitFocusButton } from "@/components/shared/exit-focus-button";
 import { ExitLessonDialog } from "@/components/lessons/exit-lesson-dialog";
 import { LessonCompleteView } from "@/components/lessons/lesson-complete-view";
 import { LessonErrorState } from "@/components/lessons/lesson-error-state";
@@ -311,7 +311,7 @@ export function LessonSessionView({ initial }: LessonSessionViewProps) {
     <>
       <div className="mx-auto flex min-h-svh max-w-3xl flex-col px-4 py-6">
         <div className="flex items-center justify-between">
-          <ExitLessonButton onClick={() => setExitDialogOpen(true)} />
+          <ExitFocusButton label="Exit lesson" onClick={() => setExitDialogOpen(true)} />
           {currentItem ? (
             <p className="text-sm text-muted-foreground">
               Level {currentItem.item.levelId} • {state.currentStudyIndex + 1} / {studyItems.length}

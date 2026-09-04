@@ -28,7 +28,7 @@ describe("DashboardView", () => {
   it("renders the new-user empty states instead of populated data", () => {
     render(<DashboardView data={createNewUserDashboardFixture(NOW)} />);
 
-    expect(screen.getByText("No reviews yet")).toBeInTheDocument();
+    expect(screen.getByText("No reviews due yet")).toBeInTheDocument();
     expect(screen.getByText("No reviews forecasted")).toBeInTheDocument();
     expect(screen.getByText("No review history yet")).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Start lessons" }).length).toBeGreaterThan(0);

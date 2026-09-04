@@ -60,3 +60,21 @@ export const VOCABULARY_REQUIRED_DIRECTIONS = ["targetToEnglish", "englishToTarg
  */
 export const LEVEL_UNLOCK_RATIO = 5 / 6;
 export const LEVEL_UNLOCK_MINIMUM_STAGE: SrsStage = "familiar_1";
+
+/**
+ * Configured character helpers, keyed by language *code* (spec 09 §16 —
+ * "Do not hardcode Spanish helpers into the generic answer component;
+ * resolve them from language configuration"). Same shape as spec 07's
+ * `domains/lessons/lesson-config.ts`'s `getCharacterHelpers`, kept as its
+ * own copy rather than shared — this domain resolves a real curriculum
+ * language code (`CurriculumLanguage.code`), not the fixture domain's
+ * `FIXTURE_LANGUAGE_ID`, so the two functions' keys aren't even the same
+ * kind of value.
+ */
+const CHARACTER_HELPERS_BY_LANGUAGE_CODE: Record<string, readonly string[]> = {
+  "es-MX": ["á", "é", "í", "ó", "ú", "ü", "ñ"],
+};
+
+export function getCharacterHelpers(languageCode: string): readonly string[] {
+  return CHARACTER_HELPERS_BY_LANGUAGE_CODE[languageCode] ?? [];
+}

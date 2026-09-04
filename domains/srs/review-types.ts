@@ -40,12 +40,12 @@ export type ReviewAnswerFeedback =
     };
 
 /**
- * A pure, unpersisted preview of the SRS mutation a just-completed item
- * would receive (spec 09 unit 3's scope boundary — "no authoritative SRS
- * mutation until the completion boundary is reached"). Unit 4 replaces the
- * function that produces this with the real atomic transaction; nothing
- * here has touched the database. Mirrors spec 07's
- * `lesson-completion-preview.ts` relationship to its later unit 6.
+ * The real, persisted SRS mutation a just-completed item received (spec 09
+ * §10, unit 4's `applyReviewCompletion`). Named "Preview" from spec 09 unit
+ * 3, when this shape genuinely was an unpersisted preview and nothing had
+ * touched the database yet (see `review-completion-preview.ts`) — kept as
+ * one shape rather than introducing a duplicate type once unit 4 made it
+ * real, since both producers return identical fields.
  */
 export type ReviewItemCompletionPreview = {
   itemId: string;
@@ -62,10 +62,20 @@ export type ReviewSessionResult = {
   sessionId: string;
   phase: "in_progress" | "complete";
   currentQuestion?: ReviewQuestionView;
+  /** Resolved server-side from the session's language (spec 09 §16) — the client never hardcodes these. */
+  characterHelpers: readonly string[];
   stats: ReviewSessionStats;
   feedback?: ReviewAnswerFeedback;
   /** Present only on the submit that just completed this item — one-shot, not resurfaced on later responses. */
   completedItem?: ReviewItemCompletionPreview;
+  /**
+   * Present only when this item's completion was rejected as stale/no-longer-due
+   * (spec 09 §11 — another tab/device already completed it). The session still
+   * advances past this item normally; the UI should explain that the review
+   * was already updated elsewhere and no additional progress change applied,
+   * per spec 09 §11's explicit UI instruction, rather than a generic error.
+   */
+  staleItem?: { itemId: string };
 };
 
 export type ReviewStartResult = { kind: "empty"; nextReviewAt: Date | null } | ({ kind: "session" } & ReviewSessionResult);

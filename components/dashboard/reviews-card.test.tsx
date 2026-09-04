@@ -14,24 +14,25 @@ describe("ReviewsCard", () => {
     );
   });
 
-  it("renders the next review time when none are available yet", () => {
+  it("renders a non-clickable 'No reviews due yet' card with the next review time when caught up", () => {
     render(
       <ReviewsCard
         reviews={{ availableCount: 0, nextReviewAt: "2026-08-30T15:00:00.000Z" }}
       />
     );
 
+    expect(screen.getByText("No reviews due yet")).toBeInTheDocument();
     expect(screen.getByText(/Next review/)).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Start reviews" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
-  it("renders a new-user empty state when nothing has ever been scheduled", () => {
+  it("renders the same non-clickable 'No reviews due yet' card when nothing has ever been scheduled", () => {
     render(<ReviewsCard reviews={{ availableCount: 0, nextReviewAt: null }} />);
 
-    expect(screen.getByText("No reviews yet")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Start lessons" })).toHaveAttribute(
-      "href",
-      "/lessons"
-    );
+    expect(screen.getByText("No reviews due yet")).toBeInTheDocument();
+    expect(screen.getByText("Complete a lesson to start your first reviews.")).toBeInTheDocument();
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 });

@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, X } from "lucide-react";
 
-import { AccentHelpers } from "@/components/lessons/accent-helpers";
-import { AnswerInput } from "@/components/lessons/answer-input";
-import { ExitLessonButton } from "@/components/lessons/exit-lesson-button";
+import { AccentHelpers } from "@/components/shared/accent-helpers";
+import { AnswerInput } from "@/components/shared/answer-input";
+import { ExitFocusButton } from "@/components/shared/exit-focus-button";
 import { LessonProgressSegments, type ProgressSegmentItem } from "@/components/lessons/lesson-progress-segments";
 import type { QuizAnswerFeedback, QuizQuestionView, QuizStats } from "@/domains/lessons";
 
@@ -42,7 +42,7 @@ export function QuizView({
   return (
     <div className="mx-auto flex min-h-svh max-w-2xl flex-col px-4 py-6">
       <div className="flex items-center justify-between">
-        <ExitLessonButton onClick={onExit} />
+        <ExitFocusButton label="Exit lesson" onClick={onExit} />
         {quizStats ? (
           <p className="text-xs text-muted-foreground">
             Beginner 1 · {quizStats.satisfiedCount} / {quizStats.requiredCount} ·{" "}
