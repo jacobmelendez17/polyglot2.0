@@ -14,6 +14,7 @@ export {
   getLearningItem,
   getLearningItemsByIds,
   getLevelById,
+  getLevelByLanguageAndNumber,
   getLevelItems,
   getLevelsByLanguage,
   getVocabularyGroup,

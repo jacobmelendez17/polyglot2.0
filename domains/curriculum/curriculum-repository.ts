@@ -1,4 +1,4 @@
-import { asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 
 import type { DbClient } from "@/db/client";
 import { grammarItems, languages, learningItems, levels, vocabularyGroups, vocabularyItems } from "@/db/schema";
@@ -123,6 +123,27 @@ export async function getLevelsByLanguage(db: DbClient, languageId: string): Pro
   return rows.map(toCurriculumLevel);
 }
 
+/**
+ * Resolves a level by its learner-facing number within one language (spec
+ * 10 §2's `/levels/[level]` route). Returns `null` both for an out-of-range
+ * number and for an in-range number with no `levels` row published yet for
+ * this language — the caller (spec 10 §29) treats the latter as "content
+ * not yet published," not a 404; only the route param's own 1-50 validity
+ * is a real not-found case.
+ */
+export async function getLevelByLanguageAndNumber(
+  db: DbClient,
+  languageId: string,
+  levelNumber: number,
+): Promise<CurriculumLevel | null> {
+  const [row] = await db
+    .select()
+    .from(levels)
+    .where(and(eq(levels.languageId, languageId), eq(levels.levelNumber, levelNumber)))
+    .limit(1);
+  return row ? toCurriculumLevel(row) : null;
+}
+
 export async function getVocabularyGroup(db: DbClient, id: string): Promise<CurriculumVocabularyGroup | null> {
   const [row] = await db.select().from(vocabularyGroups).where(eq(vocabularyGroups.id, id)).limit(1);
   return row ? toCurriculumVocabularyGroup(row) : null;
@@ -133,13 +154,23 @@ export async function getLearningItem(db: DbClient, id: string): Promise<Curricu
   return item ? attachDetail(db, item) : null;
 }
 
+/**
+ * Batched, not per-item (architecture.md's "N+1 query patterns are
+ * prohibited") — a level can hold dozens of items (spec 10 §11: ~12 grammar
+ * + ~48 vocabulary), and unlike when this function was first written (spec
+ * 08, "no real consumer yet"), spec 10's level page is exactly the
+ * performance-sensitive real consumer that rule anticipates. One query for
+ * the ordered id list, then `getLearningItemsByIds`'s existing bounded
+ * batch-detail fetch — a small id round-trip, but still ~4 queries total
+ * regardless of level size rather than one per item.
+ */
 export async function getLevelItems(db: DbClient, levelId: string): Promise<CurriculumLearningItem[]> {
-  const items = await db
-    .select()
+  const rows = await db
+    .select({ id: learningItems.id })
     .from(learningItems)
     .where(eq(learningItems.levelId, levelId))
     .orderBy(asc(learningItems.position));
-  return Promise.all(items.map((item) => attachDetail(db, item)));
+  return getLearningItemsByIds(db, rows.map((row) => row.id));
 }
 
 /**

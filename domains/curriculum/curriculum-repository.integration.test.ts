@@ -22,6 +22,7 @@ import {
   getLearningItem,
   getLearningItemsByIds,
   getLevelById,
+  getLevelByLanguageAndNumber,
   getLevelItems,
   getVocabularyGroup,
 } from "./curriculum-repository";
@@ -80,6 +81,40 @@ describe("curriculum repository", () => {
       expect(level?.languageId).toBe(languageId);
       expect(level?.levelNumber).toBe(2);
       expect(level?.status).toBe("published");
+    });
+  });
+
+  it("getLevelByLanguageAndNumber resolves a level by its learner-facing number, scoped to the given language", async () => {
+    await withTestTransaction(async (tx) => {
+      const { level2Id, languageId } = await seedTestFixtures(tx);
+      const level = await getLevelByLanguageAndNumber(tx, languageId, 2);
+      expect(level?.id).toBe(level2Id);
+    });
+  });
+
+  it("getLevelByLanguageAndNumber returns null for a valid-range number with no published level yet, not an error", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      const level = await getLevelByLanguageAndNumber(tx, languageId, 3);
+      expect(level).toBeNull();
+    });
+  });
+
+  it("getLevelByLanguageAndNumber never returns another language's level with the same number", async () => {
+    await withTestTransaction(async (tx) => {
+      const { level2Id, languageId } = await seedTestFixtures(tx);
+      const [otherLanguage] = await tx
+        .insert(languages)
+        .values({ code: "fr-FR", slug: "french-level-number-test", name: "French" })
+        .returning();
+      await tx.insert(levels).values({ languageId: otherLanguage!.id, levelNumber: 2, name: "Level 2", status: "published" });
+
+      const found = await getLevelByLanguageAndNumber(tx, languageId, 2);
+      expect(found?.id).toBe(level2Id);
+
+      const foundOther = await getLevelByLanguageAndNumber(tx, otherLanguage!.id, 2);
+      expect(foundOther?.id).not.toBe(level2Id);
+      expect(foundOther?.languageId).toBe(otherLanguage!.id);
     });
   });
 

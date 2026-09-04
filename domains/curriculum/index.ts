@@ -30,3 +30,8 @@ export type {
   CurriculumVocabularyDetail,
   CurriculumVocabularyGroup,
 } from "./curriculum-db-types";
+
+// Spec 10 — pure, database-free (no db/client.ts import, safe for a "use
+// client" component to value-import) level-page transforms.
+export { LEVEL_NUMBER_MAX, LEVEL_NUMBER_MIN, buildLevelViewModel, parseLevelNumber } from "./level-view";
+export type { LevelCardItem, LevelViewModel } from "./level-view";

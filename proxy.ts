@@ -4,7 +4,7 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 // group (`(app)`, `(focus)`) lists its real URL prefix here as it ships —
 // Next.js route groups don't appear in the URL, so the matcher can't
 // reference the group name itself.
-const isProtectedRoute = createRouteMatcher(["/dashboard(.*)", "/lessons(.*)", "/reviews(.*)"]);
+const isProtectedRoute = createRouteMatcher(["/dashboard(.*)", "/lessons(.*)", "/reviews(.*)", "/levels(.*)"]);
 
 export default clerkMiddleware(async (auth, req) => {
   if (isProtectedRoute(req)) {
