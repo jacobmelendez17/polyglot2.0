@@ -1,3 +1,4 @@
+export * from "./admin";
 export * from "./curriculum";
 export * from "./idempotency";
 export * from "./languages";

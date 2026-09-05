@@ -467,10 +467,10 @@ before entering type-specific fields.
 New items default to:
 
 ```text
-draft
+pending
 ```
 
-They are not automatically exposed to learners.
+They are not automatically exposed to learners — they remain pending until an admin explicitly publishes them (spec 11 §29). This resolves the previous open question about whether "Pending" has any entry path besides CSV import (now cut, see the 2026-09-05 scope decision): every newly created item enters Pending directly, regardless of how it was created.
 
 ---
 
@@ -776,11 +776,11 @@ Archived
 
 ## Draft
 
-Manually created or edited content that is not live.
+An in-progress edit to an already-published item (§28's "Save Draft" step) — the live published version is untouched while the draft is being worked on. New items do not pass through this state (see Pending).
 
 ## Pending
 
-Validated/staged content awaiting manual review and publication.
+Content staged and awaiting manual review and publication, with no live counterpart yet. Every newly created item enters this state directly (§15, confirmed 2026-09-05) rather than starting as Draft, since there is no existing published version to protect a draft against.
 
 ## Published
 
@@ -1054,7 +1054,6 @@ Moved learning item from Level 2 to Level 3
 Approved duplicate candidate as homonym
 Archived curriculum item
 Requested progress reset after curriculum change
-Imported curriculum batch
 ```
 
 These requirements already exist in the architecture.
@@ -1080,7 +1079,6 @@ GROUP_UPDATED
 GROUP_ARCHIVED
 
 DUPLICATE_APPROVED
-IMPORT_COMMITTED
 
 SANDBOX_RESET
 SANDBOX_STAGE_CHANGED

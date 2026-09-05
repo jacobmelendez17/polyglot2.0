@@ -22,6 +22,13 @@
       "when": 1788419479061,
       "tag": "0002_milky_gravity",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788597284198,
+      "tag": "0003_familiar_midnight",
+      "breakpoints": true
     }
   ]
 }

@@ -1308,7 +1308,6 @@ Moved learning item from Level 2 to Level 3
 Approved duplicate candidate as homonym
 Archived curriculum item
 Requested progress reset after curriculum change
-Imported curriculum batch
 ```
 
 Audit logs should not store secrets or unnecessary sensitive user content.
