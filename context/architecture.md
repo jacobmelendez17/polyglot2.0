@@ -335,7 +335,6 @@ Future leaderboards and tournaments may depend on this domain but are not part o
 Owns:
 
 - Curriculum management workflows
-- CSV import orchestration
 - Curriculum preview/validation
 - Administrative audit events
 - Sandbox tools
@@ -689,25 +688,9 @@ When an exact normalized match already exists:
 
 The approval must be deliberate and auditable.
 
-## CSV Import
-
-CSV import uses:
-
-```text
-Upload
-  -> Parse
-  -> Validate
-  -> Preview
-  -> Resolve warnings/errors
-  -> Confirm
-  -> Commit
-```
-
-Valid rows may be imported even when other rows contain validation errors.
-
-Invalid rows remain uncommitted and are reported to the admin.
-
-The final commit for each accepted import batch must be transactional so a database failure does not leave a partially committed accepted batch.
+> **CSV import was descoped 2026-09-05** (see `progress-tracker.md`). Official
+> curriculum is authored directly through the Admin curriculum editors
+> instead; there is no bulk-import workflow.
 
 ---
 
@@ -1190,7 +1173,6 @@ next_review_at <= current_server_time
 
 Potential future background workloads include:
 
-- Large CSV imports
 - Bulk media processing
 - Email/push reminders
 - AI processing
@@ -1527,7 +1509,6 @@ Applies to:
 - XP and points awards
 - Test submission
 - Journal entry creation
-- CSV import commit
 - Media upload finalization
 
 ## Mechanism
@@ -1563,7 +1544,6 @@ The v1 backing store is **Upstash Redis**, implemented behind that same `provide
 | Journal writes | Storage abuse |
 | Test submission | Score farming |
 | Admin mutations | Blast-radius containment on a compromised session |
-| CSV import | Expensive operation |
 | Media upload | Storage and bandwidth cost |
 | Support and feedback forms | Spam |
 | Demo session creation | Unauthenticated resource exhaustion |
@@ -1763,7 +1743,7 @@ The codebase must never violate the following rules:
 17. Supplemental practice cannot accidentally mutate core SRS state.
 18. Admin curriculum edits cannot silently destroy existing user progress.
 19. Archived curriculum remains referenceable by historical/current user progress.
-20. CSV import commits cannot leave a partially committed accepted batch after transactional failure.
+20. ~~CSV import commits cannot leave a partially committed accepted batch after transactional failure.~~ Removed 2026-09-05 — CSV import was descoped; numbering kept stable rather than renumbering every invariant below it.
 21. Deck-only/custom progress cannot advance official curriculum progress.
 22. Demo state cannot modify authenticated learner progress.
 23. Sandbox state cannot modify production learner progress.

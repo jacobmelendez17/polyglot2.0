@@ -381,8 +381,6 @@ Administrators must be able to:
 - Edit SRS items
 - Delete SRS items
 - Add and manage practice content
-- Import curriculum/SRS content through CSV
-- Validate imported data
 - Reject duplicate content
 - Move curriculum items between themes
 - Move curriculum items between levels
@@ -445,13 +443,13 @@ Custom deck creation/import is a planned product capability but is not required 
 - Testing and test-history flows required by the configured Spanish curriculum
 - Changelog
 - Full administrator curriculum-management features
-- CSV curriculum import and validation
 - Administrator sandbox/testing mode
 - Streaks, XP, rank, and profile achievements
 - Access-tier data model (free Levels 1-3 / premium Level 4+), unenforced during the v1 beta so all authenticated users have full access
 
 ### Out of Scope for v1
 
+- CSV curriculum import and validation (descoped 2026-09-05 — decided unnecessary; official curriculum is authored directly through the Admin curriculum editors instead)
 - AI chatbot/tutor
 - AI journal correction
 - AI-generated official curriculum
@@ -499,7 +497,7 @@ Polyglot v1 is successful when:
 7. Lesson, review, speaking, listening, reading, writing, and other practice sessions can be entered and exited without broken navigation, crashes, or corrupted progress.
 8. User progress persists correctly across sessions and devices.
 9. Users can safely change settings, customize dashboard widgets, and edit their profile without breaking learning state.
-10. Administrators can add, edit, delete, import, validate, reorganize, and test curriculum content without making ordinary curriculum maintenance unnecessarily difficult.
+10. Administrators can add, edit, delete, reorganize, and test curriculum content without making ordinary curriculum maintenance unnecessarily difficult.
 11. Curriculum updates do not unintentionally destroy or invalidate existing user progress.
 12. New product implementations do not break previously working core flows.
 13. The landing page and dashboard provide a polished, responsive, animation-friendly interface that remains understandable to a new user.

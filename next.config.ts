@@ -1,6 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Enables `forbidden()`/`unauthorized()` from `next/navigation` (spec 11's
+  // admin route guards use `forbidden()` for role-based access control).
+  experimental: {
+    authInterrupts: true,
+  },
   async headers() {
     return [
       {
