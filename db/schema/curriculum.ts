@@ -1,11 +1,19 @@
 import { sql } from "drizzle-orm";
-import { foreignKey, integer, jsonb, pgEnum, pgTable, text, unique, uuid } from "drizzle-orm/pg-core";
+import { foreignKey, index, integer, jsonb, pgEnum, pgTable, text, unique, uuid } from "drizzle-orm/pg-core";
 
 import { timestamps } from "./columns";
 import { languages } from "./languages";
 
-/** Spec 08 §8 — Curriculum Item Status. */
-export const curriculumStatusEnum = pgEnum("curriculum_status", ["draft", "published", "archived"]);
+/**
+ * Spec 08 §8 — Curriculum Item Status. `pending` added spec 11 Unit 3
+ * (2026-09-05) — every newly created curriculum item enters this status
+ * directly (spec 11 §15, confirmed same day) rather than `draft`; `draft`
+ * is reserved for an in-progress edit to an already-published item (spec 11
+ * §27/§28). Ordered `draft, pending, published, archived` deliberately —
+ * Postgres sorts an enum column by declaration order, not alphabetically,
+ * so `ORDER BY status` gives a sensible workflow progression for free.
+ */
+export const curriculumStatusEnum = pgEnum("curriculum_status", ["draft", "pending", "published", "archived"]);
 
 /** Spec 08 §8 — Learning Item Type. v1 supports vocabulary/grammar; the shared identity design must stay compatible with future types (kanji, radicals) without a redesign. */
 export const learningItemTypeEnum = pgEnum("learning_item_type", ["vocabulary", "grammar"]);
@@ -79,7 +87,12 @@ export const learningItems = pgTable(
       .references(() => languages.id, { onDelete: "restrict" }),
     levelId: uuid("level_id").notNull(),
     type: learningItemTypeEnum("type").notNull(),
-    status: curriculumStatusEnum("status").notNull().default("draft"),
+    // Default "pending", not "draft" (spec 11 §15, confirmed 2026-09-05) —
+    // every newly created learning item is staged for its first-ever
+    // publish; "draft" only applies to an in-progress edit of an
+    // already-published item (spec 11 §27/§28), which always sets status
+    // explicitly rather than relying on this default.
+    status: curriculumStatusEnum("status").notNull().default("pending"),
     position: integer("position").notNull(),
     lessonPriority: integer("lesson_priority").notNull(),
     ...timestamps(),
@@ -93,6 +106,9 @@ export const learningItems = pgTable(
       columns: [t.levelId, t.languageId],
       foreignColumns: [levels.id, levels.languageId],
     }).onDelete("restrict"),
+    // Spec 11 §10/§13 — Admin curriculum listing: filter by status (almost
+    // always combined with a language scope) and sort by recency.
+    index("learning_items_language_status_updated_idx").on(t.languageId, t.status, t.updatedAt.desc()),
   ],
 );
 

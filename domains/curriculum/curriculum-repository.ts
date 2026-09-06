@@ -113,6 +113,12 @@ export async function getLanguageById(db: DbClient, id: string): Promise<Curricu
   return row ? toCurriculumLanguage(row) : null;
 }
 
+/** Every configured language (spec 11 §10's Language filter dropdown). Small, unbounded table — no pagination needed. */
+export async function getLanguages(db: DbClient): Promise<CurriculumLanguage[]> {
+  const rows = await db.select().from(languages).orderBy(asc(languages.name));
+  return rows.map(toCurriculumLanguage);
+}
+
 export async function getLevelById(db: DbClient, levelId: string): Promise<CurriculumLevel | null> {
   const [row] = await db.select().from(levels).where(eq(levels.id, levelId)).limit(1);
   return row ? toCurriculumLevel(row) : null;
@@ -147,6 +153,16 @@ export async function getLevelByLanguageAndNumber(
 export async function getVocabularyGroup(db: DbClient, id: string): Promise<CurriculumVocabularyGroup | null> {
   const [row] = await db.select().from(vocabularyGroups).where(eq(vocabularyGroups.id, id)).limit(1);
   return row ? toCurriculumVocabularyGroup(row) : null;
+}
+
+/** Every vocabulary group in one language, ordered by level then position (spec 11 §10's Group filter dropdown). */
+export async function getVocabularyGroupsByLanguage(db: DbClient, languageId: string): Promise<CurriculumVocabularyGroup[]> {
+  const rows = await db
+    .select()
+    .from(vocabularyGroups)
+    .where(eq(vocabularyGroups.languageId, languageId))
+    .orderBy(asc(vocabularyGroups.levelId), asc(vocabularyGroups.position));
+  return rows.map(toCurriculumVocabularyGroup);
 }
 
 export async function getLearningItem(db: DbClient, id: string): Promise<CurriculumLearningItem | null> {

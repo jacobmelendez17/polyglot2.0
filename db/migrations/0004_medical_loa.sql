@@ -1,0 +1,1 @@
+ALTER TYPE "public"."curriculum_status" ADD VALUE 'pending' BEFORE 'published';

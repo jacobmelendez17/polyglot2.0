@@ -30,6 +30,13 @@ export type {
   CurriculumVocabularyDetail,
   CurriculumVocabularyGroup,
 } from "./curriculum-db-types";
+export type {
+  AdminCurriculumFilters,
+  AdminCurriculumItemsPage,
+  AdminCurriculumListItem,
+  AdminCurriculumStatusCounts,
+  GetAdminCurriculumItemsInput,
+} from "./curriculum-admin-types";
 
 // Spec 10 — pure, database-free (no db/client.ts import, safe for a "use
 // client" component to value-import) level-page transforms.

@@ -1,0 +1,2 @@
+ALTER TABLE "learning_items" ALTER COLUMN "status" SET DEFAULT 'pending';--> statement-breakpoint
+CREATE INDEX "learning_items_language_status_updated_idx" ON "learning_items" USING btree ("language_id","status","updated_at" DESC NULLS LAST);

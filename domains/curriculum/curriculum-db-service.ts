@@ -1,6 +1,8 @@
 import { db } from "@/db/client";
 
+import * as adminRepository from "./curriculum-admin-repository";
 import * as repository from "./curriculum-repository";
+import type { GetAdminCurriculumItemsInput } from "./curriculum-admin-types";
 
 /**
  * Binds the real app database to the injectable repository (spec 08 §30).
@@ -32,6 +34,10 @@ export async function getVocabularyGroup(id: string) {
   return repository.getVocabularyGroup(db, id);
 }
 
+export async function getVocabularyGroupsByLanguage(languageId: string) {
+  return repository.getVocabularyGroupsByLanguage(db, languageId);
+}
+
 export async function getLearningItem(id: string) {
   return repository.getLearningItem(db, id);
 }
@@ -42,4 +48,16 @@ export async function getLearningItemsByIds(ids: string[]) {
 
 export async function getLevelItems(levelId: string) {
   return repository.getLevelItems(db, levelId);
+}
+
+export async function getLanguages() {
+  return repository.getLanguages(db);
+}
+
+export async function getAdminCurriculumItems(input: GetAdminCurriculumItemsInput) {
+  return adminRepository.getAdminCurriculumItems(db, input);
+}
+
+export async function getAdminCurriculumStatusCounts(languageId: string) {
+  return adminRepository.getAdminCurriculumStatusCounts(db, languageId);
 }

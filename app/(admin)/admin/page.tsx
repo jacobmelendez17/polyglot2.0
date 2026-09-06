@@ -3,7 +3,15 @@ import type { Metadata } from "next";
 
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { canManageCurriculum } from "@/domains/admin";
+import { getAdminCurriculumStatusCounts } from "@/domains/curriculum/server";
 import { requireUser } from "@/domains/users/server";
+
+const STAT_LABELS = [
+  { key: "published", label: "Published" },
+  { key: "pending", label: "Pending" },
+  { key: "draft", label: "Draft" },
+  { key: "archived", label: "Archived" },
+] as const;
 
 export const metadata: Metadata = {
   title: "Admin Overview — Polyglot",
@@ -20,17 +28,19 @@ const SHARED_LINKS = [
 
 /**
  * Admin Overview (spec 11 §7). Spec 11's own 13 implementation units never
- * assign this page to one, so it's built minimally here: navigation plus
- * an honest explanation of what isn't available yet, rather than
- * fabricated stat cards (Published/Pending/Draft/Archived counts) that
- * need Unit 3's curriculum read model. Content is deliberately role-
- * branched — a developer-only account never sees curriculum-management
- * shortcuts it isn't permitted to use (spec 11 §4).
+ * assign this page to one, so it's built minimally: navigation, plus real
+ * stat cards now that Unit 3's curriculum read model exists (scoped to the
+ * admin's own active language — Overview has no language-filter URL state
+ * of its own the way `/admin/curriculum` does; switch languages there for
+ * a different language's counts). Content is deliberately role-branched —
+ * a developer-only account never sees curriculum-management shortcuts it
+ * isn't permitted to use (spec 11 §4).
  */
 export default async function AdminOverviewPage() {
   const user = await requireUser();
   const canManage = canManageCurriculum(user);
   const links = canManage ? [...QUICK_LINKS, ...SHARED_LINKS] : SHARED_LINKS;
+  const counts = canManage ? await getAdminCurriculumStatusCounts(user.activeLanguageId) : null;
 
   return (
     <div>
@@ -42,6 +52,17 @@ export default async function AdminOverviewPage() {
             : "You have developer access to the sandbox and logs. Curriculum management requires an admin role."
         }
       />
+
+      {counts ? (
+        <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {STAT_LABELS.map(({ key, label }) => (
+            <div key={key} className="rounded-xl border border-border bg-card p-4">
+              <p className="text-2xl font-semibold text-foreground">{counts[key]}</p>
+              <p className="text-sm text-muted-foreground">{label}</p>
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       <div className="grid gap-3 sm:grid-cols-2">
         {links.map((link) => (
@@ -55,12 +76,6 @@ export default async function AdminOverviewPage() {
           </Link>
         ))}
       </div>
-
-      {canManage ? (
-        <p className="mt-6 text-sm text-muted-foreground">
-          Curriculum statistics will appear here once the curriculum admin read model is available.
-        </p>
-      ) : null}
     </div>
   );
 }

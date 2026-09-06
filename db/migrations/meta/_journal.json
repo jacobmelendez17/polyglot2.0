@@ -29,6 +29,20 @@
       "when": 1788597284198,
       "tag": "0003_familiar_midnight",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788598847529,
+      "tag": "0004_medical_loa",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788598879172,
+      "tag": "0005_parched_wong",
+      "breakpoints": true
     }
   ]
 }

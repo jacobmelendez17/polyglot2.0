@@ -7,7 +7,7 @@
  * exports in `index.ts`.
  */
 
-export type CurriculumStatus = "draft" | "published" | "archived";
+export type CurriculumStatus = "draft" | "pending" | "published" | "archived";
 
 export interface CurriculumLanguage {
   id: string;

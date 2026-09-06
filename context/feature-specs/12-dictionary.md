@@ -1,513 +1,222 @@
 # Spec 12 — Lexicon & Dictionary Integration
 
-## 1. Goal
+## Goal
 
-Build Polyglot's production-quality external lexical-data system.
-
-The system integrates:
-
-```text
-Wiktionary / Wiktextract / Kaikki
-+
-RLA-ES regional Spanish resources
-```
-
-with existing Polyglot vocabulary items.
-
-The primary goal is to eliminate unnecessary manual vocabulary authoring.
-
-After implementation, an admin should be able to create:
-
-```text
-Level: 1
-Group: Family
-Display word: el padre
-Translation: father
-```
-
-and have Polyglot locate or suggest the corresponding lexical information:
-
-```text
-lemma: padre
-part of speech: noun
-dictionary definitions: [...]
-IPA: [...]
-forms: [...]
-variants: [...]
-synonyms: [...]
-usage labels: [...]
-regional evidence:
-    es-MX: recognized
-dictionary source: Wiktionary
-regional source: RLA-ES
-```
-
-without manually entering that linguistic metadata.
-
-The admin remains in control of:
-
-```text
-curriculum placement
-learner-facing translation
-teaching meaning
-selected dictionary senses
-examples used as official curriculum
-special regional decisions
-creator notes
-publication
-```
-
-Dictionary integration applies to **vocabulary only**.
-
-Grammar remains fully owned by the existing curriculum/grammar system.
-
----
-
-# 2. Core Architecture
-
-External dictionary data must remain separate from Polyglot curriculum.
+Integrate structured external vocabulary data into Polyglot so vocabulary items can automatically obtain lexical metadata instead of requiring every field to be manually authored.
 
 Use:
 
-```text
-Vocabulary Item
-      │
-      │ stable relational mapping
-      ▼
-Dictionary Entry
-      │
-      ├── Dictionary senses
-      ├── Forms
-      ├── Pronunciations
-      ├── Lexical relationships
-      ├── Raw source JSON
-      │
-      └── Regional evidence
-             │
-             └── RLA-ES
-```
+* **Wiktionary through Kaikki/Wiktextract** as the primary lexical source.
+* **RLA-ES** as regional/spelling evidence, especially `es_MX`.
+* Polyglot remains authoritative for curriculum and teaching decisions.
 
-Conceptually:
+Dictionary integration applies only to **vocabulary**, not grammar.
+
+The intended result is:
 
 ```text
-curriculum.vocabulary_items
-        │
-        ▼
-vocabulary_dictionary_mappings
-        │
-        ▼
-dictionary_entries
-        │
-        ├── dictionary_senses
-        ├── dictionary_forms
-        ├── dictionary_pronunciations
-        ├── dictionary_relations
-        └── dictionary_entry_versions
-
-dictionary_entries
-        │
-        ▼
-dictionary_regional_evidence
-        │
-        ▼
-RLA-ES source data
+Polyglot vocabulary item
+        ↓
+dictionary mapping
+        ↓
+dictionary entry
+        ├── senses
+        ├── POS
+        ├── IPA
+        ├── forms
+        ├── variants
+        ├── synonyms
+        └── regional evidence
 ```
 
-Polyglot must never turn Wiktionary itself into the curriculum.
+An admin should be able to create:
+
+```text
+Display word: el padre
+Translation: father
+Level: 1
+Group: Family
+```
+
+and have Polyglot find or suggest:
+
+```text
+lemma: padre
+POS: noun
+IPA: ...
+definitions: [...]
+forms: [...]
+synonyms: [...]
+Mexican Spanish evidence: ...
+```
+
+without manually recreating dictionary data.
 
 ---
 
-# 3. Domain Boundary
+## Architecture
 
-Introduce:
+Introduce a new:
 
 ```text
 domains/lexicon/
 ```
 
-The `lexicon` domain owns:
+domain.
 
-```text
-external dictionary sources
-external lexical entry storage
-dictionary source imports
-source version tracking
-source normalization
-dictionary-entry matching
-vocabulary-to-dictionary mapping
-dictionary senses
-pronunciations
-forms
-lexical relationships
-regional lexical evidence
-source provenance
-dictionary projections
-```
+`lexicon` owns:
 
-The existing `curriculum` domain continues to own:
+* external lexical sources
+* source imports
+* source/version metadata
+* dictionary entries
+* senses
+* pronunciations
+* forms
+* lexical relationships
+* regional evidence
+* vocabulary-to-dictionary matching
+* mapping status
+* source projections
 
-```text
-levels
-groups/themes
-display word
-curriculum ordering
-translation
-teaching meaning
-official examples
-creator notes
-curriculum tags
-publication state
-```
+`curriculum` continues to own:
 
-The Admin domain orchestrates review/mapping workflows but does not reimplement lexical rules.
+* display word
+* translation
+* Level
+* group/theme
+* teaching meaning
+* curriculum ordering
+* official examples
+* creator notes
+* tags
+* publication state
 
----
+`admin` owns the review and override workflow.
 
-# 4. Critical Invariant
+External dictionary imports must never modify:
 
-External lexical information can enrich curriculum but cannot silently modify authoritative curriculum.
-
-Therefore:
-
-```text
-dictionary import
-≠
-curriculum publication
-```
-
-A dictionary update must never automatically change:
-
-```text
-level
-group
-lesson position
-SRS
-learner progress
-official translation
-official teaching meaning
-official example
-creator notes
-```
-
-Dictionary updates are independent from curriculum progression.
+* curriculum Level
+* group/theme
+* SRS
+* learner progress
+* official translation
+* teaching summary
+* official examples
+* curriculum publication state
 
 ---
 
-# 5. Curriculum-Owned vs Dictionary-Owned Fields
+## Curriculum vs Dictionary Data
 
-## Curriculum-owned
-
-Keep these under Polyglot control:
+Keep these Polyglot-owned:
 
 ```text
 display_word
 translation
 level
-group/theme
-curriculum order
-lesson priority
-teaching meaning
-official example
-official example translation
-creator notes
-curriculum tags
-publication state
+group
+order
+teaching_summary
+official_examples
+creator_notes
+tags
 ```
 
-## Dictionary-derived
-
-Normally derive these from the mapped dictionary entry:
+Resolve these through the Lexicon domain:
 
 ```text
 lemma
-part of speech
-dictionary definitions
+part_of_speech
+dictionary_senses
 IPA
-pronunciation metadata
-inflected forms
+pronunciations
+forms
 variants
 synonyms
-antonyms
-usage labels
-regional labels
-dictionary examples
-lexical relationships
-etymological metadata where retained
+usage_labels
+regional_information
 ```
 
-This replaces unnecessary manual duplication.
+Do not duplicate dictionary-derived fields across `vocabulary_items` unless there is a deliberate manual override.
+
+Dictionary definitions must never automatically replace Polyglot's learner-friendly teaching explanation.
 
 ---
 
-# 6. Do Not Copy Dictionary Data into Curriculum by Default
+## Database
 
-Avoid schema such as:
+Add additive Drizzle schema and migrations for the Lexicon domain.
 
-```text
-vocabulary_items.ipa
-vocabulary_items.pos
-vocabulary_items.wiktionary_definition
-vocabulary_items.wiktionary_synonyms
-vocabulary_items.wiktionary_forms
-```
-
-when the value simply duplicates an imported dictionary record.
-
-Instead:
-
-```text
-vocabulary
-→ mapping
-→ dictionary projection
-```
-
-The learner/admin read model may combine both domains into one response.
-
----
-
-# 7. Manual Overrides
-
-Admins must still be able to override how imported lexical data is presented.
-
-An override does not modify the imported source record.
-
-Example:
-
-```text
-Wiktionary IPA:
-[paˈðɾe]
-
-Admin preference:
-use this pronunciation ✓
-```
-
-or:
-
-```text
-Wiktionary senses:
-
-1. father; male parent
-2. priest
-3. originator
-
-Polyglot Level 1:
-teach sense 1 only
-```
-
-The raw dictionary source remains untouched.
-
----
-
-# 8. Primary Dictionary Source
-
-Initial Spanish lexical source:
-
-```text
-Wiktionary
-via Wiktextract / Kaikki structured data
-```
-
-Prefer structured extraction rather than HTML scraping.
-
-Wiktextract provides JSON objects containing fields such as:
-
-```text
-word
-language
-language code
-part of speech
-senses
-forms
-sounds/pronunciations
-synonyms
-antonyms
-related terms
-examples
-translations
-usage tags
-topics
-etymology
-```
-
-and distributes large exports as JSON Lines, one object per line.
-
----
-
-# 9. Wiktionary Edition
-
-For the initial Spanish course, prefer Spanish lexical entries extracted from the **English-language Wiktionary edition** because Polyglot's initial learner language is English.
-
-This makes the imported sense glosses useful to an English-speaking learner.
-
-Do not hardcode this assumption throughout the domain.
-
-Represent it as source configuration:
-
-```text
-provider = wiktionary
-extractor = wiktextract
-distribution = kaikki
-source_edition = enwiktionary
-entry_language = es
-```
-
-A future language could instead use:
-
-```text
-Japanese → JMdict
-```
-
-without redesigning curriculum tables.
-
----
-
-# 10. Source Registry
-
-Add a source registry.
-
-Recommended table:
+Recommended structure:
 
 ```text
 lexical_sources
+lexical_imports
+
+dictionary_entries
+dictionary_entry_versions
+
+dictionary_senses
+dictionary_forms
+dictionary_pronunciations
+dictionary_relations
+
+vocabulary_dictionary_mappings
+vocabulary_selected_senses
+
+regional_lexemes
+dictionary_regional_evidence
 ```
 
-Suggested fields:
+### `lexical_sources`
+
+Tracks providers independently of Spanish.
+
+Example fields:
 
 ```text
 id
 code
 provider
 source_type
-display_name
 source_language
 entry_language
-homepage_url
 license_metadata
 attribution_text
-active_import_id
 created_at
 updated_at
 ```
 
-Example:
+Examples:
 
 ```text
-code: wiktionary-en-es
-provider: wiktionary
-source_type: dictionary
-source_language: en
-entry_language: es
+wiktionary-en-es
+rla-es-mx
+rla-es-general
 ```
 
-and:
-
-```text
-code: rla-es-mx
-provider: rla-es
-source_type: regional_lexicon
-entry_language: es-MX
-```
-
-Avoid database columns named specifically:
+Do not spread provider-specific columns such as:
 
 ```text
 wiktionary_id
 rla_data
 ```
 
-throughout the application.
+through unrelated tables.
 
-Provider-specific details belong behind the lexicon abstraction.
+This must remain extensible to future sources such as JMdict.
 
 ---
 
-# 11. Import Snapshots
+## Dictionary Entries
 
-Every imported source release receives its own immutable import record.
+`dictionary_entries` should provide Polyglot's stable lexical identity.
 
-Recommended table:
-
-```text
-lexical_imports
-```
-
-Fields:
+Suggested fields:
 
 ```text
 id
-source_id
-source_version
-source_dump_date
-extractor_version
-source_commit
-file_checksum
-started_at
-completed_at
-status
-records_read
-records_matched
-records_created
-records_updated
-records_failed
-error_summary
-created_by_user_id nullable
-```
-
-Statuses:
-
-```text
-STAGED
-IMPORTING
-VALIDATING
-COMPLETED
-FAILED
-ROLLED_BACK
-```
-
-Never overwrite the identity of an earlier import.
-
----
-
-# 12. Source Versioning
-
-For Kaikki/Wiktextract record:
-
-```text
-Wiktionary dump date
-Wiktextract version / commit
-Kaikki extraction date where available
-input file checksum
-import timestamp
-```
-
-For RLA-ES record:
-
-```text
-repository/source version
-commit SHA
-.dic checksum
-.aff checksum
-region code
-import timestamp
-```
-
-This makes imports reproducible and auditable.
-
----
-
-# 13. Dictionary Entries
-
-Add:
-
-```text
-dictionary_entries
-```
-
-Recommended fields:
-
-```text
-id UUID PK
-
 language_id
 source_id
 
@@ -515,160 +224,77 @@ lemma
 normalized_lemma
 part_of_speech
 
-source_entry_key nullable
-
+source_entry_key
 source_status
-current_source_version_id nullable
 
 created_at
 updated_at
 ```
 
-`id` is Polyglot's stable internal dictionary-entry ID.
-
-Do not assume Wiktionary gives Polyglot a permanent universal entry ID.
+Do not assume an external Wiktionary identifier is permanently stable enough to become Polyglot's primary key.
 
 ---
 
-# 14. Source Identity
+## Raw Dictionary Data
 
-External identity and internal identity are different.
-
-Use:
-
-```text
-dictionary_entries.id
-```
-
-as the stable Polyglot identifier.
-
-An upstream Wiktionary entry may be identified during reimport using a combination such as:
-
-```text
-language
-word
-part of speech
-etymology information
-provider identifiers when available
-```
-
-If upstream identity is ambiguous, do not silently merge records.
-
-Send the candidate to import review.
-
----
-
-# 15. Raw Source Preservation
-
-Add:
+Retain each imported raw Wiktionary object in:
 
 ```text
 dictionary_entry_versions
 ```
 
-Each imported dictionary version retains its original source object.
-
-Fields:
+including:
 
 ```text
-id
 dictionary_entry_id
 lexical_import_id
-
 source_record_key
 source_hash
-
 raw_data JSONB
-
 created_at
 ```
 
-Do not destroy earlier raw source data when Wiktionary changes.
+Use a **hybrid relational + JSONB model**.
 
-Conceptually:
+Normalize data Polyglot must frequently:
 
-```text
-dictionary entry X
+* search
+* filter
+* match
+* select
+* display
 
-version A → source JSON from March
-version B → source JSON from June
-version C → source JSON from September
-```
+Keep the complete upstream object as JSONB for:
 
-The entry remains stable.
+* source history
+* future fields
+* reprocessing
+* admin inspection
+* import debugging
 
----
-
-# 16. Why Keep Raw JSON
-
-The imported JSON must be retained because Wiktextract contains considerably more information than Polyglot will initially expose.
-
-Future features may need:
-
-```text
-etymology
-additional pronunciation metadata
-hyphenation
-topics
-rare forms
-antonyms
-hypernyms
-related words
-Wikidata IDs
-audio metadata
-```
-
-Retaining the source object avoids having to re-download historical source data simply because a new field becomes useful.
+Normal learner page loads should not parse large JSON objects.
 
 ---
 
-# 17. Hybrid Relational + JSONB Model
+## Senses
 
-Do **not** choose between fully normalized data and one giant JSON blob.
-
-Use both.
-
-```text
-raw source JSON
-+
-normalized relational projection
-```
-
-Normalize fields Polyglot must:
-
-```text
-search
-match
-select
-filter
-relate
-display frequently
-```
-
-Keep less frequently used/provider-specific fields inside the raw JSON.
-
----
-
-# 18. Dictionary Senses
-
-Add:
+Store imported senses relationally.
 
 ```text
 dictionary_senses
 ```
 
-Fields:
+should include:
 
 ```text
 id
 dictionary_entry_id
 
-source_sense_key nullable
+source_sense_key
 source_fingerprint
 
 sense_order
 gloss
-raw_gloss nullable
 
 tags
 topics
@@ -677,20 +303,9 @@ source_status
 
 first_seen_import_id
 last_seen_import_id
-
-created_at
-updated_at
 ```
 
-One Wiktionary entry may contain many senses.
-
----
-
-# 19. Sense Selection Is Required Now
-
-Do not defer sense selection.
-
-The entire point of this integration is allowing the administrator to control which dictionary meaning maps to the curriculum vocabulary.
+A vocabulary item must be able to select which dictionary senses it teaches.
 
 Add:
 
@@ -698,172 +313,45 @@ Add:
 vocabulary_selected_senses
 ```
 
-Fields:
-
-```text
-vocabulary_dictionary_mapping_id
-dictionary_sense_id
-
-is_primary
-display_order
-
-created_at
-```
-
 Example:
 
 ```text
 padre
 
-Wiktionary:
-1. father; male parent        ← selected
+1. father / male parent      ✓
 2. priest
-3. founder/originator
+3. founder
 ```
 
-Polyglot can expose the full dictionary while teaching only the intended sense.
+Polyglot may display the full dictionary entry while only accepting/teaching selected meanings.
 
 ---
 
-# 20. Removed or Changed Senses
+## Forms, Pronunciations, and Relationships
 
-Never physically remove an imported sense solely because the next Wiktionary dump does not contain it.
-
-Mark it:
-
-```text
-MISSING_FROM_SOURCE
-```
-
-If a vocabulary item selected that sense:
-
-```text
-mapping status → REVIEW_REQUIRED
-```
-
-Do not automatically replace it with another sense.
-
----
-
-# 21. Dictionary Forms
-
-Add:
+Store frequently used lexical structures relationally:
 
 ```text
 dictionary_forms
-```
-
-Fields:
-
-```text
-id
-dictionary_entry_id
-
-form
-normalized_form
-
-tags
-source_data JSONB nullable
-
-first_seen_import_id
-last_seen_import_id
-source_status
-```
-
-Forms may represent:
-
-```text
-plural
-feminine
-masculine
-past forms
-participles
-alternative spellings
-other inflections
-```
-
-These are dictionary data rather than new curriculum vocabulary items by default.
-
----
-
-# 22. Pronunciations
-
-Add:
-
-```text
 dictionary_pronunciations
-```
-
-Fields:
-
-```text
-id
-dictionary_entry_id
-
-ipa nullable
-
-region_tags
-usage_tags
-
-audio_source nullable
-audio_url nullable
-
-source_data JSONB nullable
-
-first_seen_import_id
-last_seen_import_id
-source_status
-```
-
-A word may have several pronunciations.
-
-Admins can select a preferred pronunciation when necessary.
-
----
-
-# 23. Preferred Pronunciation
-
-Add an optional preference to the vocabulary/dictionary mapping:
-
-```text
-preferred_pronunciation_id
-```
-
-or an equivalent relational preference table.
-
-Default behavior may choose a sensible source pronunciation.
-
-The admin can explicitly override it.
-
----
-
-# 24. Lexical Relationships
-
-Add:
-
-```text
 dictionary_relations
 ```
 
-Fields:
+Forms may include:
 
-```text
-id
-dictionary_entry_id
-dictionary_sense_id nullable
+* plural
+* gendered forms
+* conjugated/inflected forms
+* alternative spellings
 
-relation_type
+Pronunciation may include:
 
-target_word
-normalized_target_word
+* IPA
+* regional labels
+* usage labels
+* source audio metadata where available
 
-tags
-topics
-
-source_data JSONB nullable
-```
-
-Supported relationship types may include:
+Relationships may include:
 
 ```text
 synonym
@@ -876,48 +364,46 @@ hypernym
 hyponym
 ```
 
-Do not require every relation target to already exist as a Polyglot curriculum item.
+Do not create new curriculum items automatically from dictionary forms or synonyms.
 
 ---
 
-# 25. Vocabulary Mapping
+## Vocabulary Mapping
 
-Add:
+Create:
 
 ```text
 vocabulary_dictionary_mappings
 ```
 
-Recommended fields:
+with fields conceptually including:
 
 ```text
 id
-
-vocabulary_item_id UNIQUE
+vocabulary_item_id
 dictionary_entry_id
 
 lookup_form
 
 match_status
-match_method
-confidence_tier
+confidence
 
 manual_lock
 
-mapped_by_user_id nullable
-mapped_at
+preferred_pronunciation_id
 
-preferred_pronunciation_id nullable
+mapped_by_user_id
+mapped_at
 
 created_at
 updated_at
 ```
 
-This is the central relationship.
+One vocabulary item maps to one selected dictionary entry for this first implementation.
 
 ---
 
-# 26. Mapping States
+## Mapping States
 
 Use:
 
@@ -928,112 +414,59 @@ REVIEW_REQUIRED
 MANUAL
 ```
 
-### UNMATCHED
+### `AUTO_MATCHED`
 
-No usable candidate exists.
+One clear candidate exists and there is no material ambiguity.
 
-### AUTO_MATCHED
+### `REVIEW_REQUIRED`
 
-The matcher found one unambiguous high-confidence entry.
+Examples:
 
-### REVIEW_REQUIRED
+* several matching entries
+* conflicting POS
+* homonym ambiguity
+* phrase ambiguity
+* selected sense disappeared after reimport
+* suspicious regional mismatch
 
-Potential matches exist but Polyglot cannot safely choose one.
+### `MANUAL`
 
-### MANUAL
+An admin explicitly selected the dictionary entry.
 
-An administrator explicitly chose the mapping.
+Manual mappings must be locked against automatic replacement.
+
+### `UNMATCHED`
+
+Relevant source data has been searched and no suitable entry exists.
+
+Distinguish this from:
+
+```text
+SOURCE_DATA_NOT_IMPORTED
+```
+
+when Polyglot has simply not imported the relevant dictionary source data yet.
 
 ---
 
-# 27. Manual Mapping Lock
+## Spanish Matching
 
-When an administrator explicitly chooses a dictionary entry:
-
-```text
-manual_lock = true
-```
-
-Future imports must not silently change the mapped dictionary entry.
-
-If that upstream dictionary entry disappears:
-
-```text
-keep mapping
-mark source stale/missing
-request review
-```
-
-Do not silently remap it to another entry.
-
----
-
-# 28. Display Word vs Lemma
-
-These are separate concepts.
+Matching must use a language-specific provider rather than hardcoded Spanish rules inside generic repository code.
 
 Example:
 
 ```text
-display_word = "el padre"
-dictionary lemma = "padre"
+deriveDictionaryLookups("el padre")
 ```
 
-The learner-facing word intentionally includes gender information.
-
-The dictionary lookup should not require Wiktionary to contain:
-
-```text
-el padre
-```
-
-as the lemma.
-
----
-
-# 29. Spanish Lookup Provider
-
-Spanish-specific normalization belongs behind a language/provider boundary.
-
-Conceptually:
-
-```text
-deriveDictionaryLookups(vocabularyItem)
-```
-
-For:
-
-```text
-el padre
-```
-
-the Spanish lookup provider may generate:
+may produce:
 
 ```text
 el padre
 padre
 ```
 
-For:
-
-```text
-la familia
-```
-
-generate:
-
-```text
-la familia
-familia
-```
-
-Do not put Spanish article stripping in generic repository code.
-
----
-
-# 30. Article Handling
-
-For Spanish nouns, permitted article-aware lookup may understand:
+Article-aware Spanish lookup may understand:
 
 ```text
 el
@@ -1046,24 +479,31 @@ unos
 unas
 ```
 
-but only when the curriculum record and Spanish language configuration make the transformation appropriate.
+but only where appropriate.
 
-Do not blindly strip the first word from every phrase.
+Do not blindly strip the first token of every phrase.
+
+Keep:
+
+```text
+display_word = "el padre"
+lemma = "padre"
+```
+
+separate.
 
 ---
 
-# 31. Accent Preservation
+## Normalization
 
-Normalization may perform:
+Permitted normalization:
 
-```text
-trim whitespace
-Unicode normalization
-case normalization
-controlled punctuation normalization
-```
+* trim whitespace
+* normalize Unicode representation
+* normalize case for matching
+* controlled punctuation normalization
 
-It must **not** remove diacritics.
+Do **not** remove accents or diacritics.
 
 These remain different:
 
@@ -1074,15 +514,15 @@ si ≠ sí
 como ≠ cómo
 ```
 
-This follows Polyglot's existing language-integrity rule.
+This must align with Polyglot's existing duplicate-detection rules.
 
 ---
 
-# 32. Multiword Phrases
+## Multiword Expressions
 
-Do not split every multiword curriculum item into a single lemma.
+Do not decompose every expression into individual words.
 
-Examples:
+For:
 
 ```text
 buenos días
@@ -1090,81 +530,45 @@ por favor
 de nada
 ```
 
-should first attempt exact phrase/expression matching.
+attempt exact phrase/expression matching first.
 
-Possible behavior:
+If no safe lexical entry exists:
 
 ```text
-exact phrase entry exists
-→ candidate
-
-no exact phrase
-→ REVIEW_REQUIRED or UNMATCHED
+REVIEW_REQUIRED
 ```
 
-Do not invent a synthetic dictionary entry from individual words.
+or:
+
+```text
+UNMATCHED
+```
+
+Do not fabricate a dictionary entry by combining separate words.
 
 ---
 
-# 33. Mapping Algorithm
+## Matching Algorithm
 
-Use deterministic matching tiers instead of opaque AI matching.
+Use deterministic matching rather than opaque AI matching.
 
-Suggested sequence:
-
-```text
-1. Generate language-aware lookup forms.
-2. Search exact normalized dictionary lemmas.
-3. Search exact normalized dictionary forms.
-4. Compare part of speech if curriculum POS is known.
-5. Compare phrase/expression status.
-6. Evaluate form_of / alt_of relationships.
-7. Add regional evidence where available.
-8. Determine candidate cardinality.
-9. Assign match status.
-```
-
----
-
-# 34. Automatic Matching
-
-An item may be `AUTO_MATCHED` when:
+Conceptual process:
 
 ```text
-one clear candidate exists
-+
-lookup form matches exactly
-+
-language matches
-+
-part of speech does not conflict
-+
-no unresolved ambiguity exists
+curriculum vocabulary
+→ generate language-aware lookup forms
+→ exact lemma candidates
+→ form candidates
+→ POS comparison
+→ phrase/expression comparison
+→ regional evidence
+→ ambiguity check
+→ match status
 ```
 
-Do not automatically select between several plausible senses or homonymous dictionary entries.
+Auto-match only when one clear entry exists.
 
----
-
-# 35. Review-Required Matching
-
-Use `REVIEW_REQUIRED` when:
-
-```text
-multiple exact entries exist
-part of speech conflicts
-several homonyms exist
-phrase handling is ambiguous
-dictionary entry identity changed
-selected dictionary sense disappeared
-regional evidence is unusual
-```
-
-The admin resolves it.
-
----
-
-# 36. Confidence
+Do not automatically choose the pedagogically correct sense when multiple dictionary senses exist.
 
 Use categorical confidence:
 
@@ -1174,56 +578,203 @@ MEDIUM
 LOW
 ```
 
-rather than exposing a fake precision such as:
-
-```text
-93.7%
-```
-
-unless the matching algorithm later has a genuinely calibrated statistical confidence model.
-
-Initial matching is deterministic/rule-based.
+rather than fabricated percentages.
 
 ---
 
-# 37. RLA-ES Role
+## Wiktionary / Kaikki Import
 
-RLA-ES is **not** Polyglot's definition source.
+Do not scrape Wiktionary pages at runtime.
 
-Use it as regional lexical evidence.
+Use structured Kaikki/Wiktextract JSONL dumps.
 
-Initial resources:
+Target architecture:
+
+```text
+Kaikki/Wiktextract JSONL
+        ↓
+streaming parser
+        ↓
+validation
+        ↓
+staged lexical records
+        ↓
+normalized relational projection
+        +
+raw JSONB
+        ↓
+finalize import
+```
+
+Learner requests read only from Polyglot's database.
+
+Do not call Wiktionary when a learner opens an item.
+
+---
+
+## Import Scope
+
+Do not import the entire dictionary into Neon by default.
+
+Support:
+
+```text
+CURRICULUM
+TERMS
+FULL_LANGUAGE
+```
+
+but make:
+
+```text
+CURRICULUM
+```
+
+the initial/default mode.
+
+Workflow:
+
+```text
+existing curriculum vocabulary
+→ generate required lookup forms
+→ stream the source dump
+→ retain relevant entries/candidates
+→ store them locally
+```
+
+This keeps storage and indexing reasonable while preserving the ability to move to full-language ingestion later.
+
+---
+
+## Controlled Import
+
+Dictionary import is a controlled backend/developer operation, not a normal request handler.
+
+Provide commands conceptually like:
+
+```text
+npm run lexicon:import
+npm run lexicon:import-rla
+```
+
+The importer should:
+
+* stream input
+* use bounded memory
+* batch database writes
+* validate every source record
+* retain source version information
+* generate useful operational output
+* never expose credentials
+
+A long-running import may use the pooled DB connection intended for import/migration workloads.
+
+---
+
+## Import Versioning
+
+Track every source snapshot.
+
+Store:
+
+```text
+source
+source_version
+dump_date
+extractor_version
+commit/version
+file_checksum
+started_at
+completed_at
+status
+record counts
+```
+
+Imports must be idempotent.
+
+Importing the exact same completed source snapshot again must not duplicate lexical records.
+
+---
+
+## Reimports
+
+A newer source import may change:
+
+* definitions
+* forms
+* pronunciation
+* tags
+* synonyms
+* lexical relationships
+
+Reimport must:
+
+```text
+preserve dictionary_entries.id
+retain previous raw source versions
+update current lexical projection
+preserve vocabulary mapping
+preserve manually selected senses where possible
+```
+
+A dictionary update must never reorganize curriculum.
+
+---
+
+## Removed Entries and Senses
+
+If an upstream entry disappears:
+
+```text
+source_status = MISSING_FROM_SOURCE
+```
+
+Do not delete it if Polyglot references it.
+
+If a selected sense disappears:
+
+```text
+retain old sense
+mapping → REVIEW_REQUIRED
+```
+
+Never silently select another meaning.
+
+---
+
+## Manual Mapping Protection
+
+Once an admin explicitly selects:
+
+```text
+Vocabulary A
+→ Dictionary Entry X
+```
+
+set:
+
+```text
+manual_lock = true
+```
+
+Future imports may update Entry X's source data but cannot automatically remap Vocabulary A to Entry Y.
+
+If Entry X disappears, request admin review.
+
+---
+
+## RLA-ES
+
+Use RLA-ES primarily for regional validation, not definitions.
+
+Initial regional sources:
 
 ```text
 es_MX
 es
 ```
 
-where:
-
-```text
-es_MX = Mexican Spanish
-es = general/international Spanish
-```
-
-The project contains regional dictionaries across many Spanish varieties and describes RLA-ES primarily as spelling/language-assistance resources.
-
----
-
-# 38. RLA Absence Does Not Mean Invalid
-
-RLA explicitly notes that regional coverage can vary in completeness.
-
-Therefore never model:
-
-```text
-Mexico:
-true / false
-```
-
-as though absence were proof that a word is not Mexican Spanish.
-
-Use:
+RLA provides evidence such as:
 
 ```text
 RECOGNIZED
@@ -1231,57 +782,17 @@ NOT_LISTED
 UNKNOWN
 ```
 
-This distinction matters.
-
----
-
-# 39. Regional Evidence
-
-Add:
+Do not use a simple:
 
 ```text
-dictionary_regional_evidence
+mexican = false
 ```
 
-Fields:
+when a word is absent, because absence is not sufficient proof that the form is invalid in Mexican Spanish.
 
-```text
-id
-dictionary_entry_id
+Use an extensible regional model rather than a permanent `Castilian` boolean.
 
-source_id
-lexical_import_id
-
-region_code
-
-status
-matched_form nullable
-
-evidence_data JSONB nullable
-
-created_at
-updated_at
-```
-
-Example:
-
-```text
-entry: padre
-region: es-MX
-status: RECOGNIZED
-```
-
----
-
-# 40. Future Regional Model
-
-Do not create:
-
-```text
-vocabulary_items.castilian boolean
-```
-
-Instead support:
+Future data should be able to represent:
 
 ```text
 es-MX
@@ -1291,60 +802,31 @@ es-CO
 ...
 ```
 
-through data.
-
-Future languages may also require regional variants.
-
 ---
 
-# 41. RLA Import Pipeline
+## RLA Import
 
-RLA-ES uses Hunspell-style dictionary resources.
+Process the configured RLA/Hunspell resources into local relational data.
 
-The import process should consume the appropriate:
-
-```text
-.dic
-.aff
-```
-
-files for each configured region.
-
-Initial regions:
-
-```text
-es-MX
-es
-```
-
-Do not perform RLA parsing during learner page requests.
-
----
-
-# 42. RLA Lexical Records
-
-Add, if required by implementation:
+Potential:
 
 ```text
 regional_lexemes
 ```
 
-Suggested fields:
+fields:
 
 ```text
 id
-
 source_id
 lexical_import_id
 
 region_code
-
 word
 normalized_word
 
-affix_flags nullable
-
-source_data JSONB nullable
+affix_flags
+source_data
 ```
 
 Index:
@@ -1353,375 +835,160 @@ Index:
 (region_code, normalized_word)
 ```
 
-This lets local mapping/validation avoid live RLA access.
+Hunspell-specific `.dic` / `.aff` handling belongs behind an RLA adapter.
 
----
-
-# 43. Hunspell Rules
-
-The `.aff` rules may affect whether generated/inflected forms are accepted.
-
-Do not assume that checking only literal `.dic` lines fully represents the regional dictionary.
-
-The RLA adapter should isolate Hunspell-specific logic behind:
-
-```text
-RegionalLexiconProvider
-```
-
-The rest of Polyglot should ask:
+Generic application code should ask:
 
 ```text
 getRegionalEvidence(term, region)
 ```
 
-not:
-
-```text
-readHunspellAffFile(...)
-```
+rather than understanding Hunspell implementation details.
 
 ---
 
-# 44. Admin Dictionary UI
+## Admin UI Integration
 
-Extend Spec 11 with:
+Extend Admin with:
 
 ```text
 /admin/dictionary
 ```
 
-Suggested sections:
+and add Dictionary controls to vocabulary editing.
 
-```text
-Mappings
-Entries
-Sources
-Imports
-Review Queue
-```
+The Admin dictionary UI should support:
 
----
-
-# 45. Vocabulary Editor Integration
-
-The Admin Vocabulary editor should gain a:
-
-```text
-Dictionary
-```
-
-section.
+* mapping status
+* dictionary search
+* candidate comparison
+* manual mapping
+* selected senses
+* preferred pronunciation
+* regional evidence
+* imported source metadata
+* raw JSON inspection
+* mapping review queue
 
 Example:
 
 ```text
 Dictionary Mapping
 
-Display word
+Display:
 el padre
 
-Lookup
+Lookup:
 padre
 
-Mapped Entry
-padre — noun                         [Change]
-
-Match
-AUTO_MATCHED · High confidence
-
-Mexican Spanish
-Recognized by RLA-ES es-MX
-
-Definitions
-☑ father; male parent
-☐ priest
-☐ founder or originator
-
-Pronunciation
-◉ /.../
-○ /.../
-
-Forms
-✓ padres
-
-Synonyms
-[ ...]
-
-[View Raw Source JSON]
-```
-
----
-
-# 46. Raw JSON Viewer
-
-Admins may inspect the exact imported source object.
-
-Provide:
-
-```text
-View Raw Source
-```
-
-with:
-
-```text
-formatted JSON
-source name
-source version
-import date
-checksum/version metadata
-```
-
-Raw JSON is Admin-only.
-
-Do not send the entire raw source JSON to ordinary learner pages.
-
----
-
-# 47. Mapping Search
-
-Admins must be able to manually search dictionary entries.
-
-Search by:
-
-```text
-lemma
-form
-part of speech
-```
-
-Example:
-
-```text
-Search dictionary: padre
-```
-
-Result:
-
-```text
+Entry:
 padre · noun
-padre · interjection
-...
-```
 
-Each result may expand to show:
+Status:
+AUTO_MATCHED · High
 
-```text
-definitions
-forms
-IPA
-usage labels
-regional evidence
+Regional:
+es-MX — Recognized
+
+Definitions:
+[x] father / male parent
+[ ] priest
+[ ] founder
+
+Pronunciation:
+(*) /.../
+( ) /.../
+
+[Change Mapping]
+[View Raw Source]
 ```
 
 ---
 
-# 48. Change Mapping
+## Admin Mapping Review
 
-An admin can explicitly replace:
-
-```text
-Vocabulary item A
-→ Dictionary entry X
-```
-
-with:
-
-```text
-Vocabulary item A
-→ Dictionary entry Y
-```
-
-Require confirmation when the vocabulary item is already published.
-
-The action must be auditable.
-
-Do not reset learner progress.
-
----
-
-# 49. Bulk Mapping Review
-
-Provide:
-
-```text
-/admin/dictionary/mappings
-```
+Provide a mapping table with filters.
 
 Example:
 
 ```text
-Curriculum     Lookup       Match        Mexico     Status
-el padre       padre        padre noun   Recognized Auto
-la madre       madre        madre noun   Recognized Auto
-él             él           él pronoun   Recognized Auto
-buenos días    buenos días  2 matches    Recognized Review
-...
+Curriculum     Lookup       Candidate      Mexico       Status
+el padre       padre        padre/noun     Recognized   Auto
+la madre       madre        madre/noun     Recognized   Auto
+buenos días    buenos días  2 candidates   Recognized   Review
 ```
 
-Filters:
+Filter by:
 
-```text
-Unmatched
-Auto matched
-Review required
-Manual
-Level
-Group
-Part of speech
-Regional status
-```
+* Level
+* group
+* match state
+* POS
+* regional status
+* unmatched
+* review required
+
+Admins may explicitly select a different dictionary entry.
+
+That action must not reset learner progress.
 
 ---
 
-# 50. Curriculum Automation
+## Curriculum Automation
 
-Dictionary mapping should reduce the amount of required Admin input.
+Once a mapping exists, the vocabulary editor should automatically expose:
 
-After successful mapping, automatically make available:
+* lemma
+* POS
+* IPA
+* senses
+* forms
+* variants
+* synonyms
+* usage labels
+* regional information
+
+without requiring these to be typed into Polyglot curriculum fields.
+
+Dictionary information may also provide suggestions for:
+
+* accepted translations
+* accepted answers
+* preferred sense
+* pronunciation
+
+But:
 
 ```text
-lemma
-POS
-IPA
-dictionary definitions
-forms
-variants
-synonyms
-usage labels
-regional evidence
+suggestion ≠ curriculum publication
 ```
 
-without copying those values into curriculum fields.
+An admin explicitly accepts anything that becomes official Polyglot teaching content.
 
 ---
 
-# 51. Dictionary Suggestions
+## Read Model
 
-The system may suggest curriculum information from dictionary data.
-
-Examples:
+Create a backend service that composes:
 
 ```text
-Suggested translation
-Suggested accepted answers
-Suggested sense
-Suggested pronunciation
-```
-
-However:
-
-```text
-suggest
-≠
-publish
-```
-
-An admin must explicitly accept a suggestion before it becomes Polyglot-authored curriculum data.
-
----
-
-# 52. Teaching Meaning
-
-Dictionary definitions must not automatically replace:
-
-```text
-teaching_summary
-```
-
-A source definition may be:
-
-```text
-precise
-technical
-archaic
-too broad
-too advanced
-```
-
-for the learner's level.
-
-Polyglot teaching explanations remain curriculum-owned.
-
----
-
-# 53. Accepted Answers
-
-Dictionary senses and synonyms may generate candidate accepted answers.
-
-Example:
-
-```text
-dictionary:
-father
-male parent
-```
-
-Admin:
-
-```text
-Accepted answers:
-☑ father
-☐ male parent
-```
-
-Do not automatically turn every dictionary synonym/gloss into a valid quiz answer.
-
----
-
-# 54. Dictionary Examples
-
-Wiktionary examples may be imported and displayed in the Admin dictionary panel.
-
-They are not automatically promoted to:
-
-```text
-official Polyglot example
-```
-
-An administrator must explicitly select/use them.
-
-Their external-source provenance must remain known.
-
----
-
-# 55. Learner Vocabulary Projection
-
-Add a service conceptually similar to:
-
-```text
-getVocabularyDetail(itemId, userId)
-```
-
-which composes:
-
-```text
-curriculum vocabulary
+curriculum
 +
-selected lexical mapping
-+
-dictionary projection
+lexicon
 +
 regional evidence
 +
-user progress
+progress
 ```
 
-The frontend should not join these concepts itself.
+Conceptually:
 
----
-
-# 56. Example Read Model
-
-Return a safe DTO conceptually shaped like:
-
-```text
+```ts
 VocabularyDetail {
   curriculum: {
     displayWord
     translation
-    teachingMeaning
+    teachingSummary
     level
     group
     examples
@@ -1746,21 +1013,24 @@ VocabularyDetail {
 }
 ```
 
-Do not return Drizzle rows or raw source JSON to learners.
+Frontend components must not directly join Drizzle tables.
+
+Do not expose raw dictionary JSON to ordinary learners.
 
 ---
 
-# 57. Learner Dictionary Display
+## Learner Item Pages
 
-Vocabulary information pages may eventually show:
+This spec establishes the backend data required by vocabulary item pages.
+
+A future/related Item Detail UI may show:
 
 ```text
-Meaning
-Polyglot learner-friendly meaning
+Polyglot Meaning
+...
 
-Dictionary
-1. ...
-2. ...
+Dictionary Definitions
+...
 
 Pronunciation
 ...
@@ -1768,434 +1038,112 @@ Pronunciation
 Forms
 ...
 
-Regional usage
+Regional Usage
 ...
 
 Source
 Wiktionary
 ```
 
-The exact visual Item Detail page can remain in its own UI spec.
-
-This spec establishes the backend read model.
+Dictionary content and Polyglot-authored content should be visually distinguishable.
 
 ---
 
-# 58. Import Strategy
+## Licensing and Attribution
 
-Do not make Wiktionary requests when a learner opens a vocabulary page.
+Persist:
 
-Target:
+* provider
+* source
+* source version
+* source URL/reference
+* license metadata
+* required attribution
+
+Keep third-party data distinguishable from Polyglot-authored data.
+
+Create project documentation for exact datasets and licenses before production.
+
+Potential organization:
 
 ```text
-External source snapshot
-        ↓
-controlled importer
-        ↓
-Polyglot lexicon database
-        ↓
-Vocabulary relationship
-        ↓
-learner/admin read model
+/data-sources
+/licenses
+/attributions
 ```
 
-Learner runtime reads Polyglot's database only.
+Do not assume that an open dataset can be copied into a proprietary product without attribution or ShareAlike considerations.
+
+This requirement is architectural; exact legal compliance should be verified separately before production release.
 
 ---
 
-# 59. Do Not Import the Entire Dictionary by Default
+## Security
 
-V1 should use **curriculum-scoped ingestion**.
-
-Current Kaikki Spanish datasets are large enough that storing the entire raw corpus plus normalized projections and indexes in Neon would conflict with Polyglot's existing free-tier cost posture.
-
-Initial workflow:
-
-```text
-current curriculum vocabulary
-        ↓
-generate target lookup forms
-        ↓
-stream dictionary source
-        ↓
-retain relevant entries/candidates
-        ↓
-store raw JSON + relational projection
-```
-
----
-
-# 60. Import Scope Modes
-
-Design the importer to support:
-
-```text
-CURRICULUM
-TERMS
-FULL_LANGUAGE
-```
-
-### CURRICULUM
-
-Import entries needed for current vocabulary.
-
-Default v1 mode.
-
-### TERMS
-
-Import data for an explicit list of terms.
-
-Useful for newly added vocabulary.
-
-### FULL_LANGUAGE
-
-Import the complete language dictionary.
-
-Supported architecturally but not the default until storage/cost justifies it.
-
----
-
-# 61. New Vocabulary After Initial Import
-
-If an admin adds:
-
-```text
-el aeropuerto
-```
-
-but no matching local dictionary candidate exists:
-
-```text
-dictionary status:
-SOURCE_DATA_NOT_IMPORTED
-```
-
-The admin may request that term for the next controlled lexical import.
-
-Do not incorrectly label it:
-
-```text
-UNMATCHED
-```
-
-until the relevant source data has actually been searched.
-
----
-
-# 62. Controlled Import Command
-
-Large dictionary ingestion should not run inside an ordinary Vercel request.
-
-Provide a controlled import entry point such as:
-
-```text
-npm run lexicon:import
-```
-
-Conceptual options:
-
-```text
---source wiktionary-en-es
---scope curriculum
---file <local-jsonl>
-```
-
-and:
-
-```text
-npm run lexicon:import-rla
-```
-
-The exact CLI syntax may differ.
-
----
-
-# 63. Streaming
-
-Never load the entire dictionary source into memory.
-
-Kaikki/Wiktextract exports use JSON Lines specifically so they can be processed record-by-record.
-
-Pipeline:
-
-```text
-read line
-→ JSON parse
-→ boundary validate
-→ determine relevance
-→ normalize
-→ batch
-→ persist
-→ continue
-```
-
----
-
-# 64. Import Database Connection
-
-Long-running dictionary imports may use the pooled database connection intended for migrations/import workloads.
-
-Do not use a request-scoped serverless handler for long-running source ingestion.
-
-This follows the existing database architecture.
-
----
-
-# 65. Import Validation
-
-External dictionary data is untrusted input.
+Imported files and JSON are untrusted.
 
 Validate:
 
+* source type
+* encoding
+* JSON structure
+* maximum field lengths
+* language
+* record shape
+* nested structures
+* import file size
+
+Do not:
+
+* execute imported markup
+* render upstream HTML directly
+* permit arbitrary remote fetch URLs from the Admin UI
+* interpolate imported content into SQL
+* expose import credentials
+
+Dictionary source locations should be configured server-side.
+
+Admin mapping mutations require authoritative Admin authorization.
+
+---
+
+## Logging and Observability
+
+Track:
+
 ```text
-JSON shape
-language
-word
-part of speech
-senses
-forms
-pronunciations
-relationship structures
-maximum field sizes
+source import
 source version
-encoding
-```
-
-Unknown JSON fields may be preserved inside:
-
-```text
-raw_data
-```
-
-without becoming trusted application fields.
-
----
-
-# 66. Reimport Strategy
-
-Dictionary imports must be idempotent.
-
-Importing the same source snapshot twice must not duplicate:
-
-```text
-entries
-senses
-forms
-pronunciations
-relations
-regional evidence
-```
-
-Identify the source snapshot by metadata/checksum.
-
-If already completed:
-
-```text
-SOURCE_VERSION_ALREADY_IMPORTED
-```
-
-unless an explicit administrative recovery operation is requested.
-
----
-
-# 67. Updating Existing Entries
-
-A new source version may change:
-
-```text
-glosses
-forms
-IPA
-tags
-relations
-examples
-```
-
-Reimport should:
-
-```text
-preserve dictionary_entries.id
-retain old raw source version
-create new source version record
-update the current normalized projection
-mark removed data as missing
-preserve vocabulary mapping
-```
-
-It must not modify curriculum organization.
-
----
-
-# 68. Mapping Preservation
-
-A dictionary reimport must never silently change:
-
-```text
-vocabulary_dictionary_mappings.dictionary_entry_id
-```
-
-for an already confirmed mapping.
-
-For `AUTO_MATCHED` mappings:
-
-* re-evaluate integrity
-* keep the existing mapping when still valid
-* if no longer valid, mark `REVIEW_REQUIRED`
-
-Do not jump automatically to a different lexical entry.
-
----
-
-# 69. Selected Sense Preservation
-
-During reimport:
-
-```text
-old selected sense
-→ try stable source sense identifier
-→ otherwise compare source fingerprint
-```
-
-If confidently preserved:
-
-```text
-keep selection
-```
-
-If not:
-
-```text
-retain old record
-mark it missing
-mapping → REVIEW_REQUIRED
-```
-
-Never silently select a new meaning.
-
----
-
-# 70. Source Deletion / Rename
-
-If a dictionary entry disappears from a later source:
-
-```text
-dictionary_entries.source_status =
-MISSING_FROM_SOURCE
-```
-
-Keep:
-
-```text
-stable entry
-old source version
-curriculum mapping
-selected senses
-source history
-```
-
-Admin can review it later.
-
----
-
-# 71. Staged Import Finalization
-
-Do not let partially processed dictionary data become current.
-
-Use:
-
-```text
-parse
-→ stage
-→ validate
-→ normalize
-→ finalize
-```
-
-Only finalization changes the active/current source projection.
-
-If parsing fails halfway through:
-
-```text
-current dictionary data remains unchanged
-```
-
----
-
-# 72. Import Rollback
-
-Because raw versions are retained, an administrator/developer must be able to restore the previous successful source projection.
-
-Conceptually:
-
-```text
-Import 12 active
-↓ bad source discovered
-Rollback to Import 11
-```
-
-Rollback:
-
-```text
-rebuild current normalized projection
-from previous retained source version
-```
-
-It must not affect:
-
-```text
-curriculum placement
-learner progress
-SRS
-```
-
----
-
-# 73. Source Import Logs
-
-Log:
-
-```text
-source
-version
-checksum
-records examined
+duration
+records scanned
 records retained
 entries created
 entries updated
-ambiguous identities
-mapping reviews created
-duration
-failure code
+AUTO_MATCHED
+REVIEW_REQUIRED
+UNMATCHED
+import failures
+rollback
 ```
 
-Do not dump entire Wiktionary records into application logs.
+Do not log entire source JSON objects.
 
----
-
-# 74. Observability
-
-Measure:
+Admin mapping changes should create audit events such as:
 
 ```text
-import duration
-records/sec
-DB batch duration
-matching success rate
-AUTO_MATCHED count
-REVIEW_REQUIRED count
-UNMATCHED count
-source data missing count
+DICTIONARY_MAPPING_CHANGED
+DICTIONARY_MAPPING_CONFIRMED
+DICTIONARY_SENSE_SELECTED
+DICTIONARY_PRONUNCIATION_SELECTED
+DICTIONARY_IMPORT_COMPLETED
+DICTIONARY_IMPORT_ROLLED_BACK
 ```
-
-These are operational metrics.
-
-Do not send large dictionary payloads to Sentry or PostHog.
 
 ---
 
-# 75. Indexes
+## Indexing
 
-At minimum add indexes supporting:
+Add indexes needed for:
 
 ```text
 dictionary_entries(language_id, normalized_lemma)
@@ -2226,601 +1174,223 @@ vocabulary_dictionary_mappings(dictionary_entry_id)
 vocabulary_dictionary_mappings(match_status)
 ```
 
-Do not add GIN indexes to raw JSON merely because the column is JSONB.
-
-Add a JSON index only when an actual query requires it.
+Do not add broad JSONB indexes unless an actual query needs them.
 
 ---
 
-# 76. Query Performance
+## Caching
 
-Normal vocabulary page loading should not parse raw JSON.
+Dictionary projections may be cached because they are shared/read-heavy.
 
-Use normalized relational data for frequently displayed fields.
-
-Raw JSON is for:
-
-```text
-history
-future extraction
-admin inspection
-reprocessing
-```
-
-not ordinary page rendering.
-
----
-
-# 77. Caching
-
-The lexical projection is read-heavy and may be cached.
-
-Possible cache tags:
+Potential tags:
 
 ```text
 dictionary-entry:{id}
-vocabulary-lexicon:{vocabularyItemId}
-dictionary-source:{sourceId}
+vocabulary-lexicon:{itemId}
 ```
 
-Invalidate when:
+Invalidate only affected entries after:
 
-```text
-dictionary mapping changes
-selected senses change
-preferred pronunciation changes
-source import updates that entry
-regional evidence changes
-```
+* mapping changes
+* source reimport
+* sense selection changes
+* pronunciation changes
+* regional-data changes
 
-Do not invalidate unrelated vocabulary.
+Raw source JSON should never be required for normal cached learner responses.
 
 ---
 
-# 78. Admin Authorization
+## Rollback
 
-All mapping changes require:
+A failed import must never leave half of a new source release active.
 
-```text
-admin
-```
-
-authorization.
-
-`developer` may inspect dictionary/import diagnostics but cannot change official vocabulary mapping unless that account also has the admin role.
-
-Reuse Spec 11 authorization.
-
----
-
-# 79. Audit Events
-
-Add administrative audit actions such as:
+Use:
 
 ```text
-DICTIONARY_MAPPING_AUTO_CREATED
-DICTIONARY_MAPPING_CHANGED
-DICTIONARY_MAPPING_MANUALLY_CONFIRMED
-DICTIONARY_SENSE_SELECTED
-DICTIONARY_SENSE_REMOVED
-DICTIONARY_PRONUNCIATION_SELECTED
-DICTIONARY_IMPORT_COMPLETED
-DICTIONARY_IMPORT_ROLLED_BACK
-REGIONAL_SOURCE_IMPORTED
-```
-
-Automated bulk matching may use one import-level audit event plus per-item records only where necessary.
-
----
-
-# 80. Concurrency
-
-Admin mapping edits must use the same optimistic conflict protection as the Admin spec.
-
-If two admins modify the same mapping:
-
-```text
-LEXICON_MAPPING_CONFLICT
-```
-
-Do not silently use last-write-wins.
-
----
-
-# 81. Structured Errors
-
-Possible errors:
-
-```text
-DICTIONARY_ENTRY_NOT_FOUND
-DICTIONARY_MAPPING_NOT_FOUND
-DICTIONARY_MAPPING_CONFLICT
-DICTIONARY_SOURCE_DATA_NOT_IMPORTED
-DICTIONARY_AMBIGUOUS_MATCH
-DICTIONARY_SENSE_NOT_FOUND
-DICTIONARY_SENSE_STALE
-
-LEXICON_IMPORT_INVALID
-LEXICON_IMPORT_FAILED
-LEXICON_IMPORT_ALREADY_EXISTS
-LEXICON_IMPORT_NOT_FINALIZED
-
-REGIONAL_SOURCE_NOT_AVAILABLE
-
-FORBIDDEN
-RATE_LIMITED
-```
-
----
-
-# 82. Security
-
-Never allow an Admin browser to submit an arbitrary remote URL and instruct the backend to fetch it.
-
-Configured source locations must be controlled server-side.
-
-This prevents the dictionary importer from becoming an SSRF/network-access mechanism.
-
-Validate:
-
-```text
-source
-file
-format
-size
-JSON
-encoding
-```
-
-Treat imported text as plain data.
-
-Do not render Wiktionary HTML directly.
-
----
-
-# 83. Source Licensing
-
-Dictionary provenance is a product requirement, not optional metadata.
-
-Kaikki states that its Wiktionary-derived dictionary data is distributed under the same licenses as Wiktionary, including CC-BY-SA and GFDL.
-
-RLA-ES currently describes its dictionaries under a selectable multi-license arrangement including GPL 3+, LGPL 3+, or MPL 1.1+, with its synonym resource licensed separately.
-
-Before production, record the exact source and chosen legal basis for every imported resource.
-
-This spec is not legal advice.
-
----
-
-# 84. Attribution Architecture
-
-Add source attribution metadata sufficient to render:
-
-```text
-Dictionary information from Wiktionary
-Structured using Wiktextract / Kaikki
-Source version: ...
-License: ...
-```
-
-and:
-
-```text
-Regional lexical validation: RLA-ES
-Region: es-MX
-Version: ...
-License: ...
-```
-
-Do not hardcode attribution strings across UI components.
-
-Resolve them through:
-
-```text
-lexical_sources
-```
-
----
-
-# 85. Keep Licensed Data Distinguishable
-
-Polyglot must be able to distinguish:
-
-```text
-Polyglot-authored content
-```
-
-from:
-
-```text
-Wiktionary-derived content
-RLA-derived data
-```
-
-Do not copy dictionary definitions into `teaching_summary` automatically.
-
-Source-derived learner-facing material should retain its provenance.
-
----
-
-# 86. Suggested Code Organization
-
-```text
-domains/
-  lexicon/
-    types.ts
-    normalization.ts
-
-    dictionary/
-      entry-types.ts
-      entry-repository.ts
-      entry-service.ts
-      projection-service.ts
-
-    matching/
-      match-types.ts
-      candidate-service.ts
-      matching-service.ts
-      spanish-matching.ts
-
-    sources/
-      source-types.ts
-      source-repository.ts
-
-      wiktextract/
-        adapter.ts
-        parser.ts
-        normalizer.ts
-
-      rla/
-        adapter.ts
-        parser.ts
-        regional-service.ts
-
-    imports/
-      import-service.ts
-      import-repository.ts
-      import-finalizer.ts
-
-    server.ts
-    index.ts
-
-db/schema/
-  lexicon.ts
-
-scripts/
-  lexicon/
-    import-wiktionary.ts
-    import-rla.ts
-    rematch-curriculum.ts
-
-components/admin/dictionary/
-  mapping-panel.tsx
-  entry-search.tsx
-  dictionary-entry-preview.tsx
-  sense-selector.tsx
-  pronunciation-selector.tsx
-  regional-evidence.tsx
-  raw-json-viewer.tsx
-  mapping-review-table.tsx
-  source-import-history.tsx
-```
-
----
-
-# 87. Migration Strategy
-
-Implement through additive Drizzle migrations.
-
-Suggested migration grouping:
-
-```text
-Migration A
-lexical_sources
-lexical_imports
-dictionary_entries
-dictionary_entry_versions
-
-Migration B
-dictionary_senses
-dictionary_forms
-dictionary_pronunciations
-dictionary_relations
-
-Migration C
-vocabulary_dictionary_mappings
-vocabulary_selected_senses
-
-Migration D
-regional_lexemes
-dictionary_regional_evidence
-
-Migration E
-indexes
-```
-
-Follow the existing migration rule:
-
-```text
-never rewrite an applied migration
-```
-
-and review generated migrations before application.
-
----
-
-# 88. Implementation Units
-
-## Unit 1 — Lexicon domain and source registry
-
-Implement:
-
-```text
-lexicon domain
-lexical_sources
-lexical_imports
-source metadata
-source/version types
-```
-
-Seed/configure:
-
-```text
-Wiktionary / Wiktextract / Kaikki
-RLA-ES es-MX
-RLA-ES es
-```
-
-No vocabulary mapping yet.
-
----
-
-## Unit 2 — Dictionary entry storage
-
-Implement:
-
-```text
-dictionary_entries
-dictionary_entry_versions
-raw JSONB retention
-stable internal identity
-source lifecycle
-```
-
-Create repository/service boundaries.
-
----
-
-## Unit 3 — Wiktextract normalization
-
-Implement streaming parsing for:
-
-```text
-word
-language
-POS
-senses
-forms
-sounds
-relations
-```
-
-Add:
-
-```text
-dictionary_senses
-dictionary_forms
-dictionary_pronunciations
-dictionary_relations
-```
-
-Retain complete source JSON.
-
----
-
-## Unit 4 — Curriculum-scoped importer
-
-Build the controlled importer.
-
-Flow:
-
-```text
-query curriculum vocabulary
-→ derive lookup targets
-→ stream Wiktextract JSONL
-→ retain candidate entries
+import
 → stage
 → validate
-→ persist
-→ finalize source import
+→ finalize
 ```
 
-Verify bounded memory usage.
+Only a successful finalization becomes current.
+
+Retain enough source/version state to restore the last valid lexical projection if a bad source import is discovered.
+
+Rollback must not modify:
+
+* curriculum organization
+* SRS
+* learner progress
+* manual vocabulary placement
 
 ---
 
-## Unit 5 — Vocabulary mapping engine
+## Multilingual Requirement
 
-Implement:
+Do not build the Lexicon domain around Spanish-specific table names.
+
+Language-specific behavior belongs in adapters/providers.
+
+Conceptually:
 
 ```text
-language-aware lookup generation
-article handling
-accent-preserving normalization
-exact lemma matching
-form matching
-POS filtering
+Spanish
+→ Wiktionary/Wiktextract + RLA
+
+Japanese
+→ JMdict
+
+future language
+→ appropriate lexical source
+```
+
+Generic vocabulary and curriculum APIs should not care which provider supplied the dictionary record.
+
+---
+
+# Final Verification
+
+After the entire implementation is complete, run the full test/verification pass once.
+
+### Type / Static Verification
+
+```text
+npm run typecheck
+npm run lint
+npm run build
+```
+
+All must pass.
+
+### Unit Tests
+
+Test at minimum:
+
+```text
+Unicode normalization
+accent preservation
+
+el padre → padre
+la madre → madre
+él remains distinct from el
+sí remains distinct from si
+
+exact lemma match
+form match
+multiple candidates
+POS conflict
 phrase handling
-match status
-confidence tier
-```
 
-No Admin UI yet.
+AUTO_MATCHED
+REVIEW_REQUIRED
+MANUAL
+UNMATCHED
 
----
-
-## Unit 6 — Sense selection and lexical preferences
-
-Implement:
-
-```text
-vocabulary_dictionary_mappings
-vocabulary_selected_senses
-preferred pronunciation
-manual lock
-mapping history/audit integration
-```
-
-Verify a multi-sense entry can teach only selected meanings.
-
----
-
-## Unit 7 — RLA-ES integration
-
-Implement:
-
-```text
-RLA source import
-es-MX
-general es
-regional lexeme lookup
-regional evidence projection
-```
-
-Verify:
-
-```text
-RECOGNIZED
-NOT_LISTED
-UNKNOWN
-```
-
-semantics.
-
----
-
-## Unit 8 — Reimport/version handling
-
-Implement:
-
-```text
-idempotent imports
-entry updates
-raw source history
-removed-source detection
-selected-sense preservation
-mapping preservation
-review-required transitions
-rollback
-```
-
----
-
-## Unit 9 — Admin mapping UI
-
-Extend Spec 11.
-
-Implement:
-
-```text
-/admin/dictionary
-
-mapping panel
-dictionary search
-candidate comparison
 sense selection
 pronunciation selection
-regional evidence
-raw JSON viewer
-manual mapping
-mapping review queue
+
+RLA recognized
+RLA not listed
+RLA unknown
+
+idempotent source import
+manual mapping preservation
+removed source entry
+removed selected sense
 ```
 
----
+### Import Tests
 
-## Unit 10 — Vocabulary Admin automation
+Use small deterministic Wiktextract fixture JSONL files rather than real full-language dumps in CI.
 
-Integrate dictionary data into the Admin Vocabulary editor.
-
-After entering:
+Include fixtures for:
 
 ```text
-display word
-language
-translation
+simple noun
+multi-sense noun
+verb/forms
+pronunciation
+synonyms
+homonym
+multiword phrase
+accent pair
+malformed row
+missing optional fields
 ```
 
-allow:
+Verify streaming behavior and transaction safety.
+
+### Integration Tests
+
+Against the real integration DB strategy, verify:
 
 ```text
-Find Dictionary Data
+source import persists
+raw JSON version retained
+relational projection created
+
+vocabulary maps to dictionary entry
+selected senses persist
+
+reimport preserves internal entry ID
+reimport preserves curriculum mapping
+manual mapping cannot be replaced
+
+removed selected sense → REVIEW_REQUIRED
+
+RLA evidence relates correctly
+
+dictionary import never modifies:
+  user_item_progress
+  user_level_progress
+  SRS
+  curriculum level
+  curriculum group
 ```
 
-or automatically run the local mapping service.
+### Browser/Admin Test
 
-Populate dictionary-backed metadata without requiring manual duplication.
-
----
-
-## Unit 11 — Vocabulary read projection
-
-Build the application service combining:
+Test one full real workflow:
 
 ```text
-curriculum
-+
-dictionary
-+
-regional
-+
-progress
+Admin creates:
+
+el padre
+father
+Level 1
+Family
+
+→ dictionary lookup derives "padre"
+→ matching finds padre / noun
+→ lexical metadata appears
+→ Mexican regional evidence appears
+→ Admin selects correct sense
+→ Admin publishes vocabulary
+→ learner projection contains curriculum + dictionary data
 ```
 
-Do not implement the entire learner Item Detail visual redesign unless that spec is currently in scope.
-
----
-
-## Unit 12 — Attribution and licensing
-
-Implement:
+Then test an ambiguous vocabulary item:
 
 ```text
-source metadata
-license metadata
-attribution DTO
-learner/admin source notice components
-project license/source documentation
+multiple candidates
+→ REVIEW_REQUIRED
+→ admin manually selects entry
+→ mapping becomes MANUAL
+→ reimport cannot replace mapping
 ```
 
-Add:
+### Regression
 
-```text
-/data-sources
-/licenses
-/attributions
-```
+Finally run the existing complete project test suite to verify Lexicon changes did not break:
 
-or the project's chosen equivalent.
-
----
-
-## Unit 13 — Browser/security/import verification
-
-Verify:
-
-```text
-Admin matching
-ambiguous mapping
-manual override
-multiple senses
-stale source
-RLA evidence
-raw JSON inspection
-source update
-rollback
-authorization
-attribution
-```
+* lessons
+* reviews
+* curriculum
+* progress
+* Admin
+* database migrations/build
 
 Update:
 
@@ -2829,297 +1399,4 @@ architecture.md
 progress-tracker.md
 ```
 
-with the finalized Lexicon architecture.
-
----
-
-# 89. Unit Tests
-
-Cover at minimum:
-
-```text
-Unicode normalization
-accent preservation
-
-el padre → padre lookup generation
-la madre → madre
-él remains él
-sí remains distinct from si
-
-exact lemma candidate
-form candidate
-multiple candidates
-POS conflict
-phrase candidate
-unmatched entry
-
-AUTO_MATCHED
-REVIEW_REQUIRED
-MANUAL
-UNMATCHED
-
-sense selection
-multiple sense selection
-preferred pronunciation
-
-RLA recognized
-RLA not listed
-RLA unknown
-
-source version identity
-same import idempotency
-removed sense
-removed entry
-manual mapping preservation
-```
-
----
-
-# 90. Import Tests
-
-Use small fixture JSONL files containing:
-
-```text
-simple noun
-multi-sense noun
-verb with forms
-pronunciation
-synonyms
-regional tags
-multiword phrase
-accent pair
-homonym
-missing field
-malformed record
-```
-
-Do not run the entire real Wiktionary dump in normal CI.
-
-The import parser must be testable against small deterministic fixtures.
-
----
-
-# 91. Integration Tests
-
-With the real integration database, verify:
-
-```text
-raw entry import
-normalized projections
-mapping FK integrity
-selected-sense FK integrity
-
-same source import does not duplicate
-new source version preserves stable entry
-manual mapping survives reimport
-
-missing selected sense creates review state
-rollback restores previous projection
-
-RLA evidence attaches to dictionary entry
-
-dictionary changes do not modify:
-  user_item_progress
-  user_level_progress
-  SRS stage
-  curriculum level/group
-```
-
----
-
-# 92. Admin Component Tests
-
-Cover:
-
-```text
-mapping candidate display
-mapping status
-sense selection
-multiple senses
-pronunciation selection
-regional evidence
-manual mapping confirmation
-raw JSON viewer
-review queue filters
-source history
-stale mapping warning
-```
-
----
-
-# 93. Browser Verification
-
-Test this complete flow:
-
-```text
-Admin creates vocabulary draft:
-
-el padre
-father
-Level 1
-Family
-
-↓
-
-Polyglot derives:
-padre
-
-↓
-
-Local dictionary finds:
-padre · noun
-
-↓
-
-Mapping:
-AUTO_MATCHED
-
-↓
-
-Admin sees:
-definitions
-POS
-IPA
-forms
-synonyms
-Mexican regional evidence
-
-↓
-
-Admin chooses:
-sense 1
-
-↓
-
-Admin publishes vocabulary
-
-↓
-
-Learner data resolves:
-Polyglot curriculum
-+
-selected dictionary data
-
-↓
-
-No dictionary data was manually duplicated.
-```
-
----
-
-# 94. Ambiguous Browser Test
-
-Test:
-
-```text
-curriculum word
-→ multiple dictionary candidates
-→ REVIEW_REQUIRED
-→ no arbitrary mapping
-→ admin compares candidates
-→ admin selects one
-→ MANUAL
-→ mapping locked
-```
-
----
-
-# 95. Reimport Browser/Integration Test
-
-Test:
-
-```text
-Import A
-→ padre maps successfully
-→ sense X selected
-
-Import B
-→ dictionary content changes
-→ dictionary entry identity preserved
-→ mapping preserved
-→ sense X retained if matchable
-```
-
-Then:
-
-```text
-Import C
-→ selected source sense disappears
-→ no automatic replacement
-→ REVIEW_REQUIRED
-```
-
----
-
-# 96. Out of Scope
-
-Do not include in this spec:
-
-```text
-grammar generation from Wiktionary
-AI-generated curriculum publication
-live Wiktionary calls on learner page load
-full web scraping
-learner editing of dictionary data
-automatic acceptance of every dictionary synonym
-automatic replacement of teaching meanings
-automatic curriculum reordering
-automatic SRS changes
-automatic Level changes
-dictionary-based grammar generation
-full-language dictionary import as the default
-dictionary audio asset mirroring
-real-time Wiktionary synchronization
-```
-
----
-
-# 97. Completion Criteria
-
-Spec 12 is complete when:
-
-1. A generic `lexicon` domain exists.
-2. External lexical data is separate from curriculum data.
-3. Vocabulary items can map relationally to stable dictionary entries.
-4. Grammar items cannot use the vocabulary dictionary mapping accidentally.
-5. Wiktextract/Kaikki JSONL can be streamed through a controlled importer.
-6. Raw source JSON is retained.
-7. Source version/import metadata is retained.
-8. Frequently used lexical fields are normalized relationally.
-9. Dictionary senses are stored independently.
-10. Vocabulary can select one or more dictionary senses.
-11. Forms are relationally queryable.
-12. Pronunciations are relationally queryable.
-13. Lexical relationships are relationally queryable.
-14. Spanish lookup can map `el padre` to `padre`.
-15. Spanish article logic is isolated behind language-specific matching.
-16. Diacritics are never stripped.
-17. Multiword expressions are handled safely.
-18. High-confidence mappings may auto-match.
-19. Ambiguous mappings require Admin review.
-20. Admin manual mappings cannot be silently replaced.
-21. RLA-ES `es-MX` can supply regional evidence.
-22. RLA absence does not automatically mean a term is invalid.
-23. Dictionary imports cannot modify curriculum placement.
-24. Dictionary imports cannot modify learner progress or SRS.
-25. Existing vocabulary IDs remain stable.
-26. Current mapping remains stable across normal source updates.
-27. Source-deleted entries remain historically referenceable.
-28. Removed selected senses cause review rather than silent replacement.
-29. Imports are idempotent.
-30. Failed/staged imports cannot partially replace active dictionary data.
-31. Previous source data can be restored.
-32. Admins can search and manually map dictionary entries.
-33. Admins can select definitions/senses.
-34. Admins can select preferred pronunciation.
-35. Admins can inspect regional evidence.
-36. Admins can inspect raw source JSON.
-37. Vocabulary Admin forms automatically expose dictionary-derived metadata.
-38. Learner read models use normalized local database data rather than external calls.
-39. Raw dictionary JSON is not sent unnecessarily to learner clients.
-40. Source provenance and attribution are preserved.
-41. License/source requirements are documented before production.
-42. Unit, integration, component, and browser tests pass.
-43. Typecheck, lint, build, and migration validation pass.
-44. `architecture.md` documents the new Lexicon domain and invariants.
-45. `progress-tracker.md` records completion and any unresolved source/licensing decisions.
+only after all final verification passes.

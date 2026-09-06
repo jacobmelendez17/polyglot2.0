@@ -1,85 +1,108 @@
 # Spec 11 — Admin
 
-> **Scope change (2026-09-05):** CSV bulk import is no longer part of this
-> spec — decided unnecessary; official curriculum is authored directly
-> through the Admin curriculum editors instead. This removes Units 9-10,
-> the `/admin/imports` route, and every CSV-specific requirement below.
-> Sections describing the CSV workflow in detail (formerly §36-45) are
-> replaced with a short pointer rather than deleted outright, so the
-> original numbering stays stable. Scattered CSV mentions inside long
-> test-checklist sections elsewhere in this file are vestigial and can be
-> ignored. See `progress-tracker.md` for the decision record.
+## Status
 
-## 1. Goal
+Already implemented:
 
-Build Polyglot’s internal administrative interface for managing official curriculum and development tooling.
+* Admin/developer authorization
+* protected `/admin` route
+* Admin shell/sidebar/navigation
+* environment indicator
+* authoritative database-role checks
+* durable Admin audit schema/repository/service
+* structured audit actions
+* audit cursor pagination
+* curriculum Admin read model
+* curriculum search
+* filters
+* sorting
+* pagination
+* supporting indexes
 
-The Admin area provides authorized staff with a UI-friendly way to:
+Do **not** rebuild or replace these unless integration with the remaining Admin functionality requires a small extension.
 
-* browse official curriculum
-* search and filter curriculum
-* create curriculum records
-* edit curriculum records
-* archive curriculum records
-* permanently delete safe, unreferenced records
-* reorder curriculum
+CSV import is no longer part of this spec.
+
+---
+
+# Goal
+
+Complete Polyglot's internal Admin experience for managing official curriculum and development tooling.
+
+Admins must be able to:
+
+* create vocabulary and grammar items
+* edit existing curriculum
+* preserve published content while preparing edits
+* explicitly publish changes
 * manage Levels
 * manage vocabulary groups/themes
-* manage vocabulary data
-* manage grammar data
-* manage sentences and examples
+* manage sentences/examples
 * manage accepted answers
-* detect and resolve duplicate candidates
-* inspect administrative audit logs
-* inspect selected operational/system logs
+* manage grammar-specific configuration
+* move and reorder curriculum
+* detect and resolve duplicates
+* archive referenced curriculum safely
+* permanently delete only safe unreferenced records
+* inspect Audit logs
+* inspect selected System logs
 * use the isolated developer sandbox
 
-The Admin area must never provide a shortcut around:
+The Admin system must never bypass:
 
 * authoritative role checks
 * curriculum validation
+* stable curriculum identity
 * referential integrity
 * audit logging
 * sandbox isolation
 * cache invalidation
-* production data safety
+* production-data safety
 
 ---
 
-# 2. Route Structure
+# Routes
 
-Use a dedicated protected route group.
-
-Recommended routes:
+Existing Admin shell:
 
 ```text
 /admin
-/admin/curriculum
+```
+
+Curriculum:
+
+```text
 /admin/curriculum/items
+/admin/curriculum/items/new
+/admin/curriculum/items/[itemId]
+
 /admin/curriculum/levels
+/admin/curriculum/levels/[levelId]
+
 /admin/curriculum/groups
+/admin/curriculum/groups/[groupId]
+```
+
+Operational tooling:
+
+```text
 /admin/logs
 /admin/sandbox
 ```
 
-Optional item-specific routes:
+There is no:
 
 ```text
-/admin/curriculum/items/new
-/admin/curriculum/items/[itemId]
-/admin/curriculum/levels/[levelId]
-/admin/curriculum/groups/[groupId]
+/admin/imports
 ```
 
-The exact route nesting may be adjusted if the implementation benefits from another clean App Router structure.
-
-Do not expose Admin pages through normal learner URLs.
+route.
 
 ---
 
-# 3. Roles and Permissions
+# Authorization
 
-Polyglot already defines separate application roles including:
+Roles remain:
 
 ```text
 user
@@ -88,331 +111,80 @@ beta-tester
 developer
 ```
 
-The database is authoritative for roles.
-
-Clerk metadata may assist with presentation, but it must never be trusted as the final authorization source for administrative mutations.
-
----
-
-# 4. Permission Model
-
-Use the following authorization model.
+The Polyglot database is authoritative.
 
 ## Admin
 
-An `admin` can access:
+May access:
 
-* curriculum management
-* Levels management
-* vocabulary groups/themes
-* vocabulary editing
-* grammar editing
+* curriculum editing
+* Levels
+* groups/themes
 * sentences/examples
 * accepted answers
+* grammar configuration
 * ordering
 * duplicate resolution
-* publishing
-* archiving/deletion workflows
-* audit logs
-* selected system logs
-* developer sandbox
+* publication
+* archive/delete workflows
+* Audit logs
+* System logs
+* sandbox
 
 ## Developer
 
-A `developer` can access:
+May access:
 
-* developer sandbox
-* selected developer diagnostics
-* selected system logs where appropriate
+* sandbox
+* approved technical diagnostics
+* approved System logs
 
-A `developer` cannot modify official curriculum unless that account also has the `admin` role.
+A developer cannot modify official curriculum unless the account also has the `admin` role.
 
-## Admin + Developer
+Every mutation must recheck authorization server-side.
 
-An account may hold both roles.
-
-Do not encode roles as mutually exclusive unless the existing user-role implementation already requires it.
-
----
-
-# 5. Authorization Requirements
-
-Every Admin route must verify access server-side.
-
-Every administrative mutation must independently verify authorization.
-
-Never rely solely on:
+Never trust:
 
 ```text
 hidden navigation
-client-side route guards
-React state
-Clerk metadata
 disabled buttons
+client state
+Clerk metadata alone
 ```
-
-Server mutation flow:
-
-```text
-request
-→ authenticate
-→ resolve internal Polyglot user
-→ verify authoritative DB role
-→ validate input
-→ execute domain operation
-→ write audit event
-→ invalidate affected cache
-→ respond
-```
-
-An unauthorized request returns a structured:
-
-```text
-FORBIDDEN
-```
-
-error.
-
-Administrative authorization must be rechecked for every mutation.
 
 ---
 
-# 6. Admin Layout
+# Admin Curriculum Table
 
-Use a dedicated Admin shell.
+Continue using the existing real-data curriculum read model.
 
-Suggested desktop layout:
-
-```text
-┌───────────────────────────────────────────────────────────────────┐
-│ Polyglot Admin                                      Jacob / Exit  │
-├────────────────┬──────────────────────────────────────────────────┤
-│                │                                                  │
-│ Overview       │                                                  │
-│ Curriculum     │                  Content                         │
-│ Logs           │                                                  │
-│ Sandbox        │                                                  │
-│                │                                                  │
-└────────────────┴──────────────────────────────────────────────────┘
-```
-
-Primary navigation:
+The table should expose useful fields such as:
 
 ```text
-Overview
-Curriculum
-Logs
-Sandbox
+Type
+Item
+Meaning / Description
+Language
+Level
+Group
+Order
+Status
+Updated
+Actions
 ```
 
-Curriculum may expose secondary navigation for:
-
-```text
-Items
-Levels
-Groups / Themes
-```
-
-Keep the Admin interface functional and information-dense.
-
-It does not need the same cozy learner-facing presentation density as the main application.
-
-It should still reuse Polyglot typography, semantic tokens, components, and overall design language.
-
----
-
-# 7. Admin Overview
-
-Route:
-
-```text
-/admin
-```
-
-Provide a concise operational overview.
-
-Possible cards:
-
-```text
-Published Items
-Pending Items
-Draft Items
-Archived Items
-Duplicate Warnings
-```
-
-Also provide quick actions:
-
-```text
-Add Item
-Manage Levels
-View Audit Log
-Open Sandbox
-```
-
-Do not turn the overview into a full analytics dashboard.
-
-Its purpose is navigation and administrative awareness.
-
----
-
-# 8. Curriculum Management
-
-Primary route:
-
-```text
-/admin/curriculum/items
-```
-
-The main curriculum interface should be a UI-friendly administrative table.
-
-This is not the same UI as the learner-facing Levels page.
-
-The Admin table prioritizes:
-
-* scanning
-* sorting
-* filtering
-* editing
-* batch workflows
-* status visibility
-
----
-
-# 9. Curriculum Table
-
-Example:
-
-```text
-Search...          Language ▼  Level ▼  Type ▼  Status ▼  Group ▼
-
-┌──────┬──────────────┬──────────────┬────────┬───────┬────────────┬───────────┐
-│ Type │ Item         │ Meaning      │ Level  │ Group │ Status     │ Actions   │
-├──────┼──────────────┼──────────────┼────────┼───────┼────────────┼───────────┤
-│ Vocab│ el gato      │ cat          │ 1      │ Food? │ Published  │ Edit ···  │
-│ Gram │ porque       │ because      │ 2      │ —     │ Draft      │ Edit ···  │
-└──────┴──────────────┴──────────────┴────────┴───────┴────────────┴───────────┘
-```
-
-Possible visible columns:
-
-* type
-* item
-* short translation/description
-* language
-* level
-* group/theme
-* order
-* lifecycle status
-* updated date
-* actions
-
-Do not expose unnecessary internal columns such as raw foreign-key IDs by default.
-
----
-
-# 10. Curriculum Table Filtering
-
-Support at minimum:
+Supported filters:
 
 ```text
 search
 language
 level
-item type
+type
 status
-vocabulary group/theme
+group/theme
 ```
 
-Statuses:
-
-```text
-draft
-pending
-published
-archived
-```
-
-`pending` is introduced by this spec as the administrative review state for imported or staged curriculum awaiting manual publication.
-
-If the existing lifecycle implementation prefers to model this as a publication workflow rather than a raw `learning_items.status` enum value, the domain may represent it differently internally.
-
-The UI behavior remains:
-
-```text
-not live
-validated or awaiting review
-must be manually published
-```
-
----
-
-# 11. Search
-
-Admin content search should support useful curriculum fields.
-
-Vocabulary examples:
-
-```text
-gato
-cat
-el gato
-```
-
-Grammar examples:
-
-```text
-porque
-because
-cause/reason
-```
-
-Search must be language-scoped where appropriate.
-
-Do not erase meaningful accents during matching logic.
-
-For duplicate normalization:
-
-```text
-Gato
-gato
- GATO 
-```
-
-may normalize together.
-
-But:
-
-```text
-si
-sí
-```
-
-remain different written forms.
-
----
-
-# 12. Pagination
-
-Administrative curriculum lists must be paginated.
-
-Do not load the entire curriculum table into the browser.
-
-Use:
-
-```text
-keyset / cursor pagination
-```
-
-for unbounded administrative content lists.
-
-Return an opaque cursor rather than raw database offsets or internal ordering keys.
-
----
-
-# 13. Sorting
-
-Support useful sorting such as:
+Supported sorting:
 
 ```text
 Level
@@ -422,133 +194,209 @@ Status
 Item
 ```
 
-Any database field introduced for filtering or sorting must have an appropriate supporting index when needed.
+Use cursor pagination.
 
-Do not ship an expensive admin query without indexing it.
+Do not load the full curriculum into the browser.
 
 ---
 
-# 14. Curriculum Item Types
+# Curriculum Status Model
 
-The Admin system must support at minimum:
+Use:
 
 ```text
-Vocabulary
-Grammar
+Pending
+Draft
+Published
+Archived
 ```
 
-Both retain stable permanent `learning_item` identity.
+## Pending
 
-Editing or moving an item must not create a new learning item ID.
+A newly created curriculum item that has never been published.
 
-Existing user progress remains associated with that stable item identity.
+New items enter:
+
+```text
+Pending
+```
+
+immediately.
+
+They remain invisible to learners until explicitly published.
+
+## Draft
+
+An unpublished revision of an item that already has a live Published version.
+
+Example:
+
+```text
+Published item
+→ Edit
+→ Save Draft
+→ Published version remains live
+```
+
+## Published
+
+The authoritative learner-facing curriculum.
+
+## Archived
+
+No longer active curriculum, but retained because historical/current learner state may reference it.
 
 ---
 
-# 15. Add Curriculum Item
+# Published Revision Model
 
-Provide an:
+The database must reliably distinguish:
+
+```text
+what learners currently see
+```
+
+from:
+
+```text
+what the admin is currently editing
+```
+
+Do not implement drafts by mutating the live row and relying on UI state.
+
+Preserve:
+
+```text
+stable learning_item identity
++
+live published revision
++
+unpublished pending/draft revision
+```
+
+or an equivalent normalized model.
+
+Editing display content must not create a new `learning_item`.
+
+Existing learner progress stays attached to the stable item ID.
+
+---
+
+# Creating Items
+
+Provide:
 
 ```text
 Add Item
 ```
 
-action.
-
-The admin chooses:
+with:
 
 ```text
 Vocabulary
 Grammar
 ```
 
-before entering type-specific fields.
-
-New items default to:
+New records:
 
 ```text
-pending
+→ Pending
+→ Admin completes content
+→ validation
+→ explicit Publish
 ```
 
-They are not automatically exposed to learners — they remain pending until an admin explicitly publishes them (spec 11 §29). This resolves the previous open question about whether "Pending" has any entry path besides CSV import (now cut, see the 2026-09-05 scope decision): every newly created item enters Pending directly, regardless of how it was created.
+New content must never become learner-visible just because the create/save request succeeded.
 
 ---
 
-# 16. Vocabulary Editor
+# Vocabulary Editor
 
-The vocabulary editor should support all authoritative vocabulary data currently defined by the curriculum schema/domain.
+Support all authoritative vocabulary fields represented by the current curriculum domain.
 
-Fields may include:
+Expected editable data may include:
 
 ```text
 language
-written form
-article
-primary meaning
-accepted meanings
-part of speech
-level
-vocabulary group/theme
+written/display form
+article where modeled
+primary translation
+accepted official answers
+Level
+group/theme
 curriculum order
 lesson priority
+teaching meaning
 context
-explanation / creator notes
-pronunciation / IPA
+creator notes
 sentences/examples
 resources
-lifecycle status
+status
 ```
 
-Only include fields actually supported by the domain/schema.
+With Spec 12 Lexicon integration, external lexical fields such as:
 
-Do not create fake data columns merely because they appear in this conceptual list.
+```text
+lemma
+POS
+IPA
+dictionary definitions
+forms
+variants
+dictionary synonyms
+regional evidence
+```
+
+should eventually resolve from the Lexicon domain rather than being unnecessarily duplicated in Admin curriculum fields.
+
+Do not create fake schema columns merely because a conceptual field exists.
 
 ---
 
-# 17. Accepted Vocabulary Answers
+# Accepted Vocabulary Answers
 
-Admins can manage accepted official answers for vocabulary items.
+Admins manage official accepted answers.
 
-Examples:
+Example:
 
 ```text
+gato
+
+Accepted:
 cat
 the cat
-feline
 ```
 
-depending on the intended curriculum configuration.
-
-Official accepted answers are distinct from:
+These are separate from:
 
 ```text
 user_synonyms
 ```
 
-Learner-specific synonyms remain private learner content.
+Learner-created synonyms remain private learner data.
 
-Do not mix them into official curriculum records.
+Dictionary-derived candidate answers from the Lexicon integration may be suggested later, but an admin explicitly chooses which answers become official.
 
 ---
 
-# 18. Grammar Editor
+# Grammar Editor
 
-The grammar editor should support all grammar-specific curriculum configuration.
+The grammar editor must support all currently modeled grammar configuration.
 
-Possible data includes:
+This can include:
 
 ```text
-name / grammar structure
+grammar name / structure
 short translation
 short description
 full explanation
-level
+Level
 curriculum order
 lesson priority
 question types
 accepted answers
 context
-formation / structure
+formation
 usage notes
 sentences/examples
 creator notes
@@ -556,36 +404,24 @@ resources
 status
 ```
 
-Configured grammar question types must remain authoritative.
-
-Do not hardcode one grammar quiz format into Admin.
-
----
-
-# 19. Grammar Configuration
-
-The Admin UI should be capable of editing any grammar data represented by the grammar domain.
-
-This includes configuration needed by:
+Configured question types remain authoritative for:
 
 ```text
 Lessons
 Reviews
 Practice
-Item detail pages
+Item Detail
 ```
 
-where applicable.
+Do not hardcode one grammar exercise type into Admin.
 
-If a grammar configuration field has downstream consequences, validation must verify that publishing it will not create invalid lesson/review configuration.
+Publishing must validate downstream grammar configuration.
 
 ---
 
-# 20. Sentences and Examples
+# Sentences and Examples
 
-Admins can manage example sentences linked to curriculum items.
-
-Support:
+Admins can:
 
 ```text
 add
@@ -594,15 +430,24 @@ remove/archive
 reorder
 ```
 
-Each sentence may include whatever fields are already defined by the sentence schema.
+official sentences/examples.
 
-At minimum the UI should expose the learner-facing sentence text and translation if present.
+Expose at minimum:
 
-Sentence records used by multiple items should preserve stable identity rather than being silently duplicated.
+```text
+target-language sentence
+translation
+```
+
+plus any other fields actually represented by the sentence schema.
+
+If a sentence is shared by several items, preserve its stable identity.
+
+Do not silently duplicate shared sentence records.
 
 ---
 
-# 21. Levels Management
+# Levels Management
 
 Route:
 
@@ -610,62 +455,48 @@ Route:
 /admin/curriculum/levels
 ```
 
-Admins can manage curriculum Level configuration.
-
-Example table:
+Allow Admin management of configured Level properties such as:
 
 ```text
-Level   Vocabulary   Grammar   Access   Status
-1       48           12        Free     Published
-2       48           12        Free     Published
-3       48           12        Free     Published
-4       48           12        Premium  Draft
+level number
+title if supported
+description if supported
+access tier
+status
+ordering/configuration
+validation state
 ```
 
-Level management may include:
+Show curriculum counts.
 
-* level number
-* learner-facing title where configured
-* description where configured
-* curriculum status
-* access tier
-* ordering/configuration
-* validation summary
-
----
-
-# 22. Level Validation
-
-Current default curriculum expectations are:
+Current configured expectation:
 
 ```text
-48 vocabulary items per level
+48 vocabulary
 4 vocabulary groups
-12 vocabulary items per group
-12 grammar items per level
+12 vocabulary per group
+12 grammar
 ```
 
-These are validation/configuration rules rather than rigid schema assumptions.
-
-Show validation status to the admin.
+These are validation rules, not hardcoded schema assumptions.
 
 Example:
 
 ```text
 Level 8
 
-Vocabulary: 47 / 48 ⚠
-Grammar:    12 / 12 ✓
-Groups:      4 / 4  ✓
+Vocabulary  47 / 48   ⚠
+Grammar     12 / 12   ✓
+Groups       4 / 4    ✓
 ```
 
-Do not prevent drafts from being temporarily incomplete.
+Incomplete Pending/Draft Levels may exist.
 
-Publishing may be blocked when required curriculum validation fails.
+Publishing should fail if mandatory Level validation is not satisfied.
 
 ---
 
-# 23. Vocabulary Groups / Themes
+# Vocabulary Groups / Themes
 
 Route:
 
@@ -680,65 +511,56 @@ create
 edit
 archive
 reorder
-move items into/out of groups
+move vocabulary between groups
 ```
 
-Example:
+Group IDs remain stable when:
 
 ```text
-Level 3
-
-1. Days of the Week
-2. Household Items
-3. Staple Foods
-4. Transportation
+name changes
+order changes
+Level placement changes
 ```
-
-Group identity should remain stable when its display name or order changes.
 
 ---
 
-# 24. Item Ordering
+# Curriculum Ordering
 
-Admins must be able to modify curriculum order.
+Ordering is explicit.
 
-Ordering includes, where applicable:
+Support:
 
 ```text
 Level position
-Vocabulary group order
-Item order inside group
-Grammar order
-Lesson priority
+group position
+item position inside group
+grammar order
+lesson priority
 ```
 
 Do not rely on database insertion order.
 
-The authoritative order is explicitly stored.
+Provide a UI-friendly ordering system.
 
----
-
-# 25. Reordering UI
-
-Use a UI-friendly reorder mechanism.
-
-Possible interactions:
+Possible interaction:
 
 ```text
-drag and drop
+drag/drop
++
 move up/down
++
 numeric position
 ```
 
-Drag-and-drop may be the primary desktop interaction, but keyboard-accessible alternatives are required.
+Keyboard-accessible controls are required.
 
-Never make drag-and-drop the only way to change ordering.
+Drag/drop cannot be the only interaction.
 
 ---
 
-# 26. Moving Existing Items
+# Moving Curriculum
 
-Admins may move items between:
+Admins can move items between:
 
 ```text
 Levels
@@ -746,184 +568,153 @@ Groups
 Themes
 ```
 
-without changing the item's permanent ID.
+without changing the permanent item ID.
 
-Before committing a move, show meaningful downstream implications when relevant.
-
-Example:
+Example confirmation:
 
 ```text
 Move "el gato"
+
 Level 2 → Level 3
 
-Existing learner progress will remain attached to this item.
+Existing learner progress remains associated with this item.
 ```
 
-Moving an item must never silently reset progress.
+Moving curriculum must never silently reset progress.
 
 ---
 
-# 27. Draft / Pending / Published / Archived
+# Publication
 
-Administrative curriculum uses these conceptual states:
+Publishing is explicit.
 
-```text
-Draft
-Pending
-Published
-Archived
-```
-
-## Draft
-
-An in-progress edit to an already-published item (§28's "Save Draft" step) — the live published version is untouched while the draft is being worked on. New items do not pass through this state (see Pending).
-
-## Pending
-
-Content staged and awaiting manual review and publication, with no live counterpart yet. Every newly created item enters this state directly (§15, confirmed 2026-09-05) rather than starting as Draft, since there is no existing published version to protect a draft against.
-
-## Published
-
-Live official curriculum.
-
-## Archived
-
-No longer offered as active curriculum but still preserved for historical and progress references.
-
----
-
-# 28. Editing Published Curriculum
-
-Editing already-published content must not immediately alter live curriculum.
-
-Use an explicit workflow:
+Before publishing, validate:
 
 ```text
-Published item
-→ Edit
-→ Save Draft
-→ review changes
-→ Publish
-```
-
-The published version remains authoritative until the admin explicitly publishes the change.
-
-Do not make every keystroke or Save action live.
-
----
-
-# 29. Publishing
-
-Publishing is an explicit administrative action.
-
-Before publication:
-
-```text
-validate curriculum record
-validate relationships
-validate duplicates
-validate required fields
-validate ordering
-validate grammar configuration where relevant
+required fields
+relationships
+Level
+group
+duplicate state
+ordering
+grammar configuration
+sentence references
+archived dependencies
 ```
 
 Then:
 
 ```text
-publish
-→ write authoritative curriculum state
-→ write audit event
+Publish
+→ update authoritative published revision
+→ record Audit event
 → invalidate affected curriculum caches
 ```
 
-Curriculum cache invalidation is mandatory after an administrative change.
+Publishing a draft replaces the live content associated with the same stable curriculum identity.
+
+It does not create a new learner-progress identity.
 
 ---
 
-# 30. Publish Confirmation
+# Publish Impact
 
-For normal low-risk edits, a concise confirmation is sufficient.
-
-For high-impact changes, show more context.
+For consequential edits, show useful impact information.
 
 Example:
 
 ```text
 Publish changes to "gato"?
 
-This item is currently used by 184 learner progress records.
-Publishing will change the curriculum content displayed to those learners.
+184 learner progress records currently reference this item.
+
+Their progress will remain intact.
+The displayed curriculum content will change.
 
 [Cancel] [Publish]
 ```
 
-Do not expose sensitive learner information.
+Do not expose individual learner information.
 
 Only aggregate impact counts where useful.
 
 ---
 
-# 31. Archive / Delete Behavior
+# Concurrency Protection
 
-The Admin UI may expose an action labeled:
+Prevent two Admin sessions from silently overwriting each other.
+
+Use the current revision/version or `updated_at` value.
+
+Conceptually:
+
+```text
+Admin A loads version 5
+Admin B publishes version 6
+Admin A attempts save using version 5
+→ ADMIN_EDIT_CONFLICT
+```
+
+Return:
+
+```text
+This item changed after you opened it.
+
+Reload the latest version before saving or publishing.
+```
+
+Do not use silent last-write-wins behavior for curriculum.
+
+---
+
+# Archive / Delete
+
+The Admin UI may expose:
 
 ```text
 Delete
 ```
 
-but server-side behavior depends on referential integrity.
+but actual behavior depends on referential integrity.
 
-## Referenced curriculum
+## Referenced Item
 
-If any user progress, history, or required relationship depends on the item:
+If progress/history or another required record references it:
 
 ```text
-Delete
+Delete request
 → Archive
 ```
-
-Explain this in the confirmation dialog.
 
 Example:
 
 ```text
 This item has existing learner progress and cannot be permanently deleted.
 
-It will be moved to Archived instead.
+It will be archived instead.
 ```
 
-## Unreferenced curriculum
+Existing progress must remain valid.
 
-If referential integrity proves nothing depends on the record, permanent deletion may be allowed.
+## Unreferenced Item
 
-This follows the existing item lifecycle rule.
+Permanent deletion is permitted only when database relationships prove nothing depends on it.
 
----
-
-# 32. Destructive Confirmation
-
-Archive/delete operations require explicit confirmation.
-
-High-risk operations should require stronger confirmation than ordinary edits.
-
-Example:
+Examples more likely to qualify:
 
 ```text
-Archive "gato"?
-
-It will no longer appear in active curriculum.
-Existing user progress will remain associated with it.
-
-[Cancel] [Archive]
+unused Pending item
+unused Draft record
+unused group
 ```
 
-Never silently destroy curriculum.
+All destructive actions require explicit confirmation.
 
 ---
 
-# 33. Duplicate Detection
+# Duplicate Detection
 
-Duplicate detection is required for:
+Duplicate detection is required during:
 
 ```text
 manual creation
@@ -932,81 +723,115 @@ manual editing
 
 Comparison is language-scoped.
 
-Normalization may include:
+Normalize:
 
 ```text
-trim whitespace
-case normalization
-Unicode normalization
+leading/trailing whitespace
+case
+Unicode representation
 ```
 
-Do not remove meaningful diacritics.
+Do not remove meaningful accents.
+
+Therefore:
+
+```text
+Gato
+gato
+ GATO
+```
+
+are duplicate candidates.
+
+But:
+
+```text
+si
+sí
+```
+
+remain distinct.
 
 ---
 
-# 34. Duplicate Candidates
+# Duplicate Resolution
 
-If an exact normalized form already exists:
+An exact normalized match must not silently create another curriculum record.
 
-```text
-new gato
-existing gato
-```
+Show the matching item.
 
-do not silently create another official record.
-
-Instead:
-
-```text
-flag duplicate
-show matching records
-require administrative resolution
-```
-
-The Admin may:
+Allow:
 
 ```text
 Cancel
 Use existing item
 Edit new item
-Approve as legitimate separate sense / homonym
+Approve separate sense / homonym
 ```
 
-Homonym approval must be deliberate and audited.
+Homonym approval must be explicit and audited.
 
----
+Suspicious near-duplicates may generate warnings rather than hard failures.
 
-# 35. Near-Duplicate Warnings
-
-Suspicious near-matches may also be flagged.
-
-Examples could include:
+Examples:
 
 ```text
-accent-only differences
-very similar spelling
-same translation with nearly identical target text
+accent-only difference
+similar spelling
+same meaning with near-identical form
 ```
 
-A warning does not automatically mean the item is invalid.
-
-The admin makes the final decision.
+The Admin makes the final decision.
 
 ---
 
-# 36-45. CSV Import (REMOVED)
+# Bulk Actions
 
-> Sections 36-45 originally specified the CSV bulk-import workflow (upload,
-> parse, validate, preview, duplicate handling, staged commit, import
-> history). CSV import was descoped 2026-09-05 — decided unnecessary;
-> official curriculum is authored directly through the Admin curriculum
-> editors instead. Numbering is kept stable rather than renumbering every
-> section below. See `progress-tracker.md` for the decision record.
+The existing curriculum table may support:
+
+```text
+Archive selected
+Move to Level
+Move to group
+Publish selected Pending items
+```
+
+Each item still requires normal validation.
+
+Do not add broad unsafe bulk permanent-delete behavior.
 
 ---
 
+# Bulk Publish
 
-# 46. Audit Logs
+Pending items may be selected and published together.
+
+Before commit:
+
+```text
+validate all items
+validate relationships
+validate duplicates
+validate affected Levels
+```
+
+The publication operation should be transactional:
+
+```text
+all selected publish
+```
+
+or:
+
+```text
+none publish
+```
+
+after an unexpected database failure.
+
+---
+
+# Audit Logs
 
 Route:
 
@@ -1014,7 +839,7 @@ Route:
 /admin/logs
 ```
 
-Use tabs:
+Tabs:
 
 ```text
 Audit
@@ -1027,42 +852,23 @@ Default:
 Audit
 ```
 
----
+The existing durable Audit foundation remains authoritative.
 
-# 47. Audit Log
-
-Every administrative mutation should produce an audit trail.
-
-Record:
+Every Admin mutation must record:
 
 ```text
 actor
-action type
-target resource type
-target resource ID
+action
+resource type
+resource ID
 timestamp
-relevant before metadata
-relevant after metadata
-reason where required
+before metadata
+after metadata
+reason when required
 correlation ID where useful
 ```
 
-Existing required examples include:
-
-```text
-Moved learning item from Level 2 to Level 3
-Approved duplicate candidate as homonym
-Archived curriculum item
-Requested progress reset after curriculum change
-```
-
-These requirements already exist in the architecture.
-
----
-
-# 48. Audit Actions
-
-Examples:
+Actions include:
 
 ```text
 CURRICULUM_ITEM_CREATED
@@ -1074,6 +880,7 @@ CURRICULUM_ITEM_MOVED
 CURRICULUM_ITEM_REORDERED
 
 LEVEL_UPDATED
+
 GROUP_CREATED
 GROUP_UPDATED
 GROUP_ARCHIVED
@@ -1085,94 +892,62 @@ SANDBOX_STAGE_CHANGED
 SANDBOX_TIME_CHANGED
 ```
 
-Use structured action identifiers internally.
+Use cursor pagination.
 
-The UI may display human-friendly labels.
-
----
-
-# 49. Audit Log Filtering
-
-Support:
+Filters:
 
 ```text
 actor
-action type
+action
 resource type
 date range
-resource ID/search
+resource/search
 ```
-
-Use cursor pagination.
-
-Audit logs are unbounded and should not use an unbounded query.
 
 ---
 
-# 50. System Logs
+# System Logs
 
-The System tab provides a practical view of selected operational application events.
+The System tab provides a useful operational view, not an internal replacement for Sentry.
 
-It is not intended to reproduce the entire Sentry product.
-
-Useful categories may include:
+May expose safely structured events such as:
 
 ```text
 errors
 warnings
-curriculum events
-import events
-lesson completion failures
-review completion failures
+curriculum failures
+lesson failures
+review failures
 rate-limit events
 ```
-
-Only expose events that are already safely available through the application logging/monitoring boundary.
-
----
-
-# 51. System Log Privacy
-
-Never display intentionally sensitive content in the Admin log UI.
 
 Do not expose:
 
 ```text
-auth tokens
+tokens
 passwords
-session identifiers
-raw journal text
-microphone recordings
+sessions
 private notes
-full typed answers
+journal text
+typed learner answers
+microphone data
 database credentials
 provider secrets
 ```
 
-Structured logs must follow the existing privacy rules.
-
----
-
-# 52. Sentry
-
-Sentry remains the primary external application/error monitoring platform.
-
-The Admin System tab may link or summarize relevant diagnostics where practical.
-
-Do not build an in-house replacement for:
+Sentry remains responsible for:
 
 ```text
-stack trace exploration
-performance profiling
-release analysis
+full exception investigation
+stack traces
+performance investigation
+release diagnostics
 issue grouping
 ```
 
-unless a future spec explicitly requires it.
-
 ---
 
-# 53. Developer Sandbox
+# Developer Sandbox
 
 Route:
 
@@ -1180,20 +955,16 @@ Route:
 /admin/sandbox
 ```
 
-Available to:
+Allowed roles:
 
 ```text
 admin
 developer
 ```
 
-A developer without admin role can use the sandbox but cannot mutate official curriculum.
+A developer without Admin rights may use the sandbox but cannot mutate official curriculum.
 
----
-
-# 54. Sandbox Isolation
-
-The sandbox already uses a separate Polyglot user row:
+The sandbox continues using the existing isolated-user model:
 
 ```text
 users.is_sandbox
@@ -1201,508 +972,350 @@ users.sandbox_owner_user_id
 clerk_user_id = null
 ```
 
-owned by the real admin/developer account.
-
-All sandbox learning state must remain isolated from real learner state.
-
-Do not introduce:
-
-```text
-is_sandbox
-```
-
-flags across every progress table.
-
-Continue using the existing isolated-user design.
+Do not add `is_sandbox` flags throughout progress tables.
 
 ---
 
-# 55. Sandbox Capabilities
+# Sandbox Controls
 
-The sandbox UI should provide access to existing planned sandbox capabilities:
+Provide controls for:
 
 ```text
-simulate any curriculum level
+simulate curriculum Level
 set arbitrary sandbox SRS stages
-make sandbox reviews immediately due
-unlock practices
+make sandbox reviews due
+unlock practice
 unlock tests
-view unlock behavior
+inspect unlock behavior
 view onboarding
 preview animations
 simulate future time
-reset sandbox state
+reset sandbox
+open sandbox learner experience
 ```
-
-These capabilities are already part of the intended architecture.
-
----
-
-# 56. Sandbox Learner View
-
-Provide a way for the admin/developer to launch or inspect the application as the sandbox user.
-
-Conceptually:
-
-```text
-Sandbox Controls
-
-Level:              [ 12 ▼ ]
-SRS stage:           [ Familiar 1 ▼ ]
-Reviews:             [ Make due ]
-Practices:           [ Unlock ]
-Tests:               [ Unlock ]
-Simulated time:      [ +7 days ]
-                    [ Open Sandbox Experience ]
-```
-
-The exact UI may be refined during implementation.
-
----
-
-# 57. Sandbox Time
-
-Time simulation must use the sandbox-specific clock abstraction.
-
-It must not:
-
-```text
-modify server time
-modify global app time
-modify another sandbox
-modify real user review times
-```
-
-A sandbox owner can simulate future state only within the sandbox boundary.
-
----
-
-# 58. Sandbox Reset
-
-Provide:
-
-```text
-Reset Sandbox
-```
-
-This clears/reinitializes only the current admin/developer's sandbox learner state.
-
-It must not affect:
-
-```text
-real account state
-official curriculum
-other sandboxes
-production user progress
-```
-
-Use explicit confirmation.
-
----
-
-# 59. Sandbox and Production Curriculum
-
-The sandbox should read the same official curriculum available in that environment.
-
-Do not duplicate curriculum records specifically for sandbox use.
-
-The sandbox isolates learner state, not official curriculum.
-
----
-
-# 60. Environment Safety
-
-Development, preview, and production remain isolated.
-
-Production credentials or production learner data must never be copied into development or preview environments.
-
-The Admin UI should visibly indicate the current environment in non-production environments.
 
 Example:
 
 ```text
-PREVIEW
+Sandbox
+
+Level               [12 ▼]
+SRS stage           [Familiar 1 ▼]
+Reviews             [Make Due]
+Practice            [Unlock]
+Tests               [Unlock]
+Time                 [+7 Days]
+
+[Open Sandbox]
+[Reset Sandbox]
 ```
 
-or:
+---
+
+# Sandbox Isolation
+
+Sandbox actions must never modify:
+
+```text
+real admin learner progress
+other users
+other sandboxes
+official curriculum
+server/global time
+production learner data
+```
+
+Time simulation uses a sandbox-specific clock abstraction.
+
+Example:
+
+```text
+real server time: unchanged
+sandbox perceived time: +7 days
+```
+
+Reset clears only the current owner's sandbox state.
+
+---
+
+# Environment Safety
+
+Development, Preview, and Production remain isolated.
+
+Non-production Admin pages should visibly display:
 
 ```text
 DEVELOPMENT
 ```
 
-This helps prevent accidental assumptions about which environment an admin is changing.
+or:
+
+```text
+PREVIEW
+```
+
+Production credentials and learner data must never be copied into non-production environments.
+
+Sandbox isolation is not a substitute for environment isolation.
 
 ---
 
-# 61. Cache Invalidation
+# Cache Invalidation
 
-All official curriculum mutations must invalidate affected curriculum cache tags.
+Official curriculum mutations must invalidate affected cache tags.
 
-Examples:
+Includes:
 
 ```text
-item update
 publish
 archive
 delete
 move
 reorder
-group update
-level update
-CSV commit
+group changes
+Level changes
 ```
 
-A cache with no defined invalidation point is not acceptable.
+Avoid broad global invalidation where a targeted cache tag is sufficient.
 
-Published learner-facing pages should reflect newly published curriculum without waiting for an arbitrary stale cache timeout.
+Published learner pages should reflect successful Admin publication without waiting for an arbitrary stale TTL.
 
 ---
 
-# 62. Concurrency Protection
+# Mutation Safety
 
-Admin edits should avoid silently overwriting another administrator's changes.
-
-When editing mutable curriculum:
-
-```text
-load version / updated_at
-→ admin edits
-→ submit expected version
-→ compare current version
-```
-
-If another actor changed the record first:
-
-```text
-ADMIN_EDIT_CONFLICT
-```
-
-Return a clear conflict state.
-
-Example:
-
-```text
-This item changed after you opened it.
-
-Reload the latest version before publishing your changes.
-```
-
-Do not silently use last-write-wins for important curriculum content.
-
----
-
-# 63. Structured Errors
-
-Expected Admin errors should use explicit codes.
+High-impact operations should use idempotency where retries could duplicate effects.
 
 Examples:
 
 ```text
-UNAUTHENTICATED
-FORBIDDEN
-ADMIN_EDIT_CONFLICT
-CURRICULUM_ITEM_NOT_FOUND
-CURRICULUM_VALIDATION_FAILED
-DUPLICATE_ITEM
-DUPLICATE_REVIEW_REQUIRED
-ITEM_REFERENCED
-IMPORT_INVALID_FILE
-IMPORT_INVALID_ROW
-IMPORT_COMMIT_FAILED
-IMPORT_TOO_LARGE
-SANDBOX_NOT_FOUND
-SANDBOX_OPERATION_FORBIDDEN
-RATE_LIMITED
+Publish
+Archive
+Delete
+Bulk reorder
+Bulk publish
 ```
 
-Never expose raw stack traces or SQL messages to the Admin browser.
+A repeated operation with the same idempotency key and payload must not:
 
----
+```text
+publish twice
+create duplicate Audit events
+apply the move twice
+```
 
-# 64. Rate Limiting
+Admin mutations should use the existing rate-limit provider.
 
-Administrative mutation endpoints should use appropriate rate limits where abuse or accidental repeated submission could be harmful.
-
-Possible policies:
+Suggested policies:
 
 ```text
 admin-mutation
-admin-import
 admin-publish
 sandbox-mutation
 ```
 
 Thresholds belong in configuration.
 
-Do not scatter literal limits through handlers.
-
 ---
 
-# 65. Idempotency
+# Validation
 
-High-impact operations should use idempotency where repeated submissions could otherwise cause duplicate effects.
-
-Examples:
-
-```text
-CSV commit
-Publish
-Archive
-Delete
-Bulk reorder
-```
-
-A repeated request with the same idempotency key and payload should not create duplicate audit events or duplicate curriculum records.
-
----
-
-# 66. Validation
-
-Use runtime schemas for all administrative boundaries.
-
-Validate:
+Use runtime validation for:
 
 ```text
 forms
-route parameters
+route params
 server actions
-API bodies
-CSV rows
+API requests
+publication
 bulk operations
-publish actions
 sandbox mutations
 ```
 
-TypeScript types are not sufficient for untrusted administrative input.
+TypeScript types alone are insufficient.
+
+Expected structured errors include:
+
+```text
+UNAUTHENTICATED
+FORBIDDEN
+
+ADMIN_EDIT_CONFLICT
+
+CURRICULUM_ITEM_NOT_FOUND
+CURRICULUM_VALIDATION_FAILED
+
+DUPLICATE_ITEM
+DUPLICATE_REVIEW_REQUIRED
+
+ITEM_REFERENCED
+
+SANDBOX_NOT_FOUND
+SANDBOX_OPERATION_FORBIDDEN
+
+RATE_LIMITED
+```
+
+Never expose:
+
+```text
+SQL errors
+stack traces
+internal DB structures
+secrets
+```
+
+to the browser.
 
 ---
 
-# 67. Database Changes
+# Database Changes
 
-This spec will likely require additive schema changes.
+Use additive Drizzle migrations only.
 
-Expected additions may include:
+The remaining implementation may require schema for:
 
 ```text
-admin_audit_events
-curriculum revision/draft support
-import batches
-import rows / import results
-pending publication state
+curriculum revisions
+published/draft relationships
+pending publication
+revision versions
 ```
 
-Exact tables should follow existing domain boundaries and normalization conventions.
+Do not modify previously applied migrations.
 
-Do not modify migrations that have already been merged/applied.
+Preserve:
 
-Generate additive migrations only.
+```text
+learning_items.id
+```
+
+as the permanent curriculum identity.
+
+Admin workflow tables must not become authoritative for learner progress.
 
 ---
 
-# 68. Curriculum Revision Strategy
+# Domain Boundaries
 
-Because published edits should not immediately become live, the implementation needs a durable way to distinguish:
-
-```text
-currently published data
-unpublished administrative changes
-```
-
-Recommended model:
+`admin` owns:
 
 ```text
-stable learning item identity
-+
-editable revision/draft data
-+
-explicit publish operation
+Admin workflow orchestration
+publication workflow
+Audit events
+duplicate resolution
+sandbox administration
 ```
 
-Do not accomplish this by mutating the production row and hoping the UI remembers that it is "draft."
-
-The server must be able to reliably answer:
+`curriculum` owns:
 
 ```text
-What do learners currently see?
-What is the admin currently editing?
+curriculum structure
+validation
+stable item identity
+Levels
+groups
+vocabulary
+grammar
+sentences
+ordering
 ```
 
-independently.
+`srs` owns SRS.
 
-The exact schema may be chosen during implementation as long as stable item identity and existing user progress remain preserved.
+`progress` owns learner progress.
+
+Admin calls these domains.
+
+It must not duplicate their business rules.
 
 ---
 
-# 69. Pending Imported Content
+# UI Requirements
 
-Imported content should use the same draft/publication architecture.
+The Admin interface is desktop-first and information-dense.
 
-Flow:
+Prioritize:
 
 ```text
-CSV accepted row
-→ create/update pending revision
-→ admin reviews
-→ explicit Publish
-→ live curriculum changes
+tables
+filters
+forms
+side navigation
+efficient editing
 ```
 
-Do not create a second completely separate curriculum model exclusively for imports.
+Still support tablet/mobile.
+
+Smaller layouts may:
+
+* collapse sidebar navigation
+* place filters inside a sheet/dialog
+* switch table rows to cards
+* use single-column forms
+
+Basic Admin functionality must not require horizontal scrolling where avoidable.
 
 ---
 
-# 70. Published Referential Integrity
+# Accessibility
 
-A published revision must not reference:
-
-```text
-missing Level
-missing language
-missing required group
-invalid sentence
-invalid grammar configuration
-archived dependency where prohibited
-```
-
-Publication should fail validation rather than allowing inconsistent live curriculum.
-
----
-
-# 71. Bulk Actions
-
-The curriculum table may support multi-select actions.
-
-Recommended v1 actions:
-
-```text
-Archive selected
-Move to level
-Move to group
-Change status where safe
-Publish selected pending items
-```
-
-Do not implement broad destructive bulk deletion without careful safety checks.
-
-Every bulk operation must preserve per-item validation.
-
----
-
-# 72. Bulk Publish
-
-Pending items may be published in a batch.
-
-Before committing:
-
-```text
-validate every selected item
-validate relationships
-validate duplicate resolutions
-validate affected Level configuration
-```
-
-If the batch is configured as one transactional publication operation:
-
-```text
-all selected items publish
-```
-
-or:
-
-```text
-none publish
-```
-
-Do not leave an ambiguous partially published batch after an unexpected database failure.
-
----
-
-# 73. Accessibility
-
-Admin UI must support:
+Required:
 
 * keyboard navigation
-* visible focus states
-* table controls with labels
-* sortable headers with accessible state
-* dialogs with proper focus trapping
-* destructive confirmations
+* visible focus
+* labeled filters
+* accessible sortable table headers
+* modal focus trapping
 * non-color status indicators
-* drag/drop alternatives for ordering
-* accessible file upload
-* accessible validation summaries
-* readable error states
+* accessible confirmation dialogs
+* keyboard ordering alternatives
+* readable validation summaries
 
-Do not make a dense administrative UI keyboard-hostile.
-
----
-
-# 74. Responsive Behavior
-
-Desktop is the primary Admin target.
-
-Desktop should prioritize:
-
-```text
-table density
-multiple filters
-side navigation
-editing efficiency
-```
-
-Tablet/mobile should remain functional.
-
-On smaller screens:
-
-* table may switch to stacked rows/cards
-* filters may move into a sheet/dialog
-* side navigation may collapse
-* editor forms should become single-column
-
-Do not require horizontal scrolling for basic administrative actions when avoidable.
+Drag-and-drop must always have a non-drag alternative.
 
 ---
 
-# 75. Suggested Code Organization
+# Performance
 
-Recommended:
+Keep Admin ordinary but efficient.
+
+Required:
+
+* cursor pagination
+* indexed filters/search
+* explicit selected DB columns
+* no N+1 query patterns
+* server components where practical
+* no loading the whole curriculum client-side
+* no loading entire Audit history
+* no learner request blocked on Admin observability
+
+---
+
+# Suggested Remaining Code Shape
+
+Use the existing Admin implementation and extend it rather than replacing it.
+
+Conceptually:
 
 ```text
 app/(admin)/admin/
-  layout.tsx
-  page.tsx
-
   curriculum/
     items/
-      page.tsx
       new/
-        page.tsx
       [itemId]/
-        page.tsx
-
     levels/
-      page.tsx
       [levelId]/
-        page.tsx
-
     groups/
-      page.tsx
       [groupId]/
-        page.tsx
 
   logs/
-    page.tsx
-
   sandbox/
-    page.tsx
 
 components/admin/
-  admin-sidebar.tsx
-  admin-page-header.tsx
-
   curriculum/
-    curriculum-table.tsx
-    curriculum-filters.tsx
     curriculum-editor.tsx
     vocabulary-editor.tsx
     grammar-editor.tsx
@@ -1721,617 +1334,404 @@ components/admin/
     sandbox-status.tsx
 
 domains/admin/
-  authorization.ts
-  audit-service.ts
-  import-service.ts
-  duplicate-review.ts
+  authorization.ts           # existing
+  audit-service.ts           # existing
   publication-service.ts
+  duplicate-review.ts
+  sandbox-service.ts
   server.ts
 ```
 
-Use existing:
-
-```text
-domains/curriculum
-domains/users
-domains/srs
-domains/progress
-```
-
-for authoritative domain rules they already own.
-
-The `admin` domain orchestrates workflows rather than duplicating curriculum or SRS logic.
+Do not keep unused CSV/import modules in the Admin implementation.
 
 ---
 
-# 76. Domain Ownership
+# Out of Scope
 
-`admin` owns:
+Do not implement:
 
-```text
-administrative workflow orchestration
-publication workflow
-audit events
-duplicate resolution workflow
-sandbox administration
-```
-
-`curriculum` continues to own:
-
-```text
-curriculum structure
-curriculum validation
-stable learning-item identity
-item relationships
-ordering rules
-```
-
-`srs` continues to own SRS rules.
-
-`progress` continues to own learner progress.
-
-Admin may call those domains but must not reimplement their business logic.
+* CSV curriculum import
+* arbitrary real-user progress inspection
+* arbitrary real-user SRS editing
+* manually unlocking real learner Levels
+* user impersonation
+* Clerk Admin UI
+* billing administration
+* PostHog dashboard
+* Sentry replacement
+* AI curriculum publication
+* raw SQL Admin console
+* production database browser
+* unrestricted environment switching
 
 ---
 
-# 77. Implementation Units
+# Final Verification
 
-Implement incrementally.
+After the remaining Admin implementation is complete, run one complete verification pass.
 
-## Unit 1 — Admin authorization and shell
+## Static
 
-Build:
+Run:
 
 ```text
-/admin
-admin route guard
-admin/developer permission helpers
-Admin layout
-sidebar/navigation
-environment badge
+npm run typecheck
+npm run lint
+npm run build
 ```
 
-Verify:
+All must pass.
 
-* normal user denied
-* admin admitted
-* developer admitted only to permitted surfaces
-* developer cannot edit official curriculum
-* direct route access is protected
+Run the project's normal test suite as well.
 
 ---
 
-## Unit 2 — Audit foundation
+## Admin Authorization Regression
 
-Add durable administrative audit storage.
-
-Implement:
+Although the initial authorization work already exists, confirm it was not broken:
 
 ```text
-audit schema
-audit repository
-audit service
-structured action types
-actor/resource metadata
-cursor pagination
+normal user
+→ /admin
+→ denied
+
+admin
+→ full Admin access
+
+developer
+→ Logs/Sandbox
+→ curriculum mutation denied
+
+admin + developer
+→ full Admin access
 ```
 
-No curriculum editing should ship before mutation auditing is available.
+Also call protected mutation endpoints directly.
+
+Do not rely only on navigation visibility.
 
 ---
 
-## Unit 3 — Curriculum admin read model
-
-Build:
-
-```text
-curriculum admin listing
-search
-filters
-sorting
-pagination
-indexes
-```
-
-Use real curriculum data.
+## Curriculum CRUD
 
 Verify:
 
 ```text
-language
-level
-type
-status
-group
-search
+create vocabulary
+→ Pending
+
+create grammar
+→ Pending
+
+edit Pending item
+→ stays unpublished
+
+publish
+→ becomes learner-visible
 ```
-
----
-
-## Unit 4 — Draft/publication model
-
-Implement durable separation between:
-
-```text
-published curriculum
-draft/pending administrative changes
-```
-
-Build:
-
-```text
-Save Draft
-Pending
-Publish
-version/conflict detection
-cache invalidation
-audit logging
-```
-
----
-
-## Unit 5 — Vocabulary and Grammar editors
-
-Implement full forms for supported curriculum data.
-
-Include:
-
-```text
-accepted answers
-grammar configuration
-sentences/examples
-Level
-group/theme
-ordering
-status
-```
-
-Verify published edits remain unpublished until explicit Publish.
-
----
-
-## Unit 6 — Levels, groups, and ordering
-
-Implement:
-
-```text
-Levels admin
-group/theme admin
-curriculum validation counts
-item moves
-group moves
-reordering
-```
-
-Preserve stable item IDs.
-
----
-
-## Unit 7 — Archive/delete safety
-
-Implement:
-
-```text
-dependency check
-archive referenced records
-permanent delete only safe records
-confirmation
-audit log
-cache invalidation
-```
-
-Verify learner progress is never silently destroyed.
-
----
-
-## Unit 8 — Duplicate detection
-
-Implement duplicate detection for:
-
-```text
-manual create
-manual edit
-imports
-```
-
-Include:
-
-```text
-language scoping
-normalization
-accent preservation
-matching item display
-homonym approval
-audit event
-```
-
----
-
-## Unit 9 — CSV parsing and preview (REMOVED — CSV import descoped 2026-09-05)
-
-## Unit 10 — CSV staging and commit (REMOVED — CSV import descoped 2026-09-05)
-
----
-
-## Unit 11 — Logs UI
-
-Implement:
-
-```text
-Audit tab
-System tab
-filtering
-pagination
-privacy filtering
-external monitoring link where appropriate
-```
-
-Do not reproduce full Sentry functionality.
-
----
-
-## Unit 12 — Sandbox UI
-
-Implement the existing isolated sandbox controls.
-
-Include:
-
-```text
-level simulation
-SRS stage
-review due state
-practice/test unlocks
-time simulation
-reset
-launch sandbox learner experience
-```
-
-Verify sandbox mutations can never reach a real learner.
-
----
-
-## Unit 13 — E2E/security verification
-
-Perform complete role, mutation, CSV, sandbox, and safety verification.
-
-Update:
-
-```text
-progress-tracker.md
-architecture.md
-```
-
-with any finalized implementation decisions.
-
----
-
-# 78. Unit Tests
-
-Cover at minimum:
-
-```text
-admin authorization
-developer authorization
-developer curriculum mutation rejection
-
-draft creation
-pending creation
-publication
-archive decision
-safe permanent deletion
-published revision preservation
-
-duplicate normalization
-accent-sensitive duplicate behavior
-homonym approval
-
-level validation
-group ordering
-item ordering
-
-CSV parsing
-CSV required fields
-CSV invalid rows
-CSV duplicate rows
-CSV existing-item match
-CSV staged pending state
-CSV transaction rollback
-
-audit creation
-audit filtering
-
-sandbox ownership
-sandbox role access
-sandbox isolation
-sandbox time calculation
-```
-
----
-
-# 79. Integration Tests
-
-Use the real integration database strategy.
-
-Cover:
-
-```text
-admin role resolved from DB
-unauthorized mutation rejected
-curriculum item creation transaction
-publication transaction
-audit event written with mutation
-cache invalidation boundary invoked
-published revision unchanged while draft edited
-archive preserves referenced progress
-delete succeeds only when unreferenced
-move preserves stable item ID
-CSV accepted batch transaction rolls back on failure
-duplicate resolution persists
-sandbox user belongs to owner
-sandbox progress cannot reference real-user ownership incorrectly
-```
-
----
-
-# 80. Component Tests
-
-Cover:
-
-```text
-Admin sidebar
-Curriculum filters
-Search
-Status filters
-Pagination controls
-Vocabulary editor
-Grammar editor
-Sentence editor
-Draft/Publish controls
-Delete/Archive confirmation
-Duplicate warning
-Homonym approval
-CSV upload
-CSV preview
-CSV row status
-Import summary
-Audit/System tabs
-Sandbox controls
-```
-
----
-
-# 81. Browser Verification
-
-## Permissions
 
 Verify:
 
-```text
-normal user → /admin → forbidden/not allowed
-admin → full Admin UI
-developer → sandbox/log access
-developer → official curriculum edit blocked
-```
-
-Test direct URLs, not only hidden navigation.
-
----
-
-## Curriculum
-
-Verify:
-
-* searching works
-* filters combine correctly
-* pagination works
-* vocabulary can be created
-* grammar can be created
-* sentences can be edited
-* accepted answers can be edited
-* grammar configuration can be edited
-* items can be moved
-* items can be reordered
-* groups can be created/reordered
-* Level configuration can be edited
+* vocabulary fields
+* accepted answers
+* grammar configuration
+* sentences
+* examples
+* Levels
+* groups
+* ordering
 
 ---
 
-## Publication
+## Published Revision Test
 
-Verify:
+Critical flow:
 
 ```text
-published item
-→ edit
+Published item A
+→ learner reads version A
+
+Admin edits A
 → Save Draft
-→ learner still sees old published version
-→ Publish
-→ learner sees new version
+
+learner still reads version A
+
+Admin publishes
+
+learner now reads version B
 ```
-
-This is a critical E2E case.
-
----
-
-## Delete/Archive
 
 Verify:
 
 ```text
-referenced item
+learning_item ID unchanged
+learner progress unchanged
+```
+
+---
+
+## Concurrency Test
+
+```text
+Admin A opens item
+Admin B publishes change
+Admin A saves stale version
+→ ADMIN_EDIT_CONFLICT
+```
+
+The stale Admin must not overwrite the current version.
+
+---
+
+## Archive/Delete Test
+
+Referenced:
+
+```text
+Published vocabulary
+→ learner progress exists
 → Delete
 → Archive
 → progress remains
+```
 
-unreferenced draft
+Unreferenced:
+
+```text
+unused Pending item
 → Delete
-→ permanent removal permitted
+→ permanent deletion
 ```
 
 ---
 
-## Duplicate
+## Duplicate Test
 
 Verify:
 
 ```text
-gato vs GATO → duplicate
-si vs sí → not automatically duplicate
-approved homonym → separate item created
+gato vs GATO
+→ duplicate candidate
+
+si vs sí
+→ distinct
+
+approved homonym
+→ separate stable item
+→ Audit event
 ```
 
 ---
 
-## Logs
-
-Verify:
-
-* mutation appears in Audit log
-* appropriate before/after metadata shown
-* sensitive fields absent
-* filters work
-* cursor pagination works
-
----
-
-## Sandbox
+## Ordering Test
 
 Verify:
 
 ```text
-change sandbox level
-change sandbox SRS
+move item between groups
+move item between Levels
+reorder vocabulary
+reorder grammar
+reorder groups
+```
+
+Confirm permanent item IDs remain unchanged.
+
+---
+
+## Publication Validation
+
+Attempt to publish invalid curriculum:
+
+```text
+missing required relationship
+invalid Level/group
+unresolved duplicate
+invalid grammar configuration
+invalid sentence reference
+```
+
+All should fail without altering the published version.
+
+---
+
+## Audit Test
+
+Perform Admin mutations and verify the existing Audit system records:
+
+```text
+actor
+action
+resource
+timestamp
+before
+after
+```
+
+Test:
+
+```text
+create
+edit
+publish
+move
+reorder
+duplicate approval
+archive/delete
+sandbox mutation
+```
+
+Verify filtering and cursor pagination.
+
+---
+
+## System Log Privacy
+
+Confirm the System view never displays:
+
+```text
+tokens
+passwords
+sessions
+journal text
+private notes
+typed learner answers
+database credentials
+```
+
+---
+
+## Sandbox Test
+
+Verify:
+
+```text
+change Level
+change SRS stage
 make review due
-simulate time
+simulate future time
+unlock Practice/Test
 reset sandbox
 ```
 
-then verify the real admin learner account is unchanged.
-
----
-
-# 82. Security Verification
-
-Attempt:
+Then verify:
 
 ```text
-normal user calling admin mutation endpoint directly
-developer calling curriculum mutation directly
-changing hidden form IDs
-editing another import
-replaying publish request
-replaying CSV commit
-invalid stable item IDs
-forged role/client state
-oversized CSV
-malformed CSV
-dangerous filenames
-unexpected CSV columns
-duplicate submission
+real Admin learner state unchanged
+other users unchanged
+official curriculum unchanged
 ```
 
-All must fail safely.
-
 ---
 
-# 83. Performance Requirements
+## Idempotency / Replay
 
-Admin is not as latency-sensitive as reviews, but it must still follow the existing application rules.
-
-Required:
-
-* paginated queries
-* no N+1
-* explicit selected DB columns
-* indexed search/filter paths
-* server components where practical
-* no loading entire curriculum client-side
-* no blocking learner requests on Admin analytics/logging
-* no loading full audit history at once
-
----
-
-# 84. Logging
-
-Critical Admin events should also generate structured operational logs where useful.
-
-Examples:
+Replay:
 
 ```text
-curriculum publication
-curriculum movement
-import commit
-archive/delete
-duplicate approval
-sandbox reset
+Publish
+Archive
+Delete
+Bulk publish
 ```
 
-Do not put full curriculum payloads into generic log messages unnecessarily.
+with the same idempotency key.
 
-The durable Admin Audit Log is the source for detailed administrative change history.
-
----
-
-# 85. Out of Scope
-
-Do not implement in this spec:
-
-* inspecting arbitrary real-user learning progress
-* manually editing real-user SRS stages
-* manually unlocking real-user Levels
-* customer support impersonation
-* Clerk account management UI
-* billing administration
-* PostHog analytics dashboard
-* full Sentry replacement
-* background queue infrastructure unless actual CSV size requires it
-* AI-generated curriculum publishing
-* automatic AI curriculum mutation
-* production database console
-* raw SQL execution from Admin
-* direct database browser
-* unrestricted environment switching
-
-Support tooling for real users may be a later Admin Support spec.
+Verify the effect occurs exactly once.
 
 ---
 
-# 86. Completion Criteria
+## Responsive / Accessibility
+
+Check:
+
+```text
+desktop
+tablet
+mobile
+keyboard-only
+```
+
+Verify:
+
+* sidebar
+* filters
+* editors
+* confirmations
+* reorder controls
+* focus behavior
+* status labels
+
+---
+
+## Full Regression
+
+Finally run the complete existing project suite so the Admin changes do not break:
+
+```text
+authentication
+curriculum reads
+lessons
+reviews
+progress
+Levels
+database migrations
+production build
+```
+
+Only after the final run passes:
+
+```text
+update progress-tracker.md
+update architecture.md if implementation decisions changed architecture
+```
+
+---
+
+# Completion Criteria
 
 Spec 11 is complete when:
 
-1. `/admin` has a dedicated protected Admin shell.
-2. Database roles are authoritative for Admin access.
-3. `admin` can manage curriculum, logs, and sandbox.
-4. `developer` can access sandbox/approved diagnostics but cannot mutate official curriculum without `admin`.
-5. Curriculum is available through a searchable, filterable, paginated Admin table.
-6. Admins can create and edit Vocabulary items.
-7. Admins can create and edit Grammar items.
-8. Admins can manage accepted official answers.
-9. Admins can manage all supported grammar configuration.
-10. Admins can manage sentences/examples.
-11. Admins can manage Levels.
-12. Admins can manage vocabulary groups/themes.
-13. Admins can reorder curriculum.
-14. Stable learning-item IDs survive edits and moves.
-15. Published edits use Save Draft → Publish rather than immediate live mutation.
-16-20. ~~Removed — CSV import descoped 2026-09-05.~~ Numbering kept stable rather than renumbering the rest of this list.
-21. Exact duplicates require deliberate resolution.
-22. Legitimate homonyms can be explicitly approved.
-23. Meaningful accents/diacritics remain significant.
-24. Referenced curriculum is archived rather than physically deleted.
-25. Permanent deletion is permitted only when referential integrity proves it safe.
-26. Every administrative mutation creates an audit trail.
-27. Audit logs are filterable and cursor-paginated.
-28. System logs expose useful diagnostics without exposing sensitive content.
-29. Admin does not attempt to replace Sentry.
-30. Sandbox state uses the existing isolated sandbox-user model.
-31. Sandbox operations cannot mutate real learner state.
-32. Sandbox time simulation is sandbox-specific.
-33. Admin curriculum mutations invalidate affected curriculum caches.
-34. Concurrent admin edits cannot silently overwrite each other.
-35. Direct unauthorized calls to Admin mutations fail server-side.
-36. Unit, integration, component, and browser tests pass.
-37. Typecheck, lint, build, and migration validation pass.
-38. `progress-tracker.md` is updated after implementation.
-39. Any finalized new architecture/schema decisions are recorded in `architecture.md`.
+1. The already-built Admin authorization, shell, audit foundation, and curriculum read model remain functional.
+2. Admins can create Vocabulary items.
+3. Admins can create Grammar items.
+4. New items enter Pending.
+5. Admins can edit Pending items.
+6. Published items can have unpublished Draft revisions.
+7. Draft changes never modify learner-visible content before Publish.
+8. Publishing explicitly promotes the intended revision.
+9. Stable `learning_item` IDs survive edits.
+10. Existing learner progress survives edits and moves.
+11. Admins can manage accepted vocabulary answers.
+12. Admins can manage grammar configuration.
+13. Admins can manage sentences/examples.
+14. Admins can manage Levels.
+15. Admins can manage vocabulary groups/themes.
+16. Admins can reorder curriculum.
+17. Admins can move items without recreating identity.
+18. Duplicate detection is language-aware.
+19. Accents remain semantically meaningful.
+20. Homonyms can be explicitly approved.
+21. Referenced curriculum archives instead of being destroyed.
+22. Only provably unreferenced curriculum can be permanently deleted.
+23. Publication validates affected curriculum before changing live data.
+24. Concurrent Admin edits cannot silently overwrite each other.
+25. Admin mutations create Audit events.
+26. Audit logs remain filterable and cursor-paginated.
+27. System logs expose useful diagnostics without sensitive data.
+28. Admin does not attempt to replace Sentry.
+29. Admins and developers can use the isolated sandbox according to role.
+30. Sandbox state cannot modify real learner state.
+31. Sandbox time is isolated.
+32. Curriculum mutations invalidate affected caches.
+33. High-impact mutations tolerate retry without duplicate effects.
+34. Unauthorized direct Admin mutations fail server-side.
+35. CSV import does not exist in this Admin implementation.
+36. Typecheck passes.
+37. Lint passes.
+38. Tests pass.
+39. Integration tests pass.
+40. Browser verification passes.
+41. Production build passes.
+42. `progress-tracker.md` is updated.
+43. New durable architecture decisions are recorded in `architecture.md`.
