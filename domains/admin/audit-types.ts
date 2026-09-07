@@ -12,13 +12,22 @@ export const ADMIN_AUDIT_ACTIONS = [
   "CURRICULUM_ITEM_DELETED",
   "CURRICULUM_ITEM_MOVED",
   "CURRICULUM_ITEM_REORDERED",
+  "LEVEL_CREATED",
   "LEVEL_UPDATED",
   "GROUP_CREATED",
   "GROUP_UPDATED",
   "GROUP_ARCHIVED",
+  "GROUP_REORDERED",
   "DUPLICATE_APPROVED",
   "SANDBOX_RESET",
+  "SANDBOX_LEVEL_SIMULATED",
   "SANDBOX_STAGE_CHANGED",
+  "SANDBOX_REVIEWS_FORCED_DUE",
+  // Time simulation is deliberately not built yet (2026-09-06 scope
+  // decision — needs a clock abstraction reaching across domains/srs's
+  // scheduling logic, not a contained admin-panel change). This action
+  // stays declared, matching spec 11 §48's action list, but nothing
+  // currently records it — see progress-tracker.md's Sandbox entry.
   "SANDBOX_TIME_CHANGED",
 ] as const;
 

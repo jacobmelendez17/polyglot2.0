@@ -3,7 +3,11 @@ export type AdminNavItem = {
   href: string;
 };
 
-const CURRICULUM_ONLY_NAV: AdminNavItem[] = [{ label: "Curriculum", href: "/admin/curriculum" }];
+const CURRICULUM_ONLY_NAV: AdminNavItem[] = [
+  { label: "Curriculum", href: "/admin/curriculum" },
+  { label: "Levels", href: "/admin/curriculum/levels" },
+  { label: "Groups", href: "/admin/curriculum/groups" },
+];
 
 const ADMIN_AREA_NAV: AdminNavItem[] = [
   { label: "Logs", href: "/admin/logs" },
@@ -20,6 +24,17 @@ export function getAdminNavItems(canManageCurriculum: boolean): AdminNavItem[] {
   return [{ label: "Overview", href: "/admin" }, ...(canManageCurriculum ? CURRICULUM_ONLY_NAV : []), ...ADMIN_AREA_NAV];
 }
 
-export function isAdminNavItemCurrent(item: AdminNavItem, pathname: string): boolean {
-  return item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href);
+/**
+ * `allItems` disambiguates nested routes now that "Levels"/"Groups" nest
+ * under "Curriculum"'s own `/admin/curriculum` prefix: on
+ * `/admin/curriculum/levels`, both hrefs match by simple prefix, so only
+ * the longest (most specific) match — "Levels" — should read as current.
+ * `/admin/curriculum/items/...` has no sibling of its own, so it still
+ * falls back to "Curriculum" correctly. "Overview"'s `/admin` needs its own
+ * exact-match rule regardless, since every other route is prefixed by it.
+ */
+export function isAdminNavItemCurrent(item: AdminNavItem, pathname: string, allItems: AdminNavItem[] = [item]): boolean {
+  const matches = (href: string) => (href === "/admin" ? pathname === "/admin" : pathname === href || pathname.startsWith(`${href}/`));
+  if (!matches(item.href)) return false;
+  return !allItems.some((other) => other.href !== item.href && other.href.length > item.href.length && matches(other.href));
 }

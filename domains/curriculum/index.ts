@@ -37,8 +37,34 @@ export type {
   AdminCurriculumStatusCounts,
   GetAdminCurriculumItemsInput,
 } from "./curriculum-admin-types";
+export type {
+  AcceptedAnswerInput,
+  ArchiveLearningItemInput,
+  BulkArchiveLearningItemsInput,
+  BulkMoveLearningItemsInput,
+  BulkPublishPendingItemsInput,
+  CreateLearningItemInput,
+  CreateLevelInput,
+  CreateVocabularyGroupInput,
+  DeleteLearningItemInput,
+  DeleteLearningItemResult,
+  DuplicateCandidate,
+  GrammarFieldsInput,
+  MoveLearningItemInput,
+  PublishLearningItemInput,
+  ReorderLearningItemsInput,
+  ReorderVocabularyGroupsInput,
+  UpdateLearningItemInput,
+  UpdateLevelInput,
+  UpdateVocabularyGroupInput,
+  VocabularyFieldsInput,
+} from "./curriculum-mutation-types";
 
 // Spec 10 — pure, database-free (no db/client.ts import, safe for a "use
 // client" component to value-import) level-page transforms.
 export { LEVEL_NUMBER_MAX, LEVEL_NUMBER_MIN, buildLevelViewModel, parseLevelNumber } from "./level-view";
 export type { LevelCardItem, LevelViewModel } from "./level-view";
+
+// Spec 11 rewrite's Levels Management validation display — pure, database-free.
+export { CURRICULUM_VALIDATION_CONFIG, evaluateLevelValidation } from "./curriculum-validation-config";
+export type { LevelValidationCounts, LevelValidationResult } from "./curriculum-validation-config";

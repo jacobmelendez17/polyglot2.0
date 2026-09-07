@@ -1,7 +1,7 @@
-import { and, asc, eq, gt, ilike, or, sql } from "drizzle-orm";
+import { and, asc, eq, gt, ilike, isNotNull, or, sql } from "drizzle-orm";
 
 import type { DbClient } from "@/db/client";
-import { grammarItems, learningItems, levels, vocabularyGroups, vocabularyItems } from "@/db/schema";
+import { curriculumItemDrafts, grammarItems, learningItems, levels, vocabularyGroups, vocabularyItems } from "@/db/schema";
 
 import { getAdminCurriculumItemsInputSchema } from "./curriculum-admin-schemas";
 import type {
@@ -61,7 +61,18 @@ const SELECTION = {
   groupName: vocabularyGroups.name,
   grammarStructure: grammarItems.structure,
   grammarMeaning: grammarItems.primaryMeaning,
+  // Whether an open, unpublished edit exists (spec 11 rewrite's "Draft"
+  // status) — `learning_items.status` never literally stores `"draft"`
+  // (see that column's own default-value comment); the admin-facing
+  // display status shows "Draft" as an overlay on a published item
+  // instead, so a real answer to "does this have unpublished changes"
+  // doesn't require re-deriving it in every UI consumer.
+  hasOpenDraft: curriculumItemDrafts.id,
 } as const;
+
+function computeDisplayStatus(status: CurriculumStatus, hasOpenDraft: string | null): CurriculumStatus {
+  return status === "published" && hasOpenDraft !== null ? "draft" : status;
+}
 
 function toAdminCurriculumListItem(row: {
   id: string;
@@ -79,11 +90,12 @@ function toAdminCurriculumListItem(row: {
   groupName: string | null;
   grammarStructure: string | null;
   grammarMeaning: string | null;
+  hasOpenDraft: string | null;
 }): AdminCurriculumListItem {
   return {
     id: row.id,
     type: row.type,
-    status: row.status,
+    status: computeDisplayStatus(row.status, row.hasOpenDraft),
     languageId: row.languageId,
     levelId: row.levelId,
     levelNumber: row.levelNumber,
@@ -121,7 +133,15 @@ export async function getAdminCurriculumItems(
   const conditions = [eq(learningItems.languageId, languageId)];
   if (levelId) conditions.push(eq(learningItems.levelId, levelId));
   if (type) conditions.push(eq(learningItems.type, type));
-  if (status) conditions.push(eq(learningItems.status, status));
+  if (status === "draft") {
+    // "draft" never appears literally in `learning_items.status` (see that
+    // column's own comment) — it's a published item with an open,
+    // unpublished edit, so the filter maps to the same condition the
+    // display-status computation above uses.
+    conditions.push(and(eq(learningItems.status, "published"), isNotNull(curriculumItemDrafts.id))!);
+  } else if (status) {
+    conditions.push(eq(learningItems.status, status));
+  }
   if (groupId) conditions.push(eq(vocabularyItems.vocabularyGroupId, groupId));
 
   if (search) {
@@ -160,6 +180,7 @@ export async function getAdminCurriculumItems(
     .leftJoin(vocabularyItems, eq(vocabularyItems.learningItemId, learningItems.id))
     .leftJoin(vocabularyGroups, eq(vocabularyGroups.id, vocabularyItems.vocabularyGroupId))
     .leftJoin(grammarItems, eq(grammarItems.learningItemId, learningItems.id))
+    .leftJoin(curriculumItemDrafts, eq(curriculumItemDrafts.learningItemId, learningItems.id))
     .where(and(...conditions))
     .orderBy(asc(levels.levelNumber), asc(learningItems.position), asc(learningItems.id))
     // Fetch one extra row to know whether a next page exists, without a separate count query.

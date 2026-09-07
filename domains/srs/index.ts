@@ -1,4 +1,4 @@
-export { SRS_STAGE_ORDER, getConfiguredInterval, intervalToMs } from "./srs-config";
+export { SRS_STAGE_LABELS, SRS_STAGE_ORDER, getConfiguredInterval, intervalToMs } from "./srs-config";
 export {
   calculateNextReview,
   getNextStage,

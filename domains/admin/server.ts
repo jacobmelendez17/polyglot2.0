@@ -9,3 +9,37 @@
  * had anything DB-touching to export.
  */
 export { getAuditEvents, recordAuditEvent } from "./audit-service";
+export {
+  archiveItem,
+  bulkArchiveItems,
+  bulkMoveItems,
+  bulkPublishPendingItems,
+  createItem,
+  createLevel,
+  createVocabularyGroup,
+  deleteItem,
+  moveItem,
+  publishItem,
+  reorderItems,
+  reorderVocabularyGroups,
+  updateItem,
+  updateLevel,
+  updateVocabularyGroup,
+} from "./admin-mutation-service";
+export type {
+  ArchiveItemServiceInput,
+  BulkArchiveItemsServiceInput,
+  BulkMoveItemsServiceInput,
+  BulkPublishPendingItemsServiceInput,
+  CreateItemServiceInput,
+  CreateLevelServiceInput,
+  CreateVocabularyGroupServiceInput,
+  DeleteItemServiceInput,
+  MoveItemServiceInput,
+  PublishItemServiceInput,
+  ReorderItemsServiceInput,
+  ReorderVocabularyGroupsServiceInput,
+  UpdateItemServiceInput,
+  UpdateLevelServiceInput,
+  UpdateVocabularyGroupServiceInput,
+} from "./publication-service";

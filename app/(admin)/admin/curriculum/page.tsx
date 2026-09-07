@@ -1,10 +1,13 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { forbidden } from "next/navigation";
 
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import { Button } from "@/components/ui/button";
 import { CurriculumFilters } from "@/components/admin/curriculum/curriculum-filters";
 import { CurriculumPagination } from "@/components/admin/curriculum/curriculum-pagination";
-import { CurriculumTable } from "@/components/admin/curriculum/curriculum-table";
+import { CurriculumTableSection } from "@/components/admin/curriculum/curriculum-table-section";
+import { ItemReorderList } from "@/components/admin/curriculum/item-reorder-list";
 import { canManageCurriculum } from "@/domains/admin";
 import type { CurriculumStatus } from "@/domains/curriculum";
 import {
@@ -20,6 +23,14 @@ export const metadata: Metadata = {
 };
 
 const PAGE_SIZE = 20;
+// getAdminCurriculumItemsInputSchema caps `limit` at 100 — this is that cap,
+// used as-is (not a separate, larger constant) so reorder mode never
+// exceeds it. Still comfortably above CURRICULUM_VALIDATION_CONFIG's
+// 48-vocabulary-per-level target: reorder mode needs every item in the
+// level+type at once (not one paginated page), since `reorderItems`
+// assigns positions 1..N to whatever list it's given — leaving items out of
+// that list would desync their position from the ones that were reordered.
+const REORDER_LIMIT = 100;
 const ITEM_TYPES = ["vocabulary", "grammar"] as const;
 const STATUSES = ["draft", "pending", "published", "archived"] as const;
 
@@ -31,6 +42,7 @@ type SearchParams = {
   group?: string;
   search?: string;
   cursor?: string;
+  mode?: string;
 };
 
 /**
@@ -68,6 +80,11 @@ export default async function AdminCurriculumPage({
   const languageId = languages.some((l) => l.id === params.language) ? params.language! : languages[0]!.id;
   const type = ITEM_TYPES.includes(params.type as (typeof ITEM_TYPES)[number]) ? (params.type as "vocabulary" | "grammar") : undefined;
   const status = STATUSES.includes(params.status as CurriculumStatus) ? (params.status as CurriculumStatus) : undefined;
+  // Reordering only makes sense scoped to exactly one level and one type —
+  // `position` is uniquely constrained within `(level, type)`, never across
+  // either (see reorderLearningItems).
+  const canReorder = Boolean(params.level && type);
+  const reorderMode = canReorder && params.mode === "reorder";
 
   const [levels, groups, page] = await Promise.all([
     getLevelsByLanguage(languageId),
@@ -79,8 +96,8 @@ export default async function AdminCurriculumPage({
       status,
       groupId: params.group,
       search: params.search,
-      limit: PAGE_SIZE,
-      cursor: params.cursor,
+      limit: reorderMode ? REORDER_LIMIT : PAGE_SIZE,
+      cursor: reorderMode ? undefined : params.cursor,
     }),
   ]);
 
@@ -89,18 +106,28 @@ export default async function AdminCurriculumPage({
     .map((group) => ({ id: group.id, name: group.name, levelNumber: levelNumberById.get(group.levelId) ?? 0 }))
     .sort((a, b) => a.levelNumber - b.levelNumber || a.name.localeCompare(b.name));
 
-  const nextParams = new URLSearchParams();
-  nextParams.set("language", languageId);
-  if (params.level) nextParams.set("level", params.level);
-  if (type) nextParams.set("type", type);
-  if (status) nextParams.set("status", status);
-  if (params.group) nextParams.set("group", params.group);
-  if (params.search) nextParams.set("search", params.search);
+  const baseParams = new URLSearchParams();
+  baseParams.set("language", languageId);
+  if (params.level) baseParams.set("level", params.level);
+  if (type) baseParams.set("type", type);
+  if (status) baseParams.set("status", status);
+  if (params.group) baseParams.set("group", params.group);
+  if (params.search) baseParams.set("search", params.search);
+
+  const nextParams = new URLSearchParams(baseParams);
   if (page.nextCursor) nextParams.set("cursor", page.nextCursor);
+
+  const reorderParams = new URLSearchParams(baseParams);
+  reorderParams.set("mode", "reorder");
 
   return (
     <div>
-      <AdminPageHeader title="Curriculum" description="Search, filter, create, edit, and publish official curriculum." />
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <AdminPageHeader title="Curriculum" description="Search, filter, create, edit, and publish official curriculum." />
+        <Button asChild>
+          <Link href={`/admin/curriculum/items/new?language=${languageId}`}>Add item</Link>
+        </Button>
+      </div>
 
       <CurriculumFilters
         languages={languages}
@@ -109,11 +136,28 @@ export default async function AdminCurriculumPage({
         value={{ languageId, levelId: params.level, type, status, groupId: params.group, search: params.search }}
       />
 
-      <CurriculumTable items={page.items} />
-
-      {page.nextCursor ? (
-        <CurriculumPagination nextHref={`/admin/curriculum?${nextParams.toString()}`} />
+      {canReorder ? (
+        <div className="mb-4">
+          {reorderMode ? (
+            <Link href={`/admin/curriculum?${baseParams.toString()}`} className="text-sm font-medium text-primary underline-offset-4 hover:underline">
+              ← Back to browsing
+            </Link>
+          ) : (
+            <Link href={`/admin/curriculum?${reorderParams.toString()}`} className="text-sm font-medium text-primary underline-offset-4 hover:underline">
+              Reorder items in this level/type
+            </Link>
+          )}
+        </div>
       ) : null}
+
+      {reorderMode ? (
+        <ItemReorderList levelId={params.level!} type={type!} items={page.items} />
+      ) : (
+        <>
+          <CurriculumTableSection items={page.items} levels={levels.map((l) => ({ id: l.id, levelNumber: l.levelNumber }))} groups={groupOptions} />
+          {page.nextCursor ? <CurriculumPagination nextHref={`/admin/curriculum?${nextParams.toString()}`} /> : null}
+        </>
+      )}
     </div>
   );
 }

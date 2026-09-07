@@ -41,10 +41,10 @@ export function AdminMobileNav({ canManageCurriculum }: AdminMobileNavProps) {
             <SheetClose asChild key={item.href}>
               <Link
                 href={item.href}
-                aria-current={isAdminNavItemCurrent(item, pathname) ? "page" : undefined}
+                aria-current={isAdminNavItemCurrent(item, pathname, items) ? "page" : undefined}
                 className={cn(
                   "rounded-md px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted",
-                  isAdminNavItemCurrent(item, pathname) && "bg-muted font-semibold",
+                  isAdminNavItemCurrent(item, pathname, items) && "bg-muted font-semibold",
                 )}
               >
                 {item.label}

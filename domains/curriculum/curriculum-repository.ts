@@ -82,6 +82,7 @@ async function attachDetail(db: DbClient, item: LearningItemRow): Promise<Curric
     status: item.status,
     position: item.position,
     lessonPriority: item.lessonPriority,
+    version: item.version,
   };
 
   if (item.type === "vocabulary") {
@@ -231,6 +232,7 @@ export async function getLearningItemsByIds(db: DbClient, ids: string[]): Promis
       status: item.status,
       position: item.position,
       lessonPriority: item.lessonPriority,
+      version: item.version,
     };
 
     if (item.type === "vocabulary") {

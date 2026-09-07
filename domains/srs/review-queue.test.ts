@@ -12,6 +12,7 @@ function vocab(id: string): CurriculumLearningItem {
     status: "published",
     position: 1,
     lessonPriority: 1,
+    version: 1,
     type: "vocabulary",
     vocabulary: {
       vocabularyGroupId: "group-1",
@@ -36,6 +37,7 @@ function grammar(id: string, requiredQuestions: { format: "translation"; directi
     status: "published",
     position: 1,
     lessonPriority: 1,
+    version: 1,
     type: "grammar",
     grammar: {
       title: null,

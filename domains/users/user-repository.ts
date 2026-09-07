@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 
 import type { DbClient } from "@/db/client";
 import { languages, levels, users, userLevelProgress } from "@/db/schema";
@@ -45,6 +45,13 @@ export async function findUserByClerkUserId(db: DbClient, clerkUserId: string): 
 export async function findUserById(db: DbClient, id: string): Promise<PolyglotUser | null> {
   const [row] = await db.select().from(users).where(eq(users.id, id)).limit(1);
   return row ? toPolyglotUser(row) : null;
+}
+
+/** Batched, not per-row (architecture.md's N+1 rule) — the Audit log's own read model resolves a whole page of actor IDs to display names in one query. */
+export async function findUsersByIds(db: DbClient, ids: string[]): Promise<PolyglotUser[]> {
+  if (ids.length === 0) return [];
+  const rows = await db.select().from(users).where(inArray(users.id, ids));
+  return rows.map(toPolyglotUser);
 }
 
 /**

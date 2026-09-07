@@ -17,6 +17,19 @@ export const SRS_STAGE_ORDER: readonly SrsStage[] = [
   "fluent",
 ] as const;
 
+/** Human-readable stage labels — the one shared mapping, so every display of an `SrsStage` (Sandbox controls, a future reviews/progress view) reads identically. */
+export const SRS_STAGE_LABELS: Record<SrsStage, string> = {
+  beginner_1: "Beginner 1",
+  beginner_2: "Beginner 2",
+  beginner_3: "Beginner 3",
+  beginner_4: "Beginner 4",
+  familiar_1: "Familiar 1",
+  familiar_2: "Familiar 2",
+  intermediate: "Intermediate",
+  master: "Master",
+  fluent: "Fluent",
+};
+
 /** Standard Review Intervals — project-overview.md. `null` means terminal: Fluent has no further scheduled review. */
 const STANDARD_INTERVALS: Record<SrsStage, SrsInterval | null> = {
   beginner_1: { unit: "hours", amount: 4 },

@@ -1,4 +1,9 @@
-export type RateLimitPolicyName = "lesson-complete" | "review-submit";
+export type RateLimitPolicyName =
+  | "lesson-complete"
+  | "review-submit"
+  | "admin-mutation"
+  | "admin-publish"
+  | "sandbox-mutation";
 
 export type RateLimitPolicy = {
   windowSeconds: number;

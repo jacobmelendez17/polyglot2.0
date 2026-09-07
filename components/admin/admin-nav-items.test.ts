@@ -3,12 +3,12 @@ import { describe, expect, it } from "vitest";
 import { getAdminNavItems, isAdminNavItemCurrent } from "./admin-nav-items";
 
 describe("getAdminNavItems", () => {
-  it("includes Curriculum when the user can manage curriculum", () => {
+  it("includes Curriculum, Levels, and Groups when the user can manage curriculum", () => {
     const labels = getAdminNavItems(true).map((item) => item.label);
-    expect(labels).toEqual(["Overview", "Curriculum", "Logs", "Sandbox"]);
+    expect(labels).toEqual(["Overview", "Curriculum", "Levels", "Groups", "Logs", "Sandbox"]);
   });
 
-  it("omits Curriculum for a developer-only user (spec 11 §4)", () => {
+  it("omits Curriculum/Levels/Groups for a developer-only user (spec 11 §4)", () => {
     const labels = getAdminNavItems(false).map((item) => item.label);
     expect(labels).toEqual(["Overview", "Logs", "Sandbox"]);
   });
@@ -25,5 +25,16 @@ describe("isAdminNavItemCurrent", () => {
     const sandbox = { label: "Sandbox", href: "/admin/sandbox" };
     expect(isAdminNavItemCurrent(sandbox, "/admin/sandbox")).toBe(true);
     expect(isAdminNavItemCurrent(sandbox, "/admin")).toBe(false);
+  });
+
+  it("prefers the more specific sibling when routes nest (Levels/Groups under Curriculum's own prefix)", () => {
+    const items = getAdminNavItems(true);
+    const curriculum = items.find((i) => i.label === "Curriculum")!;
+    const levels = items.find((i) => i.label === "Levels")!;
+
+    expect(isAdminNavItemCurrent(levels, "/admin/curriculum/levels/abc-123", items)).toBe(true);
+    expect(isAdminNavItemCurrent(curriculum, "/admin/curriculum/levels/abc-123", items)).toBe(false);
+    // A genuine Curriculum sub-route with no sibling of its own still matches Curriculum.
+    expect(isAdminNavItemCurrent(curriculum, "/admin/curriculum/items/new", items)).toBe(true);
   });
 });

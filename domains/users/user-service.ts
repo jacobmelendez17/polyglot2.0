@@ -3,7 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { db } from "@/db/client";
 import { AppError } from "@/lib/errors/app-error";
 
-import { findUserByClerkUserId, provisionUser } from "./user-repository";
+import { findUserByClerkUserId, findUsersByIds, provisionUser } from "./user-repository";
 import type { PolyglotUser } from "./user-types";
 
 /**
@@ -37,4 +37,8 @@ export async function requireUser(): Promise<PolyglotUser> {
     throw new AppError("UNAUTHENTICATED");
   }
   return user;
+}
+
+export async function getUsersByIds(ids: string[]): Promise<PolyglotUser[]> {
+  return findUsersByIds(db, ids);
 }

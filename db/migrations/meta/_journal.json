@@ -43,6 +43,13 @@
       "when": 1788598879172,
       "tag": "0005_parched_wong",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788663553745,
+      "tag": "0006_little_grandmaster",
+      "breakpoints": true
     }
   ]
 }

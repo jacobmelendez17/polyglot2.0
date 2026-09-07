@@ -71,6 +71,8 @@ interface CurriculumLearningItemBase {
   status: CurriculumStatus;
   position: number;
   lessonPriority: number;
+  /** Optimistic-concurrency version (spec 11 rewrite's `ADMIN_EDIT_CONFLICT`) — bumped on every publish. */
+  version: number;
 }
 
 export type CurriculumLearningItem =

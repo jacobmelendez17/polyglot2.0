@@ -30,10 +30,10 @@ export function AdminSidebarNav({ canManageCurriculum }: AdminSidebarNavProps) {
         <Link
           key={item.href}
           href={item.href}
-          aria-current={isAdminNavItemCurrent(item, pathname) ? "page" : undefined}
+          aria-current={isAdminNavItemCurrent(item, pathname, items) ? "page" : undefined}
           className={cn(
             "rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-            isAdminNavItemCurrent(item, pathname) && "bg-muted font-semibold text-foreground",
+            isAdminNavItemCurrent(item, pathname, items) && "bg-muted font-semibold text-foreground",
           )}
         >
           {item.label}

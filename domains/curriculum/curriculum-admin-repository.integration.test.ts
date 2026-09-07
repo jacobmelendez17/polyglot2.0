@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { languages, learningItems, levels, vocabularyItems } from "@/db/schema";
 import {
+  DEVELOPER_ID,
   ITEM_AGUA_ID,
   ITEM_CASA_ID,
   ITEM_GATO_ID,
@@ -11,6 +12,7 @@ import {
   seedTestFixtures,
 } from "@/db/seed/test-fixtures";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
+import { updateItem } from "@/domains/admin/publication-service";
 
 import { getAdminCurriculumItems, getAdminCurriculumStatusCounts } from "./curriculum-admin-repository";
 
@@ -83,14 +85,17 @@ describe("getAdminCurriculumItems", () => {
       const { languageId, level1Id } = await seedTestFixtures(tx);
 
       // Every seeded fixture item is "published" — insert one throwaway
-      // "draft" item scoped to this test to prove status filtering works,
-      // rather than only ever exercising a single-status fixture.
-      const [draftItem] = await tx
+      // "pending" item scoped to this test to prove status filtering works,
+      // rather than only ever exercising a single-status fixture. Not
+      // "draft": that status never appears literally in `learning_items`
+      // (see its column comment) — a published item with an open edit is
+      // covered separately, by "shows 'draft' for a published item..." below.
+      const [pendingItem] = await tx
         .insert(learningItems)
-        .values({ languageId, levelId: level1Id, type: "vocabulary", status: "draft", position: 99, lessonPriority: 99 })
+        .values({ languageId, levelId: level1Id, type: "vocabulary", status: "pending", position: 99, lessonPriority: 99 })
         .returning();
       await tx.insert(vocabularyItems).values({
-        learningItemId: draftItem!.id,
+        learningItemId: pendingItem!.id,
         vocabularyGroupId: VOCAB_GROUP_ID,
         term: "perro",
         primaryMeaning: "dog",
@@ -99,10 +104,10 @@ describe("getAdminCurriculumItems", () => {
       });
 
       const published = await getAdminCurriculumItems(tx, { languageId, status: "published", limit: 10 });
-      expect(published.items.some((i) => i.id === draftItem!.id)).toBe(false);
+      expect(published.items.some((i) => i.id === pendingItem!.id)).toBe(false);
 
-      const draft = await getAdminCurriculumItems(tx, { languageId, status: "draft", limit: 10 });
-      expect(draft.items.map((i) => i.id)).toEqual([draftItem!.id]);
+      const pending = await getAdminCurriculumItems(tx, { languageId, status: "pending", limit: 10 });
+      expect(pending.items.map((i) => i.id)).toEqual([pendingItem!.id]);
     });
   });
 
@@ -199,6 +204,29 @@ describe("getAdminCurriculumItems", () => {
       const page = await getAdminCurriculumItems(tx, { languageId, search: "gato", limit: 10 });
       expect(page.items.map((i) => i.id)).toEqual([ITEM_GATO_ID]);
       expect(page.items.some((i) => i.id === otherItem!.id)).toBe(false);
+    });
+  });
+
+  it("shows 'draft' for a published item with an open edit, without changing its stored status", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      await updateItem(tx, {
+        learningItemId: ITEM_GATO_ID,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+        type: "vocabulary",
+        fields: { vocabularyGroupId: VOCAB_GROUP_ID, term: "gato", primaryMeaning: "cat (draft)", article: "el", partOfSpeech: "noun", acceptedAnswers: [] },
+      });
+
+      const all = await getAdminCurriculumItems(tx, { languageId, limit: 10 });
+      const gatoRow = all.items.find((i) => i.id === ITEM_GATO_ID);
+      expect(gatoRow?.status).toBe("draft");
+
+      // Filtering by "draft" finds it; filtering by "published" still finds it too (it's genuinely still live).
+      const draftFiltered = await getAdminCurriculumItems(tx, { languageId, status: "draft", limit: 10 });
+      expect(draftFiltered.items.map((i) => i.id)).toContain(ITEM_GATO_ID);
+      const publishedFiltered = await getAdminCurriculumItems(tx, { languageId, status: "published", limit: 10 });
+      expect(publishedFiltered.items.map((i) => i.id)).toContain(ITEM_GATO_ID);
     });
   });
 });

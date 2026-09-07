@@ -9,8 +9,10 @@
  * stay free of anything that reaches the database client.
  */
 export {
+  getAcceptedAnswers,
   getAdminCurriculumItems,
   getAdminCurriculumStatusCounts,
+  getItemDraft,
   getLanguageByCode,
   getLanguageById,
   getLanguages,
@@ -20,6 +22,7 @@ export {
   getLevelByLanguageAndNumber,
   getLevelItems,
   getLevelsByLanguage,
+  getLevelValidationCounts,
   getVocabularyGroup,
   getVocabularyGroupsByLanguage,
 } from "./curriculum-db-service";

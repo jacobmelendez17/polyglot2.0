@@ -41,6 +41,7 @@ function vocab(id: string, position: number): VocabularyLearningItem {
     status: "published",
     position,
     lessonPriority: position,
+    version: 1,
     type: "vocabulary",
     vocabulary: {
       vocabularyGroupId: "group-1",
@@ -65,6 +66,7 @@ function grammar(id: string, position: number): CurriculumLearningItem {
     status: "published",
     position,
     lessonPriority: position,
+    version: 1,
     type: "grammar",
     grammar: {
       title: null,

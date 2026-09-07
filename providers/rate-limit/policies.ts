@@ -24,4 +24,26 @@ export const RATE_LIMIT_POLICIES: Record<RateLimitPolicyName, RateLimitPolicy> =
     maxRequests: 60,
     failOpen: false,
   },
+  // Spec 11 (rewrite) — ordinary Admin mutations (create/edit/save-draft/
+  // move/reorder/archive/delete/duplicate-resolution). Generous for real
+  // interactive editing, still bounded against a compromised session
+  // (architecture.md's "blast-radius containment" rationale).
+  "admin-mutation": {
+    windowSeconds: 60,
+    maxRequests: 30,
+    failOpen: false,
+  },
+  // Publishing (including bulk publish) is the highest-impact Admin
+  // mutation — it's what actually changes what learners see — so it gets
+  // its own, tighter policy rather than sharing "admin-mutation"'s budget.
+  "admin-publish": {
+    windowSeconds: 60,
+    maxRequests: 10,
+    failOpen: false,
+  },
+  "sandbox-mutation": {
+    windowSeconds: 60,
+    maxRequests: 30,
+    failOpen: false,
+  },
 };

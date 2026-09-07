@@ -1,6 +1,11 @@
 import { db } from "@/db/client";
 
 import * as adminRepository from "./curriculum-admin-repository";
+import {
+  getAcceptedAnswers as repoGetAcceptedAnswers,
+  getDraft as repoGetDraft,
+  getLevelValidationCounts as repoGetLevelValidationCounts,
+} from "./curriculum-mutation-repository";
 import * as repository from "./curriculum-repository";
 import type { GetAdminCurriculumItemsInput } from "./curriculum-admin-types";
 
@@ -60,4 +65,16 @@ export async function getAdminCurriculumItems(input: GetAdminCurriculumItemsInpu
 
 export async function getAdminCurriculumStatusCounts(languageId: string) {
   return adminRepository.getAdminCurriculumStatusCounts(db, languageId);
+}
+
+export async function getAcceptedAnswers(learningItemId: string) {
+  return repoGetAcceptedAnswers(db, learningItemId);
+}
+
+export async function getItemDraft(learningItemId: string) {
+  return repoGetDraft(db, learningItemId);
+}
+
+export async function getLevelValidationCounts(levelId: string) {
+  return repoGetLevelValidationCounts(db, levelId);
 }

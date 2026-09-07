@@ -1,0 +1,112 @@
+import { db } from "@/db/client";
+import { getRateLimiter } from "@/providers/rate-limit";
+import { AdminError } from "@/lib/errors/admin-errors";
+
+import * as publication from "./publication-service";
+import type {
+  ArchiveItemServiceInput,
+  BulkArchiveItemsServiceInput,
+  BulkMoveItemsServiceInput,
+  BulkPublishPendingItemsServiceInput,
+  CreateItemServiceInput,
+  CreateLevelServiceInput,
+  CreateVocabularyGroupServiceInput,
+  DeleteItemServiceInput,
+  MoveItemServiceInput,
+  PublishItemServiceInput,
+  ReorderItemsServiceInput,
+  ReorderVocabularyGroupsServiceInput,
+  UpdateItemServiceInput,
+  UpdateLevelServiceInput,
+  UpdateVocabularyGroupServiceInput,
+} from "./publication-service";
+
+/**
+ * Binds the real app database and rate limiter to `publication-service.ts`'s
+ * injectable orchestration functions — see `domains/srs/review-service.ts`
+ * for the identical pattern. Not guarded with `import "server-only"`
+ * directly — importing `db`/the rate-limit provider already carries that
+ * guard transitively.
+ */
+
+async function checkRateLimit(policy: "admin-mutation" | "admin-publish", userId: string): Promise<void> {
+  const decision = await getRateLimiter().check({ policy, subject: userId });
+  if (!decision.allowed) {
+    throw new AdminError("RATE_LIMITED", `Please slow down and try again in ${decision.retryAfterSeconds}s.`);
+  }
+}
+
+export async function createItem(input: CreateItemServiceInput) {
+  await checkRateLimit("admin-mutation", input.actorUserId);
+  return publication.createItem(db, input);
+}
+
+export async function updateItem(input: UpdateItemServiceInput) {
+  await checkRateLimit("admin-mutation", input.actorUserId);
+  return publication.updateItem(db, input);
+}
+
+export async function publishItem(input: PublishItemServiceInput) {
+  await checkRateLimit("admin-publish", input.actorUserId);
+  return publication.publishItem(db, input);
+}
+
+export async function archiveItem(input: ArchiveItemServiceInput) {
+  await checkRateLimit("admin-mutation", input.actorUserId);
+  return publication.archiveItem(db, input);
+}
+
+export async function deleteItem(input: DeleteItemServiceInput) {
+  await checkRateLimit("admin-mutation", input.actorUserId);
+  return publication.deleteItem(db, input);
+}
+
+export async function moveItem(input: MoveItemServiceInput) {
+  await checkRateLimit("admin-mutation", input.actorUserId);
+  return publication.moveItem(db, input);
+}
+
+export async function reorderItems(input: ReorderItemsServiceInput) {
+  await checkRateLimit("admin-mutation", input.actorUserId);
+  return publication.reorderItems(db, input);
+}
+
+export async function createLevel(input: CreateLevelServiceInput) {
+  await checkRateLimit("admin-mutation", input.actorUserId);
+  return publication.createLevel(db, input);
+}
+
+export async function updateLevel(input: UpdateLevelServiceInput) {
+  await checkRateLimit(input.status === "published" ? "admin-publish" : "admin-mutation", input.actorUserId);
+  return publication.updateLevel(db, input);
+}
+
+export async function createVocabularyGroup(input: CreateVocabularyGroupServiceInput) {
+  await checkRateLimit("admin-mutation", input.actorUserId);
+  return publication.createVocabularyGroup(db, input);
+}
+
+export async function updateVocabularyGroup(input: UpdateVocabularyGroupServiceInput) {
+  await checkRateLimit("admin-mutation", input.actorUserId);
+  return publication.updateVocabularyGroup(db, input);
+}
+
+export async function reorderVocabularyGroups(input: ReorderVocabularyGroupsServiceInput) {
+  await checkRateLimit("admin-mutation", input.actorUserId);
+  return publication.reorderVocabularyGroups(db, input);
+}
+
+export async function bulkArchiveItems(input: BulkArchiveItemsServiceInput) {
+  await checkRateLimit("admin-mutation", input.actorUserId);
+  return publication.bulkArchiveItems(db, input);
+}
+
+export async function bulkMoveItems(input: BulkMoveItemsServiceInput) {
+  await checkRateLimit("admin-mutation", input.actorUserId);
+  return publication.bulkMoveItems(db, input);
+}
+
+export async function bulkPublishPendingItems(input: BulkPublishPendingItemsServiceInput) {
+  await checkRateLimit("admin-publish", input.actorUserId);
+  return publication.bulkPublishPendingItems(db, input);
+}

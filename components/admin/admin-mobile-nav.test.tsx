@@ -26,11 +26,13 @@ describe("AdminMobileNav", () => {
     expect(screen.queryByRole("link", { name: "Curriculum" })).not.toBeInTheDocument();
   });
 
-  it("includes Curriculum when the user can manage curriculum", async () => {
+  it("includes Curriculum, Levels, and Groups when the user can manage curriculum", async () => {
     const user = userEvent.setup();
     render(<AdminMobileNav canManageCurriculum />);
 
     await user.click(screen.getByRole("button", { name: "Open Admin navigation" }));
     expect(screen.getByRole("link", { name: "Curriculum" })).toHaveAttribute("href", "/admin/curriculum");
+    expect(screen.getByRole("link", { name: "Levels" })).toHaveAttribute("href", "/admin/curriculum/levels");
+    expect(screen.getByRole("link", { name: "Groups" })).toHaveAttribute("href", "/admin/curriculum/groups");
   });
 });

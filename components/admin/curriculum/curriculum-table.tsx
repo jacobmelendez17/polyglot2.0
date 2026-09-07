@@ -1,3 +1,8 @@
+"use client";
+
+import Link from "next/link";
+
+import { Checkbox } from "@/components/ui/checkbox";
 import { CurriculumStatusBadge } from "./curriculum-status-badge";
 import type { AdminCurriculumListItem } from "@/domains/curriculum";
 
@@ -5,14 +10,13 @@ const TYPE_LABEL = { vocabulary: "Vocab", grammar: "Gram" } as const;
 
 type CurriculumTableProps = {
   items: AdminCurriculumListItem[];
+  selectedIds: Set<string>;
+  onToggleItem: (id: string) => void;
+  onToggleAll: () => void;
 };
 
-/**
- * Spec 11 §9's admin curriculum table. Editing isn't built until Unit 5, so
- * there's no Actions column yet — adding one with nothing to click would be
- * clutter, not a feature; it returns once there's a real destination.
- */
-export function CurriculumTable({ items }: CurriculumTableProps) {
+/** Spec 11 §9's admin curriculum table, now with a real Actions column linking to the item editor and a selection checkbox column feeding spec 11 rewrite's "Bulk Actions" bar. */
+export function CurriculumTable({ items, selectedIds, onToggleItem, onToggleAll }: CurriculumTableProps) {
   if (items.length === 0) {
     return (
       <div className="rounded-xl border border-border bg-card p-8 text-center">
@@ -22,11 +26,16 @@ export function CurriculumTable({ items }: CurriculumTableProps) {
     );
   }
 
+  const allSelected = items.length > 0 && items.every((item) => selectedIds.has(item.id));
+
   return (
     <div className="overflow-x-auto rounded-xl border border-border">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border bg-muted/50 text-left text-xs font-medium text-muted-foreground">
+            <th scope="col" className="w-8 px-3 py-2">
+              <Checkbox checked={allSelected} onCheckedChange={onToggleAll} aria-label="Select all items on this page" />
+            </th>
             <th scope="col" className="px-3 py-2">
               Type
             </th>
@@ -45,11 +54,17 @@ export function CurriculumTable({ items }: CurriculumTableProps) {
             <th scope="col" className="px-3 py-2">
               Status
             </th>
+            <th scope="col" className="px-3 py-2">
+              <span className="sr-only">Actions</span>
+            </th>
           </tr>
         </thead>
         <tbody>
           {items.map((item) => (
             <tr key={item.id} className="border-b border-border last:border-0 hover:bg-muted/30">
+              <td className="px-3 py-2">
+                <Checkbox checked={selectedIds.has(item.id)} onCheckedChange={() => onToggleItem(item.id)} aria-label={`Select ${item.itemLabel}`} />
+              </td>
               <td className="px-3 py-2 text-muted-foreground">{TYPE_LABEL[item.type]}</td>
               <td className="px-3 py-2 font-medium text-foreground">{item.itemLabel}</td>
               <td className="px-3 py-2 text-muted-foreground">{item.meaningLabel}</td>
@@ -57,6 +72,14 @@ export function CurriculumTable({ items }: CurriculumTableProps) {
               <td className="px-3 py-2 text-muted-foreground">{item.groupName ?? "—"}</td>
               <td className="px-3 py-2">
                 <CurriculumStatusBadge status={item.status} />
+              </td>
+              <td className="px-3 py-2 text-right">
+                <Link
+                  href={`/admin/curriculum/items/${item.id}`}
+                  className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+                >
+                  Edit
+                </Link>
               </td>
             </tr>
           ))}

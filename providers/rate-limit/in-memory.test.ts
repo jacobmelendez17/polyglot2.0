@@ -90,6 +90,9 @@ describe("InMemoryRateLimiter", () => {
       policies: {
         "lesson-complete": { windowSeconds: 60, maxRequests: 5, failOpen: true },
         "review-submit": { windowSeconds: 60, maxRequests: 5, failOpen: true },
+        "admin-mutation": { windowSeconds: 60, maxRequests: 5, failOpen: true },
+        "admin-publish": { windowSeconds: 60, maxRequests: 5, failOpen: true },
+        "sandbox-mutation": { windowSeconds: 60, maxRequests: 5, failOpen: true },
       },
     });
 

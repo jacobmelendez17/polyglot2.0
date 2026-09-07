@@ -8,7 +8,7 @@ import { testDb } from "@/db/test/test-client";
 import { withTestTransaction, type TestTx } from "@/db/test/with-test-transaction";
 
 import { getDefaultLanguageCode } from "./provisioning-config";
-import { findUserById, findUserByClerkUserId, provisionUser } from "./user-repository";
+import { findUserById, findUserByClerkUserId, findUsersByIds, provisionUser } from "./user-repository";
 
 /**
  * Seeds the minimal §38 prerequisite (the configured default language and
@@ -227,6 +227,25 @@ describe("provisionUser / findUserByClerkUserId", () => {
       const claimedIdentity = { id: "clerk-untrusted", publicMetadata: { role: "admin" as const } };
       const user = await provisionUser(tx, claimedIdentity.id);
       expect(user.role).toBe("user");
+    });
+  });
+});
+
+describe("findUsersByIds", () => {
+  it("resolves several users in one batched query, omitting IDs that don't exist", async () => {
+    await withTestTransaction(async (tx) => {
+      await seedDefaultLanguageAndLevel1(tx);
+      const a = await provisionUser(tx, "clerk-batch-a");
+      const b = await provisionUser(tx, "clerk-batch-b");
+
+      const found = await findUsersByIds(tx, [a.id, b.id, "00000000-0000-0000-0000-000000000000"]);
+      expect(found.map((u) => u.id).sort()).toEqual([a.id, b.id].sort());
+    });
+  });
+
+  it("returns an empty array without querying for an empty ID list", async () => {
+    await withTestTransaction(async (tx) => {
+      expect(await findUsersByIds(tx, [])).toEqual([]);
     });
   });
 });

@@ -14,6 +14,7 @@ const gato: CurriculumLearningItem = {
   status: "published",
   position: 1,
   lessonPriority: 1,
+  version: 1,
   type: "vocabulary",
   vocabulary: {
     vocabularyGroupId: "group-1",
@@ -36,6 +37,7 @@ const y: CurriculumLearningItem = {
   status: "published",
   position: 1,
   lessonPriority: 1,
+  version: 1,
   type: "grammar",
   grammar: {
     title: null,
@@ -77,7 +79,11 @@ describe("getReviewQuestionAnswerSpec — vocabulary", () => {
   });
 
   it("a vocabulary item with no article has no article requirement", () => {
-    const noArticleItem: CurriculumLearningItem = { ...gato, vocabulary: { ...gato.vocabulary, article: null } };
+    const noArticleItem: CurriculumLearningItem = {
+      ...gato,
+      type: "vocabulary",
+      vocabulary: { ...gato.vocabulary, article: null },
+    };
     const spec = getReviewQuestionAnswerSpec(noArticleItem, "englishToTarget", NO_SYNONYMS);
     expect(spec.articleRequirement).toBeUndefined();
     expect(spec.acceptedAnswers).toEqual(["gato"]);
