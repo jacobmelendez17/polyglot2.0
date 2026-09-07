@@ -1,9 +1,19 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
 
 import type { DbClient } from "@/db/client";
-import { grammarItems, languages, learningItems, levels, vocabularyGroups, vocabularyItems } from "@/db/schema";
+import {
+  grammarItems,
+  languages,
+  learningItems,
+  learningItemSentences,
+  levels,
+  sentences,
+  vocabularyGroups,
+  vocabularyItems,
+} from "@/db/schema";
 
 import type {
+  CurriculumExampleSentence,
   CurriculumGrammarDetail,
   CurriculumLanguage,
   CurriculumLearningItem,
@@ -290,4 +300,22 @@ export async function getLearningItemsByIds(db: DbClient, ids: string[]): Promis
   }
 
   return results;
+}
+
+/**
+ * Example sentences for one learning item, published only. `learning_item_sentences`
+ * links generically to `learning_items` (not vocabulary-specific — confirmed by
+ * `lesson-curriculum-repository.ts` already attaching examples to grammar items
+ * for the real lesson flow), so this covers both types. Mirrors the query shape
+ * `domains/lexicon/lexicon-read-model.ts` already uses for a vocabulary item's
+ * own examples; not shared code, since the two live in different domains, but
+ * kept deliberately identical in shape.
+ */
+export async function getLearningItemExamples(db: DbClient, learningItemId: string): Promise<CurriculumExampleSentence[]> {
+  return db
+    .select({ targetText: sentences.targetText, translation: sentences.translation })
+    .from(learningItemSentences)
+    .innerJoin(sentences, eq(sentences.id, learningItemSentences.sentenceId))
+    .where(and(eq(learningItemSentences.learningItemId, learningItemId), eq(sentences.status, "published")))
+    .orderBy(asc(learningItemSentences.position));
 }

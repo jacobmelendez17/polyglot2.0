@@ -22,6 +22,7 @@ export type {
 // `domains/lessons` — see progress-tracker.md's Architecture Decisions.
 // Types are safe here (`import type` is always erased).
 export type {
+  CurriculumExampleSentence,
   CurriculumGrammarDetail,
   CurriculumLanguage,
   CurriculumLearningItem,

@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 
 import type { DbClient } from "@/db/client";
 import {
@@ -97,7 +97,9 @@ export interface VocabularyDetail {
 async function loadCurriculumHalf(
   db: DbClient,
   vocabularyItemId: string,
+  { includeArchived = false }: { includeArchived?: boolean } = {},
 ): Promise<VocabularyDetailCurriculum | null> {
+  const allowedStatuses = includeArchived ? (["published", "archived"] as const) : (["published"] as const);
   const [row] = await db
     .select({
       learningItemId: vocabularyItems.learningItemId,
@@ -116,14 +118,21 @@ async function loadCurriculumHalf(
     .innerJoin(learningItems, eq(learningItems.id, vocabularyItems.learningItemId))
     .innerJoin(levels, eq(levels.id, learningItems.levelId))
     .innerJoin(vocabularyGroups, eq(vocabularyGroups.id, vocabularyItems.vocabularyGroupId))
-    // Learner-facing: an unpublished or archived item must not resolve here,
-    // for the same reason it must not appear in a level view. Admin surfaces
-    // read the item through `domains/curriculum` instead, which exposes an
-    // explicit `includeUnpublished` option.
+    // Learner-facing: a draft/pending item must never resolve here, for the
+    // same reason it must not appear in a level view — no learner could have
+    // organically reached it. `includeArchived` (spec 13: "archived item
+    // where still referenceable") is the one deliberate exception: an item a
+    // learner already saw or has progress on stays viewable by direct link
+    // after archival, even though it no longer appears in level browsing.
+    // The level itself is still required to be published — archiving a
+    // whole level is a separate, undocumented lifecycle question this
+    // doesn't speculate on. Admin surfaces read the item through
+    // `domains/curriculum` instead, which exposes its own
+    // `includeUnpublished` option covering every status.
     .where(
       and(
         eq(vocabularyItems.learningItemId, vocabularyItemId),
-        eq(learningItems.status, "published"),
+        inArray(learningItems.status, allowedStatuses),
         eq(levels.status, "published"),
       ),
     )
@@ -211,12 +220,17 @@ async function loadDictionaryHalf(
  * The composed vocabulary item projection. `userId` is optional: the same
  * read model serves a signed-out preview and a learner's own item page, and
  * progress is simply absent in the first case rather than a different shape.
+ * `includeArchived` defaults to `false` (safe default, matching
+ * `domains/curriculum`'s `includeUnpublished` precedent) — spec 13's
+ * `/items/[itemId]` page is the one caller that passes `true`, so an
+ * archived item a learner already has progress on stays viewable by direct
+ * link.
  */
 export async function getVocabularyDetail(
   db: DbClient,
-  input: { vocabularyItemId: string; userId?: string | null },
+  input: { vocabularyItemId: string; userId?: string | null; includeArchived?: boolean },
 ): Promise<VocabularyDetail | null> {
-  const curriculum = await loadCurriculumHalf(db, input.vocabularyItemId);
+  const curriculum = await loadCurriculumHalf(db, input.vocabularyItemId, { includeArchived: input.includeArchived });
   if (!curriculum) return null;
 
   const [dictionary, progress] = await Promise.all([

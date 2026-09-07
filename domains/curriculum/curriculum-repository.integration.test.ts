@@ -20,6 +20,7 @@ import {
   getLanguageByCode,
   getLanguageById,
   getLearningItem,
+  getLearningItemExamples,
   getLearningItemsByIds,
   getLevelById,
   getLevelByLanguageAndNumber,
@@ -336,6 +337,40 @@ describe("curriculum repository", () => {
       expect(existing).toHaveLength(1);
 
       await expect(tx.delete(learningItems).where(eq(learningItems.id, gatoId))).rejects.toThrow();
+    });
+  });
+
+  it("returns a learning item's published example sentences, in position order, for either item type", async () => {
+    await withTestTransaction(async (tx) => {
+      const { gatoId, grammarYId } = await seedTestFixtures(tx);
+
+      // Confirms `learning_item_sentences` is genuinely generic (not
+      // vocabulary-specific): a grammar item gets its own example the same
+      // way, matching `lesson-curriculum-repository.ts`'s existing usage.
+      expect(await getLearningItemExamples(tx, gatoId)).toEqual([{ targetText: "El gato duerme.", translation: "The cat sleeps." }]);
+      expect(await getLearningItemExamples(tx, grammarYId)).toEqual([{ targetText: "gato y perro", translation: "cat and dog" }]);
+    });
+  });
+
+  it("excludes an unpublished sentence from a learning item's examples", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId, gatoId } = await seedTestFixtures(tx);
+
+      const [draftSentence] = await tx
+        .insert(sentences)
+        .values({ languageId, targetText: "El gato corre.", translation: "The cat runs.", status: "draft" })
+        .returning();
+      await tx.insert(learningItemSentences).values({ learningItemId: gatoId, sentenceId: draftSentence.id, position: 2 });
+
+      const examples = await getLearningItemExamples(tx, gatoId);
+      expect(examples).toEqual([{ targetText: "El gato duerme.", translation: "The cat sleeps." }]);
+    });
+  });
+
+  it("returns an empty array for a learning item with no examples", async () => {
+    await withTestTransaction(async (tx) => {
+      const { casaId } = await seedTestFixtures(tx);
+      expect(await getLearningItemExamples(tx, casaId)).toEqual([]);
     });
   });
 });

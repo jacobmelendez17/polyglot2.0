@@ -41,6 +41,12 @@ export interface CurriculumVocabularyGroup {
   status: CurriculumStatus;
 }
 
+/** Field names match `domains/lexicon`'s `VocabularyDetailCurriculum.examples` exactly, so a single example-list component can render either. */
+export interface CurriculumExampleSentence {
+  targetText: string;
+  translation: string;
+}
+
 export interface CurriculumVocabularyDetail {
   vocabularyGroupId: string;
   term: string;

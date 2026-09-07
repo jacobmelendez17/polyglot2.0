@@ -53,6 +53,10 @@ export async function getLearningItemsByIds(ids: string[]) {
   return repository.getLearningItemsByIds(db, ids);
 }
 
+export async function getLearningItemExamples(learningItemId: string) {
+  return repository.getLearningItemExamples(db, learningItemId);
+}
+
 export async function getLevelItems(levelId: string, options?: CurriculumVisibility) {
   return repository.getLevelItems(db, levelId, options);
 }

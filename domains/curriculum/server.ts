@@ -18,6 +18,7 @@ export {
   getLanguageById,
   getLanguages,
   getLearningItem,
+  getLearningItemExamples,
   getLearningItemsByIds,
   getLevelById,
   getLevelByLanguageAndNumber,

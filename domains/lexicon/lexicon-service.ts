@@ -85,7 +85,9 @@ export async function selectPreferredPronunciation(input: SelectPronunciationInp
   return mapping.selectPreferredPronunciation(db, parsed);
 }
 
-export async function getVocabularyDetail(input: { vocabularyItemId: string; userId?: string | null }): Promise<VocabularyDetail | null> {
+export async function getVocabularyDetail(
+  input: { vocabularyItemId: string; userId?: string | null; includeArchived?: boolean },
+): Promise<VocabularyDetail | null> {
   return composeVocabularyDetail(db, input);
 }
 
