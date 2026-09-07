@@ -1,0 +1,5 @@
+# RLA-ES fixture affix file (spec 12 test data, not the real RLA-ES release).
+# Only the SET declaration is read by Polyglot's importer: it decides how the
+# .dic bytes are decoded, which is what keeps accented forms intact.
+SET UTF-8
+TRY esiaonrltdcumpbgvfqhjzxykw

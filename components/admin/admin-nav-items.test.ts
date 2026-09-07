@@ -3,12 +3,12 @@ import { describe, expect, it } from "vitest";
 import { getAdminNavItems, isAdminNavItemCurrent } from "./admin-nav-items";
 
 describe("getAdminNavItems", () => {
-  it("includes Curriculum, Levels, and Groups when the user can manage curriculum", () => {
+  it("includes the curriculum-management sections when the user can manage curriculum", () => {
     const labels = getAdminNavItems(true).map((item) => item.label);
-    expect(labels).toEqual(["Overview", "Curriculum", "Levels", "Groups", "Logs", "Sandbox"]);
+    expect(labels).toEqual(["Overview", "Curriculum", "Levels", "Groups", "Dictionary", "Logs", "Sandbox"]);
   });
 
-  it("omits Curriculum/Levels/Groups for a developer-only user (spec 11 §4)", () => {
+  it("omits every curriculum-management section for a developer-only user (spec 11 §4)", () => {
     const labels = getAdminNavItems(false).map((item) => item.label);
     expect(labels).toEqual(["Overview", "Logs", "Sandbox"]);
   });

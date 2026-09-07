@@ -8,6 +8,7 @@ import { CurriculumStatusBadge } from "@/components/admin/curriculum/curriculum-
 import type { GrammarEditorValue } from "@/components/admin/curriculum/grammar-editor";
 import { PublishDialog } from "@/components/admin/curriculum/publish-dialog";
 import type { VocabularyEditorValue } from "@/components/admin/curriculum/vocabulary-editor";
+import { DictionaryMappingPanel } from "@/components/admin/dictionary/dictionary-mapping-panel";
 import { canManageCurriculum } from "@/domains/admin";
 import type { AcceptedAnswerInput, CurriculumLearningItem } from "@/domains/curriculum";
 import {
@@ -17,6 +18,8 @@ import {
   getLevelsByLanguage,
   getVocabularyGroupsByLanguage,
 } from "@/domains/curriculum/server";
+import { composeVocabularyDisplayWord } from "@/domains/lexicon";
+import { getVocabularyMappingView } from "@/domains/lexicon/server";
 import { requireUser } from "@/domains/users/server";
 
 export async function generateMetadata({ params }: { params: Promise<{ itemId: string }> }): Promise<Metadata> {
@@ -104,11 +107,14 @@ export default async function EditCurriculumItemPage({ params }: { params: Promi
   const item: CurriculumLearningItem | null = await getLearningItem(itemId);
   if (!item) notFound();
 
-  const [liveAcceptedAnswers, draft, levels, groups] = await Promise.all([
+  const [liveAcceptedAnswers, draft, levels, groups, mappingView] = await Promise.all([
     getAcceptedAnswers(itemId),
     getItemDraft(itemId),
     getLevelsByLanguage(item.languageId),
     getVocabularyGroupsByLanguage(item.languageId),
+    // Spec 12 — the dictionary half of the editor. Vocabulary only:
+    // dictionary integration applies to vocabulary, not grammar.
+    item.type === "vocabulary" ? getVocabularyMappingView(itemId) : Promise.resolve(null),
   ]);
 
   const levelNumberById = new Map(levels.map((level) => [level.id, level.levelNumber]));
@@ -157,6 +163,20 @@ export default async function EditCurriculumItemPage({ params }: { params: Promi
         groups={groupOptions}
         existing={existing}
       />
+
+      {item.type === "vocabulary" && mappingView ? (
+        <div className="mt-6">
+          <DictionaryMappingPanel
+            vocabularyItemId={item.id}
+            languageId={item.languageId}
+            displayWord={composeVocabularyDisplayWord(item.vocabulary.term, item.vocabulary.article)}
+            mapping={mappingView.mapping}
+            entry={mappingView.entry}
+            selectedSenseIds={mappingView.selectedSenseIds}
+            attributionText={mappingView.attributionText}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

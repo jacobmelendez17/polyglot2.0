@@ -212,6 +212,32 @@ Owns:
 - Curriculum publish/archive state
 - Curriculum duplicate detection
 
+## `lexicon`
+
+Owns (spec 12):
+
+- External lexical sources and their imports
+- Source/version metadata, checksums, and import history
+- Dictionary entries, senses, forms, pronunciations, and lexical relations
+- Retained raw upstream source records
+- Vocabulary-to-dictionary matching and mapping state
+- Language-specific lookup derivation (article handling, lookup forms)
+- Regional evidence and regional word lists
+- Source projections and the composed vocabulary read model
+
+Does **not** own, and may never write:
+
+- Curriculum Level, group, ordering, or publication state
+- Official translation, teaching summary, or official examples
+- SRS state or learner progress
+
+Dictionary data is supporting evidence. Polyglot remains authoritative for
+every teaching decision: an imported definition is never automatically
+promoted to Polyglot's learner-facing explanation, and no dictionary sense is
+selected without an explicit administrative act.
+
+`lexicon` applies to vocabulary only. Grammar has no dictionary integration.
+
 ## `lessons`
 
 Owns:
@@ -377,6 +403,7 @@ src/
     access/
     curriculum/
     lessons/
+    lexicon/
     srs/
     progress/
     practice/
@@ -1771,6 +1798,15 @@ The codebase must never violate the following rules:
 46. A backup is not considered valid until a restore has been tested and recorded.
 47. Health endpoints expose no version, dependency, or configuration detail.
 48. Inbound webhooks verify their signature before any processing occurs.
+49. A dictionary import never writes a curriculum, progress, or SRS table. Its only point of contact with curriculum is a mapping row that points at a vocabulary item.
+50. Lexical normalization never removes accents or diacritics. `el`/`él`, `tu`/`tú`, `si`/`sí`, and `como`/`cómo` remain distinct terms at every layer.
+51. A vocabulary item is auto-matched to a dictionary entry only when exactly one clear candidate survives. Ambiguity is escalated for administrative review, never resolved by guessing.
+52. Once an administrator explicitly maps a vocabulary item to a dictionary entry, no automatic process may repoint it. Only another explicit administrative act can.
+53. Dictionary senses, forms, and relations are never deleted on reimport. A record that disappears upstream is marked missing, and any selection that depended on it is escalated for review rather than silently replaced.
+54. Absence from a regional word list is recorded as evidence of absence, never as proof that a form is invalid in that region.
+55. Importing the same completed source snapshot at the same scope again produces no new lexical records.
+56. Raw imported source objects are never exposed to learners and never parsed on a normal page load.
+57. Dictionary source locations are configured server-side. No administrative interface may supply an arbitrary file path or remote fetch URL.
 
 ---
 

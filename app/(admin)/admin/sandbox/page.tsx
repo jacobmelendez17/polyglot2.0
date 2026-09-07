@@ -49,7 +49,7 @@ export default async function AdminSandboxPage() {
           levels={levels.map((l) => ({ id: l.id, levelNumber: l.levelNumber }))}
           items={itemsPage.items.map((i) => ({ id: i.id, itemLabel: i.itemLabel, levelId: i.levelId, levelNumber: i.levelNumber }))}
         />
-        <SandboxSnapshotView snapshot={snapshot} />
+        <SandboxSnapshotView snapshot={snapshot} now={new Date()} />
       </div>
     </div>
   );

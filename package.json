@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.mts",
     "sprites:build": "node scripts/build-sprites.mjs",
@@ -14,7 +15,9 @@
     "db:migrate": "drizzle-kit migrate",
     "db:verify": "drizzle-kit check",
     "db:seed": "tsx db/seed/run.ts",
-    "db:cleanup-idempotency": "tsx db/seed/cleanup-idempotency.ts"
+    "db:cleanup-idempotency": "tsx db/seed/cleanup-idempotency.ts",
+    "lexicon:import": "tsx scripts/lexicon-import.ts",
+    "lexicon:import-rla": "tsx scripts/lexicon-import-rla.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.8.3",

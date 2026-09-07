@@ -7,6 +7,10 @@ const CURRICULUM_ONLY_NAV: AdminNavItem[] = [
   { label: "Curriculum", href: "/admin/curriculum" },
   { label: "Levels", href: "/admin/curriculum/levels" },
   { label: "Groups", href: "/admin/curriculum/groups" },
+  // Spec 12 — dictionary mapping review. Curriculum-only, like the three
+  // above: it reads and mutates official curriculum mappings, so a developer
+  // without the admin role must not see it.
+  { label: "Dictionary", href: "/admin/dictionary" },
 ];
 
 const ADMIN_AREA_NAV: AdminNavItem[] = [

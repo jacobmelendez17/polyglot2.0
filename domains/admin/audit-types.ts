@@ -29,6 +29,19 @@ export const ADMIN_AUDIT_ACTIONS = [
   // stays declared, matching spec 11 §48's action list, but nothing
   // currently records it — see progress-tracker.md's Sandbox entry.
   "SANDBOX_TIME_CHANGED",
+  // Spec 12 (dictionary/lexicon). Mapping actions are recorded in the same
+  // transaction as the mutation they describe; the two import actions are
+  // recorded only when an operator id is configured for the import CLI (see
+  // `domains/lexicon/lexicon-source-config.ts` — `lexical_imports` is the
+  // durable operational record either way, and inventing a synthetic actor
+  // to satisfy this table's foreign key would put a fictional user in the
+  // permanent audit trail).
+  "DICTIONARY_MAPPING_CHANGED",
+  "DICTIONARY_MAPPING_CONFIRMED",
+  "DICTIONARY_SENSE_SELECTED",
+  "DICTIONARY_PRONUNCIATION_SELECTED",
+  "DICTIONARY_IMPORT_COMPLETED",
+  "DICTIONARY_IMPORT_ROLLED_BACK",
 ] as const;
 
 export type AdminAuditAction = (typeof ADMIN_AUDIT_ACTIONS)[number];
