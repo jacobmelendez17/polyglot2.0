@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { CurriculumFilters } from "@/components/admin/curriculum/curriculum-filters";
 import { CurriculumPagination } from "@/components/admin/curriculum/curriculum-pagination";
 import { CurriculumTableSection } from "@/components/admin/curriculum/curriculum-table-section";
+import { ImportVocabularyDialog } from "@/components/admin/curriculum/import-vocabulary-dialog";
 import { ItemReorderList } from "@/components/admin/curriculum/item-reorder-list";
 import { canManageCurriculum } from "@/domains/admin";
 import type { CurriculumStatus } from "@/domains/curriculum";
@@ -124,9 +125,16 @@ export default async function AdminCurriculumPage({
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <AdminPageHeader title="Curriculum" description="Search, filter, create, edit, and publish official curriculum." />
-        <Button asChild>
-          <Link href={`/admin/curriculum/items/new?language=${languageId}`}>Add item</Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <ImportVocabularyDialog
+            languageId={languageId}
+            levels={levels.map((l) => ({ id: l.id, levelNumber: l.levelNumber }))}
+            groups={groups.map((g) => ({ id: g.id, levelId: g.levelId, name: g.name }))}
+          />
+          <Button asChild>
+            <Link href={`/admin/curriculum/items/new?language=${languageId}`}>Add item</Link>
+          </Button>
+        </div>
       </div>
 
       <CurriculumFilters

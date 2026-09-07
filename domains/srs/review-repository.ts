@@ -1,4 +1,4 @@
-import { and, desc, eq, lt, or } from "drizzle-orm";
+import { and, desc, eq, gte, lt, or } from "drizzle-orm";
 
 import type { DbClient } from "@/db/client";
 import { reviewEvents } from "@/db/schema";
@@ -90,4 +90,34 @@ export async function getReviewHistory(db: DbClient, input: GetReviewHistoryInpu
     nextCursor:
       hasNextPage && last ? encodeCursor({ reviewedAt: last.reviewedAt.toISOString(), id: last.id }) : null,
   };
+}
+
+/**
+ * Raw completion timestamps in one bounded window — the dashboard's review
+ * activity line graph and weekly streak (spec 13), which both need to bucket
+ * real completions by time rather than page through a list. A caller-bounded
+ * window (the dashboard never asks further than 30 days back) keeps this
+ * from ever being an unbounded scan; `review_events_history_idx`'s
+ * `(user_id, language_id, reviewed_at desc)` prefix serves it directly.
+ * Timestamps only, not full events — this never needs to expose which item
+ * was reviewed, matching the dashboard's own read-model boundary.
+ */
+export async function getReviewTimestampsInWindow(
+  db: DbClient,
+  userId: string,
+  languageId: string,
+  { since, until }: { since: Date; until: Date },
+): Promise<Date[]> {
+  const rows = await db
+    .select({ reviewedAt: reviewEvents.reviewedAt })
+    .from(reviewEvents)
+    .where(
+      and(
+        eq(reviewEvents.userId, userId),
+        eq(reviewEvents.languageId, languageId),
+        gte(reviewEvents.reviewedAt, since),
+        lt(reviewEvents.reviewedAt, until),
+      ),
+    );
+  return rows.map((row) => row.reviewedAt);
 }

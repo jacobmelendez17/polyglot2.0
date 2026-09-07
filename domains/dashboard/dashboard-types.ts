@@ -1,12 +1,9 @@
 /**
- * View-model types for the dashboard read model.
- *
- * These shapes describe what `getDashboardData` returns today from a
- * temporary fixture (see `dashboard-fixtures.ts`) and what it will return
- * once it aggregates from the `srs`, `lessons`, and `progress` domains, per
- * architecture.md's `dashboard` boundary ("does not calculate authoritative
- * SRS or unlock state itself"). Components depend only on these types, so
- * swapping the fixture for a real aggregation later requires no UI change.
+ * View-model types for the dashboard read model. `getDashboardData`
+ * (`dashboard-service.ts`) aggregates these from the `srs`, `curriculum`,
+ * and `progress` domains, per architecture.md's `dashboard` boundary
+ * ("does not calculate authoritative SRS or unlock state itself").
+ * Components depend only on these types, not the aggregation itself.
  */
 
 export type ForecastRange = "24h" | "7d";

@@ -73,3 +73,26 @@ export {
   resolveLevelValidationTargets,
 } from "./curriculum-validation-config";
 export type { LevelValidationCounts, LevelValidationResult, LevelValidationTargets } from "./curriculum-validation-config";
+
+// Spec 13's bulk vocabulary import — column contract, size limits, and
+// row-shape validation, pure and database-free. `parseVocabularyImportFile`
+// itself (the one thing here that touches `csv-parse`) is deliberately
+// *not* exported from this barrel — see `vocabulary-import-file-parser.ts`'s
+// own docstring for why a Node-oriented parsing library stays out of the
+// client-safe surface.
+export {
+  IMPORT_COLUMNS,
+  MAX_IMPORT_FILE_BYTES,
+  MAX_IMPORT_ROWS,
+  REQUIRED_IMPORT_COLUMNS,
+  validateVocabularyImportRow,
+} from "./vocabulary-import-parsing";
+export type {
+  ImportDelimiter,
+  ImportFileParseError,
+  ImportFileParseResult,
+  ImportRowFieldIssue,
+  ParsedVocabularyFields,
+  RawVocabularyImportRow,
+  ValidatedImportRow,
+} from "./vocabulary-import-parsing";

@@ -6,6 +6,7 @@
  * anywhere (pure matching, normalization, labels, and types).
  */
 export {
+  bulkConfirmVocabularyMappings,
   confirmVocabularyMapping,
   getDictionaryEntryDetail,
   getEntryRawVersions,
@@ -16,6 +17,7 @@ export {
   getVocabularyDetail,
   getVocabularyMapping,
   getVocabularyMappingView,
+  matchImportedVocabularyItems,
   rematchVocabularyItem,
   searchDictionary,
   selectPreferredPronunciation,
@@ -26,8 +28,10 @@ export {
 export type { VocabularyMappingView } from "./lexicon-service";
 
 export type {
+  BulkConfirmVocabularyMappingsInput,
   ConfirmMappingInput,
   MappingQueueInput,
+  MatchImportedVocabularyItemsInput,
   RematchVocabularyItemInput,
   SearchDictionaryInput,
   SelectPronunciationInput,

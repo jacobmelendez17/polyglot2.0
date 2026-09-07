@@ -2,16 +2,58 @@ import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 
 import { DashboardView } from "@/components/dashboard/dashboard-view";
-import {
-  createNewUserDashboardFixture,
-  createPopulatedDashboardFixture,
-} from "@/domains/dashboard";
+import type { DashboardData } from "@/domains/dashboard";
 
-const NOW = new Date("2026-08-30T12:00:00Z");
+const STREAK = [
+  { date: "2026-08-24", label: "Mon", isActive: true, isToday: false },
+  { date: "2026-08-25", label: "Tue", isActive: true, isToday: false },
+  { date: "2026-08-26", label: "Wed", isActive: false, isToday: false },
+  { date: "2026-08-27", label: "Thu", isActive: true, isToday: false },
+  { date: "2026-08-28", label: "Fri", isActive: false, isToday: false },
+  { date: "2026-08-29", label: "Sat", isActive: false, isToday: false },
+  { date: "2026-08-30", label: "Sun", isActive: false, isToday: true },
+];
+
+const INACTIVE_STREAK = STREAK.map((day, index) => ({ ...day, isActive: false, isToday: index === 6 }));
+
+const POPULATED_DASHBOARD: DashboardData = {
+  lessons: { availableCount: 6 },
+  reviews: { availableCount: 14, nextReviewAt: null },
+  forecast: {
+    "24h": [{ timestamp: "2026-08-30T12:00:00.000Z", label: "12p", vocabularyCount: 3, grammarCount: 1 }],
+    "7d": [{ timestamp: "2026-08-30T12:00:00.000Z", label: "Sun", vocabularyCount: 12, grammarCount: 5 }],
+  },
+  reviewHistory: {
+    "24h": [{ timestamp: "2026-08-30T09:00:00.000Z", label: "9a", completedCount: 5 }],
+    "7d": [{ timestamp: "2026-08-24T12:00:00.000Z", label: "Mon", completedCount: 18 }],
+    "30d": [{ timestamp: "2026-08-01T12:00:00.000Z", label: "8/1", completedCount: 45 }],
+  },
+  levelProgress: {
+    currentLevel: 3,
+    streak: STREAK,
+    vocabulary: { learned: 31, total: 48 },
+    grammar: { learned: 7, total: 12 },
+    overall: { learned: 38, total: 60 },
+  },
+};
+
+const NEW_USER_DASHBOARD: DashboardData = {
+  lessons: { availableCount: 6 },
+  reviews: { availableCount: 0, nextReviewAt: null },
+  forecast: { "24h": [], "7d": [] },
+  reviewHistory: { "24h": [], "7d": [], "30d": [] },
+  levelProgress: {
+    currentLevel: 1,
+    streak: INACTIVE_STREAK,
+    vocabulary: { learned: 0, total: 48 },
+    grammar: { learned: 0, total: 12 },
+    overall: { learned: 0, total: 60 },
+  },
+};
 
 describe("DashboardView", () => {
   it("renders every required section for a populated dashboard", () => {
-    render(<DashboardView data={createPopulatedDashboardFixture(NOW)} />);
+    render(<DashboardView data={POPULATED_DASHBOARD} />);
 
     expect(screen.getByRole("heading", { name: "Lessons" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Reviews" })).toBeInTheDocument();
@@ -26,7 +68,7 @@ describe("DashboardView", () => {
   });
 
   it("renders the new-user empty states instead of populated data", () => {
-    render(<DashboardView data={createNewUserDashboardFixture(NOW)} />);
+    render(<DashboardView data={NEW_USER_DASHBOARD} />);
 
     expect(screen.getByText("No reviews due yet")).toBeInTheDocument();
     expect(screen.getByText("No reviews forecasted")).toBeInTheDocument();

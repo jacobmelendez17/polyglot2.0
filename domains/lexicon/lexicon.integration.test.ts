@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { and, eq, inArray } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 
+import { getAuditEvents } from "@/domains/admin/audit-repository";
 import {
   dictionaryEntries,
   dictionaryEntryVersions,
@@ -30,8 +31,10 @@ import { runRegionalImport } from "./import/rla-import";
 import { runDictionaryImport } from "./import/wiktextract-import";
 import { LEXICAL_SOURCE_DEFINITIONS, RLA_ES_MX_SOURCE_CODE, WIKTIONARY_ES_SOURCE_CODE } from "./lexical-source-registry";
 import {
+  bulkConfirmVocabularyMappings,
   confirmVocabularyMapping,
   matchAllVocabularyItems,
+  matchImportedVocabularyItems,
   matchVocabularyItem,
   selectDictionaryEntry,
   selectVocabularySenses,
@@ -131,6 +134,16 @@ async function seedIsolatedFixture(tx: TestTx) {
     learnerUserId: learner.id,
     regionCode: `es-R${suffix}`,
   };
+}
+
+/** A second vocabulary item in an already-`seedIsolatedFixture`'d language/level/group — for tests that need to prove batch functions act on exactly the given items, not every item nearby. */
+async function addVocabularyItem(tx: TestTx, { languageId, levelId, groupId }: { languageId: string; levelId: string; groupId: string }, term: string, primaryMeaning: string) {
+  const [item] = await tx
+    .insert(learningItems)
+    .values({ languageId, levelId, type: "vocabulary", status: "published", position: 2, lessonPriority: 2 })
+    .returning();
+  await tx.insert(vocabularyItems).values({ learningItemId: item.id, vocabularyGroupId: groupId, term, primaryMeaning, partOfSpeech: "noun" });
+  return item.id;
 }
 
 function writeWordList(words: string[]): string {
@@ -690,6 +703,84 @@ describe("regional evidence", () => {
         .where(inArray(dictionaryRegionalEvidence.dictionaryEntryId, [si.id, siAccented.id]));
       expect(evidence.find((row) => row.dictionaryEntryId === siAccented.id)?.status).toBe("recognized");
       expect(evidence.find((row) => row.dictionaryEntryId === si.id)?.status).toBe("not_listed");
+    });
+  });
+});
+
+describe("matchImportedVocabularyItems", () => {
+  it("matches exactly the given items, leaving a real sibling item in the same language untouched", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId, levelId, groupId, vocabularyItemId } = await seedIsolatedFixture(tx);
+      const otherItemId = await addVocabularyItem(tx, { languageId, levelId, groupId }, "perro", "dog");
+      await importDictionary(tx, languageId, [GATO_RECORD]);
+
+      const result = await matchImportedVocabularyItems(tx, [vocabularyItemId]);
+
+      expect(result.processed).toBe(1);
+      expect((await getMapping(tx, vocabularyItemId))?.matchStatus).toBe("auto_matched");
+      // Never touched: no mapping row exists for it at all, not even an "unmatched" one.
+      expect(await getMapping(tx, otherItemId)).toBeNull();
+    });
+  });
+
+  it("counts a locked mapping as skipped rather than as a status, across a batch of several items", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId, levelId, groupId, vocabularyItemId, adminUserId } = await seedIsolatedFixture(tx);
+      const otherItemId = await addVocabularyItem(tx, { languageId, levelId, groupId }, "casa", "house");
+      await importDictionary(tx, languageId, [
+        GATO_RECORD,
+        { word: "casa", lang_code: "es", pos: "noun", senses: [{ glosses: ["house"], id: "casa-house" }] },
+      ]);
+      const [casaEntry] = await tx.select().from(dictionaryEntries).where(and(eq(dictionaryEntries.languageId, languageId), eq(dictionaryEntries.normalizedLemma, "casa")));
+      await selectDictionaryEntry(tx, { vocabularyItemId: otherItemId, dictionaryEntryId: casaEntry.id, actorUserId: adminUserId, idempotencyKey: crypto.randomUUID() });
+
+      const result = await matchImportedVocabularyItems(tx, [vocabularyItemId, otherItemId]);
+
+      expect(result.processed).toBe(2);
+      expect(result.skippedLocked).toBe(1);
+      expect(result.byStatus.auto_matched).toBe(1);
+    });
+  });
+});
+
+describe("bulkConfirmVocabularyMappings", () => {
+  it("confirms every given mapping in one call, sharing a correlationId across the audit trail", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId, levelId, groupId, vocabularyItemId, adminUserId } = await seedIsolatedFixture(tx);
+      const otherItemId = await addVocabularyItem(tx, { languageId, levelId, groupId }, "casa", "house");
+      await importDictionary(tx, languageId, [
+        GATO_RECORD,
+        { word: "casa", lang_code: "es", pos: "noun", senses: [{ glosses: ["house"], id: "casa-house" }] },
+      ]);
+      await matchImportedVocabularyItems(tx, [vocabularyItemId, otherItemId]);
+      const idempotencyKey = crypto.randomUUID();
+
+      const result = await bulkConfirmVocabularyMappings(tx, { vocabularyItemIds: [vocabularyItemId, otherItemId], actorUserId: adminUserId, idempotencyKey });
+
+      expect(result.confirmed).toEqual([vocabularyItemId, otherItemId]);
+      expect((await getMapping(tx, vocabularyItemId))?.matchStatus).toBe("manual");
+      expect((await getMapping(tx, otherItemId))?.matchStatus).toBe("manual");
+
+      const audit = await getAuditEvents(tx, { action: "DICTIONARY_MAPPING_CONFIRMED", limit: 10 });
+      const forThisBatch = audit.items.filter((event) => event.correlationId === idempotencyKey);
+      expect(forThisBatch).toHaveLength(2);
+    });
+  });
+
+  it("rolls back the whole batch when one item has nothing matched to confirm", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId, levelId, groupId, vocabularyItemId, adminUserId } = await seedIsolatedFixture(tx);
+      // A second item that is never imported/matched, so it has no dictionaryEntryId to confirm.
+      const unmatchedItemId = await addVocabularyItem(tx, { languageId, levelId, groupId }, "perro", "dog");
+      await importDictionary(tx, languageId, [GATO_RECORD]);
+      await matchImportedVocabularyItems(tx, [vocabularyItemId]);
+
+      await expect(
+        bulkConfirmVocabularyMappings(tx, { vocabularyItemIds: [vocabularyItemId, unmatchedItemId], actorUserId: adminUserId, idempotencyKey: crypto.randomUUID() }),
+      ).rejects.toThrow(LexiconError);
+
+      // The whole batch rolled back — even the item that would have succeeded on its own is still unconfirmed.
+      expect((await getMapping(tx, vocabularyItemId))?.matchStatus).toBe("auto_matched");
     });
   });
 });

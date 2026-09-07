@@ -26,6 +26,7 @@
     "@upstash/redis": "^1.38.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "csv-parse": "^7.0.2",
     "drizzle-orm": "^0.45.2",
     "lucide-react": "^1.33.0",
     "motion": "^13.1.1",

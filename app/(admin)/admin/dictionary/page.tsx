@@ -4,7 +4,7 @@ import { forbidden } from "next/navigation";
 
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { MappingFilters } from "@/components/admin/dictionary/mapping-filters";
-import { MappingQueueTable } from "@/components/admin/dictionary/mapping-queue-table";
+import { MappingQueueTableSection } from "@/components/admin/dictionary/mapping-queue-table-section";
 import { canManageCurriculum } from "@/domains/admin";
 import { getLanguages, getLevelsByLanguage, getVocabularyGroupsByLanguage } from "@/domains/curriculum/server";
 import { MATCH_STATUS_LABELS, getLexicalLanguageProvider } from "@/domains/lexicon";
@@ -161,7 +161,7 @@ export default async function AdminDictionaryPage({ searchParams }: { searchPara
         }}
       />
 
-      <MappingQueueTable rows={page.rows} regionCode={regionCode} />
+      <MappingQueueTableSection rows={page.rows} regionCode={regionCode} />
 
       {page.total > PAGE_SIZE ? (
         <nav aria-label="Mapping queue pages" className="mt-4 flex items-center justify-between gap-3 text-sm">

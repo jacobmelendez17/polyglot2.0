@@ -24,6 +24,10 @@ export async function getReviewHistory(input: GetReviewHistoryInput) {
   return repository.getReviewHistory(db, input);
 }
 
+export async function getReviewTimestampsInWindow(userId: string, languageId: string, window: { since: Date; until: Date }) {
+  return repository.getReviewTimestampsInWindow(db, userId, languageId, window);
+}
+
 /**
  * Resolves the caller's perceived `now` before any due-review work (spec 11's
  * sandbox clock). Identical to real server time for every ordinary learner;

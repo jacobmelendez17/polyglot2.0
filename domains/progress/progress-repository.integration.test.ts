@@ -19,11 +19,14 @@ import { withTestTransaction } from "@/db/test/with-test-transaction";
 import {
   applyItemProgressUpdate,
   countLevelGatingItems,
+  countProgressForItems,
   countUserItemsAtOrAboveStageInLevel,
   getDueReviewItems,
   getItemProgress,
   getLevelProgress,
+  getNextUpcomingReviewAt,
   getUnlockedLevels,
+  getUpcomingReviewForecast,
   getUserProgressForLanguage,
   hasItemProgress,
   lockItemProgressForReview,
@@ -470,5 +473,68 @@ describe("progress repository — review-completion mutations (spec 09 unit 4)",
         })
         .where(and(eq(userItemProgress.userId, learnerId), eq(userItemProgress.learningItemId, gatoId)));
     }
+  });
+});
+
+describe("getNextUpcomingReviewAt", () => {
+  it("returns the earliest nextReviewAt strictly after now, ignoring already-due items", async () => {
+    await withTestTransaction(async (tx) => {
+      const { learnerId, languageId, casaId, aguaId } = await seedTestFixtures(tx);
+      const now = new Date("2026-01-01T00:00:00Z");
+
+      await tx.insert(userItemProgress).values([
+        { userId: learnerId, learningItemId: casaId, languageId, srsStage: "beginner_1", nextReviewAt: new Date(now.getTime() - 60_000) }, // already due
+        { userId: learnerId, learningItemId: aguaId, languageId, srsStage: "beginner_1", nextReviewAt: new Date(now.getTime() + 3600_000) }, // +1h
+      ]);
+
+      expect(await getNextUpcomingReviewAt(tx, learnerId, languageId, now)).toEqual(new Date(now.getTime() + 3600_000));
+    });
+  });
+
+  it("returns null when nothing is scheduled after now", async () => {
+    await withTestTransaction(async (tx) => {
+      const { learnerId, languageId } = await seedTestFixtures(tx);
+      expect(await getNextUpcomingReviewAt(tx, learnerId, languageId, new Date())).toBeNull();
+    });
+  });
+});
+
+describe("getUpcomingReviewForecast", () => {
+  it("returns items becoming due within the window, with their type, excluding already-due and out-of-window items", async () => {
+    await withTestTransaction(async (tx) => {
+      const { learnerId, languageId, gatoId, casaId, grammarYId } = await seedTestFixtures(tx);
+      const now = new Date("2026-01-01T00:00:00Z");
+      const inWindow = new Date(now.getTime() + 3600_000);
+      const outsideWindow = new Date(now.getTime() + 10 * 24 * 3600_000);
+      const alreadyDue = new Date(now.getTime() - 60_000);
+
+      // gato already has a seeded progress row — reuse it for the
+      // already-due case instead of a second insert for the same item.
+      await tx
+        .update(userItemProgress)
+        .set({ nextReviewAt: alreadyDue })
+        .where(and(eq(userItemProgress.userId, learnerId), eq(userItemProgress.learningItemId, gatoId)));
+
+      await tx.insert(userItemProgress).values([
+        { userId: learnerId, learningItemId: casaId, languageId, srsStage: "beginner_1", nextReviewAt: outsideWindow },
+        { userId: learnerId, learningItemId: grammarYId, languageId, srsStage: "beginner_1", nextReviewAt: inWindow },
+      ]);
+
+      const forecast = await getUpcomingReviewForecast(tx, learnerId, languageId, { after: now, until: new Date(now.getTime() + 7 * 24 * 3600_000) });
+
+      expect(forecast).toHaveLength(1);
+      expect(forecast[0]).toMatchObject({ nextReviewAt: inWindow, itemType: "grammar" });
+    });
+  });
+});
+
+describe("countProgressForItems", () => {
+  it("counts only items the user actually has a progress row for, and returns 0 for an empty id list", async () => {
+    await withTestTransaction(async (tx) => {
+      const { learnerId, gatoId, casaId, aguaId } = await seedTestFixtures(tx);
+      // Only gato has a seeded progress row for this user; casa/agua have none.
+      expect(await countProgressForItems(tx, learnerId, [gatoId, casaId, aguaId])).toBe(1);
+      expect(await countProgressForItems(tx, learnerId, [])).toBe(0);
+    });
   });
 });

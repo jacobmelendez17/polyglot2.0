@@ -6,5 +6,11 @@
  * rules only). See `domains/progress/server.ts` / `domains/curriculum/server.ts`
  * for the same pattern and why it exists.
  */
-export { getReviewHistory, insertReviewEvent, startReviewSession, submitReviewAnswer } from "./review-service";
+export {
+  getReviewHistory,
+  getReviewTimestampsInWindow,
+  insertReviewEvent,
+  startReviewSession,
+  submitReviewAnswer,
+} from "./review-service";
 export type { StartReviewSessionInput, SubmitReviewAnswerInput } from "./review-orchestration";

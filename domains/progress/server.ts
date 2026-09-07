@@ -6,10 +6,14 @@
  * pattern and why it exists.
  */
 export {
+  countProgressForItems,
   getDueReviewItems,
   getItemProgress,
   getLevelProgress,
+  getNextUpcomingReviewAt,
   getUnlockedLevels,
+  getUpcomingReviewForecast,
   getUserProgressForLanguage,
   hasItemProgress,
 } from "./service";
+export type { UpcomingReviewForecastItem } from "./repository";

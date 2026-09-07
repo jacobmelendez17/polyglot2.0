@@ -5,6 +5,7 @@ import { z } from "zod";
 import { canManageCurriculum } from "@/domains/admin";
 import type { DictionaryEntrySummary, VocabularyDictionaryMapping } from "@/domains/lexicon";
 import {
+  bulkConfirmVocabularyMappings,
   confirmVocabularyMapping,
   rematchVocabularyItem,
   searchDictionary,
@@ -76,6 +77,18 @@ export async function confirmMappingAction(
   return runDictionaryAction(async (actorUserId) => {
     const parsed = itemActionSchema.parse(input);
     return confirmVocabularyMapping({ ...parsed, actorUserId });
+  });
+}
+
+const bulkConfirmSchema = z.object({ vocabularyItemIds: z.array(z.string().min(1)).min(1).max(200), idempotencyKey: z.string().min(1) });
+
+/** Spec 13's "batch confirmation of reviewed mappings" — confirms several already-matched, already-reviewed items in one call instead of once per item. Never decides *which* candidate is right; that judgment still only happens per item in the mapping panel (see `mapping-queue-table.tsx`'s own docstring). */
+export async function bulkConfirmVocabularyMappingsAction(
+  input: z.infer<typeof bulkConfirmSchema>,
+): Promise<ActionResult<{ confirmed: string[] }>> {
+  return runDictionaryAction(async (actorUserId) => {
+    const parsed = bulkConfirmSchema.parse(input);
+    return bulkConfirmVocabularyMappings({ ...parsed, actorUserId });
   });
 }
 

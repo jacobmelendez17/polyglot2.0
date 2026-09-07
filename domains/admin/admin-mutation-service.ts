@@ -1,7 +1,10 @@
 import { db } from "@/db/client";
+import type { ValidatedImportRow } from "@/domains/curriculum/vocabulary-import-parsing";
 import { getRateLimiter } from "@/providers/rate-limit";
 import { AdminError } from "@/lib/errors/admin-errors";
 
+import * as bulkImport from "./bulk-import-service";
+import type { BulkImportVocabularyServiceInput } from "./bulk-import-service";
 import * as publication from "./publication-service";
 import type {
   ArchiveItemServiceInput,
@@ -21,12 +24,18 @@ import type {
   UpdateVocabularyGroupServiceInput,
 } from "./publication-service";
 
+export type PreviewVocabularyImportServiceInput = {
+  languageId: string;
+  actorUserId: string;
+  validatedRows: ValidatedImportRow[];
+};
+
 /**
  * Binds the real app database and rate limiter to `publication-service.ts`'s
- * injectable orchestration functions — see `domains/srs/review-service.ts`
- * for the identical pattern. Not guarded with `import "server-only"`
- * directly — importing `db`/the rate-limit provider already carries that
- * guard transitively.
+ * and `bulk-import-service.ts`'s injectable orchestration functions — see
+ * `domains/srs/review-service.ts` for the identical pattern. Not guarded
+ * with `import "server-only"` directly — importing `db`/the rate-limit
+ * provider already carries that guard transitively.
  */
 
 async function checkRateLimit(policy: "admin-mutation" | "admin-publish", userId: string): Promise<void> {
@@ -109,4 +118,14 @@ export async function bulkMoveItems(input: BulkMoveItemsServiceInput) {
 export async function bulkPublishPendingItems(input: BulkPublishPendingItemsServiceInput) {
   await checkRateLimit("admin-publish", input.actorUserId);
   return publication.bulkPublishPendingItems(db, input);
+}
+
+export async function previewVocabularyImport(input: PreviewVocabularyImportServiceInput) {
+  await checkRateLimit("admin-mutation", input.actorUserId);
+  return bulkImport.previewVocabularyImport(db, { languageId: input.languageId, validatedRows: input.validatedRows });
+}
+
+export async function bulkImportVocabulary(input: BulkImportVocabularyServiceInput) {
+  await checkRateLimit("admin-mutation", input.actorUserId);
+  return bulkImport.bulkImportVocabulary(db, input);
 }

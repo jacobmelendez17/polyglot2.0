@@ -1,4 +1,4 @@
-import { and, count, eq, inArray, lte, sql } from "drizzle-orm";
+import { and, asc, count, eq, gt, inArray, lte, sql } from "drizzle-orm";
 
 import type { DbClient } from "@/db/client";
 import { learningItems, levels, userItemProgress, userLevelProgress } from "@/db/schema";
@@ -91,6 +91,75 @@ export async function getDueReviewItems(
       ),
     );
   return rows.map(toItemProgress);
+}
+
+/**
+ * Earliest upcoming review time, strictly after `now` — spec 13's dashboard
+ * "Reviews" card shows this when nothing is currently due. Exercises the
+ * same `user_item_progress_due_review_idx` leftmost prefix as
+ * `getDueReviewItems`, just ordered instead of filtered to `<= now`.
+ */
+export async function getNextUpcomingReviewAt(db: DbClient, userId: string, languageId: string, now: Date): Promise<Date | null> {
+  const [row] = await db
+    .select({ nextReviewAt: userItemProgress.nextReviewAt })
+    .from(userItemProgress)
+    .where(and(eq(userItemProgress.userId, userId), eq(userItemProgress.languageId, languageId), gt(userItemProgress.nextReviewAt, now)))
+    .orderBy(asc(userItemProgress.nextReviewAt))
+    .limit(1);
+  return row?.nextReviewAt ?? null;
+}
+
+export type UpcomingReviewForecastItem = {
+  nextReviewAt: Date;
+  itemType: "vocabulary" | "grammar";
+};
+
+/**
+ * Items becoming due strictly between `after` and `until` — project-overview.md's
+ * "upcoming review forecast bar graph." Deliberately excludes anything
+ * already due (`nextReviewAt <= after`, typically `now`) so this never
+ * double-counts against `getDueReviewItems`. Bounded by the caller's window
+ * (the dashboard never asks further than 7 days out), using the same
+ * indexed `(user_id, language_id, next_review_at)` prefix.
+ */
+export async function getUpcomingReviewForecast(
+  db: DbClient,
+  userId: string,
+  languageId: string,
+  { after, until }: { after: Date; until: Date },
+): Promise<UpcomingReviewForecastItem[]> {
+  const rows = await db
+    .select({ nextReviewAt: userItemProgress.nextReviewAt, itemType: learningItems.type })
+    .from(userItemProgress)
+    .innerJoin(learningItems, eq(learningItems.id, userItemProgress.learningItemId))
+    .where(
+      and(
+        eq(userItemProgress.userId, userId),
+        eq(userItemProgress.languageId, languageId),
+        gt(userItemProgress.nextReviewAt, after),
+        lte(userItemProgress.nextReviewAt, until),
+      ),
+    );
+  // The `gt(nextReviewAt, after)` filter above already guarantees every
+  // matching row's `nextReviewAt` is non-null (SQL comparison against NULL
+  // is never true) — Drizzle's inferred column type just can't express that.
+  return rows.map((row) => ({ nextReviewAt: row.nextReviewAt as Date, itemType: row.itemType }));
+}
+
+/**
+ * How many of the given learning items the user has any progress row for —
+ * the dashboard's per-level "learned" count (spec 13). Bounded by
+ * `learningItemIds.length`, the level's own real item count (tens, not an
+ * unbounded scan), and served by the primary key's `user_id` leftmost
+ * prefix.
+ */
+export async function countProgressForItems(db: DbClient, userId: string, learningItemIds: string[]): Promise<number> {
+  if (learningItemIds.length === 0) return 0;
+  const [row] = await db
+    .select({ value: count() })
+    .from(userItemProgress)
+    .where(and(eq(userItemProgress.userId, userId), inArray(userItemProgress.learningItemId, learningItemIds)));
+  return row?.value ?? 0;
 }
 
 export async function getLevelProgress(db: DbClient, userId: string, levelId: string): Promise<LevelProgress | null> {

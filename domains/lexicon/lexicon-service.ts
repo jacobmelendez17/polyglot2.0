@@ -8,8 +8,10 @@ import { getVocabularyDetail as composeVocabularyDetail } from "./lexicon-read-m
 import type { VocabularyDetail } from "./lexicon-read-model";
 import { normalizeLexicalForm } from "./lexical-normalization";
 import {
+  bulkConfirmVocabularyMappingsInputSchema,
   confirmMappingInputSchema,
   mappingQueueInputSchema,
+  matchImportedVocabularyItemsInputSchema,
   rematchVocabularyItemInputSchema,
   searchDictionaryInputSchema,
   selectPronunciationInputSchema,
@@ -17,8 +19,10 @@ import {
   setManualMappingInputSchema,
 } from "./lexicon-schemas";
 import type {
+  BulkConfirmVocabularyMappingsInput,
   ConfirmMappingInput,
   MappingQueueInput,
+  MatchImportedVocabularyItemsInput,
   RematchVocabularyItemInput,
   SearchDictionaryInput,
   SelectPronunciationInput,
@@ -61,6 +65,13 @@ export async function rematchVocabularyItem(input: RematchVocabularyItemInput): 
   return mapping.matchVocabularyItem(db, parsed.vocabularyItemId);
 }
 
+/** Spec 13: runs immediately after a bulk vocabulary import commits. */
+export async function matchImportedVocabularyItems(input: MatchImportedVocabularyItemsInput): Promise<mapping.MatchAllResult> {
+  const parsed = matchImportedVocabularyItemsInputSchema.parse(input);
+  await checkAdminRateLimit(parsed.actorUserId);
+  return mapping.matchImportedVocabularyItems(db, parsed.vocabularyItemIds);
+}
+
 export async function setVocabularyDictionaryEntry(input: SetManualMappingInput): Promise<VocabularyDictionaryMapping> {
   const parsed = setManualMappingInputSchema.parse(input);
   await checkAdminRateLimit(parsed.actorUserId);
@@ -71,6 +82,12 @@ export async function confirmVocabularyMapping(input: ConfirmMappingInput): Prom
   const parsed = confirmMappingInputSchema.parse(input);
   await checkAdminRateLimit(parsed.actorUserId);
   return mapping.confirmVocabularyMapping(db, parsed);
+}
+
+export async function bulkConfirmVocabularyMappings(input: BulkConfirmVocabularyMappingsInput): Promise<{ confirmed: string[] }> {
+  const parsed = bulkConfirmVocabularyMappingsInputSchema.parse(input);
+  await checkAdminRateLimit(parsed.actorUserId);
+  return mapping.bulkConfirmVocabularyMappings(db, parsed);
 }
 
 export async function selectVocabularySenses(input: SelectSensesInput): Promise<string[]> {

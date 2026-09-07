@@ -23,6 +23,18 @@ export async function getDueReviewItems(userId: string, languageId: string, now:
   return repository.getDueReviewItems(db, userId, languageId, now);
 }
 
+export async function getNextUpcomingReviewAt(userId: string, languageId: string, now: Date) {
+  return repository.getNextUpcomingReviewAt(db, userId, languageId, now);
+}
+
+export async function getUpcomingReviewForecast(userId: string, languageId: string, window: { after: Date; until: Date }) {
+  return repository.getUpcomingReviewForecast(db, userId, languageId, window);
+}
+
+export async function countProgressForItems(userId: string, learningItemIds: string[]) {
+  return repository.countProgressForItems(db, userId, learningItemIds);
+}
+
 export async function getLevelProgress(userId: string, levelId: string) {
   return repository.getLevelProgress(db, userId, levelId);
 }

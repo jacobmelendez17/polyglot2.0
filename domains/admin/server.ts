@@ -12,6 +12,7 @@ export { getAuditEvents, recordAuditEvent } from "./audit-service";
 export {
   archiveItem,
   bulkArchiveItems,
+  bulkImportVocabulary,
   bulkMoveItems,
   bulkPublishPendingItems,
   createItem,
@@ -19,6 +20,7 @@ export {
   createVocabularyGroup,
   deleteItem,
   moveItem,
+  previewVocabularyImport,
   publishItem,
   reorderItems,
   reorderVocabularyGroups,
@@ -26,6 +28,13 @@ export {
   updateLevel,
   updateVocabularyGroup,
 } from "./admin-mutation-service";
+export type { PreviewVocabularyImportServiceInput } from "./admin-mutation-service";
+export type {
+  BulkImportVocabularyResult,
+  BulkImportVocabularyServiceInput,
+  ImportRowDecision,
+  ImportRowPreview,
+} from "./bulk-import-service";
 export type {
   ArchiveItemServiceInput,
   BulkArchiveItemsServiceInput,

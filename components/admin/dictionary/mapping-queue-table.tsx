@@ -1,20 +1,46 @@
 import Link from "next/link";
 import { Lock } from "lucide-react";
 
+import { Checkbox } from "@/components/ui/checkbox";
 import { REVIEW_REASON_LABELS } from "@/domains/lexicon";
 import type { MappingQueueRow } from "@/domains/lexicon";
 
 import { MappingStatusBadge } from "./mapping-status-badge";
 import { RegionalEvidenceBadge } from "./regional-evidence-badge";
 
+/** A row can be batch-confirmed only if it has something matched to confirm, and isn't confirmed already. */
+export function isConfirmableMappingRow(row: MappingQueueRow): boolean {
+  return row.entryId !== null && row.matchStatus !== "manual";
+}
+
+type MappingQueueTableProps = {
+  rows: MappingQueueRow[];
+  regionCode: string | null;
+  /**
+   * Selection is optional — every existing caller keeps working with no
+   * selection column at all. Spec 13's "batch confirmation of reviewed
+   * mappings" is the one caller that supplies it; this table still decides
+   * nothing and mutates nothing itself (this file's own established rule,
+   * see the docstring below) — it only reports which confirmable rows are
+   * checked.
+   */
+  selectedIds?: Set<string>;
+  onToggleItem?: (vocabularyItemId: string) => void;
+  onToggleAll?: () => void;
+};
+
 /**
  * Spec 12 "Admin Mapping Review"'s table: curriculum item, the lookup form
  * it resolves through, the candidate entry, regional evidence, and mapping
  * state. Each row links to the item editor, where the mapping panel holds
- * the controls — the queue's job is to find work, not to be a second place
- * that mutates it.
+ * the controls that actually *decide* a mapping — the queue's job is to
+ * find work, not to be a second place that mutates it. The optional
+ * selection column (spec 13) doesn't change that: checking a row only
+ * marks it for the same terminal `confirmVocabularyMapping` step the panel
+ * already performs, applied to several already-reviewed rows at once,
+ * never a second way to pick *which* candidate is right.
  */
-export function MappingQueueTable({ rows, regionCode }: { rows: MappingQueueRow[]; regionCode: string | null }) {
+export function MappingQueueTable({ rows, regionCode, selectedIds, onToggleItem, onToggleAll }: MappingQueueTableProps) {
   if (rows.length === 0) {
     return (
       <div className="rounded-xl border border-border bg-card p-8 text-center">
@@ -43,6 +69,15 @@ export function MappingQueueTable({ rows, regionCode }: { rows: MappingQueueRow[
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border bg-muted/50 text-left text-xs font-medium text-muted-foreground">
+            {selectedIds ? (
+              <th scope="col" className="px-3 py-2">
+                <Checkbox
+                  checked={rows.filter(isConfirmableMappingRow).length > 0 && rows.filter(isConfirmableMappingRow).every((row) => selectedIds.has(row.vocabularyItemId))}
+                  onCheckedChange={onToggleAll}
+                  aria-label="Select all confirmable rows on this page"
+                />
+              </th>
+            ) : null}
             <th scope="col" className="px-3 py-2">Curriculum</th>
             <th scope="col" className="px-3 py-2">Lookup</th>
             <th scope="col" className="px-3 py-2">Candidate</th>
@@ -58,6 +93,17 @@ export function MappingQueueTable({ rows, regionCode }: { rows: MappingQueueRow[
         <tbody>
           {rows.map((row) => (
             <tr key={row.vocabularyItemId} className="border-b border-border last:border-b-0">
+              {selectedIds ? (
+                <td className="px-3 py-2">
+                  {isConfirmableMappingRow(row) ? (
+                    <Checkbox
+                      checked={selectedIds.has(row.vocabularyItemId)}
+                      onCheckedChange={() => onToggleItem?.(row.vocabularyItemId)}
+                      aria-label={`Select ${row.displayWord}`}
+                    />
+                  ) : null}
+                </td>
+              ) : null}
               <td className="px-3 py-2">
                 <div className="font-medium text-foreground">{row.displayWord}</div>
                 <div className="text-xs text-muted-foreground">

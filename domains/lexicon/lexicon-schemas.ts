@@ -35,6 +35,20 @@ export const rematchVocabularyItemInputSchema = z.object({
   idempotencyKey: uuidLike,
 });
 
+// Cap kept equal to `domains/curriculum/vocabulary-import-parsing.ts`'s own
+// `MAX_IMPORT_ROWS` (2000) by convention, not by import — this schema has no
+// other reason to depend on the curriculum domain.
+export const matchImportedVocabularyItemsInputSchema = z.object({
+  vocabularyItemIds: z.array(uuidLike).min(1).max(2000),
+  actorUserId: uuidLike,
+});
+
+export const bulkConfirmVocabularyMappingsInputSchema = z.object({
+  vocabularyItemIds: z.array(uuidLike).min(1).max(200),
+  actorUserId: uuidLike,
+  idempotencyKey: uuidLike,
+});
+
 export const setManualMappingInputSchema = z.object({
   vocabularyItemId: uuidLike,
   dictionaryEntryId: uuidLike,
@@ -84,6 +98,8 @@ export const mappingQueueInputSchema = z.object({
 });
 
 export type RematchVocabularyItemInput = z.infer<typeof rematchVocabularyItemInputSchema>;
+export type MatchImportedVocabularyItemsInput = z.infer<typeof matchImportedVocabularyItemsInputSchema>;
+export type BulkConfirmVocabularyMappingsInput = z.infer<typeof bulkConfirmVocabularyMappingsInputSchema>;
 export type SetManualMappingInput = z.infer<typeof setManualMappingInputSchema>;
 export type ConfirmMappingInput = z.infer<typeof confirmMappingInputSchema>;
 export type SelectSensesInput = z.infer<typeof selectSensesInputSchema>;

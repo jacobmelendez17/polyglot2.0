@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { seedTestFixtures } from "@/db/seed/test-fixtures";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
 
-import { getReviewHistory, insertReviewEvent } from "./review-repository";
+import { getReviewHistory, getReviewTimestampsInWindow, insertReviewEvent } from "./review-repository";
 import type { InsertReviewEventInput } from "./review-history-types";
 
 function eventInput(overrides: Partial<InsertReviewEventInput> & Pick<InsertReviewEventInput, "userId" | "languageId" | "learningItemId">): InsertReviewEventInput {
@@ -109,6 +109,48 @@ describe("review event persistence", () => {
       });
       expect(thirdPage.items.map((e) => e.id)).toEqual(expectedNewestFirstIds.slice(4, 5));
       expect(thirdPage.nextCursor).toBeNull();
+    });
+  });
+});
+
+describe("getReviewTimestampsInWindow", () => {
+  it("returns only timestamps within [since, until) for the given user/language, unpaginated", async () => {
+    await withTestTransaction(async (tx) => {
+      const { learnerId, languageId, gatoId } = await seedTestFixtures(tx);
+
+      const inWindow1 = new Date("2026-02-10T00:00:00Z");
+      const inWindow2 = new Date("2026-02-15T00:00:00Z");
+      const beforeWindow = new Date("2026-01-01T00:00:00Z");
+      const atUntilBoundary = new Date("2026-03-01T00:00:00Z"); // excluded: until is exclusive
+
+      for (const reviewedAt of [inWindow1, inWindow2, beforeWindow, atUntilBoundary]) {
+        await insertReviewEvent(tx, eventInput({ userId: learnerId, languageId, learningItemId: gatoId, reviewedAt }));
+      }
+
+      const timestamps = await getReviewTimestampsInWindow(tx, learnerId, languageId, {
+        since: new Date("2026-02-01T00:00:00Z"),
+        until: atUntilBoundary,
+      });
+
+      expect(timestamps).toEqual(expect.arrayContaining([inWindow1, inWindow2]));
+      expect(timestamps).toHaveLength(2);
+    });
+  });
+
+  it("never returns another user's or another language's review timestamps", async () => {
+    await withTestTransaction(async (tx) => {
+      const { learnerId, developerId, languageId, gatoId } = await seedTestFixtures(tx);
+      const reviewedAt = new Date("2026-02-10T00:00:00Z");
+
+      await insertReviewEvent(tx, eventInput({ userId: learnerId, languageId, learningItemId: gatoId, reviewedAt }));
+      await insertReviewEvent(tx, eventInput({ userId: developerId, languageId, learningItemId: gatoId, reviewedAt }));
+
+      const timestamps = await getReviewTimestampsInWindow(tx, learnerId, languageId, {
+        since: new Date("2026-02-01T00:00:00Z"),
+        until: new Date("2026-03-01T00:00:00Z"),
+      });
+
+      expect(timestamps).toHaveLength(1);
     });
   });
 });

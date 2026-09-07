@@ -146,6 +146,31 @@ export async function matchAllVocabularyItems(db: DbClient, languageId: string):
   return { processed: items.length, skippedLocked, byStatus };
 }
 
+/**
+ * Matches exactly the given vocabulary items — spec 13's bulk import,
+ * immediately after `domains/admin/bulk-import-service.ts`'s
+ * `bulkImportVocabulary` commits. Deliberately scoped to the batch rather
+ * than reusing `matchAllVocabularyItems` (which re-matches the *entire*
+ * language): a curriculum with thousands of already-matched items shouldn't
+ * pay to re-process all of them every time fifty new rows are imported.
+ */
+export async function matchImportedVocabularyItems(db: DbClient, vocabularyItemIds: string[]): Promise<MatchAllResult> {
+  const byStatus: Record<string, number> = {};
+  let skippedLocked = 0;
+
+  for (const vocabularyItemId of vocabularyItemIds) {
+    const result = await matchVocabularyItem(db, vocabularyItemId);
+    if (result.skippedBecauseLocked) {
+      skippedLocked += 1;
+      continue;
+    }
+    const status = result.mapping?.matchStatus ?? "unmatched";
+    byStatus[status] = (byStatus[status] ?? 0) + 1;
+  }
+
+  return { processed: vocabularyItemIds.length, skippedLocked, byStatus };
+}
+
 export interface MappingMutationInput {
   vocabularyItemId: string;
   actorUserId: string;
@@ -221,6 +246,61 @@ export async function selectDictionaryEntry(
       });
 
       return mapping;
+    },
+  );
+}
+
+export type BulkConfirmVocabularyMappingsInput = {
+  vocabularyItemIds: string[];
+  actorUserId: string;
+  idempotencyKey: string;
+};
+
+/**
+ * Spec 13's "batch confirmation of reviewed mappings" — the queue stays
+ * read-only in the sense `mapping-queue-table.tsx`'s docstring means
+ * (nothing there decides *which* candidate is right; that judgment still
+ * only happens in the per-item mapping panel). This batches the exact same
+ * terminal step `confirmVocabularyMapping` performs — one call instead of
+ * clicking Confirm once per already-reviewed item — mirroring
+ * `domains/admin/publication-service.ts`'s `bulkArchiveItems` shape: one
+ * outer transaction, one audit event per item sharing a `correlationId`,
+ * rather than nesting each item's own idempotency-wrapped call.
+ */
+export async function bulkConfirmVocabularyMappings(
+  db: DbClient,
+  input: BulkConfirmVocabularyMappingsInput,
+): Promise<{ confirmed: string[] }> {
+  return withIdempotency(
+    db,
+    {
+      userId: input.actorUserId,
+      operation: "admin.lexicon.bulk-confirm-mappings",
+      key: input.idempotencyKey,
+      payload: { vocabularyItemIds: input.vocabularyItemIds },
+    },
+    async (tx) => {
+      const confirmed: string[] = [];
+      for (const vocabularyItemId of input.vocabularyItemIds) {
+        const before = await getMapping(tx, vocabularyItemId);
+        if (!before) throw new LexiconError("MAPPING_NOT_FOUND");
+        if (!before.dictionaryEntryId) throw new LexiconError("MAPPING_NOT_FOUND", "There is no matched entry to confirm.");
+
+        const mapping = await confirmMapping(tx, { vocabularyItemId, actorUserId: input.actorUserId, mappedAt: new Date() });
+        if (!mapping) throw new LexiconError("MAPPING_NOT_FOUND");
+
+        await recordAuditEvent(tx, {
+          actorUserId: input.actorUserId,
+          action: "DICTIONARY_MAPPING_CONFIRMED",
+          resourceType: "vocabulary_dictionary_mapping",
+          resourceId: vocabularyItemId,
+          beforeData: { matchStatus: before.matchStatus, reviewReason: before.reviewReason },
+          afterData: { dictionaryEntryId: mapping.dictionaryEntryId, matchStatus: mapping.matchStatus },
+          correlationId: input.idempotencyKey,
+        });
+        confirmed.push(vocabularyItemId);
+      }
+      return { confirmed };
     },
   );
 }
