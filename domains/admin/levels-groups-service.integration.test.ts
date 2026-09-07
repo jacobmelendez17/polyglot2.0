@@ -55,11 +55,85 @@ describe("updateLevel", () => {
 
   it("rejects publishing a level that doesn't meet the configured curriculum counts", async () => {
     await withTestTransaction(async (tx) => {
-      // Fixture Level 1 has 3 vocabulary / 1 grammar / 1 group — well under every configured threshold.
-      const { level1Id } = await seedTestFixtures(tx);
+      // A level of this test's own, empty and with no targets set, so it
+      // falls back to the configured defaults. Deliberately not the seeded
+      // Level 1: that row is shared with the dev branch and may carry its own
+      // per-level targets, which would make this assertion depend on someone
+      // else's configuration rather than on the rule under test.
+      const { languageId } = await seedTestFixtures(tx);
+      const { levelId } = await createLevel(tx, {
+        languageId,
+        levelNumber: 95,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+      });
 
       await expect(
-        updateLevel(tx, { levelId: level1Id, status: "published", actorUserId: DEVELOPER_ID, idempotencyKey: crypto.randomUUID() }),
+        updateLevel(tx, { levelId, status: "published", actorUserId: DEVELOPER_ID, idempotencyKey: crypto.randomUUID() }),
+      ).rejects.toMatchObject({ code: "CURRICULUM_VALIDATION_FAILED" });
+    });
+  });
+
+  it("publishes a deliberately small level once its own targets are satisfied", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      const { levelId } = await createLevel(tx, {
+        languageId,
+        levelNumber: 94,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+      });
+      const groupId = await repoCreateVocabularyGroup(tx, { levelId, languageId, name: "Only group" });
+      await createLearningItem(tx, {
+        languageId,
+        levelId,
+        position: 1,
+        lessonPriority: 1,
+        type: "vocabulary",
+        fields: { vocabularyGroupId: groupId, term: "solo", primaryMeaning: "alone", partOfSpeech: "adjective", acceptedAnswers: [] },
+      });
+
+      // One vocabulary item, one group, no grammar — far below every default,
+      // and unpublishable until the level says that is its intended shape.
+      await expect(
+        updateLevel(tx, { levelId, status: "published", actorUserId: DEVELOPER_ID, idempotencyKey: crypto.randomUUID() }),
+      ).rejects.toMatchObject({ code: "CURRICULUM_VALIDATION_FAILED" });
+
+      // Targets set in the same save are what the publish is checked against.
+      await updateLevel(tx, {
+        levelId,
+        status: "published",
+        targets: { vocabularyItems: 1, vocabularyGroups: 1, grammarItems: 0 },
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+      });
+
+      const published = (await getLevelsByLanguage(tx, languageId)).find((level) => level.id === levelId);
+      expect(published?.status).toBe("published");
+      expect(published?.targets).toEqual({ vocabularyItems: 1, vocabularyGroups: 1, grammarItems: 0 });
+    });
+  });
+
+  it("keeps the configured defaults for any target the level leaves unset", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      const { levelId } = await createLevel(tx, {
+        languageId,
+        levelNumber: 93,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+      });
+
+      // Only the vocabulary target is lowered; grammar and groups still use
+      // the defaults, so publishing must still be refused.
+      await expect(
+        updateLevel(tx, {
+          levelId,
+          status: "published",
+          targets: { vocabularyItems: 0 },
+          actorUserId: DEVELOPER_ID,
+          idempotencyKey: crypto.randomUUID(),
+        }),
       ).rejects.toMatchObject({ code: "CURRICULUM_VALIDATION_FAILED" });
     });
   });

@@ -31,7 +31,13 @@ export default async function LevelDetailPage({ params }: { params: Promise<{ le
         title={`Level ${level.levelNumber}${level.name ? ` — ${level.name}` : ""}`}
         description="Edit level properties and review publication readiness."
       />
-      <LevelEditForm levelId={level.id} name={level.name} status={level.status} validation={evaluateLevelValidation(counts)} />
+      <LevelEditForm
+        levelId={level.id}
+        name={level.name}
+        status={level.status}
+        targets={level.targets}
+        validation={evaluateLevelValidation(counts, level.targets)}
+      />
     </div>
   );
 }

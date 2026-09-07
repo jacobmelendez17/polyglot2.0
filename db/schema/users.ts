@@ -4,6 +4,7 @@ import {
   boolean,
   check,
   index,
+  integer,
   pgEnum,
   pgTable,
   text,
@@ -38,6 +39,18 @@ export const users = pgTable(
       .notNull()
       .references(() => languages.id, { onDelete: "restrict" }),
     isSandbox: boolean("is_sandbox").notNull().default(false),
+    /**
+     * Spec 11's "Time simulation uses a sandbox-specific clock abstraction"
+     * (2026-09-07). Seconds added to real server time when resolving *this
+     * user's* perceived now — never a global clock, never the server's own
+     * time. Meaningful only for sandbox personas, which the check constraint
+     * below enforces rather than leaving to convention.
+     *
+     * Kept on the user row rather than in a table of its own because the
+     * sandbox *is* a user row (ADR-020), and the spec is explicit that
+     * sandbox state must not sprawl into other tables.
+     */
+    sandboxTimeOffsetSeconds: integer("sandbox_time_offset_seconds"),
     sandboxOwnerUserId: uuid("sandbox_owner_user_id").references((): AnyPgColumn => users.id, {
       onDelete: "cascade",
     }),
@@ -46,6 +59,10 @@ export const users = pgTable(
   (t) => [
     uniqueIndex("users_clerk_user_id_key").on(t.clerkUserId).where(sql`${t.clerkUserId} IS NOT NULL`),
     index("users_sandbox_owner_user_id_idx").on(t.sandboxOwnerUserId),
+    check(
+      "users_sandbox_time_offset_consistency",
+      sql`${t.sandboxTimeOffsetSeconds} IS NULL OR ${t.isSandbox} = true`,
+    ),
     check(
       "users_sandbox_owner_consistency",
       sql`(${t.isSandbox} = true AND ${t.sandboxOwnerUserId} IS NOT NULL) OR (${t.isSandbox} = false AND ${t.sandboxOwnerUserId} IS NULL)`,

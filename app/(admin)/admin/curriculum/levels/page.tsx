@@ -67,7 +67,7 @@ export default async function AdminLevelsPage({ searchParams }: { searchParams: 
                   </div>
                 </div>
                 <div className="w-full sm:w-64">
-                  <LevelValidationSummary validation={evaluateLevelValidation(validationCounts[index]!)} />
+                  <LevelValidationSummary validation={evaluateLevelValidation(validationCounts[index]!, level.targets)} />
                 </div>
               </div>
             </li>

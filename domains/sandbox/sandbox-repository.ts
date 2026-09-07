@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
 
 import type { DbClient } from "@/db/client";
+import { getSandboxTimeOffset } from "@/domains/users/user-clock";
 import { learningItems, levels, userItemProgress, userLevelProgress, users, vocabularyItems, grammarItems } from "@/db/schema";
 import { unlockLevel } from "@/domains/progress/repository";
 import type { SrsStage } from "@/domains/srs";
@@ -115,5 +116,7 @@ export async function getSandboxSnapshot(db: DbClient, account: SandboxAccount):
     nextReviewAt: row.nextReviewAt,
   }));
 
-  return { account, unlockedLevels, items };
+  const timeOffsetSeconds = await getSandboxTimeOffset(db, account.sandboxUserId);
+
+  return { account, unlockedLevels, items, timeOffsetSeconds };
 }

@@ -20,7 +20,7 @@ import type {
   VocabularyFieldsInput,
 } from "./curriculum-mutation-types";
 import type { CurriculumStatus } from "./curriculum-db-types";
-import type { LevelValidationCounts } from "./curriculum-validation-config";
+import type { LevelValidationCounts, LevelValidationTargets } from "./curriculum-validation-config";
 
 /**
  * Postgres's integrity-constraint-violation SQLSTATEs relevant to a blocked
@@ -410,11 +410,37 @@ export async function createLevel(db: DbClient, input: { languageId: string; lev
   return row!.id;
 }
 
-export async function updateLevel(db: DbClient, levelId: string, input: { name?: string | null; status?: CurriculumStatus }): Promise<void> {
+export async function updateLevel(
+  db: DbClient,
+  levelId: string,
+  input: { name?: string | null; status?: CurriculumStatus; targets?: LevelValidationTargets },
+): Promise<void> {
   await db
     .update(levels)
-    .set({ ...(input.name !== undefined ? { name: input.name } : {}), ...(input.status ? { status: input.status } : {}) })
+    .set({
+      ...(input.name !== undefined ? { name: input.name } : {}),
+      ...(input.status ? { status: input.status } : {}),
+      // Each target is written only when the caller actually supplied it, so
+      // saving a level's name never silently resets its curriculum targets.
+      ...(input.targets?.vocabularyItems !== undefined ? { vocabularyItemTarget: input.targets.vocabularyItems } : {}),
+      ...(input.targets?.vocabularyGroups !== undefined ? { vocabularyGroupTarget: input.targets.vocabularyGroups } : {}),
+      ...(input.targets?.grammarItems !== undefined ? { grammarItemTarget: input.targets.grammarItems } : {}),
+    })
     .where(eq(levels.id, levelId));
+}
+
+/** A level's own targets, for resolving the effective validation denominators before a publish check. */
+export async function getLevelTargets(db: DbClient, levelId: string): Promise<LevelValidationTargets> {
+  const [row] = await db
+    .select({
+      vocabularyItems: levels.vocabularyItemTarget,
+      vocabularyGroups: levels.vocabularyGroupTarget,
+      grammarItems: levels.grammarItemTarget,
+    })
+    .from(levels)
+    .where(eq(levels.id, levelId))
+    .limit(1);
+  return row ?? {};
 }
 
 /** Real counts behind spec 11 rewrite's "Level 8: Vocabulary 47/48 ⚠" validation display — always derived live, never a stored/cacheable summary (architecture.md's authoritative-data rule). */

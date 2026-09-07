@@ -8,6 +8,7 @@ import {
   getAcceptedAnswers,
   getDraft,
   getDuplicateCandidateRows,
+  getLevelTargets,
   getLevelValidationCounts,
   getNextPosition,
   lockLearningItemForEdit,
@@ -393,24 +394,28 @@ export async function updateLevel(db: DbClient, input: UpdateLevelServiceInput):
       userId: input.actorUserId,
       operation: "admin.curriculum.update-level",
       key: input.idempotencyKey,
-      payload: { levelId: input.levelId, name: input.name, status: input.status },
+      payload: { levelId: input.levelId, name: input.name, status: input.status, targets: input.targets },
     },
     async (tx) => {
       if (input.status === "published") {
         const counts = await getLevelValidationCounts(tx, input.levelId);
-        const validation = evaluateLevelValidation(counts);
+        // Resolved against the level's *own* targets, including any this very
+        // request is setting — an admin lowering a target and publishing in
+        // one save must be validated against the new target, not the old one.
+        const storedTargets = await getLevelTargets(tx, input.levelId);
+        const validation = evaluateLevelValidation(counts, { ...storedTargets, ...(input.targets ?? {}) });
         if (!validation.allSatisfied) {
           throw new AdminError("CURRICULUM_VALIDATION_FAILED", "This level does not yet meet the minimum curriculum requirements to publish.", { validation });
         }
       }
 
-      await repoUpdateLevel(tx, input.levelId, { name: input.name, status: input.status });
+      await repoUpdateLevel(tx, input.levelId, { name: input.name, status: input.status, targets: input.targets });
       await recordAuditEvent(tx, {
         actorUserId: input.actorUserId,
         action: "LEVEL_UPDATED",
         resourceType: "level",
         resourceId: input.levelId,
-        afterData: { name: input.name, status: input.status },
+        afterData: { name: input.name, status: input.status, targets: input.targets },
       });
     },
   );

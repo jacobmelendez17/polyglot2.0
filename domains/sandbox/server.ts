@@ -10,11 +10,19 @@ export {
   makeSandboxReviewsDue,
   resetSandboxForOwner,
   setSandboxItemStage,
+  setSandboxTimeOffsetForOwner,
   simulateLevelForSandbox,
 } from "./sandbox-mutation-service";
+export { getOrCreateSandbox } from "./sandbox-service";
+export {
+  SANDBOX_SESSION_COOKIE,
+  SANDBOX_SESSION_TTL_SECONDS,
+  signSandboxGrant,
+} from "./sandbox-session-token";
 export type {
   MakeSandboxReviewsDueServiceInput,
   ResetSandboxServiceInput,
   SetSandboxItemStageServiceInput,
+  SetSandboxTimeOffsetServiceInput,
   SimulateLevelServiceInput,
 } from "./sandbox-service";

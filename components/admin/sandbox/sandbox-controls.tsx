@@ -12,6 +12,8 @@ import {
   makeSandboxReviewsDueAction,
   resetSandboxAction,
   setSandboxItemStageAction,
+  openSandboxAction,
+  setSandboxTimeOffsetAction,
   simulateLevelAction,
 } from "@/app/(admin)/admin/sandbox/actions";
 import { SRS_STAGE_LABELS, SRS_STAGE_ORDER, type SrsStage } from "@/domains/srs";
@@ -20,7 +22,25 @@ type SandboxControlsProps = {
   languageId: string;
   levels: { id: string; levelNumber: number }[];
   items: { id: string; itemLabel: string; levelId: string; levelNumber: number }[];
+  /** The persona's current clock offset from real server time, in seconds. */
+  timeOffsetSeconds: number;
 };
+
+const DAY_SECONDS = 24 * 60 * 60;
+
+/** Jumps the spec's own example offers ("Time [+7 Days]"), plus the shorter and longer horizons an SRS schedule actually spans. */
+const TIME_JUMPS = [
+  { label: "+1 day", seconds: DAY_SECONDS },
+  { label: "+7 days", seconds: 7 * DAY_SECONDS },
+  { label: "+30 days", seconds: 30 * DAY_SECONDS },
+];
+
+function describeOffset(offsetSeconds: number): string {
+  if (offsetSeconds === 0) return "Present (real server time)";
+  const days = offsetSeconds / DAY_SECONDS;
+  const rounded = Math.round(days * 10) / 10;
+  return `${rounded > 0 ? "+" : ""}${rounded} day${Math.abs(rounded) === 1 ? "" : "s"} ahead of real server time`;
+}
 
 function ActionRow({ children }: { children: React.ReactNode }) {
   return <div className="flex flex-wrap items-end gap-2">{children}</div>;
@@ -51,10 +71,16 @@ function SuccessBadge({ show }: { show: boolean }) {
  * `users.is_sandbox` persona. "Unlock practice"/"Unlock tests" are omitted
  * entirely rather than built as inert controls — neither feature exists
  * anywhere in this codebase yet (spec 07/09 explicitly scoped practice
- * experiences out). "Open Sandbox" and time simulation are also
- * deliberately absent — see progress-tracker.md's Sandbox entry.
+ * experiences out).
+ *
+ * Time simulation shifts only *this persona's* perceived clock — real server
+ * time is never touched, and a database check constraint makes an offset on a
+ * non-sandbox user unrepresentable. "Open Sandbox" issues a short-lived
+ * signed grant so learner pages resolve as the persona; ownership is
+ * re-proved against the database on every request, never trusted from the
+ * cookie.
  */
-export function SandboxControls({ languageId, levels, items }: SandboxControlsProps) {
+export function SandboxControls({ languageId, levels, items, timeOffsetSeconds }: SandboxControlsProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -195,6 +221,66 @@ export function SandboxControls({ languageId, levels, items }: SandboxControlsPr
               </Button>
               <SuccessBadge show={justDid === "make-due"} />
             </ActionRow>
+          </section>
+
+          <section className="rounded-xl border border-border bg-card p-4">
+            <h2 className="mb-1 text-sm font-semibold text-foreground">Simulate time</h2>
+            <p className="mb-3 text-xs text-muted-foreground">
+              Moves this sandbox persona&apos;s perceived clock only. Real server time, other users, and every real learner&apos;s schedule are
+              unaffected. Currently: <span className="font-medium text-foreground">{describeOffset(timeOffsetSeconds)}</span>.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              {TIME_JUMPS.map((jump) => (
+                <Button
+                  key={jump.label}
+                  variant="outline"
+                  disabled={isPending}
+                  onClick={() =>
+                    run("time", () =>
+                      setSandboxTimeOffsetAction({
+                        languageId,
+                        // An absolute target, not a relative nudge, so a retried
+                        // request can never compound the jump.
+                        offsetSeconds: timeOffsetSeconds + jump.seconds,
+                        idempotencyKey: crypto.randomUUID(),
+                      }),
+                    )
+                  }
+                >
+                  {jump.label}
+                </Button>
+              ))}
+              <Button
+                variant="ghost"
+                disabled={isPending || timeOffsetSeconds === 0}
+                onClick={() =>
+                  run("time", () => setSandboxTimeOffsetAction({ languageId, offsetSeconds: 0, idempotencyKey: crypto.randomUUID() }))
+                }
+              >
+                Back to present
+              </Button>
+              <SuccessBadge show={justDid === "time"} />
+            </div>
+          </section>
+
+          <section className="rounded-xl border border-border bg-card p-4">
+            <h2 className="mb-1 text-sm font-semibold text-foreground">Open the sandbox learner experience</h2>
+            <p className="mb-3 text-xs text-muted-foreground">
+              Browses the app as this persona for up to 30 minutes. A banner stays visible throughout, and you can leave at any time.
+            </p>
+            <Button
+              variant="outline"
+              disabled={isPending}
+              onClick={() =>
+                run("open", async () => {
+                  const result = await openSandboxAction({ languageId });
+                  if (result.ok) router.push("/dashboard");
+                  return result;
+                })
+              }
+            >
+              Open sandbox
+            </Button>
           </section>
 
           <section className="rounded-xl border border-destructive/30 bg-card p-4">

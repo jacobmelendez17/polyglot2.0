@@ -66,5 +66,9 @@ export { LEVEL_NUMBER_MAX, LEVEL_NUMBER_MIN, buildLevelViewModel, parseLevelNumb
 export type { LevelCardItem, LevelViewModel } from "./level-view";
 
 // Spec 11 rewrite's Levels Management validation display — pure, database-free.
-export { CURRICULUM_VALIDATION_CONFIG, evaluateLevelValidation } from "./curriculum-validation-config";
-export type { LevelValidationCounts, LevelValidationResult } from "./curriculum-validation-config";
+export {
+  CURRICULUM_VALIDATION_CONFIG,
+  evaluateLevelValidation,
+  resolveLevelValidationTargets,
+} from "./curriculum-validation-config";
+export type { LevelValidationCounts, LevelValidationResult, LevelValidationTargets } from "./curriculum-validation-config";

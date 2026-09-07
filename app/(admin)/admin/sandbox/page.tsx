@@ -48,6 +48,7 @@ export default async function AdminSandboxPage() {
           languageId={languageId}
           levels={levels.map((l) => ({ id: l.id, levelNumber: l.levelNumber }))}
           items={itemsPage.items.map((i) => ({ id: i.id, itemLabel: i.itemLabel, levelId: i.levelId, levelNumber: i.levelNumber }))}
+          timeOffsetSeconds={snapshot.timeOffsetSeconds}
         />
         <SandboxSnapshotView snapshot={snapshot} now={new Date()} />
       </div>

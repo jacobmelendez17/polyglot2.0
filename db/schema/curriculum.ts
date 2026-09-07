@@ -45,6 +45,24 @@ export const levels = pgTable(
     levelNumber: integer("level_number").notNull(),
     name: text("name"),
     status: curriculumStatusEnum("status").notNull().default("draft"),
+    /**
+     * Per-level curriculum targets (2026-09-07). Spec 11's "48 vocabulary /
+     * 4 groups / 12 grammar" is explicitly "validation rules, not hardcoded
+     * schema assumptions", and architecture.md requires the database support
+     * a different curriculum shape without a redesign — but the numbers were
+     * still a single global constant, so a deliberately smaller level (an
+     * introductory Level 1, a short bridging level, a language with a
+     * different shape) simply could not be published.
+     *
+     * `NULL` means "use the configured default", so existing levels keep
+     * behaving exactly as before and no backfill is needed. `0` means "no
+     * requirement" — that is the escape hatch for a level that genuinely has
+     * no grammar, and it is a configured decision rather than a bypass of
+     * the publish gate, which still applies.
+     */
+    vocabularyItemTarget: integer("vocabulary_item_target"),
+    vocabularyGroupTarget: integer("vocabulary_group_target"),
+    grammarItemTarget: integer("grammar_item_target"),
     ...timestamps(),
   },
   (t) => [

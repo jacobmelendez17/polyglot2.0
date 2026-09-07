@@ -2,6 +2,7 @@ import type { DbClient } from "@/db/client";
 import { recordAuditEvent } from "@/domains/admin/audit-repository";
 import { getLevelByLanguageAndNumber } from "@/domains/curriculum/curriculum-repository";
 import { withIdempotency } from "@/domains/idempotency";
+import { getSandboxTimeOffset, setSandboxTimeOffset } from "@/domains/users/user-clock";
 import type { SrsStage } from "@/domains/srs";
 import { AdminError } from "@/lib/errors/admin-errors";
 
@@ -121,6 +122,51 @@ export async function makeSandboxReviewsDue(db: DbClient, input: MakeSandboxRevi
   );
 }
 
+export type SetSandboxTimeOffsetServiceInput = {
+  ownerUserId: string;
+  languageId: string;
+  actorUserId: string;
+  /** Absolute offset from real server time, in seconds. `0` returns the persona to the present. */
+  offsetSeconds: number;
+  idempotencyKey: string;
+};
+
+/**
+ * Spec 11's "Time simulation" control. Sets the sandbox persona's perceived
+ * clock offset — real server time is never touched, and the database's own
+ * check constraint makes it impossible to set an offset on a non-sandbox
+ * user even if this function were called wrongly.
+ *
+ * An *absolute* offset rather than a relative nudge: "+7 days" from the UI
+ * resolves to a concrete target here, so a retried request cannot compound
+ * into +14 days. That matters because this is an idempotent mutation whose
+ * payload must fully determine its effect.
+ */
+export async function setSandboxTimeOffsetForOwner(db: DbClient, input: SetSandboxTimeOffsetServiceInput): Promise<void> {
+  return withIdempotency(
+    db,
+    {
+      userId: input.actorUserId,
+      operation: "admin.sandbox.set-time-offset",
+      key: input.idempotencyKey,
+      payload: { offsetSeconds: input.offsetSeconds },
+    },
+    async (tx) => {
+      const account = await getOrCreateSandbox(tx, input.ownerUserId, input.languageId);
+      const previous = await getSandboxTimeOffset(tx, account.sandboxUserId);
+      await setSandboxTimeOffset(tx, account.sandboxUserId, input.offsetSeconds);
+      await recordAuditEvent(tx, {
+        actorUserId: input.actorUserId,
+        action: "SANDBOX_TIME_CHANGED",
+        resourceType: "sandbox",
+        resourceId: account.sandboxUserId,
+        beforeData: { offsetSeconds: previous },
+        afterData: { offsetSeconds: input.offsetSeconds },
+      });
+    },
+  );
+}
+
 export type ResetSandboxServiceInput = { ownerUserId: string; languageId: string; actorUserId: string; idempotencyKey: string };
 
 export async function resetSandboxForOwner(db: DbClient, input: ResetSandboxServiceInput): Promise<void> {
@@ -131,6 +177,9 @@ export async function resetSandboxForOwner(db: DbClient, input: ResetSandboxServ
       const account = await getOrCreateSandbox(tx, input.ownerUserId, input.languageId);
       const level1Id = await findLevel1Id(tx, input.languageId);
       await resetSandbox(tx, { sandboxUserId: account.sandboxUserId, level1Id });
+      // "Reset clears only the current owner's sandbox state" — the simulated
+      // clock is part of that state, so it returns to the present too.
+      await setSandboxTimeOffset(tx, account.sandboxUserId, 0);
       await recordAuditEvent(tx, {
         actorUserId: input.actorUserId,
         action: "SANDBOX_RESET",

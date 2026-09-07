@@ -8,3 +8,4 @@
  * see `domains/lessons/server.ts`, where this was discovered the hard way.
  */
 export { getUsersByIds, resolveCurrentUser, requireUser } from "./user-service";
+export { resolveUserNow } from "./user-clock";

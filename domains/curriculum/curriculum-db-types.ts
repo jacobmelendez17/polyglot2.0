@@ -1,3 +1,5 @@
+import type { LevelValidationTargets } from "./curriculum-validation-config";
+
 /**
  * Real, database-backed curriculum domain types (spec 08 §30, §31) —
  * independent of `curriculum-types.ts`'s fixture types (spec 07's
@@ -22,6 +24,12 @@ export interface CurriculumLevel {
   levelNumber: number;
   name: string | null;
   status: CurriculumStatus;
+  /**
+   * Per-level curriculum targets. `null` means "use the configured default"
+   * (`CURRICULUM_VALIDATION_CONFIG`); `0` means this level requires none of
+   * that content. See `resolveLevelValidationTargets`.
+   */
+  targets: LevelValidationTargets;
 }
 
 export interface CurriculumVocabularyGroup {

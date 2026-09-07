@@ -207,10 +207,20 @@ export async function createLevelAction(input: z.infer<typeof createLevelActionS
   });
 }
 
+const levelTargetActionSchema = z.number().int().min(0).max(1000).nullish();
+
 const updateLevelActionSchema = z.object({
   levelId: z.string().min(1),
   name: z.string().trim().min(1).nullish(),
   status: curriculumStatusActionSchema.optional(),
+  /** Per-level curriculum targets; `null` restores the configured default, `0` means no requirement. */
+  targets: z
+    .object({
+      vocabularyItems: levelTargetActionSchema,
+      vocabularyGroups: levelTargetActionSchema,
+      grammarItems: levelTargetActionSchema,
+    })
+    .optional(),
   idempotencyKey: z.string().min(1),
 });
 

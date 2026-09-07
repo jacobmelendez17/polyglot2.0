@@ -1800,15 +1800,18 @@ The codebase must never violate the following rules:
 48. Inbound webhooks verify their signature before any processing occurs.
 49. Learner-facing curriculum reads return published content only. Seeing unpublished or archived curriculum requires an explicit, administrative opt-in at the call site.
 50. Archiving curriculum withdraws it from browsing and from new lesson eligibility. It never deletes or resets existing learner progress, and never stops an already-enrolled item from being reviewed.
-51. A dictionary import never writes a curriculum, progress, or SRS table. Its only point of contact with curriculum is a mapping row that points at a vocabulary item.
-52. Lexical normalization never removes accents or diacritics. `el`/`él`, `tu`/`tú`, `si`/`sí`, and `como`/`cómo` remain distinct terms at every layer.
-53. A vocabulary item is auto-matched to a dictionary entry only when exactly one clear candidate survives. Ambiguity is escalated for administrative review, never resolved by guessing.
-54. Once an administrator explicitly maps a vocabulary item to a dictionary entry, no automatic process may repoint it. Only another explicit administrative act can.
-55. Dictionary senses, forms, and relations are never deleted on reimport. A record that disappears upstream is marked missing, and any selection that depended on it is escalated for review rather than silently replaced.
-56. Absence from a regional word list is recorded as evidence of absence, never as proof that a form is invalid in that region.
-57. Importing the same completed source snapshot at the same scope again produces no new lexical records.
-58. Raw imported source objects are never exposed to learners and never parsed on a normal page load.
-59. Dictionary source locations are configured server-side. No administrative interface may supply an arbitrary file path or remote fetch URL.
+51. Curriculum shape is configured per level. The documented 48/4/12 figures are defaults, not schema assumptions; a level may set its own targets, and publishing still fails when they are unmet.
+52. Simulated time is scoped to a single sandbox persona. Real server time, real learners, and other sandboxes are never affected, and an offset on a non-sandbox user is unrepresentable at the database level.
+53. Viewing the application as another user is possible only for a sandbox persona owned by the authenticated administrator, is re-proved against the database on every request, expires on its own, and is visibly indicated on every authenticated page while active.
+54. A dictionary import never writes a curriculum, progress, or SRS table. Its only point of contact with curriculum is a mapping row that points at a vocabulary item.
+55. Lexical normalization never removes accents or diacritics. `el`/`él`, `tu`/`tú`, `si`/`sí`, and `como`/`cómo` remain distinct terms at every layer.
+56. A vocabulary item is auto-matched to a dictionary entry only when exactly one clear candidate survives. Ambiguity is escalated for administrative review, never resolved by guessing.
+57. Once an administrator explicitly maps a vocabulary item to a dictionary entry, no automatic process may repoint it. Only another explicit administrative act can.
+58. Dictionary senses, forms, and relations are never deleted on reimport. A record that disappears upstream is marked missing, and any selection that depended on it is escalated for review rather than silently replaced.
+59. Absence from a regional word list is recorded as evidence of absence, never as proof that a form is invalid in that region.
+60. Importing the same completed source snapshot at the same scope again produces no new lexical records.
+61. Raw imported source objects are never exposed to learners and never parsed on a normal page load.
+62. Dictionary source locations are configured server-side. No administrative interface may supply an arbitrary file path or remote fetch URL.
 
 ---
 

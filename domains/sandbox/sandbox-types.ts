@@ -33,4 +33,6 @@ export type SandboxSnapshot = {
   account: SandboxAccount;
   unlockedLevels: SandboxLevelState[];
   items: SandboxItemState[];
+  /** Seconds the persona's perceived clock is ahead of real server time. `0` means it is in the present. */
+  timeOffsetSeconds: number;
 };

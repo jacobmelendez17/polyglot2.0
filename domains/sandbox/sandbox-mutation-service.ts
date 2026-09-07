@@ -7,6 +7,7 @@ import type {
   MakeSandboxReviewsDueServiceInput,
   ResetSandboxServiceInput,
   SetSandboxItemStageServiceInput,
+  SetSandboxTimeOffsetServiceInput,
   SimulateLevelServiceInput,
 } from "./sandbox-service";
 
@@ -36,6 +37,11 @@ export async function setSandboxItemStage(input: SetSandboxItemStageServiceInput
 export async function makeSandboxReviewsDue(input: MakeSandboxReviewsDueServiceInput) {
   await checkRateLimit(input.actorUserId);
   return sandbox.makeSandboxReviewsDue(db, input);
+}
+
+export async function setSandboxTimeOffsetForOwner(input: SetSandboxTimeOffsetServiceInput) {
+  await checkRateLimit(input.actorUserId);
+  return sandbox.setSandboxTimeOffsetForOwner(db, input);
 }
 
 export async function resetSandboxForOwner(input: ResetSandboxServiceInput) {

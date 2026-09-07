@@ -1,0 +1,2 @@
+ALTER TABLE "users" ADD COLUMN "sandbox_time_offset_seconds" integer;--> statement-breakpoint
+ALTER TABLE "users" ADD CONSTRAINT "users_sandbox_time_offset_consistency" CHECK ("users"."sandbox_time_offset_seconds" IS NULL OR "users"."is_sandbox" = true);

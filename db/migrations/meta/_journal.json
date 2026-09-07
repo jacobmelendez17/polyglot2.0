@@ -71,6 +71,20 @@
       "when": 1788759783063,
       "tag": "0009_rapid_colonel_america",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1788769387938,
+      "tag": "0010_clumsy_blazing_skull",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1788769638732,
+      "tag": "0011_naive_ares",
+      "breakpoints": true
     }
   ]
 }

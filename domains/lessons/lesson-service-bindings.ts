@@ -1,5 +1,6 @@
 import { db } from "@/db/client";
 import { databaseCurriculumReader } from "@/domains/curriculum/server";
+import { resolveUserNow } from "@/domains/users/server";
 import { getRateLimiter } from "@/providers/rate-limit";
 import { LessonError } from "@/lib/errors/lesson-errors";
 
@@ -55,5 +56,9 @@ export async function completeLesson(input: WithoutCurriculum<CompleteLessonInpu
   if (!decision.allowed) {
     throw new LessonError("RATE_LIMITED", `Please slow down and try again in ${decision.retryAfterSeconds}s.`);
   }
-  return completeLessonTransaction(db, { ...input, curriculum: databaseCurriculumReader });
+  // The sandbox clock applies to enrollment too: a persona simulating a
+  // future date must have its `learnedAt` and first-review time land on that
+  // date, or its schedule would immediately contradict its own perceived now.
+  const now = input.now ?? (await resolveUserNow(db, input.userId));
+  return completeLessonTransaction(db, { ...input, now, curriculum: databaseCurriculumReader });
 }

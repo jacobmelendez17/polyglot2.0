@@ -2,11 +2,19 @@
 
 import { z } from "zod";
 
+import { cookies } from "next/headers";
+
 import { canAccessAdminArea } from "@/domains/admin";
+import { db } from "@/db/client";
 import {
+  SANDBOX_SESSION_COOKIE,
+  SANDBOX_SESSION_TTL_SECONDS,
+  getOrCreateSandbox,
   makeSandboxReviewsDue,
   resetSandboxForOwner,
   setSandboxItemStage,
+  setSandboxTimeOffsetForOwner,
+  signSandboxGrant,
   simulateLevelForSandbox,
 } from "@/domains/sandbox/server";
 import { requireUser } from "@/domains/users/server";
@@ -98,4 +106,65 @@ export async function resetSandboxAction(input: z.infer<typeof resetSandboxActio
     const user = await requireUser();
     await resetSandboxForOwner({ ...parsed, ownerUserId: user.id, actorUserId: user.id });
   });
+}
+
+const setSandboxTimeOffsetActionSchema = z.object({
+  languageId: z.string().min(1),
+  /**
+   * Absolute offset from real server time, in seconds. Bounded to a decade in
+   * either direction — enough to simulate any realistic SRS horizon, small
+   * enough that a bad value cannot push scheduling into a range where date
+   * arithmetic stops being meaningful.
+   */
+  offsetSeconds: z.number().int().min(-10 * 365 * 24 * 60 * 60).max(10 * 365 * 24 * 60 * 60),
+  idempotencyKey: z.string().min(1),
+});
+
+export async function setSandboxTimeOffsetAction(
+  input: z.infer<typeof setSandboxTimeOffsetActionSchema>,
+): Promise<ActionResult<void>> {
+  return runSandboxAction(async () => {
+    const parsed = setSandboxTimeOffsetActionSchema.parse(input);
+    const user = await requireUser();
+    await setSandboxTimeOffsetForOwner({ ...parsed, ownerUserId: user.id, actorUserId: user.id });
+  });
+}
+
+const openSandboxActionSchema = z.object({ languageId: z.string().min(1) });
+
+/**
+ * Spec 11's "Open Sandbox" — issues a short-lived, signed grant so the admin's
+ * next learner-page request resolves as their own sandbox persona.
+ *
+ * The cookie is `httpOnly` and `sameSite: "strict"`: it is never readable by
+ * page scripts, and it is never sent on a cross-site navigation, so a link
+ * from elsewhere cannot silently put an admin into a sandbox session. It is
+ * `secure` outside development, where localhost is served over plain HTTP.
+ *
+ * The grant only *requests* impersonation — `resolveCurrentUser` re-proves
+ * ownership against the database on every request before honouring it.
+ */
+export async function openSandboxAction(input: z.infer<typeof openSandboxActionSchema>): Promise<ActionResult<void>> {
+  return runSandboxAction(async () => {
+    const { languageId } = openSandboxActionSchema.parse(input);
+    const user = await requireUser();
+    const account = await getOrCreateSandbox(db, user.id, languageId);
+    const token = await signSandboxGrant({ adminUserId: user.id, sandboxUserId: account.sandboxUserId });
+
+    const cookieStore = await cookies();
+    cookieStore.set(SANDBOX_SESSION_COOKIE, token, {
+      httpOnly: true,
+      sameSite: "strict",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: SANDBOX_SESSION_TTL_SECONDS,
+    });
+  });
+}
+
+/** Ends a sandbox viewing session. Deliberately requires no authorization beyond being signed in — leaving an impersonation session must never be blocked. */
+export async function closeSandboxAction(): Promise<ActionResult<void>> {
+  const cookieStore = await cookies();
+  cookieStore.delete(SANDBOX_SESSION_COOKIE);
+  return { ok: true, data: undefined };
 }

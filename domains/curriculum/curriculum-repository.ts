@@ -27,7 +27,18 @@ function toCurriculumLanguage(row: typeof languages.$inferSelect): CurriculumLan
 }
 
 function toCurriculumLevel(row: typeof levels.$inferSelect): CurriculumLevel {
-  return { id: row.id, languageId: row.languageId, levelNumber: row.levelNumber, name: row.name, status: row.status };
+  return {
+    id: row.id,
+    languageId: row.languageId,
+    levelNumber: row.levelNumber,
+    name: row.name,
+    status: row.status,
+    targets: {
+      vocabularyItems: row.vocabularyItemTarget,
+      vocabularyGroups: row.vocabularyGroupTarget,
+      grammarItems: row.grammarItemTarget,
+    },
+  };
 }
 
 function toCurriculumVocabularyGroup(row: typeof vocabularyGroups.$inferSelect): CurriculumVocabularyGroup {

@@ -106,11 +106,26 @@ export const createLevelInputSchema = z.object({
   actorUserId: uuidLike,
 });
 
+/**
+ * A curriculum target. `null` restores the configured default; `0` means the
+ * level requires none of that content. The upper bound is generous but
+ * finite — a target is a curriculum decision, not free-form input, and an
+ * absurd value would make the publish gate unsatisfiable rather than strict.
+ */
+const levelTargetSchema = z.number().int().min(0).max(1000).nullish();
+
 export const updateLevelInputSchema = z.object({
   levelId: uuidLike,
   actorUserId: uuidLike,
   name: z.string().trim().min(1).nullish(),
   status: curriculumStatusSchema.optional(),
+  targets: z
+    .object({
+      vocabularyItems: levelTargetSchema,
+      vocabularyGroups: levelTargetSchema,
+      grammarItems: levelTargetSchema,
+    })
+    .optional(),
 });
 
 export const createVocabularyGroupInputSchema = z.object({

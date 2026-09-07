@@ -1,4 +1,5 @@
 import { db } from "@/db/client";
+import { resolveUserNow } from "@/domains/users/server";
 import { getRateLimiter } from "@/providers/rate-limit";
 import { ReviewError } from "@/lib/errors/review-errors";
 
@@ -23,8 +24,16 @@ export async function getReviewHistory(input: GetReviewHistoryInput) {
   return repository.getReviewHistory(db, input);
 }
 
+/**
+ * Resolves the caller's perceived `now` before any due-review work (spec 11's
+ * sandbox clock). Identical to real server time for every ordinary learner;
+ * only a sandbox persona can carry an offset. An explicit `now` from the
+ * caller still wins, which is what keeps the orchestration tests
+ * deterministic.
+ */
 export async function startReviewSession(input: StartReviewSessionInput) {
-  return orchestration.startReviewSession(db, input);
+  const now = input.now ?? (await resolveUserNow(db, input.userId)).getTime();
+  return orchestration.startReviewSession(db, { ...input, now });
 }
 
 /**
@@ -39,5 +48,6 @@ export async function submitReviewAnswer(input: SubmitReviewAnswerInput) {
   if (!decision.allowed) {
     throw new ReviewError("RATE_LIMITED", `Please slow down and try again in ${decision.retryAfterSeconds}s.`);
   }
-  return orchestration.submitReviewAnswer(db, input);
+  const now = input.now ?? (await resolveUserNow(db, input.userId)).getTime();
+  return orchestration.submitReviewAnswer(db, { ...input, now });
 }

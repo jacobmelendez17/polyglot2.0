@@ -1,3 +1,4 @@
+import type { LevelValidationTargets } from "./curriculum-validation-config";
 import type { CurriculumGrammarQuestionRequirement, CurriculumStatus } from "./curriculum-db-types";
 
 /** One official accepted-answer value on either side (mirrors `user_synonyms`' `side` distinction). */
@@ -93,6 +94,8 @@ export type UpdateLevelInput = {
   actorUserId: string;
   name?: string | null;
   status?: CurriculumStatus;
+  /** Per-level curriculum targets. Omitted fields are left unchanged; `null` restores the configured default. */
+  targets?: LevelValidationTargets;
 };
 
 export type CreateVocabularyGroupInput = {
