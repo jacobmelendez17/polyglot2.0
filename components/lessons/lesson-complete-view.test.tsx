@@ -2,14 +2,14 @@ import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 
 import { LessonCompleteView } from "@/components/lessons/lesson-complete-view";
-import type { LessonCompletionPreview } from "@/domains/lessons";
+import type { LessonCompletionSummary } from "@/domains/lessons";
 
-const COMPLETION: LessonCompletionPreview = {
+const COMPLETION: LessonCompletionSummary = {
   items: [
     { id: "vocab-gato", label: "gato", meaning: "cat" },
     { id: "vocab-perro", label: "perro", meaning: "dog" },
   ],
-  newStage: "Beginner 1",
+  newStage: "beginner_1",
   accuracy: 86,
 };
 

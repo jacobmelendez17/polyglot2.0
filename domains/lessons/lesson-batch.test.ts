@@ -8,7 +8,7 @@ function makeItem(overrides: Partial<VocabularyItem> & { id: string }): Vocabula
   return {
     type: "vocabulary",
     languageId: "es-MX",
-    levelId: 1,
+    levelNumber: 1,
     lessonPriority: 1,
     word: overrides.id,
     partOfSpeech: "noun",
@@ -24,7 +24,7 @@ function makeItem(overrides: Partial<VocabularyItem> & { id: string }): Vocabula
 describe("selectLessonBatch", () => {
   it("respects the configured batch size", () => {
     const eligibleItems = Array.from({ length: 10 }, (_, i) =>
-      makeItem({ id: `item-${i}`, levelId: 1, lessonPriority: i }),
+      makeItem({ id: `item-${i}`, levelNumber: 1, lessonPriority: i }),
     );
     const batch = selectLessonBatch({ eligibleItems, batchSize: 6 });
     expect(batch).toHaveLength(6);
@@ -32,7 +32,7 @@ describe("selectLessonBatch", () => {
 
   it("uses the default batch size of 6 when the eligible pool is larger", () => {
     const eligibleItems = Array.from({ length: 8 }, (_, i) =>
-      makeItem({ id: `item-${i}`, levelId: 1, lessonPriority: i }),
+      makeItem({ id: `item-${i}`, levelNumber: 1, lessonPriority: i }),
     );
     const batch = selectLessonBatch({ eligibleItems, batchSize: 6 });
     expect(batch.map((item) => item.id)).toEqual(["item-0", "item-1", "item-2", "item-3", "item-4", "item-5"]);
@@ -40,9 +40,9 @@ describe("selectLessonBatch", () => {
 
   it("prioritizes lower unlocked curriculum levels over higher ones", () => {
     const eligibleItems = [
-      makeItem({ id: "level-2-a", levelId: 2, lessonPriority: 1 }),
-      makeItem({ id: "level-1-b", levelId: 1, lessonPriority: 2 }),
-      makeItem({ id: "level-1-a", levelId: 1, lessonPriority: 1 }),
+      makeItem({ id: "level-2-a", levelNumber: 2, lessonPriority: 1 }),
+      makeItem({ id: "level-1-b", levelNumber: 1, lessonPriority: 2 }),
+      makeItem({ id: "level-1-a", levelNumber: 1, lessonPriority: 1 }),
     ];
     const batch = selectLessonBatch({ eligibleItems, batchSize: 3 });
     expect(batch.map((item) => item.id)).toEqual(["level-1-a", "level-1-b", "level-2-a"]);

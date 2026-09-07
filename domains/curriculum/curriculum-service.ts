@@ -2,16 +2,15 @@ import { FIXTURE_LEARNING_ITEMS } from "./curriculum-fixtures";
 import type { LearningItem } from "./curriculum-types";
 
 /**
- * Returns every currently eligible learning item for the user's active
- * language.
+ * Fixture-backed curriculum reads. **Test data only** as of spec 07 unit 6 —
+ * the running lesson flow reads real curriculum rows through
+ * `lesson-curriculum-repository.ts`, bound in `./server.ts`.
  *
- * Temporary implementation: always resolves the full fixture set, since
- * there is no `progress` domain yet to exclude already-learned items (see
- * progress-tracker.md Next Up #3/#4). The `Promise` return type mirrors the
- * eventual database-backed call so callers already await this correctly.
- * Ordering/priority is not applied here — that is `domains/lessons`'
- * responsibility (architecture.md: curriculum owns ordering data, lessons
- * owns lesson priority).
+ * Kept rather than deleted because it is what makes `domains/lessons`'
+ * orchestration unit-testable without a database: `lesson-service.test.ts`
+ * passes `fixtureCurriculumReader` in place of the real one. It excludes
+ * nothing for already-learned items, which is correct for a fixture reader —
+ * the real reader does that in SQL.
  */
 export async function getEligibleLearningItems(
   userId: string,
@@ -21,13 +20,17 @@ export async function getEligibleLearningItems(
   return FIXTURE_LEARNING_ITEMS.filter((item) => item.languageId === languageId);
 }
 
-/**
- * Authoritatively loads full curriculum data for a known set of item IDs.
- * Callers must never treat client-supplied IDs as proof those items exist or
- * are eligible — this only returns items that are genuinely present in the
- * curriculum fixture, silently omitting any ID that is not.
- */
+/** Fixture counterpart of the real by-ID read. Omits any ID not present in the fixture, never invents one. */
 export async function getLearningItemsByIds(ids: string[]): Promise<LearningItem[]> {
   const idSet = new Set(ids);
   return FIXTURE_LEARNING_ITEMS.filter((item) => idSet.has(item.id));
 }
+
+/**
+ * The fixture set bundled as a `LessonCurriculumReader` (see that type's
+ * docstring). Passed explicitly by tests; never used by the application.
+ */
+export const fixtureCurriculumReader = {
+  getEligibleLearningItems,
+  getLearningItemsByIds,
+};

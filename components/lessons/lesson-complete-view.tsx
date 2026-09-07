@@ -3,10 +3,11 @@ import { PartyPopper } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import type { LessonCompletionPreview } from "@/domains/lessons";
+import type { LessonCompletionSummary } from "@/domains/lessons";
+import { SRS_STAGE_LABELS } from "@/domains/srs";
 
 type LessonCompleteViewProps = {
-  completion: LessonCompletionPreview;
+  completion: LessonCompletionSummary;
 };
 
 /**
@@ -30,7 +31,7 @@ export function LessonCompleteView({ completion }: LessonCompleteViewProps) {
         <CardContent className="flex flex-col gap-4">
           <div>
             <p className="text-xs font-medium text-muted-foreground">New SRS stage</p>
-            <p className="mt-1 text-lg font-semibold text-foreground">{completion.newStage}</p>
+            <p className="mt-1 text-lg font-semibold text-foreground">{SRS_STAGE_LABELS[completion.newStage]}</p>
           </div>
 
           <ul className="flex flex-col gap-1 text-left">

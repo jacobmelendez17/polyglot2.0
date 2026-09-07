@@ -1,3 +1,5 @@
+import type { SrsStage } from "@/domains/srs";
+
 import type { z } from "zod";
 
 import type { LearningItem } from "@/domains/curriculum";
@@ -74,16 +76,38 @@ export type LessonSessionResult = {
   itemStates?: Record<string, ItemSegmentState>;
   quizStats?: QuizStats;
   feedback?: QuizAnswerFeedback;
+  /**
+   * Configured accent/character buttons for the language being studied (spec
+   * 07 §27), resolved server-side from the language code. Sent with the
+   * session so the client never has to look up language configuration — it
+   * has no access to the language record, and the previous client-side
+   * lookup was what forced a fixture-language import into a `"use client"`
+   * component.
+   */
+  characterHelpers: readonly string[];
 };
 
 export type LessonStartResult = { kind: "empty" } | ({ kind: "session" } & LessonSessionResult);
 
 /**
- * The unit-7 completion preview — see lesson-completion-preview.ts. Not a
- * real SRS enrollment result; unit 6 is blocked (progress-tracker.md).
+ * What the results screen renders after a lesson (spec 07 §51, §52).
+ *
+ * Named a *summary*, not a preview: until spec 07 unit 6 this described the
+ * output of `lesson-completion-preview.ts`, which deliberately persisted
+ * nothing. It now describes the outcome of a completed enrollment
+ * transaction — `completeLesson` returns this plus the IDs it actually
+ * enrolled. The old module is deleted; a stale "preview" name would keep
+ * implying the learning loop still does not close.
  */
-export type LessonCompletionPreview = {
+export type LessonCompletionSummary = {
   items: { id: string; label: string; meaning: string }[];
-  newStage: string;
+  /**
+   * The SRS stage identifier the batch entered — not a display string. The
+   * results screen renders it through `SRS_STAGE_LABELS`, so the human
+   * wording lives in the SRS domain that owns the stages rather than being
+   * duplicated as a literal here (which is how the old preview surfaced a
+   * hardcoded "Beginner 1" that could silently drift from the real stage).
+   */
+  newStage: SrsStage;
   accuracy: number;
 };

@@ -1,3 +1,5 @@
+import { resolveByLanguageCode } from "@/lib/language-code";
+
 import { normalizeLexicalForm } from "./lexical-normalization";
 
 /**
@@ -122,27 +124,13 @@ const PROVIDERS: Record<string, LexicalLanguageProvider> = {
 };
 
 /**
- * The base language subtag of a BCP-47-ish code: `es-MX` → `es`, `es` → `es`.
- *
- * Polyglot's own `languages.code` is regional (`es-MX`, per
- * `domains/users`' provisioning default), while lexical sources are
- * organized by language (Wiktextract's `lang_code` is `es`). Both resolve to
- * the same lexical behavior, so lookups fall back to the base subtag rather
- * than requiring an entry per region.
- */
-export function baseLanguageSubtag(languageCode: string): string {
-  return languageCode.toLowerCase().split("-")[0];
-}
-
-/**
  * Resolves the provider for a `languages.code`. Tries the full code first,
  * so a region could one day get its own provider, then the base subtag —
  * `es-MX` and `es` both reach the Spanish provider today. Falls back to
  * exact-match-only behavior for languages without one.
  */
 export function getLexicalLanguageProvider(languageCode: string): LexicalLanguageProvider {
-  const normalized = languageCode.toLowerCase();
-  return PROVIDERS[normalized] ?? PROVIDERS[baseLanguageSubtag(normalized)] ?? defaultLexicalProvider;
+  return resolveByLanguageCode(PROVIDERS, languageCode) ?? defaultLexicalProvider;
 }
 
 /**

@@ -116,7 +116,17 @@ async function loadCurriculumHalf(
     .innerJoin(learningItems, eq(learningItems.id, vocabularyItems.learningItemId))
     .innerJoin(levels, eq(levels.id, learningItems.levelId))
     .innerJoin(vocabularyGroups, eq(vocabularyGroups.id, vocabularyItems.vocabularyGroupId))
-    .where(eq(vocabularyItems.learningItemId, vocabularyItemId))
+    // Learner-facing: an unpublished or archived item must not resolve here,
+    // for the same reason it must not appear in a level view. Admin surfaces
+    // read the item through `domains/curriculum` instead, which exposes an
+    // explicit `includeUnpublished` option.
+    .where(
+      and(
+        eq(vocabularyItems.learningItemId, vocabularyItemId),
+        eq(learningItems.status, "published"),
+        eq(levels.status, "published"),
+      ),
+    )
     .limit(1);
 
   if (!row) return null;

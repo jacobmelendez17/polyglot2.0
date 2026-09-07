@@ -19,8 +19,12 @@ export type CurriculumResource = {
 };
 
 export type Pronunciation = {
-  /** Plain-text pronunciation guidance, always present. */
-  guide: string;
+  /**
+   * Plain-text pronunciation guidance. Optional: `vocabulary_items.pronunciation`
+   * is nullable and frequently unset, and inventing a guide from the written
+   * form would be worse than showing none.
+   */
+  guide?: string;
   ipa?: string;
   /**
    * Present only when audio exists. The `media` domain/R2 storage does not
@@ -35,7 +39,7 @@ export type VocabularyItem = {
   type: "vocabulary";
   id: string;
   languageId: string;
-  levelId: number;
+  levelNumber: number;
   /** Ordering within the level, lowest first. Curriculum ordering is explicit and data-driven (architecture.md). */
   lessonPriority: number;
   word: string;
@@ -60,12 +64,18 @@ export type GrammarItem = {
   type: "grammar";
   id: string;
   languageId: string;
-  levelId: number;
+  levelNumber: number;
   lessonPriority: number;
   structure: string;
   meaning: string;
   explanation: string;
-  usage: string;
+  /**
+   * Separate usage guidance, distinct from `explanation`. Optional: the
+   * `grammar_items` table has no such column, and `category` is not the same
+   * thing — the Details tab omits the section rather than showing a
+   * mislabelled value.
+   */
+  usage?: string;
   context?: string;
   examples: CurriculumExample[];
   creatorNotes?: string;

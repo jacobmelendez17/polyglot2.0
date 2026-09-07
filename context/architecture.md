@@ -1798,15 +1798,17 @@ The codebase must never violate the following rules:
 46. A backup is not considered valid until a restore has been tested and recorded.
 47. Health endpoints expose no version, dependency, or configuration detail.
 48. Inbound webhooks verify their signature before any processing occurs.
-49. A dictionary import never writes a curriculum, progress, or SRS table. Its only point of contact with curriculum is a mapping row that points at a vocabulary item.
-50. Lexical normalization never removes accents or diacritics. `el`/`él`, `tu`/`tú`, `si`/`sí`, and `como`/`cómo` remain distinct terms at every layer.
-51. A vocabulary item is auto-matched to a dictionary entry only when exactly one clear candidate survives. Ambiguity is escalated for administrative review, never resolved by guessing.
-52. Once an administrator explicitly maps a vocabulary item to a dictionary entry, no automatic process may repoint it. Only another explicit administrative act can.
-53. Dictionary senses, forms, and relations are never deleted on reimport. A record that disappears upstream is marked missing, and any selection that depended on it is escalated for review rather than silently replaced.
-54. Absence from a regional word list is recorded as evidence of absence, never as proof that a form is invalid in that region.
-55. Importing the same completed source snapshot at the same scope again produces no new lexical records.
-56. Raw imported source objects are never exposed to learners and never parsed on a normal page load.
-57. Dictionary source locations are configured server-side. No administrative interface may supply an arbitrary file path or remote fetch URL.
+49. Learner-facing curriculum reads return published content only. Seeing unpublished or archived curriculum requires an explicit, administrative opt-in at the call site.
+50. Archiving curriculum withdraws it from browsing and from new lesson eligibility. It never deletes or resets existing learner progress, and never stops an already-enrolled item from being reviewed.
+51. A dictionary import never writes a curriculum, progress, or SRS table. Its only point of contact with curriculum is a mapping row that points at a vocabulary item.
+52. Lexical normalization never removes accents or diacritics. `el`/`él`, `tu`/`tú`, `si`/`sí`, and `como`/`cómo` remain distinct terms at every layer.
+53. A vocabulary item is auto-matched to a dictionary entry only when exactly one clear candidate survives. Ambiguity is escalated for administrative review, never resolved by guessing.
+54. Once an administrator explicitly maps a vocabulary item to a dictionary entry, no automatic process may repoint it. Only another explicit administrative act can.
+55. Dictionary senses, forms, and relations are never deleted on reimport. A record that disappears upstream is marked missing, and any selection that depended on it is escalated for review rather than silently replaced.
+56. Absence from a regional word list is recorded as evidence of absence, never as proof that a form is invalid in that region.
+57. Importing the same completed source snapshot at the same scope again produces no new lexical records.
+58. Raw imported source objects are never exposed to learners and never parsed on a normal page load.
+59. Dictionary source locations are configured server-side. No administrative interface may supply an arbitrary file path or remote fetch URL.
 
 ---
 

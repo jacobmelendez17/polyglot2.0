@@ -1,17 +1,16 @@
 "use server";
 
-import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 
-import { FIXTURE_LANGUAGE_ID } from "@/domains/curriculum";
 import {
-  buildLessonCompletionPreview,
+  completeLesson,
   openLessonItem,
-  startLesson,
   startQuiz,
   submitQuizAnswer,
 } from "@/domains/lessons/server";
-import type { LessonCompletionPreview, LessonSessionResult, LessonStartResult } from "@/domains/lessons";
+import type { LessonSessionResult } from "@/domains/lessons";
+import type { LessonCompletionResult } from "@/domains/lessons/server";
+import { requireUser } from "@/domains/users/server";
 import { LessonError } from "@/lib/errors/lesson-errors";
 
 /**
@@ -20,19 +19,19 @@ import { LessonError } from "@/lib/errors/lesson-errors";
  * delegated to `domains/lessons`/`domains/curriculum`. None of these
  * functions decide eligibility, correctness, or completion themselves.
  *
- * `languageId` stands in for the user's active language. The `users`
- * domain and persisted language selection don't exist yet
- * (progress-tracker.md Next Up #3), so every action uses the fixture
- * curriculum's language until that plumbing exists — same limitation the
- * dashboard already has for the greeting name.
+ * Identity is resolved through `domains/users`' `requireUser()` — the
+ * internal Polyglot UUID and the user's own `activeLanguageId`, not Clerk's
+ * raw id and not a fixture constant. That distinction is load-bearing as of
+ * spec 07 unit 6: these values are written into `user_item_progress`, whose
+ * foreign keys require real `users`/`learning_items`/`languages` rows.
  */
 
 export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: { code: string; message: string } };
 
-async function requireUserId(): Promise<string> {
-  const { userId } = await auth();
-  if (!userId) throw new LessonError("UNAUTHENTICATED");
-  return userId;
+/** The authenticated learner plus the language they are actually studying. */
+async function requireLearner(): Promise<{ userId: string; languageId: string }> {
+  const user = await requireUser();
+  return { userId: user.id, languageId: user.activeLanguageId };
 }
 
 async function runLessonAction<T>(fn: () => Promise<T>): Promise<ActionResult<T>> {
@@ -51,13 +50,6 @@ async function runLessonAction<T>(fn: () => Promise<T>): Promise<ActionResult<T>
   }
 }
 
-export async function startLessonAction(): Promise<ActionResult<LessonStartResult>> {
-  return runLessonAction(async () => {
-    const userId = await requireUserId();
-    return startLesson({ userId, languageId: FIXTURE_LANGUAGE_ID });
-  });
-}
-
 const openItemInputSchema = z.object({ token: z.string().min(1), itemId: z.string().min(1) });
 
 export async function openLessonItemAction(
@@ -65,8 +57,8 @@ export async function openLessonItemAction(
 ): Promise<ActionResult<{ token: string; viewedItemIds: string[] }>> {
   return runLessonAction(async () => {
     const { token, itemId } = openItemInputSchema.parse(input);
-    const userId = await requireUserId();
-    const result = await openLessonItem({ token, userId, languageId: FIXTURE_LANGUAGE_ID, itemId });
+    const { userId, languageId } = await requireLearner();
+    const result = await openLessonItem({ token, userId, languageId, itemId });
     return { token: result.token, viewedItemIds: result.viewedItemIds };
   });
 }
@@ -78,8 +70,8 @@ export async function startQuizAction(
 ): Promise<ActionResult<LessonSessionResult>> {
   return runLessonAction(async () => {
     const { token } = tokenInputSchema.parse(input);
-    const userId = await requireUserId();
-    return startQuiz({ token, userId, languageId: FIXTURE_LANGUAGE_ID });
+    const { userId, languageId } = await requireLearner();
+    return startQuiz({ token, userId, languageId });
   });
 }
 
@@ -94,17 +86,29 @@ export async function submitQuizAnswerAction(
 ): Promise<ActionResult<LessonSessionResult>> {
   return runLessonAction(async () => {
     const { token, questionId, answer } = submitAnswerInputSchema.parse(input);
-    const userId = await requireUserId();
-    return submitQuizAnswer({ token, userId, languageId: FIXTURE_LANGUAGE_ID, questionId, answer });
+    const { userId, languageId } = await requireLearner();
+    return submitQuizAnswer({ token, userId, languageId, questionId, answer });
   });
 }
 
+/**
+ * Spec 07 §43/§49 — the real completion request. The client generates one
+ * idempotency key per logical completion and **reuses it verbatim on retry**;
+ * a replay with the same key returns the original result instead of enrolling
+ * the batch a second time, and a reused key carrying a different batch is
+ * rejected outright.
+ */
+const completeLessonInputSchema = z.object({
+  token: z.string().min(1),
+  idempotencyKey: z.string().uuid(),
+});
+
 export async function completeLessonAction(
-  input: z.infer<typeof tokenInputSchema>,
-): Promise<ActionResult<LessonCompletionPreview>> {
+  input: z.infer<typeof completeLessonInputSchema>,
+): Promise<ActionResult<LessonCompletionResult>> {
   return runLessonAction(async () => {
-    const { token } = tokenInputSchema.parse(input);
-    const userId = await requireUserId();
-    return buildLessonCompletionPreview({ token, userId, languageId: FIXTURE_LANGUAGE_ID });
+    const { token, idempotencyKey } = completeLessonInputSchema.parse(input);
+    const { userId, languageId } = await requireLearner();
+    return completeLesson({ token, userId, languageId, idempotencyKey });
   });
 }

@@ -10,6 +10,7 @@ function makeState(overrides: Partial<LessonState> = {}): LessonState {
     sessionId: "session-1",
     userId: "user-1",
     languageId: "es-MX",
+    languageCode: "es-MX",
     batch: [{ itemId: "vocab-gato", itemType: "vocabulary" }],
     viewedItemIds: [],
     phase: "study",

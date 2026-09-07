@@ -61,24 +61,37 @@ function VocabularyDetails({ item }: { item: Extract<LearningItem, { type: "voca
         ) : null}
       </section>
 
-      <section className="rounded-lg bg-card p-4 ring-1 ring-foreground/10">
-        <h3 className="text-sm font-medium text-muted-foreground">Pronunciation</h3>
-        <div className="mt-1 flex items-center gap-2">
-          {item.pronunciation.audioUrl ? (
-            <button
-              type="button"
-              aria-label={`Play pronunciation of ${item.word}`}
-              className="flex h-8 w-8 items-center justify-center rounded-full text-primary hover:bg-muted"
-            >
-              <Volume2 className="h-4 w-4" aria-hidden="true" />
-            </button>
-          ) : null}
-          <p className="text-sm text-foreground">
-            {item.pronunciation.guide}
-            {item.pronunciation.ipa ? <span className="text-muted-foreground"> · /{item.pronunciation.ipa}/</span> : null}
-          </p>
-        </div>
-      </section>
+      {/*
+        Omitted entirely when the curriculum has no pronunciation data at all
+        — real `vocabulary_items` rows frequently have neither a guide nor an
+        IPA transcription, and an empty labelled card reads as missing content
+        rather than as absent content. Audio alone still renders the section,
+        since the control is the content in that case.
+      */}
+      {item.pronunciation.guide || item.pronunciation.ipa || item.pronunciation.audioUrl ? (
+        <section className="rounded-lg bg-card p-4 ring-1 ring-foreground/10">
+          <h3 className="text-sm font-medium text-muted-foreground">Pronunciation</h3>
+          <div className="mt-1 flex items-center gap-2">
+            {item.pronunciation.audioUrl ? (
+              <button
+                type="button"
+                aria-label={`Play pronunciation of ${item.word}`}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-primary hover:bg-muted"
+              >
+                <Volume2 className="h-4 w-4" aria-hidden="true" />
+              </button>
+            ) : null}
+            <p className="text-sm text-foreground">
+              {item.pronunciation.guide}
+              {item.pronunciation.ipa ? (
+                <span className="text-muted-foreground">
+                  {item.pronunciation.guide ? " · " : null}/{item.pronunciation.ipa}/
+                </span>
+              ) : null}
+            </p>
+          </div>
+        </section>
+      ) : null}
 
       {item.context ? (
         <section className="rounded-lg bg-card p-4 ring-1 ring-foreground/10">

@@ -16,7 +16,7 @@ export type {
   ItemSegmentState,
   LearningItemType,
   LessonBatchSummary,
-  LessonCompletionPreview,
+  LessonCompletionSummary,
   LessonPhase,
   LessonSessionResult,
   LessonStartResult,

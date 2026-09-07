@@ -39,6 +39,15 @@ export const lessonStateSchema = z.object({
   sessionId: z.string().min(1),
   userId: z.string().min(1),
   languageId: z.string().min(1),
+  /**
+   * The language's stable code (`es-MX`), carried alongside its ID so the
+   * server can resolve display names and character helpers on every
+   * subsequent request without re-reading the language record. Adding this
+   * field invalidates tokens signed before it existed — acceptable by design:
+   * an invalidated lesson behaves exactly like an expired one, and lessons
+   * are deliberately ephemeral (spec 07 §4).
+   */
+  languageCode: z.string().min(1),
   batch: z.array(lessonBatchItemSchema).min(1),
   viewedItemIds: z.array(z.string().min(1)),
   phase: lessonPhaseSchema,

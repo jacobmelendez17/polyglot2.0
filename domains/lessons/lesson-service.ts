@@ -1,10 +1,16 @@
-import { getEligibleLearningItems, getLearningItemsByIds } from "@/domains/curriculum";
 import type { LearningItem } from "@/domains/curriculum";
 import { checkAnswer } from "@/lib/answer-checking";
 import { LessonError } from "@/lib/errors/lesson-errors";
 
 import { selectLessonBatch, toLessonBatchItems } from "./lesson-batch";
-import { getLanguageDisplayName, getLessonBatchSize, getLessonTokenTtlSeconds, getRetrySpacingMinimum } from "./lesson-config";
+import type { LessonCurriculumReader } from "./lesson-curriculum-reader";
+import {
+  getCharacterHelpers,
+  getLanguageDisplayName,
+  getLessonBatchSize,
+  getLessonTokenTtlSeconds,
+  getRetrySpacingMinimum,
+} from "./lesson-config";
 import { signLessonState, verifyLessonState } from "./lesson-token";
 import { buildQuizQuestions, getQuestionAnswerSpec } from "./quiz-requirements";
 import { interleaveQuizQuestions } from "./quiz-order";
@@ -26,6 +32,11 @@ import type {
  * function here is server-authoritative: it verifies the signed token,
  * re-validates against curriculum data, and returns a new signed token —
  * the browser never decides eligibility, correctness, or completion.
+ *
+ * Curriculum arrives through an injected `LessonCurriculumReader` rather than
+ * a direct import (spec 07 unit 6). The application passes the
+ * database-backed reader; the unit tests pass the fixture one. Nothing in
+ * this file knows or cares which.
  */
 
 function itemLabel(item: LearningItem): string {
@@ -36,14 +47,17 @@ function toBatchSummary(items: LearningItem[]): LessonBatchSummary[] {
   return items.map((item) => ({ itemId: item.id, itemType: item.type, label: itemLabel(item) }));
 }
 
-function directionLabel(languageId: string, direction: "targetToEnglish" | "englishToTarget"): string {
-  const languageName = getLanguageDisplayName(languageId);
+function directionLabel(languageCode: string, direction: "targetToEnglish" | "englishToTarget"): string {
+  const languageName = getLanguageDisplayName(languageCode);
   return direction === "targetToEnglish" ? `${languageName} → English` : `English → ${languageName}`;
 }
 
 /** Loads full curriculum content for a lesson's batch, preserving batch order, and re-validates every item is still present. */
-async function resolveOrderedBatchItems(state: LessonState): Promise<LearningItem[]> {
-  const items = await getLearningItemsByIds(state.batch.map((batchItem) => batchItem.itemId));
+async function resolveOrderedBatchItems(
+  curriculum: LessonCurriculumReader,
+  state: LessonState,
+): Promise<LearningItem[]> {
+  const items = await curriculum.getLearningItemsByIds(state.batch.map((batchItem) => batchItem.itemId));
   const ordered = state.batch
     .map((batchItem) => items.find((item) => item.id === batchItem.itemId))
     .filter((item): item is LearningItem => Boolean(item));
@@ -55,11 +69,15 @@ async function resolveOrderedBatchItems(state: LessonState): Promise<LearningIte
   return ordered;
 }
 
-async function buildQuestionView(state: LessonState, questionId: string): Promise<QuizQuestionView> {
+async function buildQuestionView(
+  curriculum: LessonCurriculumReader,
+  state: LessonState,
+  questionId: string,
+): Promise<QuizQuestionView> {
   const question = state.quiz?.questions.find((q) => q.id === questionId);
   if (!question) throw new LessonError("LESSON_STATE_INVALID");
 
-  const [item] = await getLearningItemsByIds([question.itemId]);
+  const [item] = await curriculum.getLearningItemsByIds([question.itemId]);
   if (!item) throw new LessonError("ITEM_NOT_FOUND");
 
   const spec = getQuestionAnswerSpec(item, question.direction);
@@ -69,7 +87,7 @@ async function buildQuestionView(state: LessonState, questionId: string): Promis
     itemType: question.itemType,
     direction: question.direction,
     prompt: spec.prompt,
-    directionLabel: directionLabel(state.languageId, question.direction),
+    directionLabel: directionLabel(state.languageCode, question.direction),
   };
 }
 
@@ -112,11 +130,24 @@ function computeItemStates(
   return states;
 }
 
-export type StartLessonInput = { userId: string; languageId: string; now?: number };
+export type StartLessonInput = {
+  curriculum: LessonCurriculumReader;
+  userId: string;
+  languageId: string;
+  /** The language's stable code (`es-MX`), used for display names and character helpers. */
+  languageCode: string;
+  now?: number;
+};
 
 /** Spec 07 §10 — server-selected batch, signed initial state. */
-export async function startLesson({ userId, languageId, now = Date.now() }: StartLessonInput): Promise<LessonStartResult> {
-  const eligibleItems = await getEligibleLearningItems(userId, languageId);
+export async function startLesson({
+  curriculum,
+  userId,
+  languageId,
+  languageCode,
+  now = Date.now(),
+}: StartLessonInput): Promise<LessonStartResult> {
+  const eligibleItems = await curriculum.getEligibleLearningItems(userId, languageId);
   const batchSize = getLessonBatchSize();
   const selected = selectLessonBatch({ eligibleItems, batchSize });
 
@@ -130,6 +161,7 @@ export async function startLesson({ userId, languageId, now = Date.now() }: Star
     sessionId: crypto.randomUUID(),
     userId,
     languageId,
+    languageCode,
     batch: toLessonBatchItems(selected),
     viewedItemIds: [],
     phase: "study",
@@ -150,6 +182,7 @@ export async function startLesson({ userId, languageId, now = Date.now() }: Star
     viewedItemIds: state.viewedItemIds,
     studyItems,
     itemStates: computeItemStates(undefined, batchSummary),
+    characterHelpers: getCharacterHelpers(state.languageCode),
   };
 }
 
@@ -190,10 +223,10 @@ export async function openLessonItem({
   return { token: nextToken, viewedItemIds, phase: nextState.phase };
 }
 
-export type StartQuizInput = { token: string; userId: string; languageId: string; now?: number };
+export type StartQuizInput = { curriculum: LessonCurriculumReader; token: string; userId: string; languageId: string; now?: number };
 
 /** Spec 07 §20, §21 — requires every batch item viewed; builds the deterministic interleaved question queue. */
-export async function startQuiz({ token, userId, languageId, now = Date.now() }: StartQuizInput): Promise<LessonSessionResult> {
+export async function startQuiz({ curriculum, token, userId, languageId, now = Date.now() }: StartQuizInput): Promise<LessonSessionResult> {
   const state = await verifyLessonState({ token, userId, languageId, now });
 
   if (state.phase !== "study") {
@@ -205,7 +238,7 @@ export async function startQuiz({ token, userId, languageId, now = Date.now() }:
     throw new LessonError("LESSON_QUIZ_NOT_READY");
   }
 
-  const orderedItems = await resolveOrderedBatchItems(state);
+  const orderedItems = await resolveOrderedBatchItems(curriculum, state);
   const questions = interleaveQuizQuestions(buildQuizQuestions(orderedItems));
   const queue = questions.map((question) => question.id);
 
@@ -223,7 +256,7 @@ export async function startQuiz({ token, userId, languageId, now = Date.now() }:
 
   const nextToken = await signLessonState(nextState);
   const batchSummary = toBatchSummary(orderedItems);
-  const currentQuestion = await buildQuestionView(nextState, queue[0]);
+  const currentQuestion = await buildQuestionView(curriculum, nextState, queue[0]);
 
   return {
     token: nextToken,
@@ -233,11 +266,13 @@ export async function startQuiz({ token, userId, languageId, now = Date.now() }:
     viewedItemIds: nextState.viewedItemIds,
     currentQuestion,
     itemStates: computeItemStates(nextState.quiz, batchSummary),
+    characterHelpers: getCharacterHelpers(state.languageCode),
     quizStats: { requiredCount: queue.length, satisfiedCount: 0, attempts: 0, correctAttempts: 0 },
   };
 }
 
 export type SubmitQuizAnswerInput = {
+  curriculum: LessonCurriculumReader;
   token: string;
   userId: string;
   languageId: string;
@@ -248,6 +283,7 @@ export type SubmitQuizAnswerInput = {
 
 /** Spec 07 §29-§41 — the only place a quiz answer is graded. The client never claims correctness or completion. */
 export async function submitQuizAnswer({
+  curriculum,
   token,
   userId,
   languageId,
@@ -269,7 +305,7 @@ export async function submitQuizAnswer({
   const question = state.quiz.questions.find((q) => q.id === questionId);
   if (!question) throw new LessonError("LESSON_STATE_INVALID");
 
-  const orderedItems = await resolveOrderedBatchItems(state);
+  const orderedItems = await resolveOrderedBatchItems(curriculum, state);
   const batchSummary = toBatchSummary(orderedItems);
   const item = orderedItems.find((candidate) => candidate.id === question.itemId);
   if (!item) throw new LessonError("ITEM_NOT_FOUND");
@@ -278,7 +314,7 @@ export async function submitQuizAnswer({
 
   if (trimmedAnswer.length === 0) {
     // Spec 07 §28: an empty submission is not an attempt and does not affect state.
-    const currentQuestion = await buildQuestionView(state, currentQuestionId);
+    const currentQuestion = await buildQuestionView(curriculum, state, currentQuestionId);
     return {
       token,
       phase: state.phase,
@@ -287,6 +323,7 @@ export async function submitQuizAnswer({
       viewedItemIds: state.viewedItemIds,
       currentQuestion,
       itemStates: computeItemStates(state.quiz, batchSummary),
+      characterHelpers: getCharacterHelpers(state.languageCode),
       quizStats: {
         requiredCount: state.quiz.questions.length,
         satisfiedCount: state.quiz.satisfiedQuestionIds.length,
@@ -342,7 +379,7 @@ export async function submitQuizAnswer({
   const nextPhase = nextQuiz.queue.length === 0 ? "complete" : "quiz";
   const nextState: LessonState = { ...state, phase: nextPhase, quiz: nextQuiz };
   const nextToken = await signLessonState(nextState);
-  const nextQuestion = nextPhase === "quiz" ? await buildQuestionView(nextState, nextQuiz.queue[0]) : undefined;
+  const nextQuestion = nextPhase === "quiz" ? await buildQuestionView(curriculum, nextState, nextQuiz.queue[0]) : undefined;
 
   return {
     token: nextToken,
@@ -352,6 +389,7 @@ export async function submitQuizAnswer({
     viewedItemIds: nextState.viewedItemIds,
     currentQuestion: nextQuestion,
     itemStates: computeItemStates(nextQuiz, batchSummary),
+    characterHelpers: getCharacterHelpers(state.languageCode),
     quizStats: {
       requiredCount: nextQuiz.questions.length,
       satisfiedCount: nextQuiz.satisfiedQuestionIds.length,

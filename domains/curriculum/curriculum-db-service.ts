@@ -6,7 +6,9 @@ import {
   getDraft as repoGetDraft,
   getLevelValidationCounts as repoGetLevelValidationCounts,
 } from "./curriculum-mutation-repository";
+import { getEligibleLessonItems, getLessonItemsByIds } from "./lesson-curriculum-repository";
 import * as repository from "./curriculum-repository";
+import type { CurriculumVisibility } from "./curriculum-repository";
 import type { GetAdminCurriculumItemsInput } from "./curriculum-admin-types";
 
 /**
@@ -31,8 +33,8 @@ export async function getLevelsByLanguage(languageId: string) {
   return repository.getLevelsByLanguage(db, languageId);
 }
 
-export async function getLevelByLanguageAndNumber(languageId: string, levelNumber: number) {
-  return repository.getLevelByLanguageAndNumber(db, languageId, levelNumber);
+export async function getLevelByLanguageAndNumber(languageId: string, levelNumber: number, options?: CurriculumVisibility) {
+  return repository.getLevelByLanguageAndNumber(db, languageId, levelNumber, options);
 }
 
 export async function getVocabularyGroup(id: string) {
@@ -51,8 +53,8 @@ export async function getLearningItemsByIds(ids: string[]) {
   return repository.getLearningItemsByIds(db, ids);
 }
 
-export async function getLevelItems(levelId: string) {
-  return repository.getLevelItems(db, levelId);
+export async function getLevelItems(levelId: string, options?: CurriculumVisibility) {
+  return repository.getLevelItems(db, levelId, options);
 }
 
 export async function getLanguages() {
@@ -78,3 +80,14 @@ export async function getItemDraft(learningItemId: string) {
 export async function getLevelValidationCounts(levelId: string) {
   return repoGetLevelValidationCounts(db, levelId);
 }
+
+/**
+ * The real, database-backed `LessonCurriculumReader` (spec 07 unit 6).
+ * `domains/lessons` receives this object; the fixture equivalent in
+ * `curriculum-service.ts` is what its unit tests receive instead. Both
+ * satisfy the same port, so the orchestration code is identical either way.
+ */
+export const databaseCurriculumReader = {
+  getEligibleLearningItems: (userId: string, languageId: string) => getEligibleLessonItems(db, userId, languageId),
+  getLearningItemsByIds: (ids: string[]) => getLessonItemsByIds(db, ids),
+};

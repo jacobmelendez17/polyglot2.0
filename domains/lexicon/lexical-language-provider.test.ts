@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
+import { baseLanguageSubtag } from "@/lib/language-code";
+
 import {
-  baseLanguageSubtag,
   composeVocabularyDisplayWord,
   defaultLexicalProvider,
   getLexicalLanguageProvider,

@@ -1,0 +1,146 @@
+import type { DbClient } from "@/db/client";
+import { getEnrolledItemIds } from "@/domains/curriculum/lesson-curriculum-repository";
+import { withIdempotency } from "@/domains/idempotency";
+import { enrollLearningItems } from "@/domains/progress/repository";
+import { calculateNextReview, MINIMUM_REVIEW_STAGE } from "@/domains/srs";
+import { LessonError } from "@/lib/errors/lesson-errors";
+
+import type { LessonCurriculumReader } from "./lesson-curriculum-reader";
+import { verifyLessonState } from "./lesson-token";
+import type { LessonCompletionSummary, LessonState } from "./lesson-types";
+
+/**
+ * Spec 07 unit 6 — final revalidation (§44) and atomic SRS enrollment (§45,
+ * §46, §47, §48), made idempotent (§49). This replaces the deliberately
+ * non-persisting `lesson-completion-preview.ts`, which is now deleted.
+ *
+ * What the signed token proves, and what it does not: it proves the
+ * ephemeral quiz flow genuinely finished — every required question
+ * satisfied, no pending retries. It proves nothing about whether enrollment
+ * is *currently* valid. The database remains authoritative for that, so this
+ * function re-reads curriculum and progress before writing anything, exactly
+ * as §44 requires.
+ *
+ * Boundaries this respects, each of which spec 07 states explicitly:
+ *
+ * - **§46**: the SRS domain assigns the stage and schedule. Nothing here
+ *   hardcodes an interval or picks a stage by name; `MINIMUM_REVIEW_STAGE`
+ *   and `calculateNextReview` come from `domains/srs`.
+ * - **§48**: accelerated early-level scheduling is not conditional logic
+ *   here — the item's level number is handed to the SRS domain, which
+ *   decides.
+ * - **§46 "Side Effects Not In Scope"**: no XP, no streak, and deliberately
+ *   **no level-unlock evaluation**. Lesson completion produces Beginner 1,
+ *   and the unlock threshold requires Familiar 1 or above, so an unlock is
+ *   unreachable from here by construction — wiring one in would be dead code
+ *   that reads as if it did something.
+ * - **§45**: all-or-nothing. Every write happens inside the one transaction
+ *   `withIdempotency` opens; a failure on any item rolls the batch back.
+ */
+
+export type CompleteLessonInput = {
+  curriculum: LessonCurriculumReader;
+  token: string;
+  userId: string;
+  languageId: string;
+  /** Client-generated UUID for this logical completion, reused verbatim on retry (§49). */
+  idempotencyKey: string;
+  now?: Date;
+};
+
+export type LessonCompletionResult = LessonCompletionSummary & {
+  /** IDs actually enrolled by this completion, in batch order. */
+  enrolledItemIds: string[];
+};
+
+/**
+ * Re-derives quiz completion from the signed state alone — the same proof
+ * `buildLessonCompletionPreview` performs, kept identical on purpose so the
+ * results screen and the enrollment transaction can never disagree about
+ * whether a lesson finished. An empty queue in the `complete` phase means
+ * every required question was satisfied and no retry is pending (§41).
+ */
+function assertQuizCompleted(state: LessonState): void {
+  if (state.phase !== "complete" || !state.quiz || state.quiz.queue.length > 0) {
+    throw new LessonError("LESSON_QUIZ_NOT_READY");
+  }
+}
+
+/** Session accuracy (§52), computed the same way the preview does. No attempts means a perfect run, not a zero. */
+function accuracyFrom(state: LessonState): number {
+  const attempts = state.quiz?.attempts ?? 0;
+  const correct = state.quiz?.correctAttempts ?? 0;
+  return attempts === 0 ? 100 : Math.round((correct / attempts) * 100);
+}
+
+export async function completeLesson(db: DbClient, input: CompleteLessonInput): Promise<LessonCompletionResult> {
+  const now = input.now ?? new Date();
+  const state = await verifyLessonState({
+    token: input.token,
+    userId: input.userId,
+    languageId: input.languageId,
+    now: now.getTime(),
+  });
+  assertQuizCompleted(state);
+
+  const batchItemIds = state.batch.map((batchItem) => batchItem.itemId);
+
+  return withIdempotency(
+    db,
+    {
+      userId: input.userId,
+      operation: "lesson.complete",
+      key: input.idempotencyKey,
+      // The batch identity is the payload. A replay with the same key and the
+      // same batch returns the original result; a reused key with a different
+      // batch is rejected by `withIdempotency` rather than enrolling anything.
+      payload: { languageId: input.languageId, itemIds: [...batchItemIds].sort() },
+    },
+    async (tx) => {
+      // §44 — revalidate against authoritative state, not the token.
+      const items = await input.curriculum.getLearningItemsByIds(batchItemIds);
+      if (items.length !== batchItemIds.length) {
+        // An item was unpublished, archived, or deleted between study and
+        // completion. Enrolling a partial batch would violate §45.
+        throw new LessonError("CURRICULUM_VALIDATION_FAILED");
+      }
+      if (items.some((item) => item.languageId !== input.languageId)) {
+        throw new LessonError("CURRICULUM_VALIDATION_FAILED");
+      }
+
+      // §44's "Already-Enrolled Batches": reject the whole completion rather
+      // than enrolling the remainder or silently skipping duplicates.
+      const alreadyEnrolled = await getEnrolledItemIds(tx, input.userId, batchItemIds);
+      if (alreadyEnrolled.length > 0) {
+        throw new LessonError("LESSON_ALREADY_ENROLLED");
+      }
+
+      const orderedItems = batchItemIds.map((itemId) => items.find((item) => item.id === itemId)!);
+
+      await enrollLearningItems(
+        tx,
+        input.userId,
+        orderedItems.map((item) => ({
+          learningItemId: item.id,
+          languageId: item.languageId,
+          srsStage: MINIMUM_REVIEW_STAGE,
+          learnedAt: now,
+          // §47/§48 — the SRS domain decides the first review time from the
+          // stage, the curriculum level, and authoritative server time.
+          nextReviewAt: calculateNextReview({ stage: MINIMUM_REVIEW_STAGE, level: item.levelNumber, now }),
+        })),
+      );
+
+      return {
+        items: orderedItems.map((item) => ({
+          id: item.id,
+          label: item.type === "vocabulary" ? item.word : item.structure,
+          meaning: item.type === "vocabulary" ? (item.meanings[0] ?? "") : item.meaning,
+        })),
+        newStage: MINIMUM_REVIEW_STAGE,
+        accuracy: accuracyFrom(state),
+        enrolledItemIds: orderedItems.map((item) => item.id),
+      };
+    },
+  );
+}

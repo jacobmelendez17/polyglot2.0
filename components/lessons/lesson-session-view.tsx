@@ -18,17 +18,15 @@ import { LessonErrorState } from "@/components/lessons/lesson-error-state";
 import { LessonItemTabs } from "@/components/lessons/lesson-item-tabs";
 import { LessonProgressSegments, type ProgressSegmentItem } from "@/components/lessons/lesson-progress-segments";
 import { QuizView } from "@/components/lessons/quiz-view";
-import { getCharacterHelpers } from "@/domains/lessons";
 import type {
   ItemSegmentState,
-  LessonCompletionPreview,
+  LessonCompletionSummary,
   LessonPhase,
   LessonSessionResult,
   QuizAnswerFeedback,
   QuizQuestionView,
   QuizStats,
 } from "@/domains/lessons";
-import { FIXTURE_LANGUAGE_ID } from "@/domains/curriculum";
 
 type ActionError = { code: string; message: string };
 
@@ -44,7 +42,7 @@ type SessionState = {
   quizStats: QuizStats | null;
   pendingQuizStats: QuizStats | null;
   feedback: QuizAnswerFeedback | null;
-  completion: LessonCompletionPreview | null;
+  completion: LessonCompletionSummary | null;
   error: ActionError | null;
 };
 
@@ -54,7 +52,7 @@ type SessionAction =
   | { type: "QUIZ_STARTED"; result: LessonSessionResult }
   | { type: "ANSWER_SUBMITTED"; result: LessonSessionResult }
   | { type: "ADVANCE_QUESTION" }
-  | { type: "LESSON_COMPLETED"; completion: LessonCompletionPreview }
+  | { type: "LESSON_COMPLETED"; completion: LessonCompletionSummary }
   | { type: "ERROR"; error: ActionError };
 
 function sessionReducer(state: SessionState, action: SessionAction): SessionState {
@@ -132,7 +130,11 @@ export function LessonSessionView({ initial }: LessonSessionViewProps) {
   const router = useRouter();
   const batch = initial.batch;
   const studyItems = useMemo(() => initial.studyItems ?? [], [initial.studyItems]);
-  const characterHelpers = getCharacterHelpers(FIXTURE_LANGUAGE_ID);
+  // Resolved server-side from the language being studied and sent with the
+  // session — the client has no access to the language record, and looking
+  // it up here is what previously forced a curriculum import into this
+  // "use client" component.
+  const characterHelpers = initial.characterHelpers;
 
   const [state, dispatch] = useReducer(sessionReducer, {
     token: initial.token,
@@ -181,13 +183,22 @@ export function LessonSessionView({ initial }: LessonSessionViewProps) {
     }
   }, [markViewed, state.phase, state.viewedItemIds, studyItems]);
 
-  // Once the server confirms the quiz is complete, request the (non-persisting)
-  // completion preview exactly once — see lesson-completion-preview.ts.
+  /**
+   * Spec 07 §49 — one idempotency key per logical completion, generated once
+   * for the lifetime of this session and reused verbatim on every retry. A
+   * key regenerated per attempt would defeat the entire mechanism: each retry
+   * would look like a new completion and could enroll the batch twice.
+   */
+  const completionKey = useRef<string>(undefined);
+  completionKey.current ??= crypto.randomUUID();
+
+  // Once the server confirms the quiz is complete, request real enrollment
+  // exactly once — the server revalidates and persists inside one transaction.
   useEffect(() => {
     if (state.phase !== "complete" || state.completion || state.currentQuestion) return;
     let cancelled = false;
     startTransition(async () => {
-      const result = await completeLessonAction({ token: state.token });
+      const result = await completeLessonAction({ token: state.token, idempotencyKey: completionKey.current! });
       if (cancelled) return;
       if (!result.ok) {
         dispatch({ type: "ERROR", error: result.error });
@@ -314,7 +325,7 @@ export function LessonSessionView({ initial }: LessonSessionViewProps) {
           <ExitFocusButton label="Exit lesson" onClick={() => setExitDialogOpen(true)} />
           {currentItem ? (
             <p className="text-sm text-muted-foreground">
-              Level {currentItem.item.levelId} • {state.currentStudyIndex + 1} / {studyItems.length}
+              Level {currentItem.item.levelNumber} • {state.currentStudyIndex + 1} / {studyItems.length}
             </p>
           ) : null}
         </div>

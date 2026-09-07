@@ -138,15 +138,39 @@ export async function getLevelsByLanguage(db: DbClient, languageId: string): Pro
  * not yet published," not a 404; only the route param's own 1-50 validity
  * is a real not-found case.
  */
+/**
+ * Whether a read may see curriculum that has not been published.
+ *
+ * **The default is published-only, deliberately.** Every learner-facing read
+ * path was previously unfiltered, so a `draft`, `pending`, or `archived`
+ * level or item rendered to learners identically to a published one — which
+ * made the entire Admin publish workflow decorative and left withdrawn
+ * content visible. Making the safe behavior the default, and the exception
+ * explicit at the call site, is what stops that recurring.
+ *
+ * Administrative surfaces and the developer sandbox pass
+ * `{ includeUnpublished: true }`.
+ */
+export type CurriculumVisibility = { includeUnpublished?: boolean };
+
+const PUBLISHED = "published" as const;
+
 export async function getLevelByLanguageAndNumber(
   db: DbClient,
   languageId: string,
   levelNumber: number,
+  { includeUnpublished = false }: CurriculumVisibility = {},
 ): Promise<CurriculumLevel | null> {
   const [row] = await db
     .select()
     .from(levels)
-    .where(and(eq(levels.languageId, languageId), eq(levels.levelNumber, levelNumber)))
+    .where(
+      and(
+        eq(levels.languageId, languageId),
+        eq(levels.levelNumber, levelNumber),
+        includeUnpublished ? undefined : eq(levels.status, PUBLISHED),
+      ),
+    )
     .limit(1);
   return row ? toCurriculumLevel(row) : null;
 }
@@ -181,11 +205,15 @@ export async function getLearningItem(db: DbClient, id: string): Promise<Curricu
  * batch-detail fetch — a small id round-trip, but still ~4 queries total
  * regardless of level size rather than one per item.
  */
-export async function getLevelItems(db: DbClient, levelId: string): Promise<CurriculumLearningItem[]> {
+export async function getLevelItems(
+  db: DbClient,
+  levelId: string,
+  { includeUnpublished = false }: CurriculumVisibility = {},
+): Promise<CurriculumLearningItem[]> {
   const rows = await db
     .select({ id: learningItems.id })
     .from(learningItems)
-    .where(eq(learningItems.levelId, levelId))
+    .where(and(eq(learningItems.levelId, levelId), includeUnpublished ? undefined : eq(learningItems.status, PUBLISHED)))
     .orderBy(asc(learningItems.position));
   return getLearningItemsByIds(db, rows.map((row) => row.id));
 }

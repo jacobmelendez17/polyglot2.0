@@ -28,7 +28,11 @@ import type { SandboxAccount, SandboxSnapshot } from "./sandbox-types";
  */
 
 async function findLevel1Id(db: DbClient, languageId: string): Promise<string> {
-  const level1 = await getLevelByLanguageAndNumber(db, languageId, 1);
+  // The sandbox persona is anchored to Level 1 as a *structure*, not as
+  // learner-visible content, so it must resolve even while Level 1 is still
+  // unpublished — an admin needs the sandbox precisely to test curriculum
+  // before releasing it.
+  const level1 = await getLevelByLanguageAndNumber(db, languageId, 1, { includeUnpublished: true });
   if (!level1) throw new AdminError("SANDBOX_OPERATION_FORBIDDEN", "Level 1 is not configured for this language yet.");
   return level1.id;
 }

@@ -270,3 +270,46 @@ export async function unlockLevel(
   }
   return toLevelProgress(row);
 }
+
+export type EnrollLearningItemInput = {
+  learningItemId: string;
+  languageId: string;
+  srsStage: SrsStage;
+  learnedAt: Date;
+  nextReviewAt: Date | null;
+};
+
+/**
+ * Creates progress rows for a freshly completed lesson batch (spec 07 §45,
+ * §46). One multi-row insert, so the batch is genuinely all-or-nothing at the
+ * statement level as well as inside the caller's transaction.
+ *
+ * `onConflictDoNothing` is deliberately **absent**: a conflict here means an
+ * item in this batch is already enrolled, which spec 07 §44 requires be
+ * rejected outright rather than silently skipped. The caller checks for that
+ * first and returns `LESSON_ALREADY_ENROLLED`; the primary key on
+ * `(user_id, learning_item_id)` is the backstop if two completions race past
+ * that check, and a raised constraint violation correctly rolls the whole
+ * transaction back.
+ */
+export async function enrollLearningItems(
+  db: DbClient,
+  userId: string,
+  items: EnrollLearningItemInput[],
+): Promise<ItemProgress[]> {
+  if (items.length === 0) return [];
+  const rows = await db
+    .insert(userItemProgress)
+    .values(
+      items.map((item) => ({
+        userId,
+        learningItemId: item.learningItemId,
+        languageId: item.languageId,
+        srsStage: item.srsStage,
+        learnedAt: item.learnedAt,
+        nextReviewAt: item.nextReviewAt,
+      })),
+    )
+    .returning();
+  return rows.map(toItemProgress);
+}

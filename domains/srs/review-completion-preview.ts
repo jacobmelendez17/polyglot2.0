@@ -19,7 +19,7 @@ export type BuildReviewItemCompletionPreviewInput = {
  * (`calculateReviewStageResult`, `calculateNextReview`); nothing here reads
  * or writes the database. Unit 4 replaces the call site that currently
  * calls this with the real atomic transaction (lock/reload progress, insert
- * `review_events`, etc.) — mirrors spec 07's `lesson-completion-preview.ts`
+ * `review_events`, etc.) — mirrored spec 07's since-deleted `lesson-completion-preview.ts`
  * relationship to its later unit 6 exactly (see progress-tracker.md).
  */
 export function buildReviewItemCompletionPreview({

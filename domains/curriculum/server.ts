@@ -8,6 +8,7 @@
  * value-imports `FIXTURE_LANGUAGE_ID` from `index.ts`, so that barrel must
  * stay free of anything that reaches the database client.
  */
+export { databaseCurriculumReader } from "./curriculum-db-service";
 export {
   getAcceptedAnswers,
   getAdminCurriculumItems,

@@ -19,6 +19,7 @@ export {
   getLexicalLanguageProvider,
   spanishLexicalProvider,
 } from "./lexical-language-provider";
+export { baseLanguageSubtag } from "@/lib/language-code";
 export type { LexicalLanguageProvider } from "./lexical-language-provider";
 
 export { resolveDictionaryMatch } from "./lexicon-matching";

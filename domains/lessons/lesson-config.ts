@@ -1,4 +1,4 @@
-import { FIXTURE_LANGUAGE_ID } from "@/domains/curriculum";
+import { resolveByLanguageCode } from "@/lib/language-code";
 
 /**
  * Centralized lesson configuration. Spec 07 §2: "Do not read a literal 6 in
@@ -29,20 +29,30 @@ export function getRetrySpacingMinimum(): number {
   return RETRY_SPACING_MINIMUM;
 }
 
+/**
+ * Keyed by **language code** (`es`, `es-MX`), not by language ID.
+ *
+ * Before spec 07 unit 6 these were keyed by the fixture language's ID, which
+ * silently stopped working the moment real UUIDs arrived: the display name
+ * fell through to the raw UUID (rendering "7e33d386-… → English") and the
+ * character helpers fell through to an empty list, quietly removing the
+ * accent buttons. Codes are stable, human-meaningful, and shared across a
+ * language's regions.
+ */
 const LANGUAGE_DISPLAY_NAMES: Record<string, string> = {
-  [FIXTURE_LANGUAGE_ID]: "Spanish",
+  es: "Spanish",
 };
 
-/** Display name for a language ID, for UI copy such as "Spanish → English". Data-driven, not hardcoded per language. */
-export function getLanguageDisplayName(languageId: string): string {
-  return LANGUAGE_DISPLAY_NAMES[languageId] ?? languageId;
+/** Display name for a language code, for UI copy such as "Spanish → English". Data-driven, not hardcoded per language. */
+export function getLanguageDisplayName(languageCode: string): string {
+  return resolveByLanguageCode(LANGUAGE_DISPLAY_NAMES, languageCode) ?? languageCode;
 }
 
 const CHARACTER_HELPERS_BY_LANGUAGE: Record<string, readonly string[]> = {
-  [FIXTURE_LANGUAGE_ID]: ["á", "é", "í", "ó", "ú", "ü", "ñ"],
+  es: ["á", "é", "í", "ó", "ú", "ü", "ñ"],
 };
 
-/** Configured character helpers for a language (spec 07 §27) — never hardcoded into the input component itself. */
-export function getCharacterHelpers(languageId: string): readonly string[] {
-  return CHARACTER_HELPERS_BY_LANGUAGE[languageId] ?? [];
+/** Configured character helpers for a language code (spec 07 §27) — never hardcoded into the input component itself. */
+export function getCharacterHelpers(languageCode: string): readonly string[] {
+  return resolveByLanguageCode(CHARACTER_HELPERS_BY_LANGUAGE, languageCode) ?? [];
 }

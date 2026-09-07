@@ -1,4 +1,5 @@
-import { baseLanguageSubtag } from "./lexical-language-provider";
+import { resolveByLanguageCode } from "@/lib/language-code";
+
 import type { LexicalSourceType } from "./lexicon-types";
 
 /**
@@ -102,8 +103,7 @@ const DICTIONARY_SOURCE_BY_LANGUAGE: Record<string, string> = {
 };
 
 export function getDictionarySourceCodeForLanguage(languageCode: string): string | null {
-  const normalized = languageCode.toLowerCase();
-  return DICTIONARY_SOURCE_BY_LANGUAGE[normalized] ?? DICTIONARY_SOURCE_BY_LANGUAGE[baseLanguageSubtag(normalized)] ?? null;
+  return resolveByLanguageCode(DICTIONARY_SOURCE_BY_LANGUAGE, languageCode) ?? null;
 }
 
 /** Which regional source supplies evidence for a region code. */

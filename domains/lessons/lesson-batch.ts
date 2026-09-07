@@ -16,7 +16,7 @@ export type SelectLessonBatchInput = {
  */
 export function selectLessonBatch({ eligibleItems, batchSize }: SelectLessonBatchInput): LearningItem[] {
   const sorted = [...eligibleItems].sort((a, b) => {
-    if (a.levelId !== b.levelId) return a.levelId - b.levelId;
+    if (a.levelNumber !== b.levelNumber) return a.levelNumber - b.levelNumber;
     return a.lessonPriority - b.lessonPriority;
   });
   return sorted.slice(0, batchSize);

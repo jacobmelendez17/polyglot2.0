@@ -13,5 +13,11 @@
  * export — discovered the hard way during this unit's browser
  * verification (see progress-tracker.md).
  */
-export { openLessonItem, startLesson, startQuiz, submitQuizAnswer } from "./lesson-service";
-export { buildLessonCompletionPreview } from "./lesson-completion-preview";
+export {
+  completeLesson,
+  openLessonItem,
+  startLesson,
+  startQuiz,
+  submitQuizAnswer,
+} from "./lesson-service-bindings";
+export type { LessonCompletionResult } from "./lesson-completion";
