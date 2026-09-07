@@ -266,27 +266,6 @@ export function LessonSessionView({ initial }: LessonSessionViewProps) {
     return <LessonCompleteView completion={state.completion} />;
   }
 
-  const segments: ProgressSegmentItem[] = batch.map((batchItem) => {
-    if (state.phase !== "study") {
-      const itemState = state.itemStates[batchItem.itemId] ?? "not-started";
-      return {
-        itemId: batchItem.itemId,
-        itemType: batchItem.itemType,
-        state: itemState,
-        stateLabel: QUIZ_STATE_LABELS[itemState],
-      };
-    }
-
-    const isCurrent = studyItems[state.currentStudyIndex]?.itemId === batchItem.itemId;
-    const isViewed = state.viewedItemIds.includes(batchItem.itemId);
-    return {
-      itemId: batchItem.itemId,
-      itemType: batchItem.itemType,
-      state: isCurrent ? "current" : isViewed ? "complete" : "not-started",
-      stateLabel: isCurrent ? "current" : isViewed ? "viewed" : "not viewed",
-    };
-  });
-
   if (state.currentQuestion) {
     return (
       <>
@@ -295,7 +274,6 @@ export function LessonSessionView({ initial }: LessonSessionViewProps) {
           feedback={state.feedback}
           awaitingAdvance={state.pendingQuestion !== null || (state.feedback !== null && state.phase === "complete")}
           quizStats={state.quizStats}
-          segments={segments}
           characterHelpers={characterHelpers}
           isPending={isPending}
           onSubmit={handleSubmitAnswer}
@@ -318,10 +296,35 @@ export function LessonSessionView({ initial }: LessonSessionViewProps) {
   const currentItem = studyItems[state.currentStudyIndex];
   const allViewed = batch.every((batchItem) => state.viewedItemIds.includes(batchItem.itemId));
 
+  // Only meaningful during study — this is the item-selector segment row,
+  // which no longer renders anywhere during the quiz (see QuizView).
+  const segments: ProgressSegmentItem[] = batch.map((batchItem) => {
+    const isCurrent = studyItems[state.currentStudyIndex]?.itemId === batchItem.itemId;
+    const isViewed = state.viewedItemIds.includes(batchItem.itemId);
+    return {
+      itemId: batchItem.itemId,
+      itemType: batchItem.itemType,
+      state: isCurrent ? "current" : isViewed ? "complete" : "not-started",
+      stateLabel: isCurrent ? "current" : isViewed ? "viewed" : "not viewed",
+    };
+  });
+
   return (
     <>
-      <div className="mx-auto flex min-h-svh max-w-3xl flex-col px-4 py-6">
-        <div className="flex items-center justify-between">
+      {/*
+       * A fixed `h-svh` (not `min-h-svh`) is load-bearing: it's what makes
+       * the middle region's `flex-1` actually cap its height so
+       * `overflow-y-auto` scrolls internally, instead of the whole page
+       * growing with the current item's content and dragging the footer
+       * along with it. `min-h-0` on that region overrides the flexbox
+       * default (a flex item's min-height otherwise resolves to its
+       * content's size, which would silently defeat the scroll). The
+       * footer is therefore always at the same fixed position on screen,
+       * regardless of how tall any given item's Details/Examples/Resources
+       * content is.
+       */}
+      <div className="mx-auto flex h-svh max-w-3xl flex-col px-4">
+        <div className="flex shrink-0 items-center justify-between py-6">
           <ExitFocusButton label="Exit lesson" onClick={() => setExitDialogOpen(true)} />
           {currentItem ? (
             <p className="text-sm text-muted-foreground">
@@ -330,25 +333,27 @@ export function LessonSessionView({ initial }: LessonSessionViewProps) {
           ) : null}
         </div>
 
-        {currentItem ? (
-          <>
-            <header className="mt-6 flex flex-col items-center gap-2 text-center">
-              <CategoryBadge itemType={currentItem.itemType} />
-              <h1 className="font-heading text-4xl font-semibold text-foreground">
-                {currentItem.item.type === "vocabulary" ? currentItem.item.word : currentItem.item.structure}
-              </h1>
-              <p className="text-lg text-muted-foreground">
-                {currentItem.item.type === "vocabulary" ? currentItem.item.meanings[0] : currentItem.item.meaning}
-              </p>
-            </header>
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {currentItem ? (
+            <>
+              <header className="flex flex-col items-center gap-2 text-center">
+                <CategoryBadge itemType={currentItem.itemType} />
+                <h1 className="font-heading text-4xl font-semibold text-foreground">
+                  {currentItem.item.type === "vocabulary" ? currentItem.item.word : currentItem.item.structure}
+                </h1>
+                <p className="text-lg text-muted-foreground">
+                  {currentItem.item.type === "vocabulary" ? currentItem.item.meanings[0] : currentItem.item.meaning}
+                </p>
+              </header>
 
-            <div className="mt-8 flex-1 overflow-y-auto pb-6">
-              <LessonItemTabs item={currentItem.item} />
-            </div>
-          </>
-        ) : null}
+              <div className="mt-8 pb-6">
+                <LessonItemTabs item={currentItem.item} />
+              </div>
+            </>
+          ) : null}
+        </div>
 
-        <div className="sticky bottom-0 mt-auto flex flex-col gap-4 bg-background pt-4 pb-6">
+        <footer className="sticky bottom-0 flex shrink-0 flex-col gap-4 bg-background pt-4 pb-6">
           <LessonProgressSegments
             items={segments}
             onSelect={(itemId) => {
@@ -361,17 +366,10 @@ export function LessonSessionView({ initial }: LessonSessionViewProps) {
               {allViewed ? "Start Quiz" : "Next"}
             </Button>
           </div>
-        </div>
+        </footer>
       </div>
 
       <ExitLessonDialog open={isExitDialogOpen} onOpenChange={setExitDialogOpen} onConfirm={handleExitConfirm} />
     </>
   );
 }
-
-const QUIZ_STATE_LABELS: Record<ItemSegmentState, string> = {
-  current: "current",
-  complete: "complete",
-  partial: "partially satisfied",
-  "not-started": "not started",
-};

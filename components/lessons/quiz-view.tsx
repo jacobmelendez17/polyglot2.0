@@ -4,7 +4,6 @@ import { Check, X } from "lucide-react";
 import { AccentHelpers } from "@/components/shared/accent-helpers";
 import { AnswerInput } from "@/components/shared/answer-input";
 import { ExitFocusButton } from "@/components/shared/exit-focus-button";
-import { LessonProgressSegments, type ProgressSegmentItem } from "@/components/lessons/lesson-progress-segments";
 import type { QuizAnswerFeedback, QuizQuestionView, QuizStats } from "@/domains/lessons";
 
 type QuizViewProps = {
@@ -12,7 +11,6 @@ type QuizViewProps = {
   feedback: QuizAnswerFeedback | null;
   awaitingAdvance: boolean;
   quizStats: QuizStats | null;
-  segments: ProgressSegmentItem[];
   characterHelpers: readonly string[];
   isPending: boolean;
   onSubmit: (answer: string) => void;
@@ -23,14 +21,16 @@ type QuizViewProps = {
 /**
  * The comprehension quiz screen (spec 07 §26). Chromeless: no cards,
  * panels, bordered containers, or tinted surfaces anywhere — the
- * graph-paper background is the only surface.
+ * graph-paper background is the only surface. Deliberately no progress
+ * segments/item tiles here — those are a study-only affordance (see
+ * `lesson-progress-segments.tsx`'s docstring); showing them during the quiz
+ * was found confusing and removed per explicit product direction.
  */
 export function QuizView({
   question,
   feedback,
   awaitingAdvance,
   quizStats,
-  segments,
   characterHelpers,
   isPending,
   onSubmit,
@@ -70,10 +70,6 @@ export function QuizView({
         />
 
         {feedback && feedback.kind !== "empty" ? <FeedbackRegion feedback={feedback} /> : null}
-      </div>
-
-      <div className="pb-4">
-        <LessonProgressSegments items={segments} />
       </div>
     </div>
   );

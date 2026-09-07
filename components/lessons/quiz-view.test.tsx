@@ -24,7 +24,6 @@ describe("QuizView", () => {
         feedback={null}
         awaitingAdvance={false}
         quizStats={STATS}
-        segments={[]}
         characterHelpers={[]}
         isPending={false}
         onSubmit={() => {}}
@@ -44,7 +43,6 @@ describe("QuizView", () => {
         feedback={null}
         awaitingAdvance={false}
         quizStats={STATS}
-        segments={[]}
         characterHelpers={[]}
         isPending={false}
         onSubmit={() => {}}
@@ -66,7 +64,6 @@ describe("QuizView", () => {
         feedback={null}
         awaitingAdvance={false}
         quizStats={STATS}
-        segments={[]}
         characterHelpers={[]}
         isPending={false}
         onSubmit={onSubmit}
@@ -88,7 +85,6 @@ describe("QuizView", () => {
         feedback={null}
         awaitingAdvance={false}
         quizStats={STATS}
-        segments={[]}
         characterHelpers={[]}
         isPending={false}
         onSubmit={onSubmit}
@@ -110,7 +106,6 @@ describe("QuizView", () => {
         feedback={{ kind: "correct" }}
         awaitingAdvance
         quizStats={STATS}
-        segments={[]}
         characterHelpers={[]}
         isPending={false}
         onSubmit={() => {}}
@@ -130,7 +125,6 @@ describe("QuizView", () => {
         feedback={{ kind: "incorrect", reason: "no_match", userAnswer: "dog", expectedAnswer: "cat" }}
         awaitingAdvance
         quizStats={STATS}
-        segments={[]}
         characterHelpers={[]}
         isPending={false}
         onSubmit={() => {}}
@@ -151,7 +145,6 @@ describe("QuizView", () => {
         feedback={null}
         awaitingAdvance={false}
         quizStats={STATS}
-        segments={[]}
         characterHelpers={[]}
         isPending
         onSubmit={() => {}}
@@ -172,7 +165,6 @@ describe("QuizView", () => {
         feedback={{ kind: "correct" }}
         awaitingAdvance
         quizStats={STATS}
-        segments={[]}
         characterHelpers={[]}
         isPending={false}
         onSubmit={() => {}}
@@ -193,7 +185,6 @@ describe("QuizView", () => {
         feedback={{ kind: "incorrect", reason: "missing_article", article: "el", userAnswer: "gato", expectedAnswer: "el gato" }}
         awaitingAdvance
         quizStats={STATS}
-        segments={[]}
         characterHelpers={[]}
         isPending={false}
         onSubmit={() => {}}

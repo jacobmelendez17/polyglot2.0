@@ -155,7 +155,7 @@ describe("LessonSessionView", () => {
     expect(screen.getByText("Spanish → English")).toBeInTheDocument();
   });
 
-  it("keeps the just-answered item's segment marked current until the learner advances past feedback, instead of jumping to the next item immediately", async () => {
+  it("keeps quizStats on the just-answered item's values until the learner advances past feedback, instead of jumping to the next item's state immediately", async () => {
     const QUIZ_INITIAL: LessonSessionResult = {
       ...INITIAL,
       phase: "quiz",
@@ -194,14 +194,15 @@ describe("LessonSessionView", () => {
     await user.type(screen.getByRole("textbox", { name: "Your answer" }), "cat{Enter}");
     await waitFor(() => expect(screen.getByText("Correct!")).toBeInTheDocument());
 
-    // Still showing gato's prompt, and gato's segment should still read "current" — not perro's.
+    // Still showing gato's prompt, and quizStats should still read the
+    // pre-answer values (0/4, no accuracy yet) — not the server's already-
+    // advanced 1/4 — since that's held pending until the learner advances.
     expect(screen.getByText("gato")).toBeInTheDocument();
-    expect(screen.getByLabelText("Vocabulary item 1 of 2, current")).toBeInTheDocument();
-    expect(screen.queryByLabelText("Vocabulary item 2 of 2, current")).not.toBeInTheDocument();
+    expect(screen.getByText(/0 \/ 4/)).toBeInTheDocument();
 
     await user.keyboard("{Enter}");
 
     await waitFor(() => expect(screen.getByText("perro")).toBeInTheDocument());
-    expect(screen.getByLabelText("Vocabulary item 2 of 2, current")).toBeInTheDocument();
+    expect(screen.getByText(/1 \/ 4/)).toBeInTheDocument();
   });
 });

@@ -21,11 +21,14 @@ const CATEGORY_ACCENT: Record<LearningItemType, string> = {
 };
 
 /**
- * Shared between study (§17) and quiz (§39). States are distinguished by
- * shape as well as color so progress remains understandable without color
- * alone: current is a tall solid bar with a category-accent border,
- * complete is a solid neutral bar, partial is a dashed half-filled bar, and
- * not-started is a thin outlined bar.
+ * The study screen's item-selector segment row (§17) — deliberately never
+ * shown during the quiz. Spec 07 §39 originally called for these on the
+ * quiz screen too; that was reversed by explicit product direction
+ * (2026-09-07 — see progress-tracker.md), and `QuizView` no longer imports
+ * this component at all. States are distinguished by shape as well as color
+ * so progress remains understandable without color alone: current is a tall solid bar
+ * with a category-accent border, complete is a solid neutral bar, partial
+ * is a dashed half-filled bar, and not-started is a thin outlined bar.
  */
 export function LessonProgressSegments({ items, onSelect }: LessonProgressSegmentsProps) {
   return (

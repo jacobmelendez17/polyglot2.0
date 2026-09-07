@@ -35,7 +35,7 @@ describe("LessonProgressSegments", () => {
     expect(onSelect).toHaveBeenCalledWith("c");
   });
 
-  it("is not interactive during the quiz (no onSelect)", () => {
+  it("is not interactive when onSelect is omitted", () => {
     render(<LessonProgressSegments items={ITEMS} />);
     expect(screen.queryAllByRole("button")).toHaveLength(0);
   });
