@@ -9,6 +9,7 @@ import {
   levels,
   sentences,
   userItemProgress,
+  userLevelProgress,
   vocabularyItems,
 } from "@/db/schema";
 
@@ -173,12 +174,21 @@ export async function getLessonItemsByIds(db: DbClient, ids: string[]): Promise<
 }
 
 /**
- * Every published item in a language the user has **not** already enrolled.
+ * Every published item in a level the user has unlocked, in the language,
+ * that the user has **not** already enrolled.
  *
  * The already-learned exclusion is the half that could not exist before
  * `domains/progress` did: a lesson must never re-teach an item that already
  * has SRS state, and doing the filter in SQL keeps it correct regardless of
  * how large the curriculum grows.
+ *
+ * The unlocked-level restriction closes a real gap found 2026-09-07: this
+ * query previously only checked `learningItems.status`/`levels.status`,
+ * never `user_level_progress`, so a learner with only Level 1 unlocked
+ * could be served — and enroll in — a Level 2 item in their very first
+ * lesson. Every real user has a Level 1 `user_level_progress` row from
+ * provisioning (`domains/users/user-repository.ts`), so this needs no
+ * special-casing for a brand-new account.
  */
 export async function getEligibleLessonItems(
   db: DbClient,
@@ -190,6 +200,11 @@ export async function getEligibleLessonItems(
     .from(userItemProgress)
     .where(eq(userItemProgress.userId, userId));
 
+  const unlockedLevels = db
+    .select({ levelId: userLevelProgress.levelId })
+    .from(userLevelProgress)
+    .where(eq(userLevelProgress.userId, userId));
+
   const rows = await db
     .select({ id: learningItems.id })
     .from(learningItems)
@@ -199,6 +214,7 @@ export async function getEligibleLessonItems(
         eq(learningItems.languageId, languageId),
         eq(learningItems.status, PUBLISHED),
         eq(levels.status, PUBLISHED),
+        inArray(learningItems.levelId, unlockedLevels),
         notInArray(learningItems.id, enrolled),
       ),
     )

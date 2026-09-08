@@ -6,6 +6,7 @@ import {
   learningItems,
   levels,
   userItemProgress,
+  userLevelProgress,
   users,
   vocabularyGroups,
   vocabularyItems,
@@ -54,6 +55,10 @@ async function seedLesson(tx: TestTx, options: { itemCount?: number; itemStatus?
     .insert(users)
     .values({ clerkUserId: `lesson-test-${suffix}`, role: "user", activeLanguageId: language.id })
     .returning();
+  // Real accounts get Level 1 unlocked at provisioning
+  // (`domains/users/user-repository.ts`) — matched here since
+  // `getEligibleLessonItems` now requires an explicit unlock (2026-09-07 fix).
+  await tx.insert(userLevelProgress).values({ userId: user.id, levelId: level.id, unlockedAt: new Date() });
 
   const itemIds: string[] = [];
   for (let index = 0; index < itemCount; index += 1) {
@@ -301,6 +306,43 @@ describe("lesson curriculum reads", () => {
 
       expect(await getEligibleLessonItems(tx, fixture.userId, fixture.languageId)).toHaveLength(0);
       expect(await getLessonItemsByIds(tx, fixture.itemIds)).toHaveLength(0);
+    });
+  });
+
+  it("never returns items from a level the learner hasn't unlocked, even when the level and its items are both published (2026-09-07 fix)", async () => {
+    await withTestTransaction(async (tx) => {
+      const fixture = await seedLesson(tx);
+
+      const [level2] = await tx
+        .insert(levels)
+        .values({ languageId: fixture.languageId, levelNumber: 2, name: "Level 2", status: "published" })
+        .returning();
+      const [group2] = await tx
+        .insert(vocabularyGroups)
+        .values({ levelId: level2.id, languageId: fixture.languageId, name: "Level 2 basics", position: 1, status: "published" })
+        .returning();
+      const [level2Item] = await tx
+        .insert(learningItems)
+        .values({ languageId: fixture.languageId, levelId: level2.id, type: "vocabulary", status: "published", position: 1, lessonPriority: 1 })
+        .returning();
+      await tx.insert(vocabularyItems).values({
+        learningItemId: level2Item.id,
+        vocabularyGroupId: group2.id,
+        term: "segundo",
+        primaryMeaning: "second",
+        partOfSpeech: "adjective",
+      });
+      // Deliberately no `userLevelProgress` row for level2 — the learner has
+      // not unlocked it.
+
+      const eligible = await getEligibleLessonItems(tx, fixture.userId, fixture.languageId);
+      expect(eligible.map((item) => item.id)).not.toContain(level2Item.id);
+      expect(eligible.map((item) => item.id).sort()).toEqual([...fixture.itemIds].sort());
+
+      // Unlocking level2 makes it (and only it) newly eligible.
+      await tx.insert(userLevelProgress).values({ userId: fixture.userId, levelId: level2.id, unlockedAt: new Date() });
+      const eligibleAfterUnlock = await getEligibleLessonItems(tx, fixture.userId, fixture.languageId);
+      expect(eligibleAfterUnlock.map((item) => item.id)).toContain(level2Item.id);
     });
   });
 

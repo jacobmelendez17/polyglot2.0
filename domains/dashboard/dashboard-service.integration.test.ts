@@ -21,9 +21,13 @@ describe("getDashboardData", () => {
 
       const data = await getDashboardData(tx, { userId: learnerId, languageId });
 
-      // casa, agua, the grammar item, and rojo (Level 2) are all published
-      // and unenrolled; gato is excluded because the learner already has it.
-      expect(data.lessons.availableCount).toBe(4);
+      // casa, agua, and the grammar item are all published, unenrolled, and
+      // in Level 1, the learner's only unlocked level; gato is excluded
+      // because the learner already has it, and rojo (Level 2) is excluded
+      // because the learner hasn't unlocked Level 2 (2026-09-07 fix —
+      // `getEligibleLessonItems` previously ignored level-unlock state
+      // entirely, see progress-tracker.md's Next Up #20 turned Completed).
+      expect(data.lessons.availableCount).toBe(3);
 
       // gato has no nextReviewAt in the seed data, so nothing is due or scheduled.
       expect(data.reviews).toEqual({ availableCount: 0, nextReviewAt: null });
