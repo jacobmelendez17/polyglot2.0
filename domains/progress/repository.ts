@@ -340,6 +340,23 @@ export async function unlockLevel(
   return toLevelProgress(row);
 }
 
+/**
+ * Clears every tracked item and unlocked level for a real account, then
+ * re-unlocks Level 1 — same shape as `domains/sandbox`'s `resetSandbox`,
+ * but for a real user's own progress rather than an isolated sandbox
+ * persona (architecture.md: "An admin may explicitly request a progress
+ * reset... it must never occur silently" — the caller is responsible for
+ * the confirmation and audit logging this implies; this function only does
+ * the deletion). `review_events` is deliberately left untouched, matching
+ * the sandbox reset's own precedent — it's a durable history log, not
+ * current-state, and reset doesn't rewrite history.
+ */
+export async function resetAccountProgress(db: DbClient, { userId, level1Id }: { userId: string; level1Id: string }): Promise<void> {
+  await db.delete(userItemProgress).where(eq(userItemProgress.userId, userId));
+  await db.delete(userLevelProgress).where(eq(userLevelProgress.userId, userId));
+  await unlockLevel(db, { userId, levelId: level1Id, now: new Date() });
+}
+
 export type EnrollLearningItemInput = {
   learningItemId: string;
   languageId: string;

@@ -18,6 +18,7 @@ export const ADMIN_ERROR_CODES = [
   "IMPORT_FILE_INVALID",
   "SANDBOX_NOT_FOUND",
   "SANDBOX_OPERATION_FORBIDDEN",
+  "LEVEL_ONE_NOT_CONFIGURED",
   "RATE_LIMITED",
 ] as const;
 
@@ -35,6 +36,7 @@ const DEFAULT_MESSAGES: Record<AdminErrorCode, string> = {
   IMPORT_FILE_INVALID: "This file couldn't be read as a vocabulary import.",
   SANDBOX_NOT_FOUND: "No sandbox exists for this account.",
   SANDBOX_OPERATION_FORBIDDEN: "That sandbox operation isn't allowed.",
+  LEVEL_ONE_NOT_CONFIGURED: "Level 1 is not configured for this language yet.",
   RATE_LIMITED: "Please slow down and try again shortly.",
 };
 

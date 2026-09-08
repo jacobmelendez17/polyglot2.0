@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 import {
   makeSandboxReviewsDueAction,
+  resetOwnAccountProgressAction,
   resetSandboxAction,
   setSandboxItemStageAction,
   openSandboxAction,
@@ -94,6 +95,7 @@ export function SandboxControls({ languageId, levels, items, timeOffsetSeconds }
   const [stage, setStage] = useState<SrsStage>("beginner_1");
 
   const [confirmingReset, setConfirmingReset] = useState(false);
+  const [confirmingAccountReset, setConfirmingAccountReset] = useState(false);
 
   function handleStageLevelChange(levelId: string) {
     setStageLevelId(levelId);
@@ -313,6 +315,51 @@ export function SandboxControls({ languageId, levels, items, timeOffsetSeconds }
                       run("reset", async () => {
                         const result = await resetSandboxAction({ languageId, idempotencyKey: crypto.randomUUID() });
                         if (result.ok) setConfirmingReset(false);
+                        return result;
+                      })
+                    }
+                  >
+                    Reset
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </section>
+
+          <section className="rounded-xl border border-destructive/30 bg-card p-4">
+            <h2 className="mb-3 text-sm font-semibold text-foreground">Reset my account progress</h2>
+            <p className="mb-3 text-sm text-muted-foreground">
+              Unlike the sandbox reset above, this clears your real account&apos;s own lesson and review progress — useful for
+              repeatedly testing the live lesson flow without needing a new account each time.
+            </p>
+            <Dialog open={confirmingAccountReset} onOpenChange={setConfirmingAccountReset}>
+              <DialogTrigger asChild>
+                <Button variant="destructive">Reset my account progress</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Reset your real account&apos;s progress?</DialogTitle>
+                  <DialogDescription>
+                    Clears every tracked item and unlocked level on your own account, then re-unlocks Level 1. This affects your real
+                    account, not a sandbox persona — it cannot be undone.
+                  </DialogDescription>
+                </DialogHeader>
+                {error ? (
+                  <p role="alert" className="text-sm text-state-error">
+                    {error}
+                  </p>
+                ) : null}
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setConfirmingAccountReset(false)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    disabled={isPending}
+                    onClick={() =>
+                      run("account-reset", async () => {
+                        const result = await resetOwnAccountProgressAction({ languageId, idempotencyKey: crypto.randomUUID() });
+                        if (result.ok) setConfirmingAccountReset(false);
                         return result;
                       })
                     }

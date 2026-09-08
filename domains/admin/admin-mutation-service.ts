@@ -3,6 +3,8 @@ import type { ValidatedImportRow } from "@/domains/curriculum/vocabulary-import-
 import { getRateLimiter } from "@/providers/rate-limit";
 import { AdminError } from "@/lib/errors/admin-errors";
 
+import * as accountReset from "./account-reset-service";
+import type { ResetOwnAccountProgressServiceInput } from "./account-reset-service";
 import * as bulkImport from "./bulk-import-service";
 import type { BulkImportVocabularyServiceInput } from "./bulk-import-service";
 import * as publication from "./publication-service";
@@ -128,4 +130,9 @@ export async function previewVocabularyImport(input: PreviewVocabularyImportServ
 export async function bulkImportVocabulary(input: BulkImportVocabularyServiceInput) {
   await checkRateLimit("admin-mutation", input.actorUserId);
   return bulkImport.bulkImportVocabulary(db, input);
+}
+
+export async function resetOwnAccountProgress(input: ResetOwnAccountProgressServiceInput) {
+  await checkRateLimit("admin-mutation", input.userId);
+  return accountReset.resetOwnAccountProgress(db, input);
 }

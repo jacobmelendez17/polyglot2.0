@@ -5,6 +5,7 @@ import { z } from "zod";
 import { cookies } from "next/headers";
 
 import { canAccessAdminArea } from "@/domains/admin";
+import { resetOwnAccountProgress } from "@/domains/admin/server";
 import { db } from "@/db/client";
 import {
   SANDBOX_SESSION_COOKIE,
@@ -105,6 +106,27 @@ export async function resetSandboxAction(input: z.infer<typeof resetSandboxActio
     const parsed = resetSandboxActionSchema.parse(input);
     const user = await requireUser();
     await resetSandboxForOwner({ ...parsed, ownerUserId: user.id, actorUserId: user.id });
+  });
+}
+
+const resetOwnAccountProgressActionSchema = z.object({
+  languageId: z.string().min(1),
+  idempotencyKey: z.string().min(1),
+});
+
+/**
+ * Resets the signed-in admin/developer's own **real** account progress —
+ * distinct from `resetSandboxAction` above, which only ever touches an
+ * isolated sandbox persona. For repeatedly testing the live lesson/review
+ * flow on a real account without needing a fresh signup each time.
+ */
+export async function resetOwnAccountProgressAction(
+  input: z.infer<typeof resetOwnAccountProgressActionSchema>,
+): Promise<ActionResult<void>> {
+  return runSandboxAction(async () => {
+    const parsed = resetOwnAccountProgressActionSchema.parse(input);
+    const user = await requireUser();
+    await resetOwnAccountProgress({ ...parsed, userId: user.id });
   });
 }
 

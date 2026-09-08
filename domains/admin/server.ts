@@ -24,11 +24,13 @@ export {
   publishItem,
   reorderItems,
   reorderVocabularyGroups,
+  resetOwnAccountProgress,
   updateItem,
   updateLevel,
   updateVocabularyGroup,
 } from "./admin-mutation-service";
 export type { PreviewVocabularyImportServiceInput } from "./admin-mutation-service";
+export type { ResetOwnAccountProgressServiceInput } from "./account-reset-service";
 export type {
   BulkImportVocabularyResult,
   BulkImportVocabularyServiceInput,

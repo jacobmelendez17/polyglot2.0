@@ -20,6 +20,11 @@ export const ADMIN_AUDIT_ACTIONS = [
   "GROUP_REORDERED",
   "DUPLICATE_APPROVED",
   "SANDBOX_RESET",
+  // Distinct from `SANDBOX_RESET`: this clears a real account's own
+  // progress, not an isolated sandbox persona's. Architecture.md requires
+  // any progress reset to be explicit and never silent — this action is
+  // the audit trail for that requirement.
+  "ACCOUNT_PROGRESS_RESET",
   "SANDBOX_LEVEL_SIMULATED",
   "SANDBOX_STAGE_CHANGED",
   "SANDBOX_REVIEWS_FORCED_DUE",
