@@ -1,5 +1,6 @@
 export * from "./admin";
 export * from "./curriculum";
+export * from "./decks";
 export * from "./idempotency";
 export * from "./languages";
 export * from "./learner-content";

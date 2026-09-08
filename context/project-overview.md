@@ -410,7 +410,11 @@ Custom deck content must not create accidental duplicate items within the applic
 
 Custom deck study is separate from the official sequential curriculum and must not bypass official curriculum level gating.
 
-Custom deck creation/import is a planned product capability but is not required for the initial v1 milestone unless explicitly moved into scope.
+User-created personal decks were moved into scope and implemented on
+2026-09-08 (spec 14). A personal deck may contain only curriculum items the
+learner has already learned, and referencing a canonical curriculum item is
+the only way a deck holds content — no deck creates or duplicates a learning
+item. Deck *import* remains out of scope.
 
 ## Scope
 
@@ -438,7 +442,7 @@ Custom deck creation/import is a planned product capability but is not required 
 - Listening practice
 - Reading practice
 - Writing/journaling
-- Default admin-authored decks and deck study
+- Admin-authored Polyglot decks, user-created personal decks, and deck practice
 - Leech review
 - Testing and test-history flows required by the configured Spanish curriculum
 - Changelog
@@ -455,7 +459,7 @@ Custom deck creation/import is a planned product capability but is not required 
 - AI-generated official curriculum
 - Stripe or payment processing
 - Additional language curriculum content beyond Latin American Spanish
-- Custom/user-created deck creation and import
+- Custom deck **import** (user-created personal decks moved into scope 2026-09-08 — see Decks above)
 - Native iOS application
 - Native Android application
 - Apple Pencil-specific native learning features

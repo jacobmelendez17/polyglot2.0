@@ -47,6 +47,17 @@ export const ADMIN_AUDIT_ACTIONS = [
   "DICTIONARY_PRONUNCIATION_SELECTED",
   "DICTIONARY_IMPORT_COMPLETED",
   "DICTIONARY_IMPORT_ROLLED_BACK",
+  // Spec 14 (decks). Admin-authored Polyglot decks are official content, so
+  // every administrative change to one is audited exactly like a curriculum
+  // change. Learner-owned personal decks are deliberately absent: they are
+  // the learner's own private content, not an administrative mutation, and
+  // recording them here would put ordinary learner activity in the admin
+  // audit trail.
+  "DECK_CREATED",
+  "DECK_UPDATED",
+  "DECK_DELETED",
+  "DECK_ITEMS_CHANGED",
+  "DECK_ITEMS_REORDERED",
 ] as const;
 
 export type AdminAuditAction = (typeof ADMIN_AUDIT_ACTIONS)[number];

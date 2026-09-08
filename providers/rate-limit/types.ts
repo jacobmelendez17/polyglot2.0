@@ -3,7 +3,9 @@ export type RateLimitPolicyName =
   | "review-submit"
   | "admin-mutation"
   | "admin-publish"
-  | "sandbox-mutation";
+  | "sandbox-mutation"
+  | "deck-mutation"
+  | "deck-practice-answer";
 
 export type RateLimitPolicy = {
   windowSeconds: number;

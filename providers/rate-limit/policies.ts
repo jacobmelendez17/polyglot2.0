@@ -46,4 +46,23 @@ export const RATE_LIMIT_POLICIES: Record<RateLimitPolicyName, RateLimitPolicy> =
     maxRequests: 30,
     failOpen: false,
   },
+  // Spec 14 — learner-owned deck writes (create/rename/add/remove/reorder/
+  // delete). Deck content is not learning progress, but it is still
+  // user-owned data a compromised session could churn, so it is bounded on
+  // the same "blast-radius containment" reasoning as the admin policies.
+  "deck-mutation": {
+    windowSeconds: 60,
+    maxRequests: 30,
+    failOpen: false,
+  },
+  // Spec 14 — one graded deck-practice answer. Sized like "review-submit"
+  // because the interaction is the same shape: rapid consecutive
+  // keyboard-driven submissions are normal. Fails closed to match every
+  // other policy here; a practice session is supplementary, so refusing it
+  // while the limiter is unreachable costs the learner no progress.
+  "deck-practice-answer": {
+    windowSeconds: 60,
+    maxRequests: 60,
+    failOpen: false,
+  },
 };

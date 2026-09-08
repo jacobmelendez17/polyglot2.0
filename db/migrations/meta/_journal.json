@@ -85,6 +85,13 @@
       "when": 1788769638732,
       "tag": "0011_naive_ares",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1788898752512,
+      "tag": "0012_brave_karnak",
+      "breakpoints": true
     }
   ]
 }

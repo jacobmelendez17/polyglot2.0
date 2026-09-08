@@ -24,7 +24,11 @@ export function LevelsDropdown() {
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger className="text-base font-medium text-muted-foreground transition-colors hover:text-foreground aria-expanded:text-foreground">
+      {/* `cursor-pointer` is explicit because Tailwind v4's preflight leaves a
+          <button> at the browser default `cursor: default`. Every sibling in
+          this nav is an <a>, which gets the pointer for free — without this,
+          Levels is the one item in the row that feels unclickable. */}
+      <PopoverTrigger className="cursor-pointer text-base font-medium text-muted-foreground transition-colors hover:text-foreground aria-expanded:text-foreground">
         Levels
       </PopoverTrigger>
       <PopoverContent align="center" className="w-auto p-3">

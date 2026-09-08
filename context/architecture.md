@@ -322,15 +322,16 @@ Journal content must not be emitted into analytics or error logs.
 
 Owns:
 
-- Admin-authored default decks
-- User-created decks (deferred beyond v1)
+- Admin-authored Polyglot decks (level-gated and theme decks)
+- User-created personal decks (spec 14 — implemented 2026-09-08)
+- Deck membership, ordering, and the non-empty invariant
+- Deck availability rules (which decks and which items a learner sees)
+- Deck practice sessions
 - Imported decks (deferred beyond v1)
-- Deck-only learning items
-- Deck duplicate validation
-- Deck study progress
+- Deck-only learning items (deferred beyond v1 — no deck references anything but canonical curriculum today)
 - Future deck sharing
 
-Default decks reference canonical official curriculum items. Deck study progress, whether from default or custom decks, is independent from official curriculum progress.
+Every deck, official or personal, references canonical official curriculum items rather than duplicating them. Deck study is entirely separate from official curriculum progress: no deck operation may read a client-supplied SRS value or write SRS stage, next-review time, review statistics, level unlocks, or curriculum progress.
 
 ## `dashboard`
 
@@ -999,29 +1000,70 @@ must be stored as explicit rules/configuration rather than scattered `if level >
 
 ---
 
-# Custom Deck Architecture
+# Deck Architecture
 
-Custom decks are separate from official curriculum progression.
+Decks are separate from official curriculum progression.
+
+## Deck Kinds
+
+Two kinds of deck exist, distinguished by `decks.kind`:
+
+- **Polyglot decks** — admin-authored, ownerless, immutable to learners.
+- **Personal decks** — owned by exactly one user, managed only by that user.
+
+A single database check constraint (`decks_shape_check`) makes an ownerless
+personal deck, an owned official deck, a level deck with no gating level, and
+a level-gated personal deck all unrepresentable, rather than merely rejected
+by application code.
+
+## Membership
+
+Deck membership is a reference to a canonical `learning_items` row
+(`deck_items`), never a copy of its content, so editing or moving official
+curriculum is reflected in every deck containing it. Position is explicit and
+unique per deck; reordering uses the same two-phase (negative placeholder)
+rewrite as curriculum ordering.
+
+A deck may never exist with zero items. That rule is enforced at every
+mutation that could break it — creation and item removal — inside a
+transaction holding the deck row lock, so two concurrent removals cannot both
+pass the check.
+
+## Availability
+
+Which decks a learner sees, and which items within them:
+
+- A **level** deck is hidden entirely until its gating Level is unlocked
+  (`user_level_progress`), and then exposes every configured item.
+- A **theme** deck is always visible and exposes only the configured items the
+  learner has already learned, growing on its own as more are learned.
+- A **personal** deck uses the same per-item filter as a theme deck, so an
+  account or level reset cannot leave it listing items whose progress no
+  longer exists.
+
+"Already learned" means the learner holds a `user_item_progress` row for the
+item (decided 2026-09-08 — see `progress-tracker.md`). This is deliberately
+narrower than curriculum *unlock*, which is level-based: only material the
+learner has actually studied may enter a personal deck.
 
 ## Existing Official Item
 
-If a user adds an item that already exists as a canonical official item, the deck should reference that canonical item when possible.
-
-## Deck-Only Item
-
-If the term does not exist in official curriculum:
-
-- Do not create a new official curriculum item.
-- Store the content only as a deck-owned custom item.
-- Keep it separate from official curriculum tables/state.
+A deck always references the canonical official item. Deck-only items — content
+with no official curriculum counterpart — remain a future capability; nothing
+in the current implementation creates one, and no deck row can reference
+anything but a published `learning_items` row.
 
 ## Progress Isolation
 
-Deck study progress must not modify official curriculum SRS progress.
+Deck practice must not modify official curriculum SRS progress.
 
-Custom-deck SRS/progress belongs to the deck domain.
-
-Deck duplicate validation follows the applicable language/deck/import duplicate rules.
+Deck practice has no persistence at all: it reuses `domains/srs`'s pure
+question-building and answer-checking rules but never its completion
+transaction. There is no signed session token, because no authoritative
+mutation follows an answer; the queue, the running counts, and the optional
+Know / Don't Know verdicts live in client state for the length of the session
+and are never stored. Answer *grading* still happens server-side, because
+accepted answers and learner synonyms must not be shipped to the browser.
 
 Future deck sharing is allowed by the architecture but is not required in v1.
 

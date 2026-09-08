@@ -11,6 +11,10 @@ const CURRICULUM_ONLY_NAV: AdminNavItem[] = [
   // above: it reads and mutates official curriculum mappings, so a developer
   // without the admin role must not see it.
   { label: "Dictionary", href: "/admin/dictionary" },
+  // Spec 14 — official Polyglot decks reference published curriculum and are
+  // official content, so they sit with the other curriculum-only items: a
+  // developer without the admin role must not see or reach this.
+  { label: "Decks", href: "/admin/decks" },
 ];
 
 const ADMIN_AREA_NAV: AdminNavItem[] = [

@@ -5,7 +5,7 @@ import { getAdminNavItems, isAdminNavItemCurrent } from "./admin-nav-items";
 describe("getAdminNavItems", () => {
   it("includes the curriculum-management sections when the user can manage curriculum", () => {
     const labels = getAdminNavItems(true).map((item) => item.label);
-    expect(labels).toEqual(["Overview", "Curriculum", "Levels", "Groups", "Dictionary", "Logs", "Sandbox"]);
+    expect(labels).toEqual(["Overview", "Curriculum", "Levels", "Groups", "Dictionary", "Decks", "Logs", "Sandbox"]);
   });
 
   it("omits every curriculum-management section for a developer-only user (spec 11 §4)", () => {

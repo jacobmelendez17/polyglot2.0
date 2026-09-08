@@ -10,6 +10,7 @@ const isProtectedRoute = createRouteMatcher([
   "/reviews(.*)",
   "/levels(.*)",
   "/items(.*)",
+  "/decks(.*)",
   "/admin(.*)",
 ]);
 
