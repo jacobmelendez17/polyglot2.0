@@ -92,6 +92,13 @@
       "when": 1788898752512,
       "tag": "0012_brave_karnak",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1788906773069,
+      "tag": "0013_fuzzy_lake",
+      "breakpoints": true
     }
   ]
 }

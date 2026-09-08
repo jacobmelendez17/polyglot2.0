@@ -8,6 +8,7 @@ import {
   pgEnum,
   pgTable,
   text,
+  timestamp,
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
@@ -54,6 +55,22 @@ export const users = pgTable(
     sandboxOwnerUserId: uuid("sandbox_owner_user_id").references((): AnyPgColumn => users.id, {
       onDelete: "cascade",
     }),
+    /**
+     * Spec 15 — when this user finished the onboarding slideshow. `NULL`
+     * means "has not completed onboarding", which is what routes onto
+     * `/onboarding`; a timestamp (not a boolean) so the answer to "when did
+     * this account actually start" stays available without a second column.
+     *
+     * The migration that added this column **backfilled every row that
+     * already existed to `now()`** (user decision, 2026-09-09): onboarding is
+     * shown "after first successful account creation", and an account that
+     * predates the feature was not just created. Only accounts provisioned
+     * from that point on start at `NULL`.
+     *
+     * Server-side routing is authoritative for this — never localStorage, a
+     * cookie, or a client-only redirect (spec 15's explicit instruction).
+     */
+    onboardingCompletedAt: timestamp("onboarding_completed_at", { withTimezone: true }),
     ...timestamps(),
   },
   (t) => [

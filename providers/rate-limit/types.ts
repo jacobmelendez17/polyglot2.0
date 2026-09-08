@@ -5,7 +5,8 @@ export type RateLimitPolicyName =
   | "admin-publish"
   | "sandbox-mutation"
   | "deck-mutation"
-  | "deck-practice-answer";
+  | "deck-practice-answer"
+  | "onboarding-complete";
 
 export type RateLimitPolicy = {
   windowSeconds: number;

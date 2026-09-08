@@ -80,6 +80,12 @@ function SuccessBadge({ show }: { show: boolean }) {
  * signed grant so learner pages resolve as the persona; ownership is
  * re-proved against the database on every request, never trusted from the
  * cookie.
+ *
+ * "Replay Onboarding" (spec 15) is a plain link rather than an action,
+ * because a replay writes nothing at all: `/onboarding?replay=1` renders the
+ * same production components in preview mode, and the route re-checks Admin
+ * access itself — the query parameter requests a replay, it does not grant
+ * one.
  */
 export function SandboxControls({ languageId, levels, items, timeOffsetSeconds }: SandboxControlsProps) {
   const router = useRouter();
@@ -263,6 +269,17 @@ export function SandboxControls({ languageId, levels, items, timeOffsetSeconds }
               </Button>
               <SuccessBadge show={justDid === "time"} />
             </div>
+          </section>
+
+          <section className="rounded-xl border border-border bg-card p-4">
+            <h2 className="mb-1 text-sm font-semibold text-foreground">Replay onboarding</h2>
+            <p className="mb-3 text-xs text-muted-foreground">
+              Plays the real onboarding slideshow from slide 1, as many times as you like, including the full Start Now
+              flow. Nothing is saved: your own onboarding status and every learner&apos;s progress are left untouched.
+            </p>
+            <Button variant="outline" disabled={isPending} onClick={() => router.push("/onboarding?replay=1")}>
+              Replay Onboarding
+            </Button>
           </section>
 
           <section className="rounded-xl border border-border bg-card p-4">

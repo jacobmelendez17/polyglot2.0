@@ -65,4 +65,13 @@ export const RATE_LIMIT_POLICIES: Record<RateLimitPolicyName, RateLimitPolicy> =
     maxRequests: 60,
     failOpen: false,
   },
+  // Spec 15 — finishing onboarding. A learner does this once, so the limit
+  // only needs to be generous enough to absorb a double-click and a retry.
+  // Fails closed like every other policy here; the underlying write is
+  // already exactly-once, so a refusal costs nothing but a retry.
+  "onboarding-complete": {
+    windowSeconds: 60,
+    maxRequests: 10,
+    failOpen: false,
+  },
 };

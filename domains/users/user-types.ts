@@ -17,6 +17,8 @@ export interface PolyglotUser {
   activeLanguageId: string;
   isSandbox: boolean;
   sandboxOwnerUserId: string | null;
+  /** Spec 15 — `null` until the onboarding slideshow is finished. Server-side routing reads this; nothing client-held is authoritative for it. */
+  onboardingCompletedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }

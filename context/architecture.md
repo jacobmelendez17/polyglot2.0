@@ -507,6 +507,34 @@ Progress changes occur only through approved domain workflows such as lessons, r
 
 User-added notes and synonyms are private by default.
 
+## Onboarding
+
+Onboarding completion is stored on the internal Polyglot user as
+`users.onboarding_completed_at` (spec 15) — a nullable timestamp, where
+`NULL` means "has not completed onboarding".
+
+Whether onboarding is required is decided **server-side**, from that column,
+by the `(app)` and `(focus)` route-group layouts. `localStorage`, a cookie,
+and a client-only redirect are all explicitly insufficient. `/admin` is not
+gated, so an administrator can always reach the Sandbox — including to replay
+onboarding — regardless of their own onboarding state.
+
+Two accounts never require onboarding:
+
+- **Sandbox personas.** A persona is a testing fixture, not a learner;
+  routing one into onboarding would trap "Open Sandbox" on a welcome tour.
+- **Anyone with a completion timestamp.** Completion is a presence check, never
+  a comparison against a date window or an onboarding version. It is shown once.
+
+The completion write is guarded on the column still being `NULL`, which makes
+it exactly-once by construction rather than by convention: a repeated
+submission writes nothing and cannot move the recorded time. That is why it
+carries no idempotency key.
+
+Sandbox onboarding replay renders the same production components in a preview
+mode that persists nothing, and the server refuses the completion write for a
+sandbox persona regardless of what the client requests.
+
 ---
 
 # Multi-Language Model
@@ -1158,7 +1186,8 @@ Sandbox capabilities may include:
 - Unlock practices
 - Unlock tests
 - View unlock behavior
-- View onboarding
+- Replay onboarding (spec 15 — implemented 2026-09-09; runs the real
+  onboarding components in a preview mode that writes nothing)
 - Preview animations
 - Simulate future time
 - Reset sandbox state

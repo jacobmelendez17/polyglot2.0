@@ -95,6 +95,7 @@ describe("InMemoryRateLimiter", () => {
         "sandbox-mutation": { windowSeconds: 60, maxRequests: 5, failOpen: true },
         "deck-mutation": { windowSeconds: 60, maxRequests: 5, failOpen: true },
         "deck-practice-answer": { windowSeconds: 60, maxRequests: 5, failOpen: true },
+        "onboarding-complete": { windowSeconds: 60, maxRequests: 5, failOpen: true },
       },
     });
 

@@ -427,6 +427,7 @@ item. Deck *import* remains out of scope.
 - Clerk authentication
 - Demo experience
 - Onboarding language selection
+- Post-sign-up onboarding slideshow (spec 15 — implemented 2026-09-09)
 - Configurable dashboard widgets
 - Sequential curriculum levels
 - Vocabulary and grammar lessons

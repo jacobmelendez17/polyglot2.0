@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import type { DbClient } from "@/db/client";
 import { languages, levels, users, userLevelProgress } from "@/db/schema";
@@ -32,6 +32,7 @@ function toPolyglotUser(row: UserRow): PolyglotUser {
     activeLanguageId: row.activeLanguageId,
     isSandbox: row.isSandbox,
     sandboxOwnerUserId: row.sandboxOwnerUserId,
+    onboardingCompletedAt: row.onboardingCompletedAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -48,6 +49,24 @@ export async function findUserById(db: DbClient, id: string): Promise<PolyglotUs
 }
 
 /** Batched, not per-row (architecture.md's N+1 rule) — the Audit log's own read model resolves a whole page of actor IDs to display names in one query. */
+/**
+ * Marks onboarding complete (spec 15). Idempotent by construction: the
+ * `IS NULL` guard means a second call — a double-clicked "Start Now!", a
+ * replayed request, two tabs — writes nothing and cannot move an already
+ * recorded completion time. That is why this needs no idempotency key; the
+ * conditional update *is* the idempotency.
+ *
+ * Returns the row as it stands afterwards, so a caller always sees the
+ * authoritative state rather than assuming its own write landed.
+ */
+export async function completeOnboarding(db: DbClient, userId: string, now: Date): Promise<PolyglotUser | null> {
+  await db
+    .update(users)
+    .set({ onboardingCompletedAt: now })
+    .where(and(eq(users.id, userId), isNull(users.onboardingCompletedAt)));
+  return findUserById(db, userId);
+}
+
 export async function findUsersByIds(db: DbClient, ids: string[]): Promise<PolyglotUser[]> {
   if (ids.length === 0) return [];
   const rows = await db.select().from(users).where(inArray(users.id, ids));

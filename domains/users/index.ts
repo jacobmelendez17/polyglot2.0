@@ -7,6 +7,7 @@
  * "use client" component.
  */
 export { hasRole, requireRole } from "./role-helpers";
+export { isOnboardingRequired } from "./onboarding";
 export { getDefaultLanguageCode } from "./provisioning-config";
 export { USER_ROLES } from "./user-types";
 export type { PolyglotUser, UserRole } from "./user-types";

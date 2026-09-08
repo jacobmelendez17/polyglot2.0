@@ -5,7 +5,7 @@ import { db } from "@/db/client";
 import { SANDBOX_SESSION_COOKIE, verifySandboxGrant } from "@/domains/sandbox/sandbox-session-token";
 import { AppError } from "@/lib/errors/app-error";
 
-import { findUserByClerkUserId, findUserById, findUsersByIds, provisionUser } from "./user-repository";
+import { completeOnboarding as completeOnboardingInDb, findUserByClerkUserId, findUserById, findUsersByIds, provisionUser } from "./user-repository";
 import { canViewSandboxAs } from "./sandbox-view";
 import type { PolyglotUser } from "./user-types";
 
@@ -70,4 +70,14 @@ export async function requireUser(): Promise<PolyglotUser> {
 
 export async function getUsersByIds(ids: string[]): Promise<PolyglotUser[]> {
   return findUsersByIds(db, ids);
+}
+
+/**
+ * Records that this user finished onboarding (spec 15). Safe to call
+ * repeatedly — the underlying update is guarded on the column still being
+ * `NULL`, so a repeated "Start Now!" click cannot produce a second
+ * completion or overwrite the first one's timestamp.
+ */
+export async function completeOnboarding(userId: string, now: Date = new Date()): Promise<PolyglotUser | null> {
+  return completeOnboardingInDb(db, userId, now);
 }
