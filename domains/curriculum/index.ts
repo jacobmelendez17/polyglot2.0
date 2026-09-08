@@ -82,9 +82,11 @@ export type { LevelValidationCounts, LevelValidationResult, LevelValidationTarge
 // own docstring for why a Node-oriented parsing library stays out of the
 // client-safe surface.
 export {
+  GRAMMAR_GROUP_NUMBER,
   IMPORT_COLUMNS,
   MAX_IMPORT_FILE_BYTES,
   MAX_IMPORT_ROWS,
+  MAX_VOCABULARY_GROUP_NUMBER,
   REQUIRED_IMPORT_COLUMNS,
   validateVocabularyImportRow,
 } from "./vocabulary-import-parsing";
@@ -93,6 +95,8 @@ export type {
   ImportFileParseError,
   ImportFileParseResult,
   ImportRowFieldIssue,
+  ParsedGrammarFields,
+  ParsedImportFields,
   ParsedVocabularyFields,
   RawVocabularyImportRow,
   ValidatedImportRow,

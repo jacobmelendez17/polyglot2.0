@@ -7,8 +7,7 @@ import { Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { IMPORT_COLUMNS, MAX_IMPORT_FILE_BYTES } from "@/domains/curriculum";
+import { GRAMMAR_GROUP_NUMBER, IMPORT_COLUMNS, MAX_IMPORT_FILE_BYTES, MAX_VOCABULARY_GROUP_NUMBER } from "@/domains/curriculum";
 
 import { bulkImportVocabularyAction, previewVocabularyImportAction } from "@/app/(admin)/admin/curriculum/import-actions";
 import type { BulkImportSummary, ImportPreviewResult } from "@/app/(admin)/admin/curriculum/import-actions";
@@ -16,8 +15,6 @@ import type { ImportRowPreview } from "@/domains/admin/server";
 
 type ImportVocabularyDialogProps = {
   languageId: string;
-  levels: { id: string; levelNumber: number }[];
-  groups: { id: string; levelId: string; name: string }[];
 };
 
 type RowDecision = "import" | "skip";
@@ -32,30 +29,24 @@ function rowKey(row: ImportRowPreview): number {
 }
 
 /**
- * Spec 13's "Curriculum Authoring at Volume" — upload, preview, resolve
- * duplicates, and commit a bulk vocabulary CSV/TSV import, then run Lexicon
- * matching over exactly what was created. Level and group are chosen here,
- * not read from the file (spec 13: "Level, group... remain controlled by
- * Admin"); imported rows land Pending, same as any other new item, and stay
- * that way until published separately.
+ * Bulk curriculum CSV/TSV import — upload, preview, resolve duplicates, and
+ * commit, then run Lexicon matching over exactly the vocabulary items that
+ * were created. Level and group are read from the file itself, one pair
+ * per row (2026-09-08 rewrite — previously chosen once for the whole file
+ * via a picker here); imported rows land Pending, same as any other new
+ * item, and stay that way until published separately.
  */
-export function ImportVocabularyDialog({ languageId, levels, groups }: ImportVocabularyDialogProps) {
+export function ImportVocabularyDialog({ languageId }: ImportVocabularyDialogProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [step, setStep] = useState<Step>({ phase: "setup" });
-  const [levelId, setLevelId] = useState("");
-  const [vocabularyGroupId, setVocabularyGroupId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [decisions, setDecisions] = useState<Map<number, RowDecision>>(new Map());
 
-  const groupsForLevel = groups.filter((group) => group.levelId === levelId);
-
   function reset() {
     setStep({ phase: "setup" });
-    setLevelId("");
-    setVocabularyGroupId("");
     setError(null);
     setDecisions(new Map());
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -67,10 +58,6 @@ export function ImportVocabularyDialog({ languageId, levels, groups }: ImportVoc
   }
 
   function handleFileSelected(file: File) {
-    if (!levelId || !vocabularyGroupId) {
-      setError("Choose a level and group first.");
-      return;
-    }
     if (file.size > MAX_IMPORT_FILE_BYTES) {
       setError(`That file is too large (max ${Math.round(MAX_IMPORT_FILE_BYTES / 1024 / 1024)}MB).`);
       return;
@@ -111,13 +98,7 @@ export function ImportVocabularyDialog({ languageId, levels, groups }: ImportVoc
     }
     setError(null);
     startTransition(async () => {
-      const result = await bulkImportVocabularyAction({
-        languageId,
-        levelId,
-        vocabularyGroupId,
-        idempotencyKey: crypto.randomUUID(),
-        rows,
-      });
+      const result = await bulkImportVocabularyAction({ languageId, idempotencyKey: crypto.randomUUID(), rows });
       if (!result.ok) {
         setError(result.error.message);
         return;
@@ -140,54 +121,22 @@ export function ImportVocabularyDialog({ languageId, levels, groups }: ImportVoc
       </DialogTrigger>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Import vocabulary</DialogTitle>
+          <DialogTitle>Import curriculum</DialogTitle>
           <DialogDescription>
-            Upload a CSV or TSV file. Required columns: {IMPORT_COLUMNS.slice(0, 3).join(", ")}. Optional: {IMPORT_COLUMNS.slice(3).join(", ")}.
-            Every row lands as Pending — nothing is published automatically.
+            Upload a CSV or TSV file. Required columns: {IMPORT_COLUMNS.slice(0, 4).join(", ")}. Optional: {IMPORT_COLUMNS.slice(4).join(", ")}.
+            {" "}Group is that word&apos;s vocabulary group number within its level (1-{MAX_VOCABULARY_GROUP_NUMBER}) — use {GRAMMAR_GROUP_NUMBER} for a
+            grammar row instead (word/translation become its structure/meaning; write the explanation afterward in Admin). Every row lands as
+            Pending — nothing is published automatically.
           </DialogDescription>
         </DialogHeader>
 
         {step.phase === "setup" ? (
           <div className="flex flex-col gap-3">
-            <div className="grid grid-cols-2 gap-3">
-              <Select
-                value={levelId}
-                onValueChange={(value) => {
-                  setLevelId(value);
-                  setVocabularyGroupId("");
-                }}
-              >
-                <SelectTrigger aria-label="Target level">
-                  <SelectValue placeholder="Choose a level" />
-                </SelectTrigger>
-                <SelectContent>
-                  {levels.map((level) => (
-                    <SelectItem key={level.id} value={level.id}>
-                      Level {level.levelNumber}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={vocabularyGroupId} onValueChange={setVocabularyGroupId} disabled={!levelId}>
-                <SelectTrigger aria-label="Target group">
-                  <SelectValue placeholder={levelId ? "Choose a group" : "Choose a level first"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {groupsForLevel.map((group) => (
-                    <SelectItem key={group.id} value={group.id}>
-                      {group.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
             <input
               ref={fileInputRef}
               type="file"
               accept=".csv,.tsv,text/csv,text/tab-separated-values"
-              disabled={!levelId || !vocabularyGroupId || isPending}
+              disabled={isPending}
               onChange={(event) => {
                 const file = event.target.files?.[0];
                 if (file) handleFileSelected(file);
@@ -209,8 +158,10 @@ export function ImportVocabularyDialog({ languageId, levels, groups }: ImportVoc
                 <thead>
                   <tr className="border-b border-border bg-muted/50 text-left text-xs font-medium text-muted-foreground">
                     <th scope="col" className="px-3 py-2">Row</th>
-                    <th scope="col" className="px-3 py-2">Term</th>
+                    <th scope="col" className="px-3 py-2">Word</th>
                     <th scope="col" className="px-3 py-2">Meaning</th>
+                    <th scope="col" className="px-3 py-2">Level</th>
+                    <th scope="col" className="px-3 py-2">Group</th>
                     <th scope="col" className="px-3 py-2">Status</th>
                     <th scope="col" className="px-3 py-2">Import?</th>
                   </tr>
@@ -222,8 +173,10 @@ export function ImportVocabularyDialog({ languageId, levels, groups }: ImportVoc
                     return (
                       <tr key={key} className="border-b border-border last:border-0">
                         <td className="px-3 py-2 text-muted-foreground">{row.rowNumber}</td>
-                        <td className="px-3 py-2">{row.fields?.term ?? row.raw.term ?? "—"}</td>
-                        <td className="px-3 py-2">{row.fields?.primaryMeaning ?? row.raw.primary_meaning ?? "—"}</td>
+                        <td className="px-3 py-2">{row.raw.word ?? "—"}</td>
+                        <td className="px-3 py-2">{row.raw.translation ?? "—"}</td>
+                        <td className="px-3 py-2">{row.raw.level ?? "—"}</td>
+                        <td className="px-3 py-2">{row.fields?.itemType === "grammar" ? `${row.raw.group} (Grammar)` : (row.raw.group ?? "—")}</td>
                         <td className="px-3 py-2">
                           {!row.fields ? (
                             <span className="text-state-error">{row.fieldIssues.map((issue) => issue.message).join(" ")}</span>

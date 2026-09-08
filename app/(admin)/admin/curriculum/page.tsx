@@ -126,11 +126,7 @@ export default async function AdminCurriculumPage({
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <AdminPageHeader title="Curriculum" description="Search, filter, create, edit, and publish official curriculum." />
         <div className="flex flex-wrap gap-2">
-          <ImportVocabularyDialog
-            languageId={languageId}
-            levels={levels.map((l) => ({ id: l.id, levelNumber: l.levelNumber }))}
-            groups={groups.map((g) => ({ id: g.id, levelId: g.levelId, name: g.name }))}
-          />
+          <ImportVocabularyDialog languageId={languageId} />
           <Button asChild>
             <Link href={`/admin/curriculum/items/new?language=${languageId}`}>Add item</Link>
           </Button>

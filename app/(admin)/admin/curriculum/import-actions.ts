@@ -79,10 +79,15 @@ export async function previewVocabularyImportAction(input: z.infer<typeof previe
 
 const acceptedAnswerSchema = z.object({ side: z.enum(["term", "meaning"]), value: z.string().trim().min(1) });
 
-const importRowFieldsSchema = z.object({
+const grammarQuestionRequirementSchema = z.object({ format: z.literal("translation"), direction: z.enum(["targetToEnglish", "englishToTarget"]) });
+
+const importVocabularyFieldsSchema = z.object({
+  itemType: z.literal("vocabulary"),
+  levelNumber: z.number().int().min(1),
+  groupNumber: z.number().int().min(1),
   term: z.string().trim().min(1),
   primaryMeaning: z.string().trim().min(1),
-  partOfSpeech: z.string().trim().min(1),
+  partOfSpeech: z.string().trim(),
   definition: z.string().trim().min(1).nullish(),
   article: z.string().trim().min(1).nullish(),
   pronunciation: z.string().trim().min(1).nullish(),
@@ -92,34 +97,45 @@ const importRowFieldsSchema = z.object({
   acceptedAnswers: z.array(acceptedAnswerSchema),
 });
 
+const importGrammarFieldsSchema = z.object({
+  itemType: z.literal("grammar"),
+  levelNumber: z.number().int().min(1),
+  title: z.string().trim().min(1).nullish(),
+  structure: z.string().trim().min(1),
+  primaryMeaning: z.string().trim().min(1),
+  explanation: z.string().trim(),
+  category: z.string().trim().min(1).nullish(),
+  creatorNotes: z.string().trim().min(1).nullish(),
+  requiredQuestions: z.array(grammarQuestionRequirementSchema),
+  acceptedAnswers: z.array(acceptedAnswerSchema),
+});
+
 const importRowDecisionSchema = z.object({
-  fields: importRowFieldsSchema,
+  fields: z.discriminatedUnion("itemType", [importVocabularyFieldsSchema, importGrammarFieldsSchema]),
   decision: z.enum(["import", "skip"]),
 });
 
 const bulkImportInputSchema = z.object({
   languageId: z.string().min(1),
-  levelId: z.string().min(1),
-  vocabularyGroupId: z.string().min(1),
   idempotencyKey: z.string().min(1),
   rows: z.array(importRowDecisionSchema).min(1).max(MAX_IMPORT_ROWS),
 });
 
 export type BulkImportSummary = {
   createdCount: number;
-  /** Keyed by `DictionaryMatchStatus` — how the newly created items resolved against the Lexicon after creation. */
+  /** Keyed by `DictionaryMatchStatus` — how the newly created *vocabulary* items resolved against the Lexicon after creation. Grammar items never enter this (spec 12: "Lexicon applies to vocabulary only"). */
   matched: Record<string, number>;
 };
 
-/** The real write: creates every "import"-decided row, then runs Lexicon matching on exactly what it just created. */
+/** The real write: creates every "import"-decided row, then runs Lexicon matching on exactly the vocabulary items it just created. */
 export async function bulkImportVocabularyAction(input: z.infer<typeof bulkImportInputSchema>): Promise<ActionResult<BulkImportSummary>> {
   return runImportAction(async (actorUserId) => {
     const parsed = bulkImportInputSchema.parse(input);
-    const { createdLearningItemIds } = await bulkImportVocabulary({ ...parsed, actorUserId });
+    const { createdVocabularyItemIds, createdGrammarItemIds } = await bulkImportVocabulary({ ...parsed, actorUserId });
     const matchSummary =
-      createdLearningItemIds.length > 0
-        ? await matchImportedVocabularyItems({ vocabularyItemIds: createdLearningItemIds, actorUserId })
+      createdVocabularyItemIds.length > 0
+        ? await matchImportedVocabularyItems({ vocabularyItemIds: createdVocabularyItemIds, actorUserId })
         : { processed: 0, skippedLocked: 0, byStatus: {} };
-    return { createdCount: createdLearningItemIds.length, matched: matchSummary.byStatus };
+    return { createdCount: createdVocabularyItemIds.length + createdGrammarItemIds.length, matched: matchSummary.byStatus };
   });
 }
