@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { completeOnboardingAction } from "@/app/(onboarding)/onboarding/actions";
 import { OnboardingNavigation } from "@/components/onboarding/onboarding-navigation";
 import { OnboardingProgress } from "@/components/onboarding/onboarding-progress";
+import { ONBOARDING_CONTENT_WIDTH } from "@/components/onboarding/onboarding-layout";
 import { ONBOARDING_SLIDES } from "@/components/onboarding/onboarding-slides";
 import { cn } from "@/lib/utils";
 
@@ -118,7 +119,7 @@ export function OnboardingFlow({ isReplay }: OnboardingFlowProps) {
             exit={{ opacity: 0, x: direction * -SLIDE_OFFSET }}
             transition={{ duration: 0.28, ease: [0.22, 0.61, 0.36, 1] }}
             aria-labelledby={`onboarding-heading-${slide.id}`}
-            className="flex w-full max-w-xl flex-col items-center gap-6 text-center"
+            className={cn("flex w-full flex-col items-center gap-6 text-center", ONBOARDING_CONTENT_WIDTH)}
           >
             <Demonstration />
 
