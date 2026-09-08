@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { AppHeader } from "@/components/shared/app-header";
@@ -17,11 +17,22 @@ describe("AppHeader", () => {
     render(<AppHeader />);
 
     expect(screen.getByRole("link", { name: "Polyglot" })).toHaveAttribute("href", "/dashboard");
+    expect(screen.getByRole("link", { name: "Lessons" })).toHaveAttribute("href", "/lessons");
     expect(screen.getByRole("link", { name: "Reviews" })).toHaveAttribute("href", "/reviews");
     expect(screen.getByRole("link", { name: "Decks" })).toHaveAttribute("href", "/decks");
     expect(screen.getByRole("link", { name: "Practice" })).toHaveAttribute("href", "/practice");
     expect(screen.getByRole("link", { name: "Journey" })).toHaveAttribute("href", "/journey");
     expect(screen.getByTestId("user-button")).toBeInTheDocument();
+  });
+
+  it("orders Lessons immediately to the left of Reviews", () => {
+    render(<AppHeader />);
+
+    const nav = screen.getByRole("navigation", { name: "Primary" });
+    const labels = within(nav)
+      .getAllByRole("link")
+      .map((link) => link.textContent);
+    expect(labels.indexOf("Lessons")).toBe(labels.indexOf("Reviews") - 1);
   });
 
   it("the Levels control opens a dropdown rather than navigating directly (spec 10 §3/§34) — see levels-dropdown.test.tsx for full dropdown behavior coverage", async () => {

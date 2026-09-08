@@ -24,7 +24,7 @@ export function LevelsDropdown() {
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground aria-expanded:text-foreground">
+      <PopoverTrigger className="text-base font-medium text-muted-foreground transition-colors hover:text-foreground aria-expanded:text-foreground">
         Levels
       </PopoverTrigger>
       <PopoverContent align="center" className="w-auto p-3">
