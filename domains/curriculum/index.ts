@@ -7,6 +7,7 @@ export type {
   GrammarQuestionDirection,
   LearningItem,
   Pronunciation,
+  VocabularyDictionaryInfo,
   VocabularyItem,
 } from "./curriculum-types";
 

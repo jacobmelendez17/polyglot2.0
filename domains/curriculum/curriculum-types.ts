@@ -35,6 +35,23 @@ export type Pronunciation = {
   audioUrl?: string;
 };
 
+/**
+ * "Everything the dictionary has" for a confirmed mapping (2026-09-07
+ * decision — see `domains/lexicon`'s `resolveVocabularyPresentation`
+ * docstring for the full "confirmed mapping wins" rule). Present on a
+ * `VocabularyItem` only when its dictionary mapping is confirmed
+ * (`matchStatus === "manual"`); absent items simply have no dictionary
+ * section during the lesson, same as an unmapped item.
+ */
+export type VocabularyDictionaryInfo = {
+  lemma: string;
+  synonyms: string[];
+  variants: string[];
+  usageLabels: string[];
+  regionalEvidence: { regionCode: string; status: "recognized" | "not_listed" | "unknown"; matchedForm: string | null }[];
+  attributionText: string | null;
+};
+
 export type VocabularyItem = {
   type: "vocabulary";
   id: string;
@@ -46,8 +63,14 @@ export type VocabularyItem = {
   /** Present only for nouns that require an article, e.g. "el". */
   article?: string;
   partOfSpeech: string;
+  /**
+   * The effective teaching definition. A confirmed dictionary mapping's
+   * primary sense replaces the admin-authored value here (2026-09-07
+   * decision) — this is already the *resolved* value by the time a
+   * `VocabularyItem` exists, never a raw, unconfirmed dictionary guess.
+   */
   definition?: string;
-  /** Accepted English meanings; index 0 is the primary meaning. */
+  /** Accepted English meanings; index 0 is the primary meaning — untouched by dictionary resolution (that's the graded quiz answer, a separate decision). */
   meanings: string[];
   /** Additional accepted target-language spellings/synonyms besides `word` itself. */
   targetVariants: string[];
@@ -56,6 +79,8 @@ export type VocabularyItem = {
   examples: CurriculumExample[];
   creatorNotes?: string;
   resources: CurriculumResource[];
+  /** Present only when this item has a confirmed dictionary mapping. */
+  dictionary?: VocabularyDictionaryInfo;
 };
 
 export type GrammarQuestionDirection = "targetToEnglish" | "englishToTarget";

@@ -4,8 +4,9 @@ import userEvent from "@testing-library/user-event";
 
 import { LessonItemTabs } from "@/components/lessons/lesson-item-tabs";
 import { FIXTURE_LEARNING_ITEMS } from "@/domains/curriculum";
+import type { VocabularyItem } from "@/domains/curriculum";
 
-const gato = FIXTURE_LEARNING_ITEMS.find((item) => item.id === "vocab-gato")!;
+const gato = FIXTURE_LEARNING_ITEMS.find((item) => item.id === "vocab-gato")! as VocabularyItem;
 
 describe("LessonItemTabs", () => {
   it("switches between Details, Examples, and Resources", async () => {
@@ -24,5 +25,32 @@ describe("LessonItemTabs", () => {
   it("does not render a dead play control when pronunciation audio is unavailable", () => {
     render(<LessonItemTabs item={gato} />);
     expect(screen.queryByRole("button", { name: /play pronunciation/i })).not.toBeInTheDocument();
+  });
+
+  it("renders the dictionary information section when a confirmed mapping's data is present", () => {
+    const gatoWithDictionary: typeof gato = {
+      ...gato,
+      dictionary: {
+        lemma: "gato",
+        synonyms: ["minino"],
+        variants: ["gatos"],
+        usageLabels: ["colloquial"],
+        regionalEvidence: [{ regionCode: "es-MX", status: "recognized", matchedForm: "gato" }],
+        attributionText: "From Wiktionary, CC BY-SA 4.0",
+      },
+    };
+    render(<LessonItemTabs item={gatoWithDictionary} />);
+
+    expect(screen.getByText("Dictionary information")).toBeVisible();
+    expect(screen.getByText("colloquial")).toBeVisible();
+    expect(screen.getByText(/minino/)).toBeVisible();
+    expect(screen.getByText(/gatos/)).toBeVisible();
+    expect(screen.getByText("es-MX: Recognized")).toBeVisible();
+    expect(screen.getByText("From Wiktionary, CC BY-SA 4.0")).toBeVisible();
+  });
+
+  it("omits the dictionary section entirely when the item has no confirmed mapping", () => {
+    render(<LessonItemTabs item={gato} />);
+    expect(screen.queryByText("Dictionary information")).not.toBeInTheDocument();
   });
 });

@@ -31,6 +31,7 @@ import type {
 } from "./lexicon-schemas";
 import { getRegionalEvidence as evaluateRegionalEvidence } from "./regional-evidence";
 import type {
+  ConfirmedLessonDictionaryData,
   DictionaryEntryDetail,
   DictionaryEntrySummary,
   DictionaryMatchStatus,
@@ -110,6 +111,15 @@ export async function getVocabularyDetail(
 
 export async function getVocabularyMapping(vocabularyItemId: string): Promise<VocabularyDictionaryMapping | null> {
   return repository.getMapping(db, vocabularyItemId);
+}
+
+/**
+ * Batch entry point for {@link repository.getConfirmedDictionaryDataForItems}
+ * — the lesson flow's one call for "everything the dictionary has" across a
+ * whole lesson batch, never one call per item.
+ */
+export async function getConfirmedDictionaryDataForItems(vocabularyItemIds: string[]): Promise<Map<string, ConfirmedLessonDictionaryData>> {
+  return repository.getConfirmedDictionaryDataForItems(db, vocabularyItemIds);
 }
 
 export async function getSelectedSenseIds(vocabularyItemId: string): Promise<string[]> {

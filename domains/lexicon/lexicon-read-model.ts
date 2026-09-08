@@ -20,6 +20,7 @@ import {
   getSourceAttribution,
 } from "./lexicon-repository";
 import type {
+  DictionaryEntryDetail,
   DictionaryForm,
   DictionaryPronunciation,
   DictionarySense,
@@ -92,6 +93,92 @@ export interface VocabularyDetail {
   dictionary: VocabularyDetailDictionary | null;
   /** `null` for a signed-out reader, or for a learner who has never enrolled this item. */
   progress: ItemProgress | null;
+}
+
+export interface ResolvedVocabularyPresentation {
+  /** What's actually shown as the item's teaching meaning — never `vocabulary_items.primaryMeaning` (the short translation graded during quizzes), only the longer explanatory field. */
+  definition: string | null;
+  definitionSource: "dictionary" | "curriculum" | "none";
+  ipa: string | null;
+  ipaSource: "dictionary" | "curriculum" | "none";
+}
+
+/**
+ * The live precedence rule (2026-09-07 product decision, superseding spec
+ * 12's original "dictionary content must stay visually separate from the
+ * teaching explanation" boundary): once an admin has *confirmed* a
+ * vocabulary item's dictionary mapping (`matchStatus === "manual"` —
+ * `auto_matched` alone is never enough; an unreviewed guess must never
+ * reach a learner), the dictionary's own primary sense and IPA become the
+ * effective definition/pronunciation, replacing whatever an admin typed
+ * into `vocabulary_items.definition`/`ipa` — confirming a mapping is itself
+ * the "use dictionary data instead" action. This is computed fresh from
+ * the current mapping every call, never written back into `vocabulary_items`
+ * — a later re-import or a changed sense selection is reflected immediately
+ * everywhere this is called, with nothing to keep in sync by hand.
+ *
+ * Deliberately excludes `primaryMeaning`/`translation`: that field is the
+ * authoritative graded quiz answer (`domains/srs`'s answer checking), and
+ * changing what counts as a correct answer is a distinct, higher-risk
+ * decision nobody has made — this resolver only ever touches the
+ * explanatory/pronunciation fields.
+ */
+export function resolveVocabularyPresentation(detail: Pick<VocabularyDetail, "curriculum" | "dictionary">): ResolvedVocabularyPresentation {
+  const confirmed = detail.dictionary?.matchStatus === "manual";
+  const dictionaryDefinition = confirmed ? (detail.dictionary!.selectedSenses[0]?.gloss ?? null) : null;
+  const preferredPronunciation = confirmed
+    ? (detail.dictionary!.pronunciations.find((p) => p.id === detail.dictionary!.preferredPronunciationId) ?? detail.dictionary!.pronunciations[0])
+    : undefined;
+  const dictionaryIpa = preferredPronunciation?.ipa ?? null;
+
+  const definition = dictionaryDefinition ?? detail.curriculum.teachingSummary;
+  const ipa = dictionaryIpa ?? detail.curriculum.manualIpa;
+
+  return {
+    definition,
+    definitionSource: dictionaryDefinition ? "dictionary" : detail.curriculum.teachingSummary ? "curriculum" : "none",
+    ipa,
+    ipaSource: dictionaryIpa ? "dictionary" : detail.curriculum.manualIpa ? "curriculum" : "none",
+  };
+}
+
+/**
+ * The admin-editor equivalent of {@link resolveVocabularyPresentation},
+ * operating directly on a `VocabularyMappingView` (mapping + entry +
+ * selected senses) rather than the learner-facing `VocabularyDetail`.
+ *
+ * `getVocabularyDetail`/`loadCurriculumHalf` deliberately only resolve
+ * `published`/`archived` items (see that function's own comment) — a
+ * brand-new `pending` item, the common case right after creation, would
+ * silently read as "no dictionary data" there even with a confirmed
+ * mapping. The admin item page already fetches its mapping view via
+ * `getVocabularyMappingView` regardless of the item's status, so this
+ * resolver is structurally typed against that shape instead of routing
+ * through the status-filtered learner path.
+ *
+ * Takes the same "confirmed mapping wins" structural shape as
+ * `resolveVocabularyPresentation` — see its docstring for the full
+ * 2026-09-07 decision this implements.
+ */
+export function resolveConfirmedDictionaryFields(view: {
+  mapping: Pick<VocabularyDictionaryMapping, "matchStatus" | "preferredPronunciationId"> | null;
+  entry: Pick<DictionaryEntryDetail, "lemma" | "senses" | "pronunciations"> | null;
+  selectedSenseIds: string[];
+}): { confirmed: boolean; definition: string | null; ipa: string | null; lemma: string | null } {
+  const confirmed = view.mapping?.matchStatus === "manual";
+  if (!confirmed || !view.entry) return { confirmed: false, definition: null, ipa: null, lemma: null };
+
+  const primarySenseId = view.selectedSenseIds[0];
+  const primarySense = view.entry.senses.find((sense) => sense.id === primarySenseId);
+  const preferredPronunciation =
+    view.entry.pronunciations.find((p) => p.id === view.mapping!.preferredPronunciationId) ?? view.entry.pronunciations[0];
+
+  return {
+    confirmed: true,
+    definition: primarySense?.gloss ?? null,
+    ipa: preferredPronunciation?.ipa ?? null,
+    lemma: view.entry.lemma,
+  };
 }
 
 async function loadCurriculumHalf(

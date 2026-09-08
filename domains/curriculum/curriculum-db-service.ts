@@ -1,4 +1,5 @@
 import { db } from "@/db/client";
+import { getConfirmedDictionaryDataForItems } from "@/domains/lexicon/server";
 
 import * as adminRepository from "./curriculum-admin-repository";
 import {
@@ -10,6 +11,7 @@ import { getEligibleLessonItems, getLessonItemsByIds } from "./lesson-curriculum
 import * as repository from "./curriculum-repository";
 import type { CurriculumVisibility } from "./curriculum-repository";
 import type { GetAdminCurriculumItemsInput } from "./curriculum-admin-types";
+import type { LearningItem } from "./curriculum-types";
 
 /**
  * Binds the real app database to the injectable repository (spec 08 §30).
@@ -86,12 +88,56 @@ export async function getLevelValidationCounts(levelId: string) {
 }
 
 /**
+ * Merges "everything the dictionary has" (2026-09-07 decision) into a
+ * lesson batch's vocabulary items, one batched dictionary query for the
+ * whole batch rather than one per item. Composed here — where curriculum's
+ * own database-backed layer already reaches into `db` — rather than inside
+ * `lesson-curriculum-repository.ts`, which stays curriculum-only per its own
+ * docstring; this function is the one place `domains/curriculum` and
+ * `domains/lexicon` meet.
+ */
+async function withConfirmedDictionaryData(items: LearningItem[]): Promise<LearningItem[]> {
+  const vocabularyItemIds = items.filter((item): item is Extract<LearningItem, { type: "vocabulary" }> => item.type === "vocabulary").map((item) => item.id);
+  if (vocabularyItemIds.length === 0) return items;
+
+  const dictionaryByItemId = await getConfirmedDictionaryDataForItems(vocabularyItemIds);
+  if (dictionaryByItemId.size === 0) return items;
+
+  return items.map((item) => {
+    if (item.type !== "vocabulary") return item;
+    const dictionary = dictionaryByItemId.get(item.id);
+    if (!dictionary) return item;
+
+    return {
+      ...item,
+      ...(dictionary.definition ? { definition: dictionary.definition } : {}),
+      pronunciation: {
+        ...item.pronunciation,
+        ...(dictionary.ipa ? { ipa: dictionary.ipa } : {}),
+      },
+      dictionary: {
+        lemma: dictionary.lemma,
+        synonyms: dictionary.synonyms,
+        variants: dictionary.variants,
+        usageLabels: dictionary.usageLabels,
+        regionalEvidence: dictionary.regionalEvidence.map((evidence) => ({
+          regionCode: evidence.regionCode,
+          status: evidence.status,
+          matchedForm: evidence.matchedForm,
+        })),
+        attributionText: dictionary.attribution?.attributionText ?? null,
+      },
+    };
+  });
+}
+
+/**
  * The real, database-backed `LessonCurriculumReader` (spec 07 unit 6).
  * `domains/lessons` receives this object; the fixture equivalent in
  * `curriculum-service.ts` is what its unit tests receive instead. Both
  * satisfy the same port, so the orchestration code is identical either way.
  */
 export const databaseCurriculumReader = {
-  getEligibleLearningItems: (userId: string, languageId: string) => getEligibleLessonItems(db, userId, languageId),
-  getLearningItemsByIds: (ids: string[]) => getLessonItemsByIds(db, ids),
+  getEligibleLearningItems: async (userId: string, languageId: string) => withConfirmedDictionaryData(await getEligibleLessonItems(db, userId, languageId)),
+  getLearningItemsByIds: async (ids: string[]) => withConfirmedDictionaryData(await getLessonItemsByIds(db, ids)),
 };

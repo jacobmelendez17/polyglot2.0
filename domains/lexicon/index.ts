@@ -49,6 +49,7 @@ export type { LexicalSourceDefinition } from "./lexical-source-registry";
 
 export { MAPPING_REVIEW_REASONS } from "./lexicon-types";
 export type {
+  ConfirmedLessonDictionaryData,
   DictionaryEntryDetail,
   DictionaryEntrySummary,
   DictionaryForm,
@@ -71,7 +72,9 @@ export type {
   VocabularyDictionaryMapping,
 } from "./lexicon-types";
 
+export { resolveConfirmedDictionaryFields, resolveVocabularyPresentation } from "./lexicon-read-model";
 export type {
+  ResolvedVocabularyPresentation,
   VocabularyDetail,
   VocabularyDetailCurriculum,
   VocabularyDetailDictionary,

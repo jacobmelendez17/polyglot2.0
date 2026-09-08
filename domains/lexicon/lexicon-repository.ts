@@ -23,6 +23,7 @@ import {
 
 import type { DictionaryMatchCandidate } from "./lexicon-matching";
 import type {
+  ConfirmedLessonDictionaryData,
   DictionaryEntryDetail,
   DictionaryEntrySummary,
   DictionaryMatchConfidence,
@@ -973,4 +974,140 @@ export async function getPronunciationEntryId(db: DbClient, pronunciationId: str
     .where(eq(dictionaryPronunciations.id, pronunciationId))
     .limit(1);
   return row?.dictionaryEntryId ?? null;
+}
+
+/**
+ * Batch-loads "everything the dictionary has" (2026-09-07 decision) for
+ * every *confirmed* mapping among `vocabularyItemIds`, in a bounded number of
+ * queries regardless of how many items are asked for — matching
+ * `getLessonItemsByIds`' own discipline, since this is the function that
+ * feeds it. Items with no mapping, or one that isn't yet confirmed
+ * (`matchStatus !== "manual"`), are simply absent from the returned map: an
+ * unmapped or unreviewed item is an ordinary curriculum item, not an error.
+ */
+export async function getConfirmedDictionaryDataForItems(
+  db: DbClient,
+  vocabularyItemIds: string[],
+): Promise<Map<string, ConfirmedLessonDictionaryData>> {
+  if (vocabularyItemIds.length === 0) return new Map();
+
+  const mappingRows = await db
+    .select({
+      vocabularyItemId: vocabularyDictionaryMappings.vocabularyItemId,
+      dictionaryEntryId: vocabularyDictionaryMappings.dictionaryEntryId,
+      preferredPronunciationId: vocabularyDictionaryMappings.preferredPronunciationId,
+    })
+    .from(vocabularyDictionaryMappings)
+    .where(
+      and(
+        inArray(vocabularyDictionaryMappings.vocabularyItemId, vocabularyItemIds),
+        eq(vocabularyDictionaryMappings.matchStatus, "manual"),
+        isNotNull(vocabularyDictionaryMappings.dictionaryEntryId),
+      ),
+    );
+  if (mappingRows.length === 0) return new Map();
+
+  const entryIds = [...new Set(mappingRows.map((row) => row.dictionaryEntryId!))];
+  const confirmedItemIds = mappingRows.map((row) => row.vocabularyItemId);
+
+  const [entryRows, senseRows, pronunciationRows, relationRows, evidenceRows, selectedSenseRows] = await Promise.all([
+    db.select({ id: dictionaryEntries.id, lemma: dictionaryEntries.lemma, sourceId: dictionaryEntries.sourceId }).from(dictionaryEntries).where(inArray(dictionaryEntries.id, entryIds)),
+    db
+      .select({ id: dictionarySenses.id, dictionaryEntryId: dictionarySenses.dictionaryEntryId, gloss: dictionarySenses.gloss, tags: dictionarySenses.tags, topics: dictionarySenses.topics })
+      .from(dictionarySenses)
+      .where(and(inArray(dictionarySenses.dictionaryEntryId, entryIds), eq(dictionarySenses.sourceStatus, "active"))),
+    db
+      .select({ id: dictionaryPronunciations.id, dictionaryEntryId: dictionaryPronunciations.dictionaryEntryId, ipa: dictionaryPronunciations.ipa })
+      .from(dictionaryPronunciations)
+      .where(and(inArray(dictionaryPronunciations.dictionaryEntryId, entryIds), eq(dictionaryPronunciations.sourceStatus, "active"))),
+    db
+      .select({ dictionaryEntryId: dictionaryRelations.dictionaryEntryId, relationType: dictionaryRelations.relationType, targetLemma: dictionaryRelations.targetLemma })
+      .from(dictionaryRelations)
+      .where(and(inArray(dictionaryRelations.dictionaryEntryId, entryIds), eq(dictionaryRelations.sourceStatus, "active"))),
+    db
+      .select({
+        dictionaryEntryId: dictionaryRegionalEvidence.dictionaryEntryId,
+        regionCode: dictionaryRegionalEvidence.regionCode,
+        status: dictionaryRegionalEvidence.status,
+        matchedForm: dictionaryRegionalEvidence.matchedForm,
+        evaluatedAt: dictionaryRegionalEvidence.evaluatedAt,
+      })
+      .from(dictionaryRegionalEvidence)
+      .where(inArray(dictionaryRegionalEvidence.dictionaryEntryId, entryIds)),
+    db
+      .select({ vocabularyItemId: vocabularySelectedSenses.vocabularyItemId, dictionarySenseId: vocabularySelectedSenses.dictionarySenseId })
+      .from(vocabularySelectedSenses)
+      .where(inArray(vocabularySelectedSenses.vocabularyItemId, confirmedItemIds))
+      .orderBy(asc(vocabularySelectedSenses.position)),
+  ]);
+
+  // Bounded by the number of distinct dictionary sources in play (a handful
+  // at most), never by the number of items — this stays a small, fixed cost
+  // regardless of lesson batch size.
+  const sourceIds = [...new Set(entryRows.map((row) => row.sourceId))];
+  const attributionBySourceId = new Map(await Promise.all(sourceIds.map(async (sourceId) => [sourceId, await getSourceAttribution(db, sourceId)] as const)));
+
+  const entryById = new Map(entryRows.map((row) => [row.id, row]));
+  const sensesByEntry = new Map<string, typeof senseRows>();
+  for (const sense of senseRows) {
+    const list = sensesByEntry.get(sense.dictionaryEntryId) ?? [];
+    list.push(sense);
+    sensesByEntry.set(sense.dictionaryEntryId, list);
+  }
+  const senseById = new Map(senseRows.map((row) => [row.id, row]));
+  const pronunciationsByEntry = new Map<string, typeof pronunciationRows>();
+  for (const pronunciation of pronunciationRows) {
+    const list = pronunciationsByEntry.get(pronunciation.dictionaryEntryId) ?? [];
+    list.push(pronunciation);
+    pronunciationsByEntry.set(pronunciation.dictionaryEntryId, list);
+  }
+  const relationsByEntry = new Map<string, typeof relationRows>();
+  for (const relation of relationRows) {
+    const list = relationsByEntry.get(relation.dictionaryEntryId) ?? [];
+    list.push(relation);
+    relationsByEntry.set(relation.dictionaryEntryId, list);
+  }
+  const evidenceByEntry = new Map<string, RegionalEvidence[]>();
+  for (const evidence of evidenceRows) {
+    const list = evidenceByEntry.get(evidence.dictionaryEntryId) ?? [];
+    list.push({ regionCode: evidence.regionCode, status: evidence.status, matchedForm: evidence.matchedForm, evaluatedAt: evidence.evaluatedAt });
+    evidenceByEntry.set(evidence.dictionaryEntryId, list);
+  }
+  const selectedSenseIdsByItem = new Map<string, string[]>();
+  for (const row of selectedSenseRows) {
+    const list = selectedSenseIdsByItem.get(row.vocabularyItemId) ?? [];
+    list.push(row.dictionarySenseId);
+    selectedSenseIdsByItem.set(row.vocabularyItemId, list);
+  }
+
+  const result = new Map<string, ConfirmedLessonDictionaryData>();
+  for (const mapping of mappingRows) {
+    const entry = entryById.get(mapping.dictionaryEntryId!);
+    if (!entry) continue;
+
+    const selectedSenseIds = selectedSenseIdsByItem.get(mapping.vocabularyItemId) ?? [];
+    const primarySense = senseById.get(selectedSenseIds[0] ?? "");
+
+    const pronunciations = pronunciationsByEntry.get(entry.id) ?? [];
+    const preferredPronunciation = pronunciations.find((p) => p.id === mapping.preferredPronunciationId) ?? pronunciations[0];
+
+    const relations = relationsByEntry.get(entry.id) ?? [];
+    const synonyms = relations.filter((r) => r.relationType === "synonym").map((r) => r.targetLemma);
+    const variants = relations.filter((r) => r.relationType === "alternative_form" || r.relationType === "form_of").map((r) => r.targetLemma);
+
+    const senses = sensesByEntry.get(entry.id) ?? [];
+    const usageLabels = [...new Set(senses.flatMap((sense) => [...sense.tags, ...sense.topics]))].sort();
+
+    result.set(mapping.vocabularyItemId, {
+      lemma: entry.lemma,
+      definition: primarySense?.gloss ?? null,
+      ipa: preferredPronunciation?.ipa ?? null,
+      synonyms,
+      variants,
+      usageLabels,
+      regionalEvidence: evidenceByEntry.get(entry.id) ?? [],
+      attribution: attributionBySourceId.get(entry.sourceId) ?? null,
+    });
+  }
+  return result;
 }

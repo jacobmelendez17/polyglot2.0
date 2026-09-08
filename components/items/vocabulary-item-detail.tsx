@@ -3,6 +3,7 @@ import { ExampleList } from "./example-list";
 import { ItemDetailHeader } from "./item-detail-header";
 import { ItemProgressPanel } from "./item-progress-panel";
 import type { CurriculumStatus } from "@/domains/curriculum";
+import { resolveVocabularyPresentation } from "@/domains/lexicon";
 import type { VocabularyDetail } from "@/domains/lexicon";
 
 type VocabularyItemDetailProps = {
@@ -11,15 +12,19 @@ type VocabularyItemDetailProps = {
 };
 
 /**
- * Spec 13: composes `domains/lexicon`'s `getVocabularyDetail` read model —
- * no dictionary/curriculum join happens here or anywhere else in this
- * component tree. The dictionary section only renders when `dictionary` is
- * non-null (an unmatched item is a normal, fully usable curriculum item).
+ * Spec 13 + the 2026-09-07 "confirmed mapping wins" decision: composes
+ * `domains/lexicon`'s `getVocabularyDetail` read model, then resolves the
+ * teaching meaning/pronunciation live through `resolveVocabularyPresentation`
+ * rather than showing the admin's typed value and the dictionary's as two
+ * unrelated facts. The full "Dictionary information" panel — senses beyond
+ * the primary one, forms, synonyms, regional evidence — only renders once a
+ * human has actually confirmed the mapping (`matchStatus === "manual"`); an
+ * unreviewed auto-match never reaches a learner.
  */
 export function VocabularyItemDetail({ detail, status }: VocabularyItemDetailProps) {
   const { curriculum, dictionary, progress } = detail;
-  const pronunciation = curriculum.manualPronunciation;
-  const ipa = curriculum.manualIpa;
+  const resolved = resolveVocabularyPresentation(detail);
+  const confirmedDictionary = dictionary?.matchStatus === "manual" ? dictionary : null;
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6">
@@ -39,13 +44,17 @@ export function VocabularyItemDetail({ detail, status }: VocabularyItemDetailPro
 
       <section className="flex flex-col gap-3">
         <h2 className="font-heading text-sm font-semibold text-foreground">Teaching meaning</h2>
-        <p className="text-sm text-foreground">{curriculum.teachingSummary ?? "No teaching note yet for this item."}</p>
+        <p className="text-sm text-foreground">{resolved.definition ?? "No teaching note yet for this item."}</p>
+        {resolved.definitionSource === "dictionary" && confirmedDictionary?.attribution ? (
+          <p className="text-xs text-muted-foreground">
+            From {confirmedDictionary.lemma} — {confirmedDictionary.attribution.attributionText}
+          </p>
+        ) : null}
         <p className="text-xs text-muted-foreground">Part of speech: {curriculum.partOfSpeech}</p>
-        {pronunciation || ipa ? (
+        {curriculum.manualPronunciation || resolved.ipa ? (
           <p className="text-sm text-foreground">
-            {pronunciation}
-            {/* Matches `dictionary-mapping-panel.tsx`'s raw IPA render — admin-entered IPA is free text, not guaranteed to omit delimiters either way. */}
-            {ipa ? <span className="ml-1 font-mono text-muted-foreground">{ipa}</span> : null}
+            {curriculum.manualPronunciation}
+            <span className="ml-1 font-mono text-muted-foreground">{resolved.ipa}</span>
           </p>
         ) : null}
       </section>
@@ -64,17 +73,17 @@ export function VocabularyItemDetail({ detail, status }: VocabularyItemDetailPro
         </section>
       ) : null}
 
-      {dictionary ? (
+      {confirmedDictionary ? (
         <DictionaryPanel
-          lemma={dictionary.lemma}
-          selectedSenses={dictionary.selectedSenses}
-          pronunciations={dictionary.pronunciations}
-          preferredPronunciationId={dictionary.preferredPronunciationId}
-          forms={dictionary.forms}
-          synonyms={dictionary.synonyms}
-          variants={dictionary.variants}
-          regionalEvidence={dictionary.regionalEvidence}
-          attribution={dictionary.attribution}
+          lemma={confirmedDictionary.lemma}
+          selectedSenses={confirmedDictionary.selectedSenses}
+          pronunciations={confirmedDictionary.pronunciations}
+          preferredPronunciationId={confirmedDictionary.preferredPronunciationId}
+          forms={confirmedDictionary.forms}
+          synonyms={confirmedDictionary.synonyms}
+          variants={confirmedDictionary.variants}
+          regionalEvidence={confirmedDictionary.regionalEvidence}
+          attribution={confirmedDictionary.attribution}
         />
       ) : null}
     </div>

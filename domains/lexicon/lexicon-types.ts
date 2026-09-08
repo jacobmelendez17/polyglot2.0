@@ -169,3 +169,23 @@ export interface LexicalAttribution {
   attributionText: string;
   sourceVersion: string | null;
 }
+
+/**
+ * Everything the dictionary has for one item's *confirmed* mapping,
+ * batch-loaded for a whole lesson (2026-09-07 decision — see
+ * `resolveVocabularyPresentation`'s docstring for the "confirmed mapping
+ * wins" rule this also implements). Present in a lesson batch's lookup map
+ * only for items with `matchStatus === "manual"`; everything else falls
+ * back to the curriculum's own fields.
+ */
+export interface ConfirmedLessonDictionaryData {
+  lemma: string;
+  /** The primary selected sense's gloss — the resolved teaching definition. `null` if nothing is selected. */
+  definition: string | null;
+  ipa: string | null;
+  synonyms: string[];
+  variants: string[];
+  usageLabels: string[];
+  regionalEvidence: RegionalEvidence[];
+  attribution: LexicalAttribution | null;
+}

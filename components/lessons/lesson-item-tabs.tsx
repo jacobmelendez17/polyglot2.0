@@ -2,6 +2,7 @@ import { Volume2 } from "lucide-react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { LearningItem } from "@/domains/curriculum";
+import { REGIONAL_STATUS_LABELS } from "@/domains/lexicon";
 
 type LessonItemTabsProps = {
   item: LearningItem;
@@ -106,7 +107,70 @@ function VocabularyDetails({ item }: { item: Extract<LearningItem, { type: "voca
           <p className="mt-1 text-sm text-foreground">{item.creatorNotes}</p>
         </section>
       ) : null}
+
+      {item.dictionary ? <VocabularyDictionaryInfoSection dictionary={item.dictionary} /> : null}
     </div>
+  );
+}
+
+/**
+ * "Everything the dictionary has" (2026-09-07 decision), rendered only when
+ * the item's mapping is confirmed — `item.dictionary` is absent otherwise
+ * (see `curriculum-db-service.ts`'s `withConfirmedDictionaryData`).
+ */
+function VocabularyDictionaryInfoSection({ dictionary }: { dictionary: NonNullable<Extract<LearningItem, { type: "vocabulary" }>["dictionary"]> }) {
+  const hasContent = dictionary.synonyms.length > 0 || dictionary.variants.length > 0 || dictionary.usageLabels.length > 0 || dictionary.regionalEvidence.length > 0;
+  if (!hasContent) return null;
+
+  return (
+    <section className="rounded-lg bg-card p-4 ring-1 ring-foreground/10">
+      <h3 className="text-sm font-medium text-muted-foreground">Dictionary information</h3>
+      <div className="mt-2 flex flex-col gap-3">
+        {dictionary.usageLabels.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5">
+            {dictionary.usageLabels.map((label) => (
+              <span key={label} className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                {label}
+              </span>
+            ))}
+          </div>
+        ) : null}
+
+        {dictionary.synonyms.length > 0 ? (
+          <p className="text-sm text-foreground">
+            <span className="text-muted-foreground">Synonyms: </span>
+            {dictionary.synonyms.join(", ")}
+          </p>
+        ) : null}
+
+        {dictionary.variants.length > 0 ? (
+          <p className="text-sm text-foreground">
+            <span className="text-muted-foreground">Also written: </span>
+            {dictionary.variants.join(", ")}
+          </p>
+        ) : null}
+
+        {dictionary.regionalEvidence.length > 0 ? (
+          <ul className="flex flex-wrap gap-1.5">
+            {dictionary.regionalEvidence.map((evidence) => (
+              <li
+                key={evidence.regionCode}
+                className={
+                  evidence.status === "recognized"
+                    ? "rounded-full bg-state-success/10 px-2 py-0.5 text-xs text-state-success"
+                    : "rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
+                }
+                title={evidence.matchedForm ?? undefined}
+              >
+                {evidence.regionCode}: {REGIONAL_STATUS_LABELS[evidence.status]}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+
+      {dictionary.attributionText ? <p className="mt-3 text-xs text-muted-foreground">{dictionary.attributionText}</p> : null}
+    </section>
   );
 }
 

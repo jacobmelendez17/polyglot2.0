@@ -8,6 +8,7 @@
 export {
   bulkConfirmVocabularyMappings,
   confirmVocabularyMapping,
+  getConfirmedDictionaryDataForItems,
   getDictionaryEntryDetail,
   getEntryRawVersions,
   getMappingQueue,

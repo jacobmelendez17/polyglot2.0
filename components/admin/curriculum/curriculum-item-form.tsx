@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { createItemAction, updateItemAction } from "@/app/(admin)/admin/curriculum/actions";
 import type { AcceptedAnswerValue } from "./accepted-answers-editor";
 import { GrammarEditor, type GrammarEditorValue, type GrammarQuestionDirection } from "./grammar-editor";
-import { VocabularyEditor, type VocabularyEditorValue } from "./vocabulary-editor";
+import { VocabularyEditor, type ResolvedVocabularyFieldInfo, type VocabularyEditorValue } from "./vocabulary-editor";
 
 type ItemType = "vocabulary" | "grammar";
 
@@ -28,6 +28,7 @@ type CurriculumItemFormProps = {
   levels: { id: string; levelNumber: number }[];
   groups: { id: string; name: string; levelNumber: number }[];
   existing?: ExistingItem;
+  resolvedVocabulary?: ResolvedVocabularyFieldInfo;
 };
 
 const EMPTY_VOCAB: VocabularyEditorValue = {
@@ -102,7 +103,7 @@ function grammarFieldsPayload(g: GrammarEditorValue) {
  * only place that check can be trusted anyway (never re-implemented
  * client-side).
  */
-export function CurriculumItemForm({ languageId, levels, groups, existing }: CurriculumItemFormProps) {
+export function CurriculumItemForm({ languageId, levels, groups, existing, resolvedVocabulary }: CurriculumItemFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [type, setType] = useState<ItemType>(existing?.type ?? "vocabulary");
@@ -183,7 +184,7 @@ export function CurriculumItemForm({ languageId, levels, groups, existing }: Cur
       ) : null}
 
       {type === "vocabulary" ? (
-        <VocabularyEditor value={vocab} onChange={setVocab} groups={groups} />
+        <VocabularyEditor value={vocab} onChange={setVocab} groups={groups} resolved={resolvedVocabulary} />
       ) : (
         <GrammarEditor value={grammar} onChange={setGrammar} />
       )}

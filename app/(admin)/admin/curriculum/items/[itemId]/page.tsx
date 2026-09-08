@@ -18,7 +18,7 @@ import {
   getLevelsByLanguage,
   getVocabularyGroupsByLanguage,
 } from "@/domains/curriculum/server";
-import { composeVocabularyDisplayWord } from "@/domains/lexicon";
+import { composeVocabularyDisplayWord, resolveConfirmedDictionaryFields } from "@/domains/lexicon";
 import { getVocabularyMappingView } from "@/domains/lexicon/server";
 import { requireUser } from "@/domains/users/server";
 
@@ -117,6 +117,15 @@ export default async function EditCurriculumItemPage({ params }: { params: Promi
     item.type === "vocabulary" ? getVocabularyMappingView(itemId) : Promise.resolve(null),
   ]);
 
+  // Deliberately not `getVocabularyDetail`/`resolveVocabularyPresentation`:
+  // that learner-facing path only resolves published/archived items (see
+  // its own docstring), so a brand-new `pending` item — the common case
+  // right after creation — would read as "no dictionary data" even with a
+  // confirmed mapping. `resolveConfirmedDictionaryFields` works directly
+  // off the mapping view above, which this page already fetches
+  // regardless of item status.
+  const resolvedVocabulary = mappingView ? resolveConfirmedDictionaryFields(mappingView) : undefined;
+
   const levelNumberById = new Map(levels.map((level) => [level.id, level.levelNumber]));
   const groupOptions = groups
     .map((group) => ({ id: group.id, name: group.name, levelNumber: levelNumberById.get(group.levelId) ?? 0 }))
@@ -162,6 +171,7 @@ export default async function EditCurriculumItemPage({ params }: { params: Promi
         levels={levels.map((l) => ({ id: l.id, levelNumber: l.levelNumber }))}
         groups={groupOptions}
         existing={existing}
+        resolvedVocabulary={resolvedVocabulary}
       />
 
       {item.type === "vocabulary" && mappingView ? (
