@@ -20,7 +20,7 @@ import {
   upsertLexicalSource,
 } from "./lexicon-import-repository";
 import { hashFile } from "./source-hash";
-import { projectWiktextractRecord } from "./wiktextract-adapter";
+import { createEntryKeyDisambiguator, projectWiktextractRecord } from "./wiktextract-adapter";
 import { wiktextractRecordSchema } from "./wiktextract-schema";
 
 /**
@@ -58,6 +58,17 @@ export interface RunDictionaryImportInput {
   extractorVersion?: string | null;
   dumpDate?: Date | null;
   now: Date;
+  /**
+   * Re-ingests a snapshot that has already been imported successfully.
+   *
+   * The "already imported" short-circuit is keyed by source, file checksum
+   * and scope — deliberately, so re-running the CLI cannot duplicate work.
+   * It cannot see the one thing that legitimately invalidates a completed
+   * import: a change to the *importer itself*. After fixing a projection or
+   * validation bug, the same file genuinely does yield different rows, and
+   * this is how an operator says so.
+   */
+  force?: boolean;
   /** Operational progress callback — the CLI prints from this. Never given record content. */
   onProgress?: (counters: ImportCounters) => void;
 }
@@ -103,7 +114,7 @@ export async function runDictionaryImport(
   const fileChecksum = await hashFile(input.filePath);
   const scopeKey = buildImportScopeKey(input.scope, input.terms ?? []);
 
-  const alreadyCompleted = await findCompletedImport(db, { sourceId, fileChecksum, scopeKey });
+  const alreadyCompleted = input.force ? null : await findCompletedImport(db, { sourceId, fileChecksum, scopeKey });
   if (alreadyCompleted) {
     return {
       importId: alreadyCompleted.id,
@@ -155,6 +166,11 @@ export async function runDictionaryImport(
   try {
     await db.transaction(async (tx) => {
       let batch: ProjectedDictionaryRecord[] = [];
+      // Spans the whole import, not one batch: two records with the same
+      // natural key can land in different batches, where a batch-local
+      // check would miss the repeat and silently merge the second record
+      // into the first entry instead of erroring.
+      const disambiguateEntryKey = createEntryKeyDisambiguator();
 
       const flush = async () => {
         if (batch.length === 0) return;
@@ -204,7 +220,10 @@ export async function runDictionaryImport(
         if (wantedForms && !reachableForms(projected).some((form) => wantedForms.has(form))) continue;
 
         counters.recordsRetained += 1;
-        batch.push(projected);
+        // Applied only to retained records, and only once the record is
+        // certain to be written — so a filtered-out record never consumes an
+        // occurrence and shifts a later entry's key.
+        batch.push({ ...projected, sourceEntryKey: disambiguateEntryKey(projected.sourceEntryKey) });
         if (batch.length >= RECORD_BATCH_SIZE) await flush();
       }
 

@@ -35,6 +35,7 @@ import type { LexicalImportScope } from "@/domains/lexicon";
  *   npm run lexicon:import -- --language es --scope curriculum
  *   npm run lexicon:import -- --scope full_language
  *   npm run lexicon:import -- --scope terms --terms padre,madre
+ *   npm run lexicon:import -- --force        # re-ingest an already-imported snapshot
  *   npm run lexicon:import -- --file /path/to/kaikki-es.jsonl.gz
  */
 
@@ -55,6 +56,9 @@ async function main() {
   // the source by base subtag on its own.
   const languageCode = readFlag("language") ?? getDefaultLanguageCode();
   const scopeArg = (readFlag("scope") ?? "curriculum") as LexicalImportScope;
+  // Only meaningful after the importer's own parsing or projection changed —
+  // the same file then really does produce different rows.
+  const force = process.argv.includes("--force");
   if (!VALID_SCOPES.includes(scopeArg)) {
     throw new Error(`Unknown --scope "${scopeArg}". Expected one of: ${VALID_SCOPES.join(", ")}.`);
   }
@@ -84,6 +88,7 @@ async function main() {
       terms,
       sourceVersion: sourceConfig.wiktextractVersion,
       extractorVersion: "wiktextract",
+      force,
       now,
       onProgress: (counters) => {
         console.log(

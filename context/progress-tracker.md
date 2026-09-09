@@ -99,6 +99,73 @@ writing to real `user_item_progress` rows.
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
 
+- **Real dictionary import + dictionary promotion on approval** (2026-09-09,
+  spec 16 follow-up) — the Level 1 import left 37 of 45 words unmatched, and
+  the reason was not the matcher: the database held **21 dictionary entries**,
+  the committed 24-record sample fixture. `LEXICON_WIKTEXTRACT_PATH` was
+  never set, so every import had silently run against
+  `data-sources/wiktextract/es-sample.jsonl`.
+  - **The real English-Wiktionary Spanish extract is now imported** (Kaikki
+    `kaikki.org-dictionary-Spanish.jsonl.gz`, 92 MB gzipped / 1.04 GB raw,
+    upstream dated 2026-09-06). The importer streams `.gz` in place, which
+    matters here: the machine had 1.6 GiB free, less than the uncompressed
+    file. 811,049 Spanish records scanned, 113 retained under the default
+    `curriculum` scope. **130 entries / 224 senses**, up from 21/25.
+  - **Two real importer bugs, both invisible to the committed fixture and
+    both fatal to a real dump:**
+    1. **Duplicate entry keys aborted the entire import.** `sourceEntryKey`
+       is `lemma#pos#etymologyNumber`, and real Kaikki emits several records
+       per lemma+POS with *no* etymology number — "naranja" the fruit, the
+       colour, and the political supporter are three noun records all keyed
+       `naranja#noun#0`. The batch write is one
+       `INSERT ... ON CONFLICT DO UPDATE`, and Postgres refuses to touch one
+       conflict target twice (`21000`). Fixed with
+       `createEntryKeyDisambiguator`, mirroring the collision handling
+       `projectSenses` already had one level down: the first occurrence keeps
+       the natural key (so existing entries and their mappings are
+       undisturbed), repeats get a fourth segment that no etymology number
+       can produce.
+    2. **`etymology_number` arrives as a string, and the schema demanded a
+       number.** Of 811,049 Spanish records, 10,173 carry the field and
+       **every single one is a string** (`"1"`). Zod rejected the whole
+       record, silently dropping every homonym-disambiguated entry in the
+       dump — which is why ordinary words like `hermano`, `hermana` and
+       `persona` came back unmatched while `abuelo` matched. Rejections fell
+       from 18,417 to 8,510 once fixed.
+  - Also added `npm run lexicon:import -- --force`. The "this snapshot is
+    already imported" short-circuit is keyed by source + file checksum +
+    scope, which cannot see the one thing that legitimately invalidates a
+    completed import: **a change to the importer itself**. Without it the
+    fixed parser had nothing to re-read.
+  - **Matching after the real import**: `unmatched 37 → 1`,
+    `auto_matched 7 → 11`, `review_required 1 → 33`, the 4 hand-confirmed
+    mappings untouched (`manual_lock` held). The one remaining unmatched item
+    is `¿cómo estás?` — `deriveDictionaryLookups` keeps the surrounding `¿`/
+    `?`, so it looks for a lemma Wiktionary spells `cómo estás`. Recorded in
+    Next Up rather than fixed.
+  - **Approving a match now writes the dictionary's values into the item**
+    (user decision, 2026-09-09). Previously a confirmed mapping replaced the
+    definition and IPA *at read time only*, and never touched part of speech
+    at all — the field blank on all 45 imported words. Now
+    `applyDictionaryFieldsToItem` (in `domains/admin`, audited, rate limited)
+    writes part of speech, definition, and IPA, and the Admin dictionary
+    actions call it after **every** mutation that changes what is confirmed —
+    confirm, bulk confirm, change entry, change sense, change pronunciation —
+    so an item never keeps values from a sense the admin has moved on from.
+    - **The boundary is preserved rather than broken**: `domains/lexicon`
+      still never writes a curriculum table; it supplies values, `admin`
+      writes them, and the action layer composes the two. `architecture.md`'s
+      Lexicon section records the decision and its limits.
+    - **A published item is not edited in place.** The promotion lands in
+      that item's draft, following `updateItem`'s existing status rule, so it
+      reaches learners only through a deliberate publish.
+    - **Term and primary meaning are never promoted** — identity and the
+      graded answer. A field the dictionary has no value for is left alone,
+      not erased, and the audit event carries the replaced values, which is
+      the only way back.
+    - 5 new integration tests cover the in-place write, the published→draft
+      route, leaving untouched fields alone, the no-op when values already
+      match, and the refusal on a grammar item.
 - **Spec 16 unit A — Level 1 real curriculum** (2026-09-09) — the authored
   Level 1 file (`content/curriculum/spanish-level-1.csv`, 45 vocabulary in
   batches 1-4 + 12 grammar in batch 5) imported into the real database
@@ -142,11 +209,22 @@ Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real
     not done — spec 16: "Importing or mapping Level 1 must not automatically
     publish it."
   - **Dictionary intake ran on exactly the 45 new vocabulary items**: 7
-    auto-matched, 1 review-required, 37 unmatched. That is the expected
-    shape with only the ~20-record committed Wiktextract fixture imported —
-    the real Kaikki dump has never been loaded into this database (Next Up
-    #15's existing caveat). Grammar bypassed mapping entirely, as spec 12
-    requires.
+    auto-matched, 1 review-required, 37 unmatched at the time — because only
+    the ~20-record committed Wiktextract fixture had ever been imported.
+    **Superseded the same day**: the real Kaikki extract is now imported and
+    only one item is unmatched — see the "Real dictionary import" entry
+    above. Grammar bypassed mapping entirely, as spec 12 requires.
+- **Dictionary follow-up verification** (2026-09-09) — `typecheck`, `lint`,
+  `npm run test` (**642 passing**, +8: the entry-key disambiguator and the
+  string `etymology_number`), `npm run build`, and `test:integration` at
+  **286 of 290** — the same 4 pre-existing failures as every run this
+  session (#9 and #10), unchanged in identity. The dictionary import itself
+  was verified against the real 1 GB extract rather than a fixture, twice:
+  once to reproduce each bug and once to confirm the fix.
+  - **Not verified in a browser**: the approval → promotion path is covered
+    by integration tests at the service layer, but nobody has clicked
+    "Confirm" in `/admin/dictionary` and watched an item's fields change.
+    That is the natural first thing to check in the next real-browser pass.
 - **Spec 16 verification** (2026-09-09) — `npm run typecheck`, `npm run lint`
   (clean), `npm run test` (**634 passing**, 114 files — +31 for spec 16:
   batch selection across all three modes, the preference rules, the mode
@@ -687,7 +765,7 @@ unit had and these do not; their UI is verified by component tests and
 
 ## Next Up
 
-**Two items from spec 16 sit above this numbered list** — kept out of it so
+**Three items from spec 16 and its follow-up sit above this numbered list** — kept out of it so
 the existing numbering (referred to as "#9", "#10", "#22" elsewhere in this
 file) does not shift.
 
@@ -704,6 +782,14 @@ file) does not shift.
   accumulated audit log and the idempotency cleanup count), which have
   exactly the same cause. An infrastructure decision, so it is recorded here
   rather than taken unilaterally.
+- **C. `¿cómo estás?` is the one vocabulary item the real dictionary cannot
+  match.** `deriveDictionaryLookups` derives lookup forms by stripping
+  articles, but not surrounding punctuation, so it searches for the literal
+  `¿cómo estás?` while English Wiktionary lemmatizes it as `cómo estás`. A
+  contained fix in `lexical-language-provider.ts` (strip leading/trailing
+  `¿¡?!.,;:` from a derived form, keeping the original as well) plus its unit
+  tests. Left alone for now because it is one item and touching lookup
+  derivation re-matches the whole curriculum.
 - **B. Spec 16's Settings requirement is deliberately unmet.** Spec 16 asks
   for the curriculum preference to be changeable from Settings, but no
   `/settings` route exists and `context/feature-specs/00-settings.md` is
@@ -762,6 +848,17 @@ All are now specified in `architecture.md` and `code-standards.md`.
 | Playwright authentication strategy | Validated manually (see Environment Notes), not wired into a real suite — no `e2e.yml` yet |
 
 ## Open Questions
+
+**8,510 records in the real Spanish extract are still rejected by the import
+schema** (2026-09-09, down from 18,417 once the string `etymology_number` was
+accepted). That is ~1% of 811,049 scanned, and no rejected record has been
+inspected — some are certainly legitimate (no glossed sense, an unmappable
+part of speech, which `projectWiktextractRecord` rejects by design), but
+nobody has confirmed that *all* of them are. The first string-typed field
+went unnoticed for exactly this reason: the counter was treated as noise. A
+short investigation — log a sample of rejection reasons behind a flag — would
+say whether more real vocabulary is being dropped silently.
+
 
 - **Playwright authentication.** `@clerk/testing/playwright`'s `clerkSetup()` + `clerk.signIn({ page, emailAddress })`/`clerk.signOut()` worked cleanly for a real signed-in session in manual verification (2026-08-29) — see Environment Notes. Leaning toward that over a stored-auth-state file, but the real suite (`e2e.yml`, fixture/seed strategy for the test user) still doesn't exist. Decide when building the first end-to-end test.
 - **Free-tier level count in marketing copy.** `architecture.md` configures free Levels 1–3, premium Level 4+. Spec 03 instructed that no level count appear in landing copy pending confirmation that the access-tier config is also the public promise. Resolve before the pricing or about pages are written.

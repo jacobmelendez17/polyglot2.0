@@ -154,6 +154,40 @@ function projectRestrictedRegionCodes(record: WiktextractRecord, languageCode: s
   return [...codes].sort();
 }
 
+
+/**
+ * Makes entry keys unique across one import run.
+ *
+ * `projectWiktextractRecord` can only see one record, so it cannot know that
+ * the key it just produced belongs to a second, genuinely different upstream
+ * entry. Two records sharing a key are not a harmless duplicate: the batch
+ * write is a single `INSERT ... ON CONFLICT DO UPDATE`, and Postgres rejects
+ * a statement that would touch the same conflict target twice
+ * (`21000: ON CONFLICT DO UPDATE command cannot affect row a second time`),
+ * failing the entire import. That is exactly what the first real Kaikki
+ * import hit; the committed 24-record fixture never contained a repeat.
+ *
+ * Mirrors `projectSenses`' own collision handling one level up: the first
+ * occurrence keeps the natural key, so existing entries and the mappings
+ * pointing at them are undisturbed, and only genuine repeats are suffixed.
+ * The suffix adds a fourth segment, so a disambiguated key can never collide
+ * with a natural three-segment one (`naranja#noun#0#2` is not reachable as
+ * an etymology number).
+ *
+ * Ordering-dependent, and deliberately so: a stable dump reproduces the same
+ * keys, and the primary entry — the one upstream lists first — is the one
+ * that keeps the unsuffixed key. State lives in the returned closure rather
+ * than the module, so imports never leak keys into one another.
+ */
+export function createEntryKeyDisambiguator(): (sourceEntryKey: string) => string {
+  const occurrences = new Map<string, number>();
+  return (sourceEntryKey: string): string => {
+    const seen = occurrences.get(sourceEntryKey) ?? 0;
+    occurrences.set(sourceEntryKey, seen + 1);
+    return seen === 0 ? sourceEntryKey : `${sourceEntryKey}#${seen + 1}`;
+  };
+}
+
 /**
  * Projects one validated Wiktextract record. Returns `null` when the record
  * cannot become a usable Polyglot entry — an unmappable part of speech, or
@@ -171,6 +205,15 @@ export function projectWiktextractRecord(record: WiktextractRecord): ProjectedDi
   // Same spelling and same part of speech with a different etymology is a
   // genuinely different word (the homonym case spec 12 wants surfaced for
   // review), so the etymology number is part of the entry's identity.
+  //
+  // It is not sufficient on its own, though: a real Kaikki extract routinely
+  // emits several records for one spelling and part of speech with **no**
+  // etymology number at all ("naranja" the fruit, the colour, and the
+  // political supporter are three noun records, all `etymology_number:
+  // null`). They all land on `naranja#noun#0` here, which is why the caller
+  // runs these keys through `createEntryKeyDisambiguator` before writing —
+  // see that function for why the uniqueness cannot be decided from a single
+  // record.
   const sourceEntryKey = [normalizedLemma, partOfSpeech, record.etymology_number ?? 0].join("#");
   const senses = projectSenses(record);
   if (senses.length === 0) return null;

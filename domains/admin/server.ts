@@ -10,6 +10,7 @@
  */
 export { getAuditEvents, recordAuditEvent } from "./audit-service";
 export {
+  applyDictionaryFieldsToItem,
   archiveItem,
   bulkArchiveItems,
   bulkImportVocabulary,
@@ -38,6 +39,8 @@ export type {
   ImportRowPreview,
 } from "./bulk-import-service";
 export type {
+  ApplyDictionaryFieldsResult,
+  ApplyDictionaryFieldsServiceInput,
   ArchiveItemServiceInput,
   BulkArchiveItemsServiceInput,
   BulkMoveItemsServiceInput,

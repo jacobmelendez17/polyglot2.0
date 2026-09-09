@@ -3,6 +3,8 @@
 import { z } from "zod";
 
 import { canManageCurriculum } from "@/domains/admin";
+import { applyDictionaryFieldsToItem } from "@/domains/admin/server";
+import { resolveConfirmedDictionaryFields } from "@/domains/lexicon";
 import type { DictionaryEntrySummary, VocabularyDictionaryMapping } from "@/domains/lexicon";
 import {
   bulkConfirmVocabularyMappings,
@@ -10,6 +12,7 @@ import {
   rematchVocabularyItem,
   searchDictionary,
   selectPreferredPronunciation,
+  getVocabularyMappingView,
   selectVocabularySenses,
   setVocabularyDictionaryEntry,
 } from "@/domains/lexicon/server";
@@ -48,6 +51,44 @@ async function runDictionaryAction<T>(fn: (actorUserId: string) => Promise<T>): 
   }
 }
 
+
+/**
+ * Copies a confirmed match's values into the curriculum item (user decision,
+ * 2026-09-09): approving a dictionary match is what fills in the item's part
+ * of speech, definition, and IPA.
+ *
+ * Runs after every mutation that can change *what* is confirmed — the entry,
+ * the selected sense, the preferred pronunciation — not only the initial
+ * approval, so the item never keeps values from a sense the admin has since
+ * changed their mind about.
+ *
+ * Composed here rather than inside either domain: `domains/lexicon` supplies
+ * the values and must never write curriculum, `domains/admin` owns the write
+ * and knows nothing about dictionaries. A failure to apply must not undo the
+ * mapping change the admin actually asked for, so it is reported rather than
+ * thrown — the mapping is saved either way, and re-approving retries.
+ */
+async function applyConfirmedDictionaryFields(
+  vocabularyItemId: string,
+  actorUserId: string,
+): Promise<{ applied: boolean; savedAsDraft: boolean }> {
+  const view = await getVocabularyMappingView(vocabularyItemId);
+  const resolved = resolveConfirmedDictionaryFields(view);
+  if (!resolved.confirmed) return { applied: false, savedAsDraft: false };
+
+  try {
+    return await applyDictionaryFieldsToItem({
+      learningItemId: vocabularyItemId,
+      actorUserId,
+      idempotencyKey: crypto.randomUUID(),
+      fields: { partOfSpeech: resolved.partOfSpeech, definition: resolved.definition, ipa: resolved.ipa },
+    });
+  } catch (error) {
+    console.error("Confirmed mapping saved, but applying its fields to the curriculum item failed", error);
+    return { applied: false, savedAsDraft: false };
+  }
+}
+
 const itemActionSchema = z.object({ vocabularyItemId: z.string().min(1), idempotencyKey: z.string().min(1) });
 
 export async function rematchVocabularyItemAction(
@@ -67,7 +108,9 @@ export async function setDictionaryEntryAction(
 ): Promise<ActionResult<VocabularyDictionaryMapping>> {
   return runDictionaryAction(async (actorUserId) => {
     const parsed = setEntrySchema.parse(input);
-    return setVocabularyDictionaryEntry({ ...parsed, actorUserId });
+    const mapping = await setVocabularyDictionaryEntry({ ...parsed, actorUserId });
+    await applyConfirmedDictionaryFields(parsed.vocabularyItemId, actorUserId);
+    return mapping;
   });
 }
 
@@ -76,7 +119,9 @@ export async function confirmMappingAction(
 ): Promise<ActionResult<VocabularyDictionaryMapping>> {
   return runDictionaryAction(async (actorUserId) => {
     const parsed = itemActionSchema.parse(input);
-    return confirmVocabularyMapping({ ...parsed, actorUserId });
+    const mapping = await confirmVocabularyMapping({ ...parsed, actorUserId });
+    await applyConfirmedDictionaryFields(parsed.vocabularyItemId, actorUserId);
+    return mapping;
   });
 }
 
@@ -88,7 +133,14 @@ export async function bulkConfirmVocabularyMappingsAction(
 ): Promise<ActionResult<{ confirmed: string[] }>> {
   return runDictionaryAction(async (actorUserId) => {
     const parsed = bulkConfirmSchema.parse(input);
-    return bulkConfirmVocabularyMappings({ ...parsed, actorUserId });
+    const result = await bulkConfirmVocabularyMappings({ ...parsed, actorUserId });
+    // Sequential, not parallel: each one is a rate-limited admin mutation
+    // opening its own transaction, and a burst of them would trip the
+    // limiter that protects exactly this kind of write.
+    for (const vocabularyItemId of result.confirmed) {
+      await applyConfirmedDictionaryFields(vocabularyItemId, actorUserId);
+    }
+    return result;
   });
 }
 
@@ -97,7 +149,11 @@ const selectSensesSchema = itemActionSchema.extend({ senseIds: z.array(z.string(
 export async function selectSensesAction(input: z.infer<typeof selectSensesSchema>): Promise<ActionResult<string[]>> {
   return runDictionaryAction(async (actorUserId) => {
     const parsed = selectSensesSchema.parse(input);
-    return selectVocabularySenses({ ...parsed, actorUserId });
+    const senseIds = await selectVocabularySenses({ ...parsed, actorUserId });
+    // The primary sense *is* the definition, so changing it changes what the
+    // item should say.
+    await applyConfirmedDictionaryFields(parsed.vocabularyItemId, actorUserId);
+    return senseIds;
   });
 }
 
@@ -108,7 +164,9 @@ export async function selectPronunciationAction(
 ): Promise<ActionResult<VocabularyDictionaryMapping>> {
   return runDictionaryAction(async (actorUserId) => {
     const parsed = selectPronunciationSchema.parse(input);
-    return selectPreferredPronunciation({ ...parsed, actorUserId });
+    const mapping = await selectPreferredPronunciation({ ...parsed, actorUserId });
+    await applyConfirmedDictionaryFields(parsed.vocabularyItemId, actorUserId);
+    return mapping;
   });
 }
 

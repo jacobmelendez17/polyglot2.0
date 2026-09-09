@@ -3,12 +3,13 @@ import { describe, expect, it } from "vitest";
 import { userItemProgress } from "@/db/schema";
 import { DEVELOPER_ID, ITEM_AGUA_ID, ITEM_CASA_ID, ITEM_GATO_ID, VOCAB_GROUP_ID, seedTestFixtures } from "@/db/seed/test-fixtures";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
-import { getDraft, lockLearningItemForEdit } from "@/domains/curriculum/curriculum-mutation-repository";
+import { getDraft, getVocabularyDictionaryFields, lockLearningItemForEdit } from "@/domains/curriculum/curriculum-mutation-repository";
 import { AdminError } from "@/lib/errors/admin-errors";
 import { eq } from "drizzle-orm";
 
 import { getAuditEvents } from "./audit-repository";
 import {
+  applyDictionaryFieldsToItem,
   archiveItem,
   createItem,
   deleteItem,
@@ -327,6 +328,129 @@ describe("moveItem and reorderItems", () => {
       expect((await lockLearningItemForEdit(tx, ITEM_CASA_ID))?.position).toBe(1);
       const audit = await getAuditEvents(tx, { action: "CURRICULUM_ITEM_REORDERED", resourceId: level1Id, limit: 10 });
       expect(audit.items).toHaveLength(1);
+    });
+  });
+});
+
+describe("applyDictionaryFieldsToItem", () => {
+  const dictionaryFields = { partOfSpeech: "noun", definition: "a domesticated feline", ipa: "/ˈɡa.to/" };
+
+  it("fills a pending item's blank fields in place, and records what it replaced", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId, level1Id } = await seedTestFixtures(tx);
+      // A pending item shaped exactly like a CSV import leaves one: no part
+      // of speech, no definition, no IPA.
+      const { learningItemId } = await createItem(tx, {
+        languageId,
+        levelId: level1Id,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+        type: "vocabulary",
+        fields: { vocabularyGroupId: VOCAB_GROUP_ID, term: "gatito", primaryMeaning: "kitten", partOfSpeech: "", acceptedAnswers: [] },
+      });
+
+      const result = await applyDictionaryFieldsToItem(tx, {
+        learningItemId,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+        fields: dictionaryFields,
+      });
+      expect(result).toEqual({ applied: true, savedAsDraft: false });
+
+      const stored = await getVocabularyDictionaryFields(tx, learningItemId);
+      expect(stored).toMatchObject(dictionaryFields);
+      // The graded answer and the term are never touched.
+      expect(stored?.primaryMeaning).toBe("kitten");
+      expect(stored?.term).toBe("gatito");
+
+      const audit = await getAuditEvents(tx, { action: "CURRICULUM_ITEM_UPDATED", resourceId: learningItemId, limit: 10 });
+      expect(audit.items[0]?.beforeData).toMatchObject({ partOfSpeech: "", definition: null, ipa: null });
+    });
+  });
+
+  it("routes a published item through its draft rather than editing live curriculum", async () => {
+    await withTestTransaction(async (tx) => {
+      await seedTestFixtures(tx);
+
+      const result = await applyDictionaryFieldsToItem(tx, {
+        learningItemId: ITEM_GATO_ID,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+        fields: dictionaryFields,
+      });
+      expect(result).toEqual({ applied: true, savedAsDraft: true });
+
+      // The live row is untouched until someone publishes the draft.
+      const live = await getVocabularyDictionaryFields(tx, ITEM_GATO_ID);
+      expect(live?.definition).not.toBe(dictionaryFields.definition);
+
+      const draft = await getDraft(tx, ITEM_GATO_ID);
+      expect(draft?.data).toMatchObject({ type: "vocabulary", fields: { ...dictionaryFields, term: "gato", primaryMeaning: "cat" } });
+    });
+  });
+
+  it("leaves a field the dictionary has no value for alone", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId, level1Id } = await seedTestFixtures(tx);
+      const { learningItemId } = await createItem(tx, {
+        languageId,
+        levelId: level1Id,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+        type: "vocabulary",
+        fields: { vocabularyGroupId: VOCAB_GROUP_ID, term: "gatuno", primaryMeaning: "feline", partOfSpeech: "adjective", creatorNotes: "authored note", acceptedAnswers: [] },
+      });
+
+      await applyDictionaryFieldsToItem(tx, {
+        learningItemId,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+        fields: { partOfSpeech: null, definition: "of or relating to cats", ipa: null },
+      });
+
+      const stored = await getVocabularyDictionaryFields(tx, learningItemId);
+      expect(stored?.definition).toBe("of or relating to cats");
+      expect(stored?.partOfSpeech).toBe("adjective");
+      expect(stored?.creatorNotes).toBe("authored note");
+    });
+  });
+
+  it("does nothing, and records nothing, when the values already match", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId, level1Id } = await seedTestFixtures(tx);
+      const { learningItemId } = await createItem(tx, {
+        languageId,
+        levelId: level1Id,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+        type: "vocabulary",
+        fields: { vocabularyGroupId: VOCAB_GROUP_ID, term: "gatear", primaryMeaning: "to crawl", partOfSpeech: "verb", acceptedAnswers: [] },
+      });
+
+      const result = await applyDictionaryFieldsToItem(tx, {
+        learningItemId,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+        fields: { partOfSpeech: "verb", definition: null, ipa: null },
+      });
+
+      expect(result).toEqual({ applied: false, savedAsDraft: false });
+      const audit = await getAuditEvents(tx, { action: "CURRICULUM_ITEM_UPDATED", resourceId: learningItemId, limit: 10 });
+      expect(audit.items).toHaveLength(0);
+    });
+  });
+
+  it("refuses a grammar item — grammar has no dictionary integration", async () => {
+    await withTestTransaction(async (tx) => {
+      const { grammarYId } = await seedTestFixtures(tx);
+      await expect(
+        applyDictionaryFieldsToItem(tx, {
+          learningItemId: grammarYId,
+          actorUserId: DEVELOPER_ID,
+          idempotencyKey: crypto.randomUUID(),
+          fields: dictionaryFields,
+        }),
+      ).rejects.toBeInstanceOf(AdminError);
     });
   });
 });

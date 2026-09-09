@@ -9,6 +9,7 @@ import * as bulkImport from "./bulk-import-service";
 import type { BulkImportVocabularyServiceInput } from "./bulk-import-service";
 import * as publication from "./publication-service";
 import type {
+  ApplyDictionaryFieldsServiceInput,
   ArchiveItemServiceInput,
   BulkArchiveItemsServiceInput,
   BulkMoveItemsServiceInput,
@@ -55,6 +56,16 @@ export async function createItem(input: CreateItemServiceInput) {
 export async function updateItem(input: UpdateItemServiceInput) {
   await checkRateLimit("admin-mutation", input.actorUserId);
   return publication.updateItem(db, input);
+}
+
+/**
+ * Spec 16 follow-up — promotes a confirmed dictionary match into the item.
+ * Rate limited as an ordinary admin mutation: it is one, and it is reachable
+ * from every mapping action in the dictionary review queue.
+ */
+export async function applyDictionaryFieldsToItem(input: ApplyDictionaryFieldsServiceInput) {
+  await checkRateLimit("admin-mutation", input.actorUserId);
+  return publication.applyDictionaryFieldsToItem(db, input);
 }
 
 export async function publishItem(input: PublishItemServiceInput) {

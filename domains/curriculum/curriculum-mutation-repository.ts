@@ -191,6 +191,84 @@ export async function publishPendingItem(db: DbClient, learningItemId: string): 
     .where(eq(learningItems.id, learningItemId));
 }
 
+/**
+ * The subset of a vocabulary item a confirmed dictionary match may fill in
+ * (spec 16 follow-up, 2026-09-09 — see `architecture.md`'s Lexicon section
+ * for the decision this implements).
+ *
+ * Deliberately narrow. `term` is the item's identity, and `primaryMeaning`
+ * is the answer a learner is graded against — replacing either from a
+ * dictionary gloss would change what the item *is* or silently break every
+ * quiz that already accepts the authored answer.
+ */
+export type DictionarySuppliedVocabularyFields = {
+  partOfSpeech: string | null;
+  definition: string | null;
+  ipa: string | null;
+};
+
+/**
+ * Writes only the dictionary-supplied fields, leaving everything else on the
+ * row untouched — including anything an admin authored that the dictionary
+ * has no opinion about. A `null` field means "the dictionary offers nothing
+ * here", and is skipped rather than written as an erasure.
+ */
+export async function updateVocabularyDictionaryFields(
+  db: DbClient,
+  learningItemId: string,
+  fields: DictionarySuppliedVocabularyFields,
+): Promise<void> {
+  const changes = {
+    ...(fields.partOfSpeech !== null ? { partOfSpeech: fields.partOfSpeech } : {}),
+    ...(fields.definition !== null ? { definition: fields.definition } : {}),
+    ...(fields.ipa !== null ? { ipa: fields.ipa } : {}),
+  };
+  if (Object.keys(changes).length === 0) return;
+  await db.update(vocabularyItems).set(changes).where(eq(vocabularyItems.learningItemId, learningItemId));
+}
+
+/**
+ * The item's current editable values, for the audit trail's before-state and
+ * for composing a draft. `partOfSpeech` is `string`, not `string | null` —
+ * the column is `NOT NULL`, and an imported item carries `""` rather than
+ * nothing.
+ */
+export type CurrentVocabularyFields = {
+  vocabularyGroupId: string;
+  term: string;
+  primaryMeaning: string;
+  definition: string | null;
+  article: string | null;
+  partOfSpeech: string;
+  pronunciation: string | null;
+  ipa: string | null;
+  context: string | null;
+  creatorNotes: string | null;
+};
+
+export async function getVocabularyDictionaryFields(
+  db: DbClient,
+  learningItemId: string,
+): Promise<CurrentVocabularyFields | null> {
+  const [row] = await db
+    .select({
+      vocabularyGroupId: vocabularyItems.vocabularyGroupId,
+      term: vocabularyItems.term,
+      primaryMeaning: vocabularyItems.primaryMeaning,
+      definition: vocabularyItems.definition,
+      article: vocabularyItems.article,
+      partOfSpeech: vocabularyItems.partOfSpeech,
+      pronunciation: vocabularyItems.pronunciation,
+      ipa: vocabularyItems.ipa,
+      context: vocabularyItems.context,
+      creatorNotes: vocabularyItems.creatorNotes,
+    })
+    .from(vocabularyItems)
+    .where(eq(vocabularyItems.learningItemId, learningItemId))
+    .limit(1);
+  return row ?? null;
+}
+
 export type DraftData = { type: "vocabulary"; fields: VocabularyFieldsInput } | { type: "grammar"; fields: GrammarFieldsInput };
 
 /** Creates or replaces the one allowed open draft for an already-published item (spec 11 rewrite's "Draft" status). The live rows are untouched. */

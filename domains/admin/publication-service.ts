@@ -7,6 +7,7 @@ import {
   createVocabularyGroup as repoCreateVocabularyGroup,
   getAcceptedAnswers,
   getDraft,
+  getVocabularyDictionaryFields,
   getDuplicateCandidateRows,
   getLevelTargets,
   getLevelValidationCounts,
@@ -20,9 +21,11 @@ import {
   saveDraft as repoSaveDraft,
   updateLearningItemDirect,
   updateLevel as repoUpdateLevel,
+  updateVocabularyDictionaryFields,
   updateVocabularyGroup as repoUpdateVocabularyGroup,
 } from "@/domains/curriculum/curriculum-mutation-repository";
 import { findDuplicateCandidates } from "@/domains/curriculum/curriculum-duplicate-detection";
+import type { DictionarySuppliedVocabularyFields } from "@/domains/curriculum/curriculum-mutation-repository";
 import type {
   ArchiveLearningItemInput,
   BulkArchiveLearningItemsInput,
@@ -257,6 +260,117 @@ export async function archiveItem(db: DbClient, input: ArchiveItemServiceInput):
         reason: input.reason,
       });
       invalidateCurriculumCache(locked.languageId);
+    },
+  );
+}
+
+
+export type ApplyDictionaryFieldsServiceInput = {
+  learningItemId: string;
+  actorUserId: string;
+  idempotencyKey: string;
+  fields: DictionarySuppliedVocabularyFields;
+};
+
+export type ApplyDictionaryFieldsResult = { applied: boolean; savedAsDraft: boolean };
+
+/**
+ * Promotes a confirmed dictionary match's values into the curriculum item
+ * itself (user decision, 2026-09-09 — recorded in `architecture.md`'s
+ * Lexicon section, which previously said dictionary data is never written
+ * into curriculum fields at all).
+ *
+ * Lives here, in the domain that owns curriculum mutations, rather than in
+ * `domains/lexicon`: the lexicon supplies values and never writes them. The
+ * Admin dictionary actions compose the two, which is what an action layer is
+ * for.
+ *
+ * Follows `updateItem`'s status rule exactly rather than inventing a second
+ * one — a published item's live rows are never edited in place, so the
+ * promotion lands in that item's draft and reaches learners only when an
+ * admin publishes it. A pending or draft item is written directly.
+ *
+ * The audit event carries the previous values, which is the only way back:
+ * approving is not reversible by un-approving, since the authored text it
+ * replaced is gone from the row.
+ */
+export async function applyDictionaryFieldsToItem(
+  db: DbClient,
+  input: ApplyDictionaryFieldsServiceInput,
+): Promise<ApplyDictionaryFieldsResult> {
+  return withIdempotency(
+    db,
+    {
+      userId: input.actorUserId,
+      operation: "admin.curriculum.apply-dictionary-fields",
+      key: input.idempotencyKey,
+      payload: { learningItemId: input.learningItemId, fields: input.fields },
+    },
+    async (tx) => {
+      const locked = await lockLearningItemForEdit(tx, input.learningItemId);
+      if (!locked) throw new AdminError("CURRICULUM_ITEM_NOT_FOUND");
+      if (locked.type !== "vocabulary") {
+        // Grammar has no dictionary integration at all (spec 12). Reaching
+        // here means a caller resolved the wrong item, not that there is
+        // nothing to do — so it is an error, not a silent no-op.
+        throw new AdminError("CURRICULUM_VALIDATION_FAILED", "Only vocabulary items have dictionary data.");
+      }
+      if (locked.status === "archived") {
+        throw new AdminError("CURRICULUM_VALIDATION_FAILED", "Archived items cannot be edited.");
+      }
+
+      const current = await getVocabularyDictionaryFields(tx, input.learningItemId);
+      if (!current) throw new AdminError("CURRICULUM_ITEM_NOT_FOUND");
+
+      const next = {
+        partOfSpeech: input.fields.partOfSpeech ?? current.partOfSpeech,
+        definition: input.fields.definition ?? current.definition,
+        ipa: input.fields.ipa ?? current.ipa,
+      };
+      const unchanged =
+        next.partOfSpeech === current.partOfSpeech && next.definition === current.definition && next.ipa === current.ipa;
+      // Nothing to record and nothing to write — an admin re-opening an
+      // already-applied item should not accumulate identical audit events.
+      if (unchanged) return { applied: false, savedAsDraft: false };
+
+      const savedAsDraft = locked.status === "published";
+
+      if (savedAsDraft) {
+        const acceptedAnswers = await getAcceptedAnswers(tx, input.learningItemId);
+        await repoSaveDraft(tx, {
+          learningItemId: input.learningItemId,
+          baseVersion: locked.version,
+          createdBy: input.actorUserId,
+          data: {
+            type: "vocabulary",
+            fields: {
+              vocabularyGroupId: current.vocabularyGroupId,
+              term: current.term,
+              primaryMeaning: current.primaryMeaning,
+              article: current.article,
+              pronunciation: current.pronunciation,
+              context: current.context,
+              creatorNotes: current.creatorNotes,
+              acceptedAnswers: acceptedAnswers.map((answer) => ({ side: answer.side, value: answer.value })),
+              ...next,
+            },
+          },
+        });
+      } else {
+        await updateVocabularyDictionaryFields(tx, input.learningItemId, next);
+      }
+
+      await recordAuditEvent(tx, {
+        actorUserId: input.actorUserId,
+        action: "CURRICULUM_ITEM_UPDATED",
+        resourceType: "vocabulary_item",
+        resourceId: input.learningItemId,
+        beforeData: { partOfSpeech: current.partOfSpeech, definition: current.definition, ipa: current.ipa },
+        afterData: { ...next, source: "dictionary", savedAsDraft },
+      });
+      invalidateCurriculumCache(locked.languageId);
+
+      return { applied: true, savedAsDraft };
     },
   );
 }

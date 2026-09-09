@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { hashSourceValue } from "./source-hash";
-import { projectWiktextractRecord } from "./wiktextract-adapter";
+import { createEntryKeyDisambiguator, projectWiktextractRecord } from "./wiktextract-adapter";
 import { wiktextractRecordSchema } from "./wiktextract-schema";
 
 /**
@@ -244,5 +244,87 @@ describe("projectWiktextractRecord", () => {
     // Key order upstream is not a content change.
     expect(a.sourceHash).toBe(b.sourceHash);
     expect(a.sourceHash).toBe(hashSourceValue(raw));
+  });
+});
+
+describe("createEntryKeyDisambiguator", () => {
+  it("leaves a key that appears once untouched", () => {
+    const disambiguate = createEntryKeyDisambiguator();
+    expect(disambiguate("casa#noun#0")).toBe("casa#noun#0");
+  });
+
+  it("suffixes repeats so a batch write can never touch one row twice", () => {
+    // The real case: English Wiktionary has three "naranja" noun records
+    // with no etymology number — the fruit, the colour, and a supporter of
+    // a Spanish political party. All three arrive as `naranja#noun#0`, and
+    // before this they failed the whole import with Postgres 21000.
+    const disambiguate = createEntryKeyDisambiguator();
+    expect(disambiguate("naranja#noun#0")).toBe("naranja#noun#0");
+    expect(disambiguate("naranja#noun#0")).toBe("naranja#noun#0#2");
+    expect(disambiguate("naranja#noun#0")).toBe("naranja#noun#0#3");
+  });
+
+  it("keeps unrelated keys independent", () => {
+    const disambiguate = createEntryKeyDisambiguator();
+    expect(disambiguate("dos#noun#0")).toBe("dos#noun#0");
+    expect(disambiguate("dos#numeral#0")).toBe("dos#numeral#0");
+    expect(disambiguate("dos#noun#0")).toBe("dos#noun#0#2");
+  });
+
+  it("cannot produce a key an etymology number could produce naturally", () => {
+    // A natural key is exactly three segments, so a fourth segment is
+    // unreachable upstream — `naranja#noun#2` (etymology 2) and
+    // `naranja#noun#0#2` (second occurrence) are always distinct entries.
+    const disambiguate = createEntryKeyDisambiguator();
+    disambiguate("naranja#noun#0");
+    expect(disambiguate("naranja#noun#0")).not.toBe("naranja#noun#2");
+  });
+
+  it("does not share state between imports", () => {
+    expect(createEntryKeyDisambiguator()("casa#noun#0")).toBe("casa#noun#0");
+    expect(createEntryKeyDisambiguator()("casa#noun#0")).toBe("casa#noun#0");
+  });
+});
+
+describe("etymology numbers as they actually arrive", () => {
+  it("accepts the numeric string the real Kaikki extract emits", () => {
+    // Every one of the 10,173 Spanish records carrying this field uses a
+    // string. Rejecting them dropped `hermano`, `hermana` and `persona`
+    // (among thousands) from a real import without a word of warning.
+    const parsed = wiktextractRecordSchema.safeParse({
+      word: "hermano",
+      lang_code: "es",
+      pos: "noun",
+      etymology_number: "1",
+      senses: [{ glosses: ["brother"] }],
+    });
+
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) return;
+    expect(projectWiktextractRecord(parsed.data)?.sourceEntryKey).toBe("hermano#noun#1");
+  });
+
+  it("still accepts a real number", () => {
+    const parsed = wiktextractRecordSchema.safeParse({
+      word: "hermano",
+      lang_code: "es",
+      pos: "noun",
+      etymology_number: 2,
+      senses: [{ glosses: ["brother"] }],
+    });
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) return;
+    expect(projectWiktextractRecord(parsed.data)?.sourceEntryKey).toBe("hermano#noun#2");
+  });
+
+  it("rejects a non-numeric string rather than silently treating it as etymology 0", () => {
+    const parsed = wiktextractRecordSchema.safeParse({
+      word: "hermano",
+      lang_code: "es",
+      pos: "noun",
+      etymology_number: "first",
+      senses: [{ glosses: ["brother"] }],
+    });
+    expect(parsed.success).toBe(false);
   });
 });

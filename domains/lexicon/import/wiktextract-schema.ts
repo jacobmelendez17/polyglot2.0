@@ -64,8 +64,24 @@ export const wiktextractRecordSchema = z
     lang_code: z.string().min(1).max(32),
     lang: shortText.optional(),
     pos: z.string().min(1).max(64),
-    /** Distinguishes same-spelling, same-POS homonyms with separate etymologies — which must stay separate entries. */
-    etymology_number: z.number().int().min(0).max(64).optional(),
+    /**
+     * Distinguishes same-spelling, same-POS homonyms with separate
+     * etymologies — which must stay separate entries.
+     *
+     * Accepts a numeric string as well as a number, because the real Kaikki
+     * extract only ever emits strings: of 811,049 Spanish records, 10,173
+     * carry this field and **every one of them is a string** (`"1"`, not
+     * `1`). Requiring a number rejected the whole record — silently dropping
+     * every homonym-disambiguated entry in the dump, including ordinary
+     * words like `hermano` and `persona`, which is how this was found. The
+     * committed fixture used numbers, so nothing caught it before a real
+     * import.
+     */
+    etymology_number: z
+      .union([z.number(), z.string().regex(/^\d+$/)])
+      .transform((value) => (typeof value === "string" ? Number(value) : value))
+      .pipe(z.number().int().min(0).max(64))
+      .optional(),
     senses: z.array(senseSchema).max(MAX_ARRAY_ITEMS).optional(),
     forms: z.array(formSchema).max(MAX_ARRAY_ITEMS).optional(),
     sounds: z.array(soundSchema).max(MAX_ARRAY_ITEMS).optional(),

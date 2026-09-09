@@ -162,11 +162,23 @@ export function resolveVocabularyPresentation(detail: Pick<VocabularyDetail, "cu
  */
 export function resolveConfirmedDictionaryFields(view: {
   mapping: Pick<VocabularyDictionaryMapping, "matchStatus" | "preferredPronunciationId"> | null;
-  entry: Pick<DictionaryEntryDetail, "lemma" | "senses" | "pronunciations"> | null;
+  entry: Pick<DictionaryEntryDetail, "lemma" | "partOfSpeech" | "senses" | "pronunciations"> | null;
   selectedSenseIds: string[];
-}): { confirmed: boolean; definition: string | null; ipa: string | null; lemma: string | null } {
+}): {
+  confirmed: boolean;
+  definition: string | null;
+  ipa: string | null;
+  lemma: string | null;
+  /**
+   * The entry's part of speech (spec 16 follow-up, 2026-09-09). Included so
+   * a confirmed match can fill the curriculum field of the same name, which
+   * a bulk import routinely leaves blank — the CSV column is optional and
+   * the authored Level 1 file has no such column at all.
+   */
+  partOfSpeech: string | null;
+} {
   const confirmed = view.mapping?.matchStatus === "manual";
-  if (!confirmed || !view.entry) return { confirmed: false, definition: null, ipa: null, lemma: null };
+  if (!confirmed || !view.entry) return { confirmed: false, definition: null, ipa: null, lemma: null, partOfSpeech: null };
 
   const primarySenseId = view.selectedSenseIds[0];
   const primarySense = view.entry.senses.find((sense) => sense.id === primarySenseId);
@@ -178,6 +190,7 @@ export function resolveConfirmedDictionaryFields(view: {
     definition: primarySense?.gloss ?? null,
     ipa: preferredPronunciation?.ipa ?? null,
     lemma: view.entry.lemma,
+    partOfSpeech: view.entry.partOfSpeech,
   };
 }
 

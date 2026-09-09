@@ -228,13 +228,40 @@ Owns (spec 12):
 Does **not** own, and may never write:
 
 - Curriculum Level, group, ordering, or publication state
-- Official translation, teaching summary, or official examples
+- Official translation (the graded answer), or official examples
 - SRS state or learner progress
 
 Dictionary data is supporting evidence. Polyglot remains authoritative for
-every teaching decision: an imported definition is never automatically
-promoted to Polyglot's learner-facing explanation, and no dictionary sense is
-selected without an explicit administrative act.
+every teaching decision: nothing imported reaches a learner automatically,
+and no dictionary sense is selected without an explicit administrative act.
+
+**Promotion on approval** (user decision, 2026-09-09). When an admin confirms
+a mapping, that match's part of speech, definition, and IPA are written into
+the vocabulary item itself. The confirmation *is* the explicit administrative
+act the paragraph above requires, and a bulk import routinely leaves exactly
+those three fields empty, so leaving them unwritten meant the review queue
+produced no curriculum improvement at all.
+
+The boundary still holds, because the write is not `lexicon`'s:
+
+- `lexicon` supplies values and never writes a curriculum table.
+- `admin` performs the write (`applyDictionaryFieldsToItem`), audited, and
+  follows the ordinary status rule — a published item's promotion lands in
+  that item's **draft**, never in its live rows, so it reaches learners only
+  through a deliberate publish.
+- The Admin dictionary actions compose the two.
+
+Three fields, and no more. The **term** is the item's permanent identity, and
+the **primary meaning** is the answer a learner is graded against — promoting
+a dictionary gloss into either would change what the item is or silently
+break answer checking against already-authored answers. A field the
+dictionary has no value for is left alone rather than erased, and the audit
+event carries the replaced values, which is the only way back: un-approving
+does not restore them.
+
+Promotion re-runs whenever *what is confirmed* changes — the entry, the
+selected sense, the preferred pronunciation — not only on first approval, so
+an item never keeps values from a sense the admin has since changed.
 
 `lexicon` applies to vocabulary only. Grammar has no dictionary integration.
 
