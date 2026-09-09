@@ -77,7 +77,10 @@ export function OnboardingFlow({ isReplay }: OnboardingFlowProps) {
         setError(result.error.message);
         return;
       }
-      router.replace("/dashboard");
+      // Onboarding's last step is the curriculum choice (spec 16), not the
+      // app: the learner picks how new words are introduced before their
+      // first lesson exists.
+      router.replace("/onboarding/curriculum");
     });
   }, [isReplay, router]);
 

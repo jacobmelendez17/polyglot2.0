@@ -8,6 +8,13 @@
  */
 export { hasRole, requireRole } from "./role-helpers";
 export { isOnboardingRequired } from "./onboarding";
+export {
+  CURRICULUM_MODES,
+  isCurriculumChoiceRequired,
+  isCurriculumMode,
+  isThemeSelectionRequired,
+} from "./curriculum-preference";
+export type { CurriculumMode, LanguageSettings } from "./curriculum-preference";
 export { getDefaultLanguageCode } from "./provisioning-config";
 export { USER_ROLES } from "./user-types";
 export type { PolyglotUser, UserRole } from "./user-types";

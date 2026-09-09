@@ -1,8 +1,10 @@
 import type { LearningItem } from "@/domains/curriculum";
+import type { CurriculumMode, LanguageSettings } from "@/domains/users";
+import { isThemeSelectionRequired } from "@/domains/users";
 import { checkAnswer } from "@/lib/answer-checking";
 import { LessonError } from "@/lib/errors/lesson-errors";
 
-import { selectLessonBatch, toLessonBatchItems } from "./lesson-batch";
+import { getAvailableThemes, selectLessonBatch, toLessonBatchItems } from "./lesson-batch";
 import type { LessonCurriculumReader } from "./lesson-curriculum-reader";
 import {
   getCharacterHelpers,
@@ -22,6 +24,7 @@ import type {
   LessonSessionResult,
   LessonStartResult,
   LessonState,
+  LessonThemeChoice,
   QuizAnswerFeedback,
   QuizQuestionView,
   StudyItemView,
@@ -130,26 +133,92 @@ function computeItemStates(
   return states;
 }
 
+/**
+ * The themes a learner can choose between right now, with how much is left
+ * in each. Shared by `startLesson`'s `choose-theme` result and the
+ * curriculum preference screen, so the two can never offer different lists.
+ */
+export function toThemeChoices(eligibleItems: LearningItem[]): LessonThemeChoice[] {
+  const remainingByTheme = new Map<string, number>();
+  for (const item of eligibleItems) {
+    if (item.type !== "vocabulary" || !item.theme) continue;
+    remainingByTheme.set(item.theme.id, (remainingByTheme.get(item.theme.id) ?? 0) + 1);
+  }
+  return getAvailableThemes(eligibleItems).map((theme) => ({
+    id: theme.id,
+    name: theme.name,
+    remainingCount: remainingByTheme.get(theme.id) ?? 0,
+  }));
+}
+
+/** Every theme this learner could still study in their current level (spec 16) — the preference screen's own list. */
+export async function listAvailableThemes({
+  curriculum,
+  userId,
+  languageId,
+}: {
+  curriculum: LessonCurriculumReader;
+  userId: string;
+  languageId: string;
+}): Promise<LessonThemeChoice[]> {
+  return toThemeChoices(await curriculum.getEligibleLearningItems(userId, languageId));
+}
+
 export type StartLessonInput = {
   curriculum: LessonCurriculumReader;
   userId: string;
   languageId: string;
   /** The language's stable code (`es-MX`), used for display names and character helpers. */
   languageCode: string;
+  /**
+   * The learner's curriculum preference for this language (spec 16), or
+   * `null` when they have not chosen. Passed in rather than read here: this
+   * module stays database-free and injectable, exactly as it does for
+   * curriculum.
+   */
+  settings?: LanguageSettings | null;
   now?: number;
 };
 
-/** Spec 07 §10 — server-selected batch, signed initial state. */
+/** The mode a lesson is built under when the learner has no stored preference — used only by the fixture-backed unit tests and the pre-spec-16 call shape. */
+const FALLBACK_CURRICULUM_MODE: CurriculumMode = "balanced";
+
+/**
+ * Spec 07 §10 — server-selected batch, signed initial state — now under the
+ * learner's spec 16 curriculum mode.
+ *
+ * A learner in Theme mode with no usable theme gets `choose-theme` rather
+ * than an empty lesson: the batch is genuinely undecidable until they pick,
+ * and silently choosing one for them would be the application making a
+ * curriculum decision the spec assigns to the learner.
+ */
 export async function startLesson({
   curriculum,
   userId,
   languageId,
   languageCode,
+  settings = null,
   now = Date.now(),
 }: StartLessonInput): Promise<LessonStartResult> {
   const eligibleItems = await curriculum.getEligibleLearningItems(userId, languageId);
   const batchSize = getLessonBatchSize();
-  const selected = selectLessonBatch({ eligibleItems, batchSize });
+  const mode = settings?.curriculumMode ?? FALLBACK_CURRICULUM_MODE;
+
+  if (mode === "theme") {
+    const themes = toThemeChoices(eligibleItems);
+    if (isThemeSelectionRequired(settings, themes.map((theme) => theme.id))) {
+      // Nothing left in any theme is "nothing left to learn", not a choice.
+      if (themes.length === 0) return { kind: "empty" };
+      return { kind: "choose-theme", themes };
+    }
+  }
+
+  const selected = selectLessonBatch({
+    eligibleItems,
+    batchSize,
+    mode,
+    selectedThemeId: settings?.selectedVocabularyGroupId ?? null,
+  });
 
   if (selected.length === 0) {
     return { kind: "empty" };

@@ -87,7 +87,19 @@ export type LessonSessionResult = {
   characterHelpers: readonly string[];
 };
 
-export type LessonStartResult = { kind: "empty" } | ({ kind: "session" } & LessonSessionResult);
+/**
+ * Theme mode needs a theme before a batch exists (spec 16): the learner has
+ * either never picked one or has just finished the last item in the one they
+ * picked. A distinct result kind rather than an empty lesson, because the
+ * two mean opposite things — "nothing left to learn" versus "tell me which
+ * part you want next".
+ */
+export type LessonThemeChoice = { id: string; name: string; remainingCount: number };
+
+export type LessonStartResult =
+  | { kind: "empty" }
+  | { kind: "choose-theme"; themes: LessonThemeChoice[] }
+  | ({ kind: "session" } & LessonSessionResult);
 
 /**
  * What the results screen renders after a lesson (spec 07 §51, §52).

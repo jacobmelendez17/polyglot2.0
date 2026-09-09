@@ -277,11 +277,22 @@ export async function applyItemProgressUpdate(
  * "intermission" type once one exists, per architecture.md's "Intermissions
  * are not SRS gating items."
  *
+ * **Published items only** (fixed 2026-09-09, while importing the real Level
+ * 1 curriculum in spec 16). This counted every row regardless of status,
+ * which made a level permanently un-unlockable the moment unpublished
+ * curriculum was staged in it: a learner cannot be taught a `pending` or
+ * `archived` item, so counting one in the denominator asks them to reach a
+ * ratio no amount of study can reach. Real Level 1 staged 57 pending items
+ * behind 4 published ones and the ratio dropped to 4/62 overnight.
+ *
  * No new index needed: `learning_items_level_type_position_key`'s leftmost
  * column is already `level_id`.
  */
 export async function countLevelGatingItems(db: DbClient, levelId: string): Promise<number> {
-  const [row] = await db.select({ value: count() }).from(learningItems).where(eq(learningItems.levelId, levelId));
+  const [row] = await db
+    .select({ value: count() })
+    .from(learningItems)
+    .where(and(eq(learningItems.levelId, levelId), eq(learningItems.status, "published")));
   return row?.value ?? 0;
 }
 

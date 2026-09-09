@@ -2,10 +2,20 @@ import { auth } from "@clerk/nextjs/server";
 import { cookies } from "next/headers";
 
 import { db } from "@/db/client";
+import { getRateLimiter } from "@/providers/rate-limit";
 import { SANDBOX_SESSION_COOKIE, verifySandboxGrant } from "@/domains/sandbox/sandbox-session-token";
 import { AppError } from "@/lib/errors/app-error";
 
-import { completeOnboarding as completeOnboardingInDb, findUserByClerkUserId, findUserById, findUsersByIds, provisionUser } from "./user-repository";
+import type { CurriculumMode, LanguageSettings } from "./curriculum-preference";
+import {
+  completeOnboarding as completeOnboardingInDb,
+  findLanguageSettings,
+  findUserByClerkUserId,
+  findUserById,
+  findUsersByIds,
+  provisionUser,
+  saveCurriculumPreference,
+} from "./user-repository";
 import { canViewSandboxAs } from "./sandbox-view";
 import type { PolyglotUser } from "./user-types";
 
@@ -80,4 +90,32 @@ export async function getUsersByIds(ids: string[]): Promise<PolyglotUser[]> {
  */
 export async function completeOnboarding(userId: string, now: Date = new Date()): Promise<PolyglotUser | null> {
   return completeOnboardingInDb(db, userId, now);
+}
+
+/** This learner's settings for one language, or `null` when they have not chosen a curriculum mode yet (spec 16). */
+export async function getLanguageSettings(userId: string, languageId: string): Promise<LanguageSettings | null> {
+  return findLanguageSettings(db, userId, languageId);
+}
+
+/**
+ * Persists the curriculum mode (spec 16). Rate limited here rather than in
+ * the repository, for the same reason every other service in this codebase
+ * does it at this layer: the limiter provider is `server-only`-guarded and
+ * would make the repository untestable against a rolled-back transaction.
+ *
+ * A sandbox persona is refused: the Sandbox sets a persona's mode through
+ * `domains/sandbox`, which audits it as an admin action. Letting a learner
+ * route write it here would be a second, unaudited path to the same row.
+ */
+export async function setCurriculumPreference(input: {
+  userId: string;
+  languageId: string;
+  curriculumMode: CurriculumMode;
+  selectedVocabularyGroupId?: string | null;
+}): Promise<LanguageSettings> {
+  const decision = await getRateLimiter().check({ policy: "curriculum-preference", subject: input.userId });
+  if (!decision.allowed) {
+    throw new AppError("RATE_LIMITED", `Please slow down and try again in ${decision.retryAfterSeconds}s.`);
+  }
+  return saveCurriculumPreference(db, input);
 }

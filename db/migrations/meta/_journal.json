@@ -99,6 +99,13 @@
       "when": 1788906773069,
       "tag": "0013_fuzzy_lake",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1788920186893,
+      "tag": "0014_early_thunderbolt",
+      "breakpoints": true
     }
   ]
 }

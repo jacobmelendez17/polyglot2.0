@@ -9,6 +9,7 @@ export {
   getCharacterHelpers,
   getLanguageDisplayName,
   getLessonBatchSize,
+  getLessonGrammarShare,
   getLessonTokenTtlSeconds,
   getRetrySpacingMinimum,
 } from "./lesson-config";
@@ -20,6 +21,7 @@ export type {
   LessonPhase,
   LessonSessionResult,
   LessonStartResult,
+  LessonThemeChoice,
   QuizAnswerFeedback,
   QuizQuestionDirection,
   QuizQuestionView,

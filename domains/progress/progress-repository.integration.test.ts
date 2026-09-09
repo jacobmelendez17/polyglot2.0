@@ -431,7 +431,7 @@ describe("progress repository — review-completion mutations (spec 09 unit 4)",
   });
 
   it("a genuine two-connection concurrent completion applies exactly once — the loser's stale expectedVersion is rejected, not silently reapplied", async () => {
-    const { learnerId, gatoId, languageId } = await seedTestFixtures(testDb);
+    const { learnerId, gatoId, languageId } = await seedTestFixtures(testDb, { committed: true });
     const original = await getItemProgress(testDb, learnerId, gatoId);
     if (!original) throw new Error("expected the seeded gato progress row to exist");
 

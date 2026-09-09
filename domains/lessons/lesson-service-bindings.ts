@@ -1,6 +1,6 @@
 import { db } from "@/db/client";
 import { databaseCurriculumReader } from "@/domains/curriculum/server";
-import { resolveUserNow } from "@/domains/users/server";
+import { getLanguageSettings, resolveUserNow } from "@/domains/users/server";
 import { getRateLimiter } from "@/providers/rate-limit";
 import { LessonError } from "@/lib/errors/lesson-errors";
 
@@ -26,8 +26,20 @@ import type {
 
 type WithoutCurriculum<T> = Omit<T, "curriculum">;
 
-export async function startLesson(input: WithoutCurriculum<StartLessonInput>) {
-  return service.startLesson({ ...input, curriculum: databaseCurriculumReader });
+/**
+ * Resolves the learner's curriculum preference here rather than in
+ * `lesson-service.ts` — same split as the curriculum reader: the
+ * orchestration stays database-free and unit-testable, and the one place
+ * that knows about the database is this bindings module.
+ */
+export async function startLesson(input: WithoutCurriculum<StartLessonInput> & { settings?: undefined }) {
+  const settings = await getLanguageSettings(input.userId, input.languageId);
+  return service.startLesson({ ...input, settings, curriculum: databaseCurriculumReader });
+}
+
+/** The themes the learner can pick from, for the curriculum preference screen and Settings. Read-only. */
+export async function listAvailableThemes(input: { userId: string; languageId: string }) {
+  return service.listAvailableThemes({ ...input, curriculum: databaseCurriculumReader });
 }
 
 export async function openLessonItem(input: OpenLessonItemInput) {

@@ -1,0 +1,58 @@
+word,translation,level,batch_id
+cero,zero,1,1
+uno,one,1,1
+dos,two,1,1
+tres,three,1,1
+cuatro,four,1,1
+cinco,five,1,1
+seis,six,1,1
+siete,seven,1,1
+ocho,eight,1,1
+nueve,nine,1,1
+diez,ten,1,1
+hola,hello,1,2
+adiós,goodbye,1,2
+gracias,thank you,1,2
+de nada,you're welcome,1,2
+por favor,please,1,2
+perdón,excuse me / sorry,1,2
+disculpe,excuse me,1,2
+buenos días,good morning,1,2
+buenas tardes,good afternoon,1,2
+buenas noches,good evening / good night,1,2
+sí,yes,1,2
+¿cómo estás?,how are you?,1,2
+mucho gusto,nice to meet you,1,2
+hasta luego,see you later,1,2
+la familia,family,1,3
+la madre,mother,1,3
+el padre,father,1,3
+los padres,parents,1,3
+el hermano,brother,1,3
+la hermana,sister,1,3
+el hijo,son,1,3
+la hija,daughter,1,3
+el abuelo,grandfather,1,3
+la abuela,grandmother,1,3
+el amigo,friend,1,3
+la persona,person,1,3
+rojo,red,1,4
+azul,blue,1,4
+blanco,white,1,4
+negro,black,1,4
+verde,green,1,4
+gris,gray,1,4
+amarillo,yellow,1,4
+naranja,orange,1,4
+yo,I,1,5
+el,the (masculine singular),1,5
+la,the (feminine singular),1,5
+adjective placement,adjectives generally follow nouns,1,5
+y,and,1,5
+o,or,1,5
+pero,but,1,5
+de,of / from,1,5
+a,to / at,1,5
+en,in / on / at,1,5
+con,with,1,5
+sin,without,1,5

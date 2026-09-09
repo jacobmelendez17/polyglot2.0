@@ -8,7 +8,9 @@
 export {
   getSandboxSnapshotForOwner,
   makeSandboxReviewsDue,
+  previewSandboxCurriculum,
   resetSandboxForOwner,
+  setSandboxCurriculumMode,
   setSandboxItemStage,
   setSandboxTimeOffsetForOwner,
   simulateLevelForSandbox,
@@ -22,6 +24,7 @@ export {
 export type {
   MakeSandboxReviewsDueServiceInput,
   ResetSandboxServiceInput,
+  SetSandboxCurriculumModeServiceInput,
   SetSandboxItemStageServiceInput,
   SetSandboxTimeOffsetServiceInput,
   SimulateLevelServiceInput,

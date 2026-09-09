@@ -8,6 +8,22 @@ Implementation / feature specs
 
 ## Current Goal
 
+**Spec 16 (Curriculum Decider & Level 1 Real Data) is complete — shipped
+2026-09-09**, as two units in one session at the user's request. Four
+product decisions were put to the user first and are recorded in the two
+Completed entries below; one of them (**no Settings surface yet**) leaves a
+spec-16 checklist item deliberately unmet, tracked in Next Up.
+
+Unit A imported the authored Level 1 curriculum (45 vocabulary across four
+named themes + 12 grammar) into the real database as **Pending**, and
+archived the five seeded demo items it replaces. **Level 1 currently has no
+published learner-facing content** — publishing it is an explicit Admin act
+that has not been done yet (see Next Up). Unit B built the curriculum
+decider: a `user_language_settings` row per learner/language, mode-aware
+batch selection in `domains/lessons`, the post-onboarding choice screen, the
+Theme-mode "choose your next theme" state on `/lessons`, and Sandbox
+controls that preview all three modes with the production selection logic.
+
 **Spec 15 (Onboarding Slideshow) is complete — shipped 2026-09-09.** A
 five-slide, full-screen onboarding shown once after sign-up, gated
 server-side from `users.onboarding_completed_at`, plus Sandbox replay. One
@@ -83,6 +99,162 @@ writing to real `user_item_progress` rows.
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
 
+- **Spec 16 unit A — Level 1 real curriculum** (2026-09-09) — the authored
+  Level 1 file (`content/curriculum/spanish-level-1.csv`, 45 vocabulary in
+  batches 1-4 + 12 grammar in batch 5) imported into the real database
+  through the *existing* spec 13 import path — same validation, duplicate
+  detection, audit events, Pending status, and Lexicon matching as the Admin
+  upload dialog. New: `content/curriculum/` (authored curriculum source,
+  deliberately separate from `/data-sources`' third-party data, with its own
+  README), a per-level **manifest** carrying what a CSV cannot (theme names,
+  level name, validation targets), and `npm run curriculum:import`
+  (`scripts/curriculum-import.ts`).
+  - **Two small parser fixes made the file importable at all**: `csv-parse`
+    now strips the UTF-8 BOM (without it the first header reads as
+    `\ufeffword` and the import rejects a file whose first column is plainly
+    `word`), and `IMPORT_COLUMN_ALIASES` accepts `batch_id`/`batch`/
+    `group_id`/`group_number` as the `group` column. Both are covered by new
+    tests in `vocabulary-import-file-parser.test.ts`, including a real
+    BOM + CRLF + `batch_id` file.
+  - **The script is a one-time loader, never a runtime data source.** It
+    builds its own database client (the `server-only` guard makes
+    `db/client.ts` unusable under `tsx`, same as every other CLI here) and
+    calls the `DbClient`-injectable services directly. Every write is keyed
+    by an idempotency key derived from the file's own content hash, so a
+    second run replays instead of importing twice — verified by running it
+    twice and confirming 62 items, not 119. `--dry-run` applies the whole
+    plan inside a **rolled-back transaction** and reports what would happen,
+    including rows that only become importable once this run's own groups
+    exist; verified that nothing survived the rollback.
+  - **An actor is required** (`--actor <user id | Clerk id>`, restricted to
+    `admin`/`developer`): these are real audited admin curriculum mutations
+    and an unattributable one is worse than a failed run. The real import ran
+    as the existing admin `3e698431-…`.
+  - **User decisions (2026-09-09):** theme names are *Numbers*, *Greetings &
+    Courtesy*, *Family & People*, *Colors* (batches 1-4; group 1 already
+    existed as "Numbers" and was reused, never renamed by the script — an
+    existing group's name is authored content and a mismatch is reported,
+    not overwritten). The five seeded demo items (gato/casa/agua/y/rojo) were
+    **archived, never deleted** — gato carries real progress and notes.
+  - **Level 1's validation targets moved from 3/1/1 (a leftover from spec
+    11's browser pass) to 45/4/12**, matching the authored curriculum, so
+    the level can actually be published. Publishing itself was deliberately
+    not done — spec 16: "Importing or mapping Level 1 must not automatically
+    publish it."
+  - **Dictionary intake ran on exactly the 45 new vocabulary items**: 7
+    auto-matched, 1 review-required, 37 unmatched. That is the expected
+    shape with only the ~20-record committed Wiktextract fixture imported —
+    the real Kaikki dump has never been loaded into this database (Next Up
+    #15's existing caveat). Grammar bypassed mapping entirely, as spec 12
+    requires.
+- **Spec 16 verification** (2026-09-09) — `npm run typecheck`, `npm run lint`
+  (clean), `npm run test` (**634 passing**, 114 files — +31 for spec 16:
+  batch selection across all three modes, the preference rules, the mode
+  picker, and the CSV parser's BOM/`batch_id` handling), `npm run build`,
+  `npm run db:verify`, and `npm run test:integration` at **281 of 285
+  passing** — the 4 failures are exactly the two pre-existing shared-branch
+  conditions in Next Up #9 and #10, unchanged in count and identity from the
+  baseline before this work.
+  - **Mode selection was also exercised against the real imported
+    curriculum**, not only fixtures: a throwaway script published Level 1
+    inside a rolled-back transaction, provisioned a learner, and ran the real
+    `getEligibleLessonItems` + `selectLessonBatch` for each mode. Theme gave
+    5 Greetings words + 1 grammar item; Balanced gave one word from each of
+    the four themes plus grammar; Random mixed both types; and a theme with
+    one word left gave exactly that word plus its one grammar item. That is
+    the strongest evidence available that the theme join and the selection
+    rules work on real data — see the gap below for what it is not.
+  - **Gap: no real-browser pass**, the same gap specs 14 and 15 carry. Every
+    new screen (the curriculum choice screen, the `/lessons` theme picker,
+    the Sandbox panel) is verified by component tests and `npm run build`
+    only. It is also **not possible to walk the learner flow end to end until
+    Level 1 is published** — with no published curriculum, `/lessons` is
+    empty by definition.
+- **Spec 16 unit B — Curriculum decider** (2026-09-09) — the learner chooses
+  how new curriculum is introduced, per language.
+  - **Schema** (migration `0014_early_thunderbolt`, purely additive): a
+    `curriculum_mode` enum (`theme`/`random`/`balanced`) and
+    `user_language_settings` (PK `user_id, language_id`, a nullable
+    `selected_vocabulary_group_id`). Two constraints carry the rules rather
+    than convention: a check making a stored theme impossible outside Theme
+    mode, and a composite foreign key making a theme from another language
+    unrepresentable. **The absence of a row is the "has not chosen" state**,
+    so `curriculum_mode` is `NOT NULL` with no default — the same shape
+    `user_item_progress` uses for enrollment.
+  - **Selection** lives in `domains/lessons/lesson-batch.ts` (extended, not
+    duplicated) — 16 unit tests. All three modes are scoped to the current
+    level. Theme and Balanced reserve a grammar share derived from
+    `CURRICULUM_VALIDATION_CONFIG` (48:12 → 1 grammar item in a 6-item
+    batch), never a magic number; Random skips the reservation entirely,
+    which is the one mode spec 16 allows to mix the two freely. **User
+    decision (2026-09-09):** proportional reservation with natural
+    degradation, chosen over "vocabulary first" and "grammar only fills short
+    batches".
+  - **Two interpretations worth knowing**, both encoded and tested. (1) The
+    reserved grammar share is a *pace, not a filler*: when the vocabulary
+    side comes up short the batch is simply shorter, so spec 16's example (a
+    theme with one item left) really does produce a one-item vocabulary
+    portion instead of five grammar items. The one exception is a level whose
+    vocabulary is entirely learned, where grammar fills the batch rather than
+    trickling out one item per lesson. (2) Selection is now scoped to a
+    single level; previously a batch could span into a higher unlocked level
+    when the lower one ran short. Spec 16 says "the current Level" for every
+    mode, and level unlock ordinarily prevents the overlap anyway.
+  - **Flow**: onboarding's `Start Now!` now routes to
+    `/onboarding/curriculum` rather than `/dashboard`; both the `(app)` and
+    `(focus)` layouts gate on a missing settings row exactly as they gate on
+    onboarding (server-side, sandbox personas exempt). A Theme-mode learner
+    whose theme is finished gets a new `choose-theme` start result and the
+    `LessonThemePicker` on `/lessons` — deliberately distinct from
+    `LessonEmptyState`, which means the opposite thing.
+  - **Sandbox** (`SandboxCurriculumPanel`) switches the *persona's* mode
+    (audited as `SANDBOX_CURRICULUM_MODE_CHANGED`, writing the persona's row
+    and never the admin's), links the choice screen's replay at
+    `/onboarding/curriculum?replay=1`, and previews the next batch under each
+    mode by running the real `selectLessonBatch` over the persona's real
+    eligible curriculum — not a description of what each mode would do.
+  - **A real product bug this surfaced and fixed**: `countLevelGatingItems`
+    (the level-unlock denominator) counted every `learning_items` row
+    regardless of status. Staging Level 1's 57 pending items behind 4
+    published ones dropped the ratio to 4/62, making the level permanently
+    un-unlockable — a learner cannot study a pending item. Now counts
+    published items only; `architecture.md`'s Level Unlock section records
+    the rule. This was caught by the integration suite, not by inspection.
+  - **The integration suite needed real work to survive real data**, and this
+    is the part most worth reading before the next curriculum import.
+    `TEST_DATABASE_URL` and `DATABASE_URL` are **the same database**, so the
+    imported curriculum is visible to every integration test. The import took
+    the suite from 4 known failures to 50; it is back to 4 (the two
+    pre-existing shared-branch conditions in Next Up #9/#10), via:
+    - **`seedTestFixtures` re-asserts `status: "published"` on conflict**,
+      because archiving the demo items otherwise left 14 test files reading
+      archived rows through published-only paths. Tests seed inside a
+      rolled-back transaction, so that is scoped to the test — but the four
+      callers whose writes *commit* (`npm run db:seed` and the three
+      concurrency tests that need committed rows) now pass
+      `{ committed: true }` and leave existing statuses alone. Without that
+      flag, running the suite silently un-archived the demo items in the real
+      database, which is exactly what happened once mid-session and had to be
+      undone.
+    - **The archive step's idempotency key includes the status it archives
+      *from*.** A key derived only from the file and the item id replayed the
+      first archive's stored result and wrote nothing when the items came
+      back as published — the archive appeared to succeed while doing
+      nothing. Worth remembering generally: a content-hash key makes a
+      *repeatable* operation unrepeatable.
+    - **15 assertions were rewritten to stop asserting the size of the
+      curriculum.** Tests that asked language-wide questions ("list every
+      item", "tally each status", "page through all of them") now seed a
+      throwaway language of their own —
+      `curriculum-admin-repository.integration.test.ts`'s
+      `seedIsolatedCurriculum`, extending a pattern that file already had.
+      Level- and group-scoped tests create their own level instead of reusing
+      the shared fixture Level 1. Two others changed shape rather than scope:
+      the accent/duplicate test now uses invented terms (the real curriculum
+      contains "sí"), and the archive-audit test asserts a **delta** rather
+      than an absolute count, since the audit log is append-only and never
+      rolled back. None of these weaken what the tests prove; each was
+      asserting something about the database rather than about the code.
 - **Context files** (2026-08-20) — six source-of-truth documents written; cross-file contradictions resolved in an audit.
 - **Spec 01 — Design System** (2026-08-21) — shadcn/ui configured with Button, Card, Dialog, Input, Tabs, Textarea, ScrollArea; `lucide-react`; `cn()` at `lib/utils.ts`; `ui-context.md` theme tokens and Shantell Sans wired into `globals.css` and `app/layout.tsx`.
 - **Spec 02 — Component Design / base chrome** (2026-08-25) — layout, z-index, and motion tokens added to `globals.css`; `(marketing)` route-group layout; `SiteHeader` (server) with `SiteHeaderScroll` and `SiteNavMobile` client boundaries; `SkipLink`; shadcn `Sheet` added. Vitest and Testing Library were stood up in this unit — 4 tests.
@@ -492,17 +664,56 @@ Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real
 
 ## In Progress
 
-Nothing. Specs 01–15 are all complete. Spec 15 (Onboarding) shipped
-2026-09-09; spec 14 (Decks) shipped 2026-09-08. Both carry the same single
-outstanding item — a **real-browser pass**, which every earlier unit had and
-these two do not; their UI is verified by component tests and `npm run build`
-only. Pick the next piece of work from Next Up.
+Nothing. Specs 01–16 are all complete. Spec 16 shipped 2026-09-09; spec 15
+(Onboarding) the same day; spec 14 (Decks) 2026-09-08. All three carry the
+same single outstanding item — a **real-browser pass**, which every earlier
+unit had and these do not; their UI is verified by component tests and
+`npm run build` only. Pick the next piece of work from Next Up.
+
+**Two things about spec 16 need a human, not more code:**
+
+1. **Level 1 is imported but not published.** 45 vocabulary + 12 grammar sit
+   at Pending, and the five demo items that used to be the only published
+   Level 1 content are archived — so a learner currently sees *nothing* to
+   learn. Publishing is an explicit Admin act (spec 16 forbids the import
+   doing it): review at `/admin/curriculum`, then publish. The level's
+   targets are already set to 45/4/12 so the publish gate will pass.
+2. **The 38 unmatched/review-required dictionary mappings** are waiting in
+   the Admin dictionary review queue, as designed.
 
 **Spec 11 history (retained):** Units 1-3, the curriculum CRUD engine/editors, the full Levels/Groups feature, the Logs UI, Bulk Actions, and item-level Curriculum Ordering were done first. What remained — and shipped 2026-09-07 — was the Developer Sandbox UI's time-simulation and "Open Sandbox" controls, plus the spec's consolidated Final Verification pass. Both are done — see the Completed entry above.
 
 **Note (2026-09-06, during spec 12):** `app/(admin)/admin/sandbox/page.tsx` did not compile — it rendered `<SandboxSnapshotView snapshot={snapshot} />` without the `now` prop the component requires, so `tsc --noEmit` and `npm run build` both failed on a clean checkout at `6c9d522`. Fixed in passing (one line, `now={new Date()}`) because it blocked spec 12's own verification. Worth knowing that whatever produced that page was never type-checked — the same page was extended again on 2026-09-07 and does compile now.
 
 ## Next Up
+
+**Two items from spec 16 sit above this numbered list** — kept out of it so
+the existing numbering (referred to as "#9", "#10", "#22" elsewhere in this
+file) does not shift.
+
+- **A. The integration suite shares one database with the running
+  application** — `TEST_DATABASE_URL === DATABASE_URL` in `.env.local`. That
+  was a documented, tolerable tradeoff while the only curriculum was five
+  demo rows. It is not tolerable now: spec 16's import broke 15 tests that
+  were quietly asserting the size of the curriculum, and a seed helper
+  briefly un-archived real curriculum rows as a side effect of running the
+  suite. All of that is fixed, but the underlying condition is unchanged and
+  will bite again on the next import. **The real fix is a dedicated Neon test
+  branch** pointed at by `TEST_DATABASE_URL` — a branch created in the Neon
+  console and one env var changed. It would also retire #9 and #10 below (the
+  accumulated audit log and the idempotency cleanup count), which have
+  exactly the same cause. An infrastructure decision, so it is recorded here
+  rather than taken unilaterally.
+- **B. Spec 16's Settings requirement is deliberately unmet.** Spec 16 asks
+  for the curriculum preference to be changeable from Settings, but no
+  `/settings` route exists and `context/feature-specs/00-settings.md` is
+  empty. **User decision (2026-09-09):** ship onboarding + Sandbox only and
+  defer the Settings surface until that spec is written. The preference is
+  changeable today only by revisiting `/onboarding/curriculum` directly (the
+  route shows the current choice rather than an empty form) or, for a
+  Theme-mode learner, by finishing a theme. When `/settings` is built it
+  needs one control: `CurriculumModePicker` plus
+  `setCurriculumPreferenceAction`, both already built and shared.
 
 1. ~~**Spec 11 (Admin), remaining consolidated scope.**~~ — **done 2026-09-07.** See the "Spec 11 (Admin) completed" entry above under Completed (this list entry was stale — left unstruck when that entry shipped, caught and fixed while updating this list for spec 13).
 2. ~~**Spec 07 unit 6**~~ — **done 2026-09-07.** See the Completed entry. Real atomic enrollment, idempotency, rate limiting, the `LESSON_ALREADY_ENROLLED` check, and the fixture-to-real-curriculum rewire all shipped together.

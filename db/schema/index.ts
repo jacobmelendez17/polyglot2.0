@@ -7,4 +7,5 @@ export * from "./learner-content";
 export * from "./lexicon";
 export * from "./progress";
 export * from "./reviews";
+export * from "./user-settings";
 export * from "./users";

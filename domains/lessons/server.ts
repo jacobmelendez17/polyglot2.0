@@ -15,6 +15,7 @@
  */
 export {
   completeLesson,
+  listAvailableThemes,
   openLessonItem,
   startLesson,
   startQuiz,

@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import type { VocabularyItem } from "@/domains/curriculum";
+import type { GrammarItem, LearningItem, VocabularyItem } from "@/domains/curriculum";
 
-import { selectLessonBatch } from "./lesson-batch";
+import { getAvailableThemes, selectLessonBatch } from "./lesson-batch";
+
+const NUMBERS = { id: "theme-numbers", name: "Numbers", position: 1 };
+const GREETINGS = { id: "theme-greetings", name: "Greetings", position: 2 };
+const COLORS = { id: "theme-colors", name: "Colors", position: 3 };
 
 function makeItem(overrides: Partial<VocabularyItem> & { id: string }): VocabularyItem {
   return {
@@ -21,41 +25,159 @@ function makeItem(overrides: Partial<VocabularyItem> & { id: string }): Vocabula
   };
 }
 
+function makeGrammar(overrides: Partial<GrammarItem> & { id: string }): GrammarItem {
+  return {
+    type: "grammar",
+    languageId: "es-MX",
+    levelNumber: 1,
+    lessonPriority: 1,
+    structure: overrides.id,
+    meaning: "placeholder",
+    explanation: "placeholder",
+    examples: [],
+    resources: [],
+    requiredQuestions: [{ format: "translation", direction: "targetToEnglish" }],
+    ...overrides,
+  };
+}
+
+/** A small deterministic generator, so Random mode's tests describe fixed behavior rather than a sample. */
+function seededRandom(seed: number): () => number {
+  let state = seed;
+  return () => {
+    state = (state * 1664525 + 1013904223) % 4294967296;
+    return state / 4294967296;
+  };
+}
+
+/** A level shaped like the real Level 1: several themes of vocabulary plus its own grammar sequence. */
+function makeLevel(): LearningItem[] {
+  return [
+    ...Array.from({ length: 4 }, (_, i) => makeItem({ id: `numbers-${i}`, theme: NUMBERS, lessonPriority: i + 1 })),
+    ...Array.from({ length: 4 }, (_, i) => makeItem({ id: `greetings-${i}`, theme: GREETINGS, lessonPriority: i + 10 })),
+    ...Array.from({ length: 4 }, (_, i) => makeItem({ id: `colors-${i}`, theme: COLORS, lessonPriority: i + 20 })),
+    ...Array.from({ length: 4 }, (_, i) => makeGrammar({ id: `grammar-${i}`, lessonPriority: i + 1 })),
+  ];
+}
+
 describe("selectLessonBatch", () => {
   it("respects the configured batch size", () => {
-    const eligibleItems = Array.from({ length: 10 }, (_, i) =>
-      makeItem({ id: `item-${i}`, levelNumber: 1, lessonPriority: i }),
-    );
-    const batch = selectLessonBatch({ eligibleItems, batchSize: 6 });
+    const batch = selectLessonBatch({ eligibleItems: makeLevel(), batchSize: 6, mode: "balanced" });
     expect(batch).toHaveLength(6);
   });
 
-  it("uses the default batch size of 6 when the eligible pool is larger", () => {
-    const eligibleItems = Array.from({ length: 8 }, (_, i) =>
-      makeItem({ id: `item-${i}`, levelNumber: 1, lessonPriority: i }),
-    );
-    const batch = selectLessonBatch({ eligibleItems, batchSize: 6 });
-    expect(batch.map((item) => item.id)).toEqual(["item-0", "item-1", "item-2", "item-3", "item-4", "item-5"]);
+  it("returns an empty batch for an empty eligible set", () => {
+    expect(selectLessonBatch({ eligibleItems: [], batchSize: 6, mode: "balanced" })).toEqual([]);
   });
 
-  it("prioritizes lower unlocked curriculum levels over higher ones", () => {
+  it("does not let the client widen the batch beyond the eligible pool", () => {
+    const batch = selectLessonBatch({ eligibleItems: [makeItem({ id: "only-item" })], batchSize: 6, mode: "balanced" });
+    expect(batch).toHaveLength(1);
+  });
+
+  it("teaches the current level only, never mixing a higher level into the same batch", () => {
     const eligibleItems = [
       makeItem({ id: "level-2-a", levelNumber: 2, lessonPriority: 1 }),
       makeItem({ id: "level-1-b", levelNumber: 1, lessonPriority: 2 }),
       makeItem({ id: "level-1-a", levelNumber: 1, lessonPriority: 1 }),
     ];
-    const batch = selectLessonBatch({ eligibleItems, batchSize: 3 });
-    expect(batch.map((item) => item.id)).toEqual(["level-1-a", "level-1-b", "level-2-a"]);
+    const batch = selectLessonBatch({ eligibleItems, batchSize: 6, mode: "balanced" });
+    expect(batch.map((item) => item.id)).toEqual(["level-1-a", "level-1-b"]);
   });
 
-  it("returns an empty batch for an empty eligible set", () => {
-    const batch = selectLessonBatch({ eligibleItems: [], batchSize: 6 });
-    expect(batch).toEqual([]);
+  describe("theme mode", () => {
+    it("teaches only the selected theme, in curriculum order", () => {
+      const batch = selectLessonBatch({
+        eligibleItems: makeLevel(),
+        batchSize: 6,
+        mode: "theme",
+        selectedThemeId: GREETINGS.id,
+      });
+      const vocabulary = batch.filter((item) => item.type === "vocabulary");
+      expect(vocabulary.map((item) => item.id)).toEqual(["greetings-0", "greetings-1", "greetings-2", "greetings-3"]);
+    });
+
+    it("never fills a short theme from another theme", () => {
+      const eligibleItems = [
+        makeItem({ id: "family-last", theme: NUMBERS, lessonPriority: 1 }),
+        ...Array.from({ length: 8 }, (_, i) => makeItem({ id: `other-${i}`, theme: COLORS, lessonPriority: i + 10 })),
+      ];
+      const batch = selectLessonBatch({ eligibleItems, batchSize: 8, mode: "theme", selectedThemeId: NUMBERS.id });
+      expect(batch.map((item) => item.id)).toEqual(["family-last"]);
+    });
+
+    it("selects nothing when no theme has been chosen — the caller asks the learner instead", () => {
+      expect(selectLessonBatch({ eligibleItems: makeLevel(), batchSize: 6, mode: "theme", selectedThemeId: null })).toEqual([]);
+    });
+
+    it("still teaches grammar in its own curriculum order alongside the theme", () => {
+      const batch = selectLessonBatch({
+        eligibleItems: makeLevel(),
+        batchSize: 6,
+        mode: "theme",
+        selectedThemeId: COLORS.id,
+      });
+      expect(batch.filter((item) => item.type === "grammar").map((item) => item.id)).toEqual(["grammar-0"]);
+    });
   });
 
-  it("does not let the client widen the batch beyond the eligible pool", () => {
-    const eligibleItems = [makeItem({ id: "only-item" })];
-    const batch = selectLessonBatch({ eligibleItems, batchSize: 6 });
-    expect(batch).toHaveLength(1);
+  describe("balanced mode", () => {
+    it("spreads the vocabulary portion across the available themes", () => {
+      const batch = selectLessonBatch({ eligibleItems: makeLevel(), batchSize: 6, mode: "balanced" });
+      const themes = batch
+        .filter((item): item is VocabularyItem => item.type === "vocabulary")
+        .map((item) => item.theme?.name);
+      expect(new Set(themes)).toEqual(new Set(["Numbers", "Greetings", "Colors"]));
+    });
+
+    it("redistributes to the remaining themes when one runs short", () => {
+      const eligibleItems = [
+        makeItem({ id: "numbers-only", theme: NUMBERS, lessonPriority: 1 }),
+        ...Array.from({ length: 4 }, (_, i) => makeItem({ id: `greetings-${i}`, theme: GREETINGS, lessonPriority: i + 10 })),
+        ...Array.from({ length: 4 }, (_, i) => makeItem({ id: `colors-${i}`, theme: COLORS, lessonPriority: i + 20 })),
+      ];
+      const batch = selectLessonBatch({ eligibleItems, batchSize: 6, mode: "balanced" });
+      expect(batch).toHaveLength(6);
+      expect(batch.map((item) => item.id)).toContain("numbers-only");
+    });
+
+    it("is deterministic — the same eligible curriculum always produces the same batch", () => {
+      const first = selectLessonBatch({ eligibleItems: makeLevel(), batchSize: 6, mode: "balanced" });
+      const second = selectLessonBatch({ eligibleItems: [...makeLevel()].reverse(), batchSize: 6, mode: "balanced" });
+      expect(first.map((item) => item.id)).toEqual(second.map((item) => item.id));
+    });
+  });
+
+  describe("random mode", () => {
+    it("mixes grammar and vocabulary together", () => {
+      // Seeded rather than real randomness, so this asserts the actual
+      // behavior every run instead of passing on a lucky draw.
+      const batch = selectLessonBatch({ eligibleItems: makeLevel(), batchSize: 6, mode: "random", random: seededRandom(1) });
+      expect(batch).toHaveLength(6);
+      expect(batch.some((item) => item.type === "grammar")).toBe(true);
+      expect(batch.some((item) => item.type === "vocabulary")).toBe(true);
+    });
+
+    it("never exceeds the batch size or leaves the current level", () => {
+      const eligibleItems = [...makeLevel(), makeItem({ id: "level-2", levelNumber: 2, lessonPriority: 1 })];
+      const batch = selectLessonBatch({ eligibleItems, batchSize: 6, mode: "random", random: seededRandom(3) });
+      expect(batch).toHaveLength(6);
+      expect(batch.every((item) => item.levelNumber === 1)).toBe(true);
+    });
+  });
+});
+
+describe("getAvailableThemes", () => {
+  it("lists themes with eligible items in curriculum order", () => {
+    expect(getAvailableThemes(makeLevel()).map((theme) => theme.name)).toEqual(["Numbers", "Greetings", "Colors"]);
+  });
+
+  it("omits a theme whose items are all learned", () => {
+    const eligibleItems = makeLevel().filter((item) => item.type !== "vocabulary" || item.theme?.id !== GREETINGS.id);
+    expect(getAvailableThemes(eligibleItems).map((theme) => theme.name)).toEqual(["Numbers", "Colors"]);
+  });
+
+  it("has nothing to offer when only grammar remains", () => {
+    expect(getAvailableThemes([makeGrammar({ id: "grammar-only" })])).toEqual([]);
   });
 });

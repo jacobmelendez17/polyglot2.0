@@ -9,6 +9,7 @@ export type {
   Pronunciation,
   VocabularyDictionaryInfo,
   VocabularyItem,
+  VocabularyTheme,
 } from "./curriculum-types";
 
 // Real, database-backed curriculum foundation (spec 08 §30) — additive

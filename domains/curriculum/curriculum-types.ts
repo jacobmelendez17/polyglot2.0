@@ -52,6 +52,19 @@ export type VocabularyDictionaryInfo = {
   attributionText: string | null;
 };
 
+/**
+ * The vocabulary group an item belongs to — a "theme" in learner-facing
+ * language (spec 16). Carried on the item because Theme and Balanced
+ * curriculum modes select *by* it, and `domains/lessons` must be able to
+ * group a batch's candidates without a second curriculum query.
+ */
+export type VocabularyTheme = {
+  id: string;
+  name: string;
+  /** Position within the level, so themes are offered in curriculum order rather than by name or insertion order. */
+  position: number;
+};
+
 export type VocabularyItem = {
   type: "vocabulary";
   id: string;
@@ -74,6 +87,12 @@ export type VocabularyItem = {
   meanings: string[];
   /** Additional accepted target-language spellings/synonyms besides `word` itself. */
   targetVariants: string[];
+  /**
+   * The theme (vocabulary group) this word belongs to. Optional because the
+   * fixture curriculum and older projections have no group behind them;
+   * an item without one simply never participates in theme-based selection.
+   */
+  theme?: VocabularyTheme;
   pronunciation: Pronunciation;
   context?: string;
   examples: CurriculumExample[];

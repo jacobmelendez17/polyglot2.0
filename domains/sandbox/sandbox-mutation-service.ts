@@ -5,6 +5,7 @@ import { AdminError } from "@/lib/errors/admin-errors";
 import * as sandbox from "./sandbox-service";
 import type {
   MakeSandboxReviewsDueServiceInput,
+  SetSandboxCurriculumModeServiceInput,
   ResetSandboxServiceInput,
   SetSandboxItemStageServiceInput,
   SetSandboxTimeOffsetServiceInput,
@@ -42,6 +43,16 @@ export async function makeSandboxReviewsDue(input: MakeSandboxReviewsDueServiceI
 export async function setSandboxTimeOffsetForOwner(input: SetSandboxTimeOffsetServiceInput) {
   await checkRateLimit(input.actorUserId);
   return sandbox.setSandboxTimeOffsetForOwner(db, input);
+}
+
+export async function setSandboxCurriculumMode(input: SetSandboxCurriculumModeServiceInput) {
+  await checkRateLimit(input.actorUserId);
+  return sandbox.setSandboxCurriculumMode(db, input);
+}
+
+/** Read-only preview of the persona's next lesson under each curriculum mode (spec 16) — no rate limit, since it writes nothing. */
+export async function previewSandboxCurriculum(ownerUserId: string, languageId: string) {
+  return sandbox.previewSandboxCurriculum(db, ownerUserId, languageId);
 }
 
 export async function resetSandboxForOwner(input: ResetSandboxServiceInput) {

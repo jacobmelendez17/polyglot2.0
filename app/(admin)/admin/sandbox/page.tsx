@@ -3,10 +3,11 @@ import { forbidden } from "next/navigation";
 
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { SandboxControls } from "@/components/admin/sandbox/sandbox-controls";
+import { SandboxCurriculumPanel } from "@/components/admin/sandbox/sandbox-curriculum-panel";
 import { SandboxSnapshotView } from "@/components/admin/sandbox/sandbox-snapshot-view";
 import { canAccessAdminArea } from "@/domains/admin";
 import { getAdminCurriculumItems, getLevelsByLanguage } from "@/domains/curriculum/server";
-import { getSandboxSnapshotForOwner } from "@/domains/sandbox/server";
+import { getSandboxSnapshotForOwner, previewSandboxCurriculum } from "@/domains/sandbox/server";
 import { requireUser } from "@/domains/users/server";
 
 export const metadata: Metadata = {
@@ -30,10 +31,11 @@ export default async function AdminSandboxPage() {
   }
 
   const languageId = user.activeLanguageId;
-  const [levels, itemsPage, snapshot] = await Promise.all([
+  const [levels, itemsPage, snapshot, curriculumPreview] = await Promise.all([
     getLevelsByLanguage(languageId),
     getAdminCurriculumItems({ languageId, status: "published", limit: 100 }),
     getSandboxSnapshotForOwner(user.id, languageId),
+    previewSandboxCurriculum(user.id, languageId),
   ]);
 
   return (
@@ -51,6 +53,10 @@ export default async function AdminSandboxPage() {
           timeOffsetSeconds={snapshot.timeOffsetSeconds}
         />
         <SandboxSnapshotView snapshot={snapshot} now={new Date()} />
+
+        <div className="lg:col-span-2">
+          <SandboxCurriculumPanel languageId={languageId} preview={curriculumPreview} />
+        </div>
       </div>
     </div>
   );

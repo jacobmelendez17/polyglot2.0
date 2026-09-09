@@ -30,7 +30,7 @@ async function main() {
   const pool = new Pool({ connectionString: databaseUrl });
   try {
     const db = drizzle(pool, { schema });
-    const ids = await seedTestFixtures(db);
+    const ids = await seedTestFixtures(db, { committed: true });
     console.log("Seeded deterministic fixtures:", ids);
   } finally {
     await pool.end();

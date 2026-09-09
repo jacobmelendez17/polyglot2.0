@@ -51,6 +51,27 @@ describe("parseVocabularyImportFile", () => {
     expect(result.error).toEqual({ type: "too_many_rows", count: MAX_IMPORT_ROWS + 1 });
   });
 
+  it("accepts `batch_id` as the group column, the name the authored curriculum files use", () => {
+    const csv = "word,translation,level,batch_id\ncero,zero,1,1\ny,and,1,5\n";
+    const result = parseVocabularyImportFile(csv, ",");
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.rows).toEqual([
+      { word: "cero", translation: "zero", level: "1", group: "1" },
+      { word: "y", translation: "and", level: "1", group: "5" },
+    ]);
+  });
+
+  it("accepts a UTF-8 byte-order mark and CRLF line endings, as a real spreadsheet export has", () => {
+    const csv = "\ufeffword,translation,level,batch_id\r\nadiós,goodbye,1,2\r\n";
+    const result = parseVocabularyImportFile(csv, ",");
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.rows).toEqual([{ word: "adiós", translation: "goodbye", level: "1", group: "2" }]);
+  });
+
   it("returns a clean parse error instead of throwing for genuinely malformed input", () => {
     // An unterminated quoted field is a classic CSV malformation.
     const result = parseVocabularyImportFile('word,translation,level,group\n"gato,cat,1,1\n', ",");

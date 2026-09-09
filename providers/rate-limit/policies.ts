@@ -74,4 +74,15 @@ export const RATE_LIMIT_POLICIES: Record<RateLimitPolicyName, RateLimitPolicy> =
     maxRequests: 10,
     failOpen: false,
   },
+  // Spec 16 — choosing or changing the curriculum mode (and the Theme
+  // mode's selected theme). Not progress-affecting: it writes one settings
+  // row and can never touch SRS state or unlocks. Still bounded on the same
+  // "blast-radius containment" reasoning as "deck-mutation", and still
+  // fails closed, since a refused preference change costs a retry and
+  // nothing else.
+  "curriculum-preference": {
+    windowSeconds: 60,
+    maxRequests: 20,
+    failOpen: false,
+  },
 };

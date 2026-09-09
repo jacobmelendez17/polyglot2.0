@@ -1,17 +1,19 @@
 import { describe, expect, it } from "vitest";
 
 import { userItemProgress, vocabularyGroups } from "@/db/schema";
-import { ITEM_AGUA_ID, DEVELOPER_ID, ITEM_CASA_ID, ITEM_GATO_ID, ITEM_ROJO_ID, ITEM_Y_ID, VOCAB_GROUP_ID, seedTestFixtures } from "@/db/seed/test-fixtures";
+import { DEVELOPER_ID, ITEM_CASA_ID, ITEM_GATO_ID, ITEM_ROJO_ID, ITEM_Y_ID, VOCAB_GROUP_ID, seedTestFixtures } from "@/db/seed/test-fixtures";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
 
 import {
   archiveLearningItem,
   attemptPermanentDelete,
   createLearningItem,
+  createLevel,
   getAcceptedAnswers,
   getDraft,
   getDuplicateCandidateRows,
   hasBlockingReferences,
+  getNextPosition,
   lockLearningItemForEdit,
   moveLearningItem,
   publishDraft,
@@ -22,12 +24,12 @@ import {
 } from "./curriculum-mutation-repository";
 import { eq } from "drizzle-orm";
 
-function vocabFields() {
+function vocabFields({ term = "perro" }: { term?: string } = {}) {
   return {
     type: "vocabulary" as const,
     fields: {
       vocabularyGroupId: VOCAB_GROUP_ID,
-      term: "perro",
+      term,
       primaryMeaning: "dog",
       article: "el",
       partOfSpeech: "noun",
@@ -274,29 +276,37 @@ describe("move and reorder", () => {
   it("appends a moved item at the end of the target level's ordering, not position 1", async () => {
     await withTestTransaction(async (tx) => {
       const { level1Id } = await seedTestFixtures(tx);
-      // Level 1 already has vocab at positions 1-3 (gato/casa/agua). rojo is
-      // seeded in Level 2 at position 1 — moving it into Level 1 should
-      // append it after the existing three, not collide with position 1.
+      // rojo is seeded in Level 2; moving it into Level 1 must append after
+      // everything already there, not collide with position 1. The expected
+      // position is read from the target level rather than hardcoded —
+      // Level 1 holds the real curriculum too, not just the three fixture
+      // words (`TEST_DATABASE_URL` and `DATABASE_URL` are the same database).
+      const nextPosition = await getNextPosition(tx, level1Id, "vocabulary");
       await moveLearningItem(tx, { learningItemId: ITEM_ROJO_ID, type: "vocabulary", levelId: level1Id });
       const moved = await lockLearningItemForEdit(tx, ITEM_ROJO_ID);
       expect(moved?.levelId).toBe(level1Id);
-      expect(moved?.position).toBe(4);
+      expect(moved?.position).toBe(nextPosition);
     });
   });
 
   it("reorders items within a level+type without a unique-constraint collision, and applies the new order", async () => {
     await withTestTransaction(async (tx) => {
-      const { languageId, level1Id } = await seedTestFixtures(tx);
-      const extraId = await createLearningItem(tx, { languageId, levelId: level1Id, position: 56, lessonPriority: 56, ...vocabFields() });
+      const { languageId } = await seedTestFixtures(tx);
+      // A level of this test's own: reordering assigns positions 1..n to the
+      // ids it is given, so running it against the shared fixture Level 1 —
+      // which also holds the real curriculum's 45 vocabulary items at
+      // positions 1..48 — would collide on the level+type+position unique
+      // constraint rather than test anything.
+      const levelId = await createLevel(tx, { languageId, levelNumber: 63, name: "Reorder fixture" });
+      const first = await createLearningItem(tx, { languageId, levelId, position: 1, lessonPriority: 1, ...vocabFields({ term: "primero" }) });
+      const second = await createLearningItem(tx, { languageId, levelId, position: 2, lessonPriority: 2, ...vocabFields({ term: "segundo" }) });
+      const third = await createLearningItem(tx, { languageId, levelId, position: 56, lessonPriority: 56, ...vocabFields({ term: "tercero" }) });
 
-      // Original vocab order in level 1: gato(1), casa(2), agua(3), extra(56).
-      // Reverse the first three, keep extra last.
-      await reorderLearningItems(tx, level1Id, "vocabulary", [ITEM_CASA_ID, ITEM_GATO_ID, ITEM_AGUA_ID, extraId]);
+      await reorderLearningItems(tx, levelId, "vocabulary", [second, third, first]);
 
-      expect((await lockLearningItemForEdit(tx, ITEM_CASA_ID))?.position).toBe(1);
-      expect((await lockLearningItemForEdit(tx, ITEM_GATO_ID))?.position).toBe(2);
-      expect((await lockLearningItemForEdit(tx, ITEM_AGUA_ID))?.position).toBe(3);
-      expect((await lockLearningItemForEdit(tx, extraId))?.position).toBe(4);
+      expect((await lockLearningItemForEdit(tx, second))?.position).toBe(1);
+      expect((await lockLearningItemForEdit(tx, third))?.position).toBe(2);
+      expect((await lockLearningItemForEdit(tx, first))?.position).toBe(3);
     });
   });
 });
@@ -315,7 +325,11 @@ describe("getDuplicateCandidateRows", () => {
     await withTestTransaction(async (tx) => {
       const { languageId } = await seedTestFixtures(tx);
       const rows = await getDuplicateCandidateRows(tx, languageId, "grammar");
-      expect(rows.map((r) => r.displayForm)).toEqual(["y"]);
+      // Contains the grammar fixture and nothing from the vocabulary table —
+      // an exact list would assert the size of the real grammar curriculum,
+      // which shares this database.
+      expect(rows.map((r) => r.displayForm)).toContain("y");
+      expect(rows.map((r) => r.displayForm)).not.toContain("gato");
     });
   });
 });

@@ -72,26 +72,31 @@ describe("createItem", () => {
     });
   });
 
-  it("never conflates 'si' and 'sí' as duplicates", async () => {
+  it("never conflates an accented term with its unaccented spelling as duplicates", async () => {
     await withTestTransaction(async (tx) => {
       const { languageId, level1Id } = await seedTestFixtures(tx);
+      // Deliberately not the real "sí"/"si" pair this once described: "sí"
+      // is real Level 1 curriculum in this database (`TEST_DATABASE_URL` and
+      // `DATABASE_URL` are the same one), so creating it here would be
+      // blocked as a genuine duplicate and prove nothing about accents.
+      // These two spellings exist only for this test.
       await createItem(tx, {
         languageId,
         levelId: level1Id,
         actorUserId: DEVELOPER_ID,
         idempotencyKey: crypto.randomUUID(),
         type: "vocabulary",
-        fields: { vocabularyGroupId: VOCAB_GROUP_ID, term: "sí", primaryMeaning: "yes", partOfSpeech: "adverb", acceptedAnswers: [] },
+        fields: { vocabularyGroupId: VOCAB_GROUP_ID, term: "fíxtura", primaryMeaning: "fixture (accented)", partOfSpeech: "noun", acceptedAnswers: [] },
       });
 
-      // "si" (no accent) is a different word and must not be blocked as a duplicate of "sí".
+      // The unaccented spelling is a different word and must not be blocked.
       const { learningItemId } = await createItem(tx, {
         languageId,
         levelId: level1Id,
         actorUserId: DEVELOPER_ID,
         idempotencyKey: crypto.randomUUID(),
         type: "vocabulary",
-        fields: { vocabularyGroupId: VOCAB_GROUP_ID, term: "si", primaryMeaning: "if", partOfSpeech: "conjunction", acceptedAnswers: [] },
+        fields: { vocabularyGroupId: VOCAB_GROUP_ID, term: "fixtura", primaryMeaning: "fixture (plain)", partOfSpeech: "noun", acceptedAnswers: [] },
       });
       expect(await lockLearningItemForEdit(tx, learningItemId)).not.toBeNull();
     });
@@ -278,6 +283,11 @@ describe("deleteItem", () => {
     await withTestTransaction(async (tx) => {
       await seedTestFixtures(tx);
 
+      // The audit log is append-only and never rolled back, so real archive
+      // events for this fixture item accumulate in the shared database. The
+      // assertion below is a delta, not an absolute count.
+      const archivedBefore = (await getAuditEvents(tx, { action: "CURRICULUM_ITEM_ARCHIVED", resourceId: ITEM_GATO_ID, limit: 10 })).items.length;
+
       const result = await deleteItem(tx, { learningItemId: ITEM_GATO_ID, actorUserId: DEVELOPER_ID, idempotencyKey: crypto.randomUUID() });
       expect(result.outcome).toBe("archived");
 
@@ -287,7 +297,7 @@ describe("deleteItem", () => {
       expect(progress).toBeDefined(); // learner progress survived
 
       const audit = await getAuditEvents(tx, { action: "CURRICULUM_ITEM_ARCHIVED", resourceId: ITEM_GATO_ID, limit: 10 });
-      expect(audit.items).toHaveLength(1);
+      expect(audit.items.length).toBe(archivedBefore + 1);
     });
   });
 });

@@ -70,7 +70,21 @@ export interface TestFixtureIds {
   sandboxId: string;
 }
 
-export async function seedTestFixtures(db: DbClient): Promise<TestFixtureIds> {
+export type SeedTestFixturesOptions = {
+  /**
+   * Set by the handful of callers whose writes **commit** to the shared
+   * dev/test database rather than being rolled back: `npm run db:seed` and
+   * the three concurrency tests that need genuinely committed rows.
+   *
+   * With it, an existing row's curriculum status is left exactly as it is.
+   * Without it (the normal, in-transaction case) the fixture re-asserts
+   * `published` on its own items — see the `learningItems` upsert below for
+   * why that is needed at all.
+   */
+  committed?: boolean;
+};
+
+export async function seedTestFixtures(db: DbClient, options: SeedTestFixturesOptions = {}): Promise<TestFixtureIds> {
   const languageCode = getDefaultLanguageCode();
 
   const [insertedLanguage] = await db
@@ -111,16 +125,28 @@ export async function seedTestFixtures(db: DbClient): Promise<TestFixtureIds> {
   // Level 1 vocabulary: a plain noun, an article-requiring noun, and an
   // irregular-article noun — mirrors spec 07's fixture curriculum's
   // deliberate coverage, per §37's "exercising the actual schema" guidance.
-  await db
-    .insert(learningItems)
-    .values([
-      { id: ITEM_GATO_ID, languageId, levelId: level1Id, type: "vocabulary", status: "published", position: 1, lessonPriority: 1 },
-      { id: ITEM_CASA_ID, languageId, levelId: level1Id, type: "vocabulary", status: "published", position: 2, lessonPriority: 2 },
-      { id: ITEM_AGUA_ID, languageId, levelId: level1Id, type: "vocabulary", status: "published", position: 3, lessonPriority: 3 },
-      { id: ITEM_Y_ID, languageId, levelId: level1Id, type: "grammar", status: "published", position: 4, lessonPriority: 4 },
-      { id: ITEM_ROJO_ID, languageId, levelId: LEVEL_2_ID, type: "vocabulary", status: "published", position: 1, lessonPriority: 1 },
-    ])
-    .onConflictDoNothing({ target: learningItems.id });
+  // `TEST_DATABASE_URL` points at the same database as `DATABASE_URL` (see
+  // Environment Notes in progress-tracker.md), so these demo rows share a
+  // database with the real curriculum — and the real Level 1 import (spec
+  // 16) archived them there, deliberately. An in-transaction seed therefore
+  // has to re-assert `published`, or every integration test would run
+  // against archived items that no published-only read path can see; the
+  // rollback keeps that scoped to the test.
+  //
+  // A *committing* caller must not do that. It would silently un-archive the
+  // demo items in the real database and put them back in front of learners,
+  // which is exactly what happened once before this option existed.
+  const learningItemValues = [
+    { id: ITEM_GATO_ID, languageId, levelId: level1Id, type: "vocabulary" as const, status: "published" as const, position: 1, lessonPriority: 1 },
+    { id: ITEM_CASA_ID, languageId, levelId: level1Id, type: "vocabulary" as const, status: "published" as const, position: 2, lessonPriority: 2 },
+    { id: ITEM_AGUA_ID, languageId, levelId: level1Id, type: "vocabulary" as const, status: "published" as const, position: 3, lessonPriority: 3 },
+    { id: ITEM_Y_ID, languageId, levelId: level1Id, type: "grammar" as const, status: "published" as const, position: 4, lessonPriority: 4 },
+    { id: ITEM_ROJO_ID, languageId, levelId: LEVEL_2_ID, type: "vocabulary" as const, status: "published" as const, position: 1, lessonPriority: 1 },
+  ];
+  const learningItemsInsert = db.insert(learningItems).values(learningItemValues);
+  await (options.committed
+    ? learningItemsInsert.onConflictDoNothing({ target: learningItems.id })
+    : learningItemsInsert.onConflictDoUpdate({ target: learningItems.id, set: { status: "published" } }));
 
   await db
     .insert(vocabularyItems)

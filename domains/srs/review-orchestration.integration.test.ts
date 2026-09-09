@@ -744,7 +744,7 @@ describe("atomic review completion (spec 09 unit 4)", () => {
   });
 
   it("a genuine two-connection concurrent completion of the same item applies exactly once", async () => {
-    const { learnerId, gatoId, languageId } = await seedTestFixtures(testDb);
+    const { learnerId, gatoId, languageId } = await seedTestFixtures(testDb, { committed: true });
     const before = await testDb
       .select()
       .from(userItemProgress)

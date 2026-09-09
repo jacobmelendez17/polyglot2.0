@@ -7,5 +7,12 @@
  * into the browser, even if it only references an unrelated named export —
  * see `domains/lessons/server.ts`, where this was discovered the hard way.
  */
-export { completeOnboarding, getUsersByIds, resolveCurrentUser, requireUser } from "./user-service";
+export {
+  completeOnboarding,
+  getLanguageSettings,
+  getUsersByIds,
+  resolveCurrentUser,
+  requireUser,
+  setCurriculumPreference,
+} from "./user-service";
 export { resolveUserNow } from "./user-clock";

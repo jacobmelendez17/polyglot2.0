@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { DEVELOPER_ID, VOCAB_GROUP_ID, seedTestFixtures } from "@/db/seed/test-fixtures";
+import { DEVELOPER_ID, seedTestFixtures } from "@/db/seed/test-fixtures";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
 import {
   createLearningItem,
@@ -260,40 +260,49 @@ describe("updateVocabularyGroup", () => {
 describe("reorderVocabularyGroups", () => {
   it("reorders groups and records one GROUP_REORDERED event for the whole batch", async () => {
     await withTestTransaction(async (tx) => {
-      const { languageId, level1Id } = await seedTestFixtures(tx);
-      const second = (
-        await createVocabularyGroup(tx, {
-          levelId: level1Id,
-          languageId,
-          name: "Second",
-          actorUserId: DEVELOPER_ID,
-          idempotencyKey: crypto.randomUUID(),
-        })
-      ).groupId;
-      const third = (
-        await createVocabularyGroup(tx, {
-          levelId: level1Id,
-          languageId,
-          name: "Third",
-          actorUserId: DEVELOPER_ID,
-          idempotencyKey: crypto.randomUUID(),
-        })
-      ).groupId;
+      const { languageId } = await seedTestFixtures(tx);
+      // Its own level: reordering assigns positions 1..n to exactly the
+      // groups it is handed, and the shared fixture Level 1 also holds the
+      // real curriculum's four groups (`TEST_DATABASE_URL` and
+      // `DATABASE_URL` are the same database), which a partial reorder there
+      // would collide with rather than test.
+      const { levelId } = await createLevel(tx, {
+        languageId,
+        levelNumber: 64,
+        name: "Group reorder fixture",
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+      });
+      const groupIds: string[] = [];
+      for (const name of ["First", "Second", "Third"]) {
+        groupIds.push(
+          (
+            await createVocabularyGroup(tx, {
+              levelId,
+              languageId,
+              name,
+              actorUserId: DEVELOPER_ID,
+              idempotencyKey: crypto.randomUUID(),
+            })
+          ).groupId,
+        );
+      }
+      const [first, second, third] = groupIds;
 
       await reorderVocabularyGroups(tx, {
-        levelId: level1Id,
-        orderedGroupIds: [third, second, VOCAB_GROUP_ID],
+        levelId,
+        orderedGroupIds: [third!, second!, first!],
         actorUserId: DEVELOPER_ID,
         idempotencyKey: crypto.randomUUID(),
       });
 
       const groups = await getVocabularyGroupsByLanguage(tx, languageId);
       const byId = new Map(groups.map((g) => [g.id, g.position]));
-      expect(byId.get(third)).toBe(1);
-      expect(byId.get(second)).toBe(2);
-      expect(byId.get(VOCAB_GROUP_ID)).toBe(3);
+      expect(byId.get(third!)).toBe(1);
+      expect(byId.get(second!)).toBe(2);
+      expect(byId.get(first!)).toBe(3);
 
-      const audit = await getAuditEvents(tx, { action: "GROUP_REORDERED", resourceId: level1Id, limit: 10 });
+      const audit = await getAuditEvents(tx, { action: "GROUP_REORDERED", resourceId: levelId, limit: 10 });
       expect(audit.items).toHaveLength(1);
     });
   });

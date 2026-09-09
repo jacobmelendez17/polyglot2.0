@@ -1,9 +1,10 @@
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import type { DbClient } from "@/db/client";
-import { languages, levels, users, userLevelProgress } from "@/db/schema";
+import { languages, levels, userLanguageSettings, users, userLevelProgress } from "@/db/schema";
 import { AppError } from "@/lib/errors/app-error";
 
+import type { CurriculumMode, LanguageSettings } from "./curriculum-preference";
 import { getDefaultLanguageCode } from "./provisioning-config";
 import type { PolyglotUser } from "./user-types";
 
@@ -65,6 +66,66 @@ export async function completeOnboarding(db: DbClient, userId: string, now: Date
     .set({ onboardingCompletedAt: now })
     .where(and(eq(users.id, userId), isNull(users.onboardingCompletedAt)));
   return findUserById(db, userId);
+}
+
+
+/**
+ * This learner's settings for one language, or `null` when they have never
+ * chosen — the distinction the curriculum preference screen exists for, so
+ * it is preserved rather than collapsed into a default row (spec 16).
+ */
+export async function findLanguageSettings(db: DbClient, userId: string, languageId: string): Promise<LanguageSettings | null> {
+  const [row] = await db
+    .select({
+      userId: userLanguageSettings.userId,
+      languageId: userLanguageSettings.languageId,
+      curriculumMode: userLanguageSettings.curriculumMode,
+      selectedVocabularyGroupId: userLanguageSettings.selectedVocabularyGroupId,
+    })
+    .from(userLanguageSettings)
+    .where(and(eq(userLanguageSettings.userId, userId), eq(userLanguageSettings.languageId, languageId)))
+    .limit(1);
+  return row ?? null;
+}
+
+/**
+ * Records the learner's curriculum mode, and the theme that goes with it in
+ * Theme mode. One upsert, so choosing during onboarding and changing the
+ * choice later are the same write with the same rules — there is no
+ * separate "first time" path to drift.
+ *
+ * Any mode other than `theme` stores `null` for the selection, which is
+ * both what the check constraint requires and what stops a stale theme from
+ * silently reappearing if the learner switches back later. Nothing here
+ * touches progress, SRS state, or unlocks: spec 16's "changing modes
+ * affects future lesson generation only" holds because this row is all
+ * there is to change.
+ */
+export async function saveCurriculumPreference(
+  db: DbClient,
+  input: { userId: string; languageId: string; curriculumMode: CurriculumMode; selectedVocabularyGroupId?: string | null },
+): Promise<LanguageSettings> {
+  const selectedVocabularyGroupId = input.curriculumMode === "theme" ? (input.selectedVocabularyGroupId ?? null) : null;
+
+  const [row] = await db
+    .insert(userLanguageSettings)
+    .values({
+      userId: input.userId,
+      languageId: input.languageId,
+      curriculumMode: input.curriculumMode,
+      selectedVocabularyGroupId,
+    })
+    .onConflictDoUpdate({
+      target: [userLanguageSettings.userId, userLanguageSettings.languageId],
+      set: { curriculumMode: input.curriculumMode, selectedVocabularyGroupId, updatedAt: new Date() },
+    })
+    .returning({
+      userId: userLanguageSettings.userId,
+      languageId: userLanguageSettings.languageId,
+      curriculumMode: userLanguageSettings.curriculumMode,
+      selectedVocabularyGroupId: userLanguageSettings.selectedVocabularyGroupId,
+    });
+  return row!;
 }
 
 export async function findUsersByIds(db: DbClient, ids: string[]): Promise<PolyglotUser[]> {

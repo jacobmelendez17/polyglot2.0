@@ -2,6 +2,12 @@ import type { DbClient } from "@/db/client";
 import { recordAuditEvent } from "@/domains/admin/audit-repository";
 import { getLevelByLanguageAndNumber } from "@/domains/curriculum/curriculum-repository";
 import { withIdempotency } from "@/domains/idempotency";
+import { getEligibleLessonItems } from "@/domains/curriculum/lesson-curriculum-repository";
+import { getAvailableThemes, selectLessonBatch } from "@/domains/lessons/lesson-batch";
+import { getLessonBatchSize } from "@/domains/lessons";
+import { CURRICULUM_MODES } from "@/domains/users";
+import type { CurriculumMode } from "@/domains/users";
+import { findLanguageSettings, saveCurriculumPreference } from "@/domains/users/user-repository";
 import { getSandboxTimeOffset, setSandboxTimeOffset } from "@/domains/users/user-clock";
 import type { SrsStage } from "@/domains/srs";
 import { AdminError } from "@/lib/errors/admin-errors";
@@ -15,7 +21,7 @@ import {
   setItemSrsStage,
   simulateLevel,
 } from "./sandbox-repository";
-import type { SandboxAccount, SandboxSnapshot } from "./sandbox-types";
+import type { SandboxAccount, SandboxCurriculumPreview, SandboxSnapshot } from "./sandbox-types";
 
 /**
  * Sandbox orchestration (spec 11 rewrite) — the `domains/admin`-adjacent
@@ -188,4 +194,98 @@ export async function resetSandboxForOwner(db: DbClient, input: ResetSandboxServ
       });
     },
   );
+}
+
+export type SetSandboxCurriculumModeServiceInput = {
+  ownerUserId: string;
+  languageId: string;
+  curriculumMode: CurriculumMode;
+  selectedVocabularyGroupId?: string | null;
+  actorUserId: string;
+  idempotencyKey: string;
+};
+
+/**
+ * Spec 16 — switching the *persona's* curriculum mode.
+ *
+ * Writes the persona's own `user_language_settings` row through the same
+ * repository the learner-facing screen uses, so the sandbox exercises the
+ * real storage rather than a parallel one. The admin's own preference is
+ * untouched by construction: the only user id written is the persona's,
+ * resolved here from ownership rather than accepted from the caller.
+ */
+export async function setSandboxCurriculumMode(db: DbClient, input: SetSandboxCurriculumModeServiceInput): Promise<void> {
+  return withIdempotency(
+    db,
+    {
+      userId: input.actorUserId,
+      operation: "admin.sandbox.set-curriculum-mode",
+      key: input.idempotencyKey,
+      payload: { curriculumMode: input.curriculumMode, selectedVocabularyGroupId: input.selectedVocabularyGroupId ?? null },
+    },
+    async (tx) => {
+      const account = await getOrCreateSandbox(tx, input.ownerUserId, input.languageId);
+      const previous = await findLanguageSettings(tx, account.sandboxUserId, input.languageId);
+      await saveCurriculumPreference(tx, {
+        userId: account.sandboxUserId,
+        languageId: input.languageId,
+        curriculumMode: input.curriculumMode,
+        selectedVocabularyGroupId: input.selectedVocabularyGroupId ?? null,
+      });
+      await recordAuditEvent(tx, {
+        actorUserId: input.actorUserId,
+        action: "SANDBOX_CURRICULUM_MODE_CHANGED",
+        resourceType: "sandbox",
+        resourceId: account.sandboxUserId,
+        beforeData: previous ? { curriculumMode: previous.curriculumMode, selectedVocabularyGroupId: previous.selectedVocabularyGroupId } : null,
+        afterData: { curriculumMode: input.curriculumMode, selectedVocabularyGroupId: input.selectedVocabularyGroupId ?? null },
+      });
+    },
+  );
+}
+
+/**
+ * Spec 16's "previewing lesson selection under each mode" — read-only.
+ *
+ * Runs `domains/lessons`' real `selectLessonBatch` over the persona's real
+ * eligible curriculum, once per mode, rather than describing what each mode
+ * would probably do. That is the whole value of the preview: if the
+ * selection rules change, this changes with them, because it is the same
+ * function the learner's lesson goes through.
+ *
+ * Nothing is written, including the theme used for the Theme-mode row: when
+ * the persona has not chosen one, the first available theme stands in for
+ * the preview only.
+ */
+export async function previewSandboxCurriculum(db: DbClient, ownerUserId: string, languageId: string): Promise<SandboxCurriculumPreview> {
+  const account = await getOrCreateSandbox(db, ownerUserId, languageId);
+  const [settings, eligibleItems] = await Promise.all([
+    findLanguageSettings(db, account.sandboxUserId, languageId),
+    getEligibleLessonItems(db, account.sandboxUserId, languageId),
+  ]);
+
+  const availableThemes = getAvailableThemes(eligibleItems);
+  const remainingByTheme = new Map<string, number>();
+  for (const item of eligibleItems) {
+    if (item.type !== "vocabulary" || !item.theme) continue;
+    remainingByTheme.set(item.theme.id, (remainingByTheme.get(item.theme.id) ?? 0) + 1);
+  }
+
+  const previewThemeId = settings?.selectedVocabularyGroupId ?? availableThemes[0]?.id ?? null;
+  const batchSize = getLessonBatchSize();
+
+  return {
+    currentMode: settings?.curriculumMode ?? null,
+    selectedThemeId: settings?.selectedVocabularyGroupId ?? null,
+    themes: availableThemes.map((theme) => ({ id: theme.id, name: theme.name, remainingCount: remainingByTheme.get(theme.id) ?? 0 })),
+    batchesByMode: CURRICULUM_MODES.map((mode) => ({
+      mode,
+      items: selectLessonBatch({ eligibleItems, batchSize, mode, selectedThemeId: previewThemeId }).map((item) => ({
+        id: item.id,
+        label: item.type === "vocabulary" ? item.word : item.structure,
+        type: item.type,
+        themeName: item.type === "vocabulary" ? (item.theme?.name ?? null) : null,
+      })),
+    })),
+  };
 }

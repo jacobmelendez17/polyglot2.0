@@ -206,7 +206,7 @@ describe("withIdempotency concurrency (real, independently-committed transaction
   it(
     "executes the operation exactly once under two concurrent calls with the same key",
     async () => {
-      const { learnerId, casaId } = await seedTestFixtures(testDb);
+      const { learnerId, casaId } = await seedTestFixtures(testDb, { committed: true });
       const key = randomUUID();
       let executions = 0;
 

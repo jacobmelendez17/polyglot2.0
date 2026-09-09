@@ -34,6 +34,11 @@ export const ADMIN_AUDIT_ACTIONS = [
   // stays declared, matching spec 11 §48's action list, but nothing
   // currently records it — see progress-tracker.md's Sandbox entry.
   "SANDBOX_TIME_CHANGED",
+  // Spec 16 — setting the sandbox persona's curriculum mode. Audited like
+  // every other sandbox control: it changes a persona, never the admin's
+  // own learner preference, and the audit trail is what makes that
+  // verifiable rather than merely intended.
+  "SANDBOX_CURRICULUM_MODE_CHANGED",
   // Spec 12 (dictionary/lexicon). Mapping actions are recorded in the same
   // transaction as the mutation they describe; the two import actions are
   // recorded only when an operator id is configured for the import CLI (see

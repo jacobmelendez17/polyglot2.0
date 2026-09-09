@@ -13,11 +13,13 @@ import {
   getOrCreateSandbox,
   makeSandboxReviewsDue,
   resetSandboxForOwner,
+  setSandboxCurriculumMode,
   setSandboxItemStage,
   setSandboxTimeOffsetForOwner,
   signSandboxGrant,
   simulateLevelForSandbox,
 } from "@/domains/sandbox/server";
+import { CURRICULUM_MODES } from "@/domains/users";
 import { requireUser } from "@/domains/users/server";
 import { AdminError } from "@/lib/errors/admin-errors";
 
@@ -189,4 +191,32 @@ export async function closeSandboxAction(): Promise<ActionResult<void>> {
   const cookieStore = await cookies();
   cookieStore.delete(SANDBOX_SESSION_COOKIE);
   return { ok: true, data: undefined };
+}
+
+const setCurriculumModeActionSchema = z.object({
+  languageId: z.string().min(1),
+  curriculumMode: z.enum(CURRICULUM_MODES),
+  selectedVocabularyGroupId: z.string().uuid().nullish(),
+  idempotencyKey: z.string().min(1),
+});
+
+/**
+ * Spec 16 — switching the sandbox persona's curriculum mode. Writes the
+ * persona's settings, never the admin's own: the owner is resolved from the
+ * session here and the persona from ownership inside `domains/sandbox`, so
+ * no client-supplied id decides whose preference changes.
+ */
+export async function setSandboxCurriculumModeAction(
+  input: z.infer<typeof setCurriculumModeActionSchema>,
+): Promise<ActionResult<void>> {
+  return runSandboxAction(async () => {
+    const parsed = setCurriculumModeActionSchema.parse(input);
+    const user = await requireUser();
+    await setSandboxCurriculumMode({
+      ...parsed,
+      selectedVocabularyGroupId: parsed.selectedVocabularyGroupId ?? null,
+      ownerUserId: user.id,
+      actorUserId: user.id,
+    });
+  });
 }

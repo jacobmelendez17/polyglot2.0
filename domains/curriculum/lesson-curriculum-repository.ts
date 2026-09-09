@@ -10,6 +10,7 @@ import {
   sentences,
   userItemProgress,
   userLevelProgress,
+  vocabularyGroups,
   vocabularyItems,
 } from "@/db/schema";
 
@@ -88,7 +89,17 @@ export async function getLessonItemsByIds(db: DbClient, ids: string[]): Promise<
   const resolvedIds = baseRows.map((row) => row.id);
 
   const [vocabularyRows, grammarRows, answerRows, exampleRows] = await Promise.all([
-    db.select().from(vocabularyItems).where(inArray(vocabularyItems.learningItemId, resolvedIds)),
+    // Joined rather than fetched separately: every theme-based curriculum
+    // mode (spec 16) needs the group's name and position on the item
+    // itself, and a second query per group would be an N+1 in disguise.
+    db
+      .select({
+        item: vocabularyItems,
+        theme: { id: vocabularyGroups.id, name: vocabularyGroups.name, position: vocabularyGroups.position },
+      })
+      .from(vocabularyItems)
+      .innerJoin(vocabularyGroups, eq(vocabularyGroups.id, vocabularyItems.vocabularyGroupId))
+      .where(inArray(vocabularyItems.learningItemId, resolvedIds)),
     db.select().from(grammarItems).where(inArray(grammarItems.learningItemId, resolvedIds)),
     db
       .select({ learningItemId: acceptedAnswers.learningItemId, side: acceptedAnswers.side, value: acceptedAnswers.value })
@@ -106,7 +117,7 @@ export async function getLessonItemsByIds(db: DbClient, ids: string[]): Promise<
       .orderBy(asc(learningItemSentences.position)),
   ]);
 
-  const vocabularyById = new Map(vocabularyRows.map((row) => [row.learningItemId, row]));
+  const vocabularyById = new Map(vocabularyRows.map((row) => [row.item.learningItemId, row]));
   const grammarById = new Map(grammarRows.map((row) => [row.learningItemId, row]));
   const answersById = groupAcceptedAnswers(answerRows);
   const examplesById = groupExamples(exampleRows);
@@ -117,10 +128,11 @@ export async function getLessonItemsByIds(db: DbClient, ids: string[]): Promise<
     const examples = examplesById.get(base.id) ?? [];
 
     if (base.type === "vocabulary") {
-      const detail = vocabularyById.get(base.id);
+      const row = vocabularyById.get(base.id);
       // A learning item whose type-specific row is missing is a broken row,
       // not a lesson item. Skipping is right; rendering half an item is not.
-      if (!detail) continue;
+      if (!row) continue;
+      const detail = row.item;
       const vocabulary: VocabularyItem = {
         type: "vocabulary",
         id: base.id,
@@ -135,6 +147,7 @@ export async function getLessonItemsByIds(db: DbClient, ids: string[]): Promise<
         // alternatives follow it and are accepted but never displayed first.
         meanings: [detail.primaryMeaning, ...answers.meaning],
         targetVariants: answers.term,
+        theme: row.theme,
         pronunciation: {
           ...(detail.pronunciation ? { guide: detail.pronunciation } : {}),
           ...(detail.ipa ? { ipa: detail.ipa } : {}),

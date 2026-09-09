@@ -10,8 +10,10 @@ import type { GrammarFieldsInput, VocabularyFieldsInput } from "./curriculum-mut
  *
  * Column headers are matched case/whitespace-insensitively (`word`,
  * `Word`, and `Word ` all resolve the same field) since spreadsheet exports
- * vary, but the column *set* itself is fixed — there's no column-mapping
- * UI, and building one would be unrequested scope.
+ * vary, and a short fixed list of synonyms is accepted for the group column
+ * (`IMPORT_COLUMN_ALIASES` below). The column *set* itself is still fixed —
+ * there's no column-mapping UI, and building one would be unrequested
+ * scope.
  *
  * 2026-09-08 rewrite ("make importing easier"): only `word`, `translation`,
  * `level`, and `group` are required — `part_of_speech` moved from required
@@ -33,6 +35,27 @@ export const REQUIRED_IMPORT_COLUMNS = ["word", "translation", "level", "group"]
 const OPTIONAL_IMPORT_COLUMNS = ["part_of_speech", "article", "definition", "pronunciation", "ipa", "context", "creator_notes"] as const;
 export const IMPORT_COLUMNS = [...REQUIRED_IMPORT_COLUMNS, ...OPTIONAL_IMPORT_COLUMNS] as const;
 type ImportColumn = (typeof IMPORT_COLUMNS)[number];
+
+/**
+ * Accepted spellings of a canonical column header, applied after the
+ * case/whitespace normalization above (spec 16, 2026-09-08). The authored
+ * Level 1 curriculum file names its group column `batch_id` — the same
+ * concept under the word the curriculum author already uses for it — so
+ * rejecting the file would mean hand-editing a header on every future
+ * authored level rather than accepting a synonym once.
+ *
+ * Deliberately narrow: only the group column has a real competing name in
+ * the files this project actually authors. This is not a general
+ * column-mapping layer, and it must never map two different source columns
+ * onto the same canonical one in a single file — the last header simply
+ * wins, exactly as a literal duplicate header already would.
+ */
+export const IMPORT_COLUMN_ALIASES: Readonly<Record<string, ImportColumn>> = {
+  batch: "group",
+  batch_id: "group",
+  group_id: "group",
+  group_number: "group",
+};
 
 /** A level's vocabulary groups are numbered 1..4 by position (the codebase's own default group count per level). */
 export const MAX_VOCABULARY_GROUP_NUMBER = 4;

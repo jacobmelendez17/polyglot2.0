@@ -6,7 +6,8 @@ export type RateLimitPolicyName =
   | "sandbox-mutation"
   | "deck-mutation"
   | "deck-practice-answer"
-  | "onboarding-complete";
+  | "onboarding-complete"
+  | "curriculum-preference";
 
 export type RateLimitPolicy = {
   windowSeconds: number;

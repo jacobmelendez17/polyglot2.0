@@ -3,8 +3,8 @@ import { redirect } from "next/navigation";
 import { MotionConfig } from "motion/react";
 
 import { SandboxViewBanner } from "@/components/shared/sandbox-view-banner";
-import { isOnboardingRequired } from "@/domains/users";
-import { resolveCurrentUser } from "@/domains/users/server";
+import { isCurriculumChoiceRequired, isOnboardingRequired } from "@/domains/users";
+import { getLanguageSettings, resolveCurrentUser } from "@/domains/users/server";
 
 /**
  * Minimal shell for full-focus learning experiences (spec 07 §1). No
@@ -26,6 +26,14 @@ export default async function FocusLayout({ children }: { children: ReactNode })
 
   if (user && isOnboardingRequired(user)) {
     redirect("/onboarding");
+  }
+
+  // Spec 16 — the curriculum choice is the second half of the first-run
+  // flow, gated server-side for the same reason onboarding is: it decides
+  // how lessons are built, so it must not be skippable by typing a URL.
+  // Sandbox personas are exempt inside `isCurriculumChoiceRequired` itself.
+  if (user && isCurriculumChoiceRequired(user, await getLanguageSettings(user.id, user.activeLanguageId))) {
+    redirect("/onboarding/curriculum");
   }
 
   return (

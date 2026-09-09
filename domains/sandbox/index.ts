@@ -1,1 +1,8 @@
-export type { SandboxAccount, SandboxItemState, SandboxLevelState, SandboxSnapshot } from "./sandbox-types";
+export type {
+  SandboxAccount,
+  SandboxCurriculumPreview,
+  SandboxCurriculumPreviewItem,
+  SandboxItemState,
+  SandboxLevelState,
+  SandboxSnapshot,
+} from "./sandbox-types";

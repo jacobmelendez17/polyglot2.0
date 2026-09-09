@@ -10,7 +10,9 @@ import {
 } from "@/domains/lessons/server";
 import type { LessonSessionResult } from "@/domains/lessons";
 import type { LessonCompletionResult } from "@/domains/lessons/server";
-import { requireUser } from "@/domains/users/server";
+import { listAvailableThemes } from "@/domains/lessons/server";
+import { requireUser, setCurriculumPreference } from "@/domains/users/server";
+import { AppError } from "@/lib/errors/app-error";
 import { LessonError } from "@/lib/errors/lesson-errors";
 
 /**
@@ -111,4 +113,54 @@ export async function completeLessonAction(
     const { userId, languageId } = await requireLearner();
     return completeLesson({ token, userId, languageId, idempotencyKey });
   });
+}
+
+const chooseThemeInputSchema = z.object({ themeId: z.string().uuid() });
+
+/**
+ * Spec 16 — the Theme-mode learner picking which theme to study next, from
+ * the lesson screen itself.
+ *
+ * Writes the same settings row the preference screen does, through the same
+ * service, so there is one place a theme is stored and one set of rules
+ * around it. The theme is re-validated against what this learner can
+ * actually study rather than trusted: a group id is a request.
+ *
+ * Deliberately not a lesson mutation — it starts no session, signs no token,
+ * and touches no progress. It only records a preference; the batch is built
+ * on the next render, server-side, as always.
+ */
+export async function chooseLessonThemeAction(
+  input: z.infer<typeof chooseThemeInputSchema>,
+): Promise<ActionResult<null>> {
+  try {
+    const { themeId } = chooseThemeInputSchema.parse(input);
+    const user = await requireUser();
+
+    if (user.isSandbox) {
+      return { ok: false, error: { code: "FORBIDDEN", message: "Sandbox previews don't change your preference." } };
+    }
+
+    const themes = await listAvailableThemes({ userId: user.id, languageId: user.activeLanguageId });
+    if (!themes.some((theme) => theme.id === themeId)) {
+      return { ok: false, error: { code: "THEME_UNAVAILABLE", message: "That theme isn't available to study right now." } };
+    }
+
+    await setCurriculumPreference({
+      userId: user.id,
+      languageId: user.activeLanguageId,
+      curriculumMode: "theme",
+      selectedVocabularyGroupId: themeId,
+    });
+    return { ok: true, data: null };
+  } catch (error) {
+    if (error instanceof AppError) {
+      return { ok: false, error: { code: error.code, message: error.message } };
+    }
+    if (error instanceof z.ZodError) {
+      return { ok: false, error: { code: "LESSON_STATE_INVALID", message: "That request could not be understood." } };
+    }
+    console.error("Unexpected lesson theme action error", error);
+    return { ok: false, error: { code: "UNKNOWN", message: "Something went wrong. Please try again." } };
+  }
 }

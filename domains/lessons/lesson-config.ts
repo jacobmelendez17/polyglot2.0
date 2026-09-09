@@ -1,3 +1,4 @@
+import { CURRICULUM_VALIDATION_CONFIG } from "@/domains/curriculum/curriculum-validation-config";
 import { resolveByLanguageCode } from "@/lib/language-code";
 
 /**
@@ -17,6 +18,24 @@ const RETRY_SPACING_MINIMUM = 3;
  */
 export function getLessonBatchSize(): number {
   return DEFAULT_LESSON_BATCH_SIZE;
+}
+
+/**
+ * How much of a lesson batch is reserved for grammar in the Theme and
+ * Balanced curriculum modes (spec 16).
+ *
+ * Derived from the configured curriculum shape rather than chosen: a level
+ * is 48 vocabulary items to 12 grammar items, so a lesson that mirrors that
+ * ratio teaches both at the pace the curriculum itself is written at, and a
+ * language configured with a different shape gets a proportional batch for
+ * free. At the default batch size of 6 this is one grammar item per lesson.
+ *
+ * Random mode ignores this entirely — spec 16 explicitly lets it mix
+ * grammar and vocabulary freely.
+ */
+export function getLessonGrammarShare(): number {
+  const { vocabularyItemsPerLevel, grammarItemsPerLevel } = CURRICULUM_VALIDATION_CONFIG;
+  return grammarItemsPerLevel / (vocabularyItemsPerLevel + grammarItemsPerLevel);
 }
 
 /** Lesson-state token lifetime, per spec 07 §9 ("the exact expiration duration belongs in configuration"). */

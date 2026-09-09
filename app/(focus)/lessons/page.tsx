@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { LessonEmptyState } from "@/components/lessons/lesson-empty-state";
 import { LessonSessionView } from "@/components/lessons/lesson-session-view";
+import { LessonThemePicker } from "@/components/lessons/lesson-theme-picker";
 import { LessonStudySkeleton } from "@/components/lessons/lesson-study-skeleton";
 import { getLanguageById } from "@/domains/curriculum/server";
 import { startLesson } from "@/domains/lessons/server";
@@ -40,6 +41,12 @@ async function LessonPageContent() {
 
   if (result.kind === "empty") {
     return <LessonEmptyState />;
+  }
+
+  // Theme mode with no usable theme (spec 16) — plenty left to learn, but
+  // the learner has not said which part yet.
+  if (result.kind === "choose-theme") {
+    return <LessonThemePicker themes={result.themes} />;
   }
 
   return <LessonSessionView initial={result} />;
