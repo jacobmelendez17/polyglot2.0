@@ -27,6 +27,7 @@ const gato: CurriculumLearningItem = {
     ipa: null,
     context: null,
     creatorNotes: null,
+    dictionaryFieldOverrides: [],
   },
 };
 

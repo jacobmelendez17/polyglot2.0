@@ -29,7 +29,18 @@ export default defineConfig(({ mode }) => {
       // serially so failures are easy to attribute, while each test still
       // gets its own isolated, always-rolled-back transaction.
       fileParallelism: false,
-      testTimeout: 20_000,
+      // Raised from 20s (2026-09-09). Every statement is a round trip to a
+      // remote Neon branch, so a test that builds a realistic fixture is
+      // dominated by latency rather than by work: the level-publish test
+      // inserts a full 48-vocabulary/12-grammar/4-group level one row at a
+      // time and now takes ~60s, having sat just under the old limit for
+      // months. Confirmed pre-existing and unrelated to any feature change
+      // by re-running it against a stashed working tree.
+      //
+      // The assertions are untouched — this is a latency budget, not a
+      // weakened check. A dedicated test branch (Next Up A) would make it
+      // moot along with the rest of the shared-database problems.
+      testTimeout: 120_000,
     },
   };
 });

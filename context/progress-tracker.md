@@ -8,6 +8,18 @@ Implementation / feature specs
 
 ## Current Goal
 
+**Spec 17 (Curriculum Authoring & Verification) is in progress — unit 1
+shipped 2026-09-09.** The spec (`context/feature-specs/17-authoring.md`) was
+drafted by Claude from a spoken request and four decisions the user made the
+same day; it is the user's document to edit, not a record of intent. Four
+units, in this order:
+
+1. **Teaching meaning: editable, with a manual override lock — done.**
+2. Curriculum re-import updates existing words in place.
+3. `writer` role, with Admin verifying everything before publication.
+4. Usage contexts (the "como / comes" tabs) and the example editor — the
+   largest, and it wants the role model to exist first.
+
 **Spec 16 (Curriculum Decider & Level 1 Real Data) is complete — shipped
 2026-09-09**, as two units in one session at the user's request. Four
 product decisions were put to the user first and are recorded in the two
@@ -99,6 +111,57 @@ writing to real `user_item_progress` rows.
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
 
+- **Spec 17 unit 1 — editable teaching meaning with a manual override lock**
+  (2026-09-09) — approving a dictionary match used to *lock* the fields it
+  filled: `vocabulary-editor.tsx` rendered the teaching meaning and IPA
+  read-only whenever a mapping was confirmed, on the reasoning that
+  promotion would overwrite anything typed. Both are editable again, and
+  editing one now means something.
+  - **`vocabulary_items.dictionary_field_overrides`** (migration `0015`,
+    additive) lists the fields an author has taken over. A list rather than
+    one boolean per field, because the promotable set is defined in code
+    (`DICTIONARY_OVERRIDABLE_FIELDS` — teaching meaning, part of speech,
+    IPA) and growing it should not cost a migration. Marks are per field:
+    editing the teaching meaning must not freeze the IPA, which is asserted
+    directly.
+  - **The mark is derived, never client-supplied.** `updateItem` compares
+    the submitted fields against what is stored and marks only what actually
+    changed, so re-saving a form without touching the teaching meaning does
+    not silently take it over. It marks even when the edit is saved as a
+    draft: the author has expressed intent, and the dictionary should stop
+    overwriting the live value meanwhile.
+  - **Promotion respects the marks** — every path into
+    `applyDictionaryFieldsToItem` (confirm, re-confirm, sense change,
+    pronunciation change, and later the re-import) skips an authored field.
+  - **Reset to dictionary** (`resetDictionaryFieldOverride` + the
+    `resetDictionaryFieldAction` that follows it with a fresh promotion)
+    clears one mark and re-applies the dictionary value. Deliberately two
+    steps: the mark is curriculum state and the value comes from the
+    lexicon, so the action layer composes them rather than either domain
+    reaching into the other.
+  - **The editor shows provenance** on all three fields — "from the
+    confirmed dictionary mapping (lemma), editing takes it over" versus an
+    "Edited by hand" badge that names what the dictionary would say, next to
+    the reset control. Resetting is then an informed choice.
+  - 5 new integration tests: what gets marked, what does not, that a later
+    promotion cannot overwrite an authored field while still updating an
+    untouched one, that reset restores dictionary control, and that a
+    grammar item is refused.
+  - **Verified**: `typecheck`, `lint`, `npm run test` (642 passing),
+    `npm run build`, `db:verify`, `test:integration` at **290 of 295** — the
+    4 long-standing failures (#9, #10) plus one **pre-existing timeout**
+    described below. Not browser-verified: nobody has clicked the reset
+    control or watched provenance change in a real page.
+  - **A fifth integration failure appeared and is not this unit's**: the
+    level-publish test ("publishes a level once every configured curriculum
+    count is satisfied") began exceeding the 20s test timeout. It inserts a
+    full 48/12/4 level one row at a time, and every statement is a round
+    trip to a remote Neon branch, so it is latency-bound and had been
+    sitting just under the limit. Attributed properly rather than assumed:
+    re-running it against a **stashed working tree** failed identically.
+    `vitest.integration.config.mts`'s `testTimeout` is now 120s, with the
+    measurement recorded there. Assertions untouched — a latency budget, not
+    a weakened check.
 - **Real dictionary import + dictionary promotion on approval** (2026-09-09,
   spec 16 follow-up) — the Level 1 import left 37 of 45 words unmatched, and
   the reason was not the matcher: the database held **21 dictionary entries**,

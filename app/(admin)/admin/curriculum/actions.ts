@@ -14,12 +14,17 @@ import {
   deleteItem,
   moveItem,
   publishItem,
+  applyDictionaryFieldsToItem,
   reorderItems,
   reorderVocabularyGroups,
+  resetDictionaryFieldOverride,
   updateItem,
   updateLevel,
   updateVocabularyGroup,
 } from "@/domains/admin/server";
+import { DICTIONARY_OVERRIDABLE_FIELDS } from "@/db/schema";
+import { resolveConfirmedDictionaryFields } from "@/domains/lexicon";
+import { getVocabularyMappingView } from "@/domains/lexicon/server";
 import { requireUser } from "@/domains/users/server";
 import { AdminError } from "@/lib/errors/admin-errors";
 
@@ -119,6 +124,45 @@ export async function updateItemAction(input: z.infer<typeof updateItemActionSch
     const parsed = updateItemActionSchema.parse(input);
     const user = await requireUser();
     return updateItem({ ...parsed, actorUserId: user.id });
+  });
+}
+
+
+const resetDictionaryFieldActionSchema = z.object({
+  learningItemId: z.string().min(1),
+  field: z.enum(DICTIONARY_OVERRIDABLE_FIELDS),
+  idempotencyKey: z.string().min(1),
+});
+
+/**
+ * Spec 17's "Reset to dictionary": hands one field back, then immediately
+ * re-applies the confirmed match so the field shows the dictionary's value
+ * rather than sitting on the last hand-authored one until something else
+ * triggers a promotion.
+ *
+ * Two steps rather than one because they belong to different domains — the
+ * mark is curriculum state, the value comes from the lexicon — and the
+ * second step is the same promotion path every other dictionary write uses.
+ */
+export async function resetDictionaryFieldAction(
+  input: z.infer<typeof resetDictionaryFieldActionSchema>,
+): Promise<ActionResult<{ reapplied: boolean }>> {
+  return runAdminAction(async () => {
+    const parsed = resetDictionaryFieldActionSchema.parse(input);
+    const user = await requireUser();
+    await resetDictionaryFieldOverride({ ...parsed, actorUserId: user.id });
+
+    const view = await getVocabularyMappingView(parsed.learningItemId);
+    const resolved = resolveConfirmedDictionaryFields(view);
+    if (!resolved.confirmed) return { reapplied: false };
+
+    const applied = await applyDictionaryFieldsToItem({
+      learningItemId: parsed.learningItemId,
+      actorUserId: user.id,
+      idempotencyKey: crypto.randomUUID(),
+      fields: { partOfSpeech: resolved.partOfSpeech, definition: resolved.definition, ipa: resolved.ipa },
+    });
+    return { reapplied: applied.applied };
   });
 }
 

@@ -20,6 +20,7 @@ import type {
   DeleteItemServiceInput,
   MoveItemServiceInput,
   PublishItemServiceInput,
+  ResetDictionaryFieldServiceInput,
   ReorderItemsServiceInput,
   ReorderVocabularyGroupsServiceInput,
   UpdateItemServiceInput,
@@ -66,6 +67,11 @@ export async function updateItem(input: UpdateItemServiceInput) {
 export async function applyDictionaryFieldsToItem(input: ApplyDictionaryFieldsServiceInput) {
   await checkRateLimit("admin-mutation", input.actorUserId);
   return publication.applyDictionaryFieldsToItem(db, input);
+}
+
+export async function resetDictionaryFieldOverride(input: ResetDictionaryFieldServiceInput) {
+  await checkRateLimit("admin-mutation", input.actorUserId);
+  return publication.resetDictionaryFieldOverride(db, input);
 }
 
 export async function publishItem(input: PublishItemServiceInput) {

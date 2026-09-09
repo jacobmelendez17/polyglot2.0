@@ -124,7 +124,10 @@ export default async function EditCurriculumItemPage({ params }: { params: Promi
   // confirmed mapping. `resolveConfirmedDictionaryFields` works directly
   // off the mapping view above, which this page already fetches
   // regardless of item status.
-  const resolvedVocabulary = mappingView ? resolveConfirmedDictionaryFields(mappingView) : undefined;
+  const resolvedVocabulary =
+    mappingView && item.type === "vocabulary"
+      ? { ...resolveConfirmedDictionaryFields(mappingView), overrides: item.vocabulary.dictionaryFieldOverrides }
+      : undefined;
 
   const levelNumberById = new Map(levels.map((level) => [level.id, level.levelNumber]));
   const groupOptions = groups

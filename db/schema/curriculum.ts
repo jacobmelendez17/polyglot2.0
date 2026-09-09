@@ -148,6 +148,17 @@ export const learningItems = pgTable(
 );
 
 /**
+ * The vocabulary fields a confirmed dictionary match supplies, and therefore
+ * the only fields an author can "take over" from the dictionary (spec 17).
+ *
+ * `term` and `primary_meaning` are deliberately absent: the term is the
+ * item's identity and the primary meaning is the answer a learner is graded
+ * against, so neither is ever dictionary-supplied in the first place.
+ */
+export const DICTIONARY_OVERRIDABLE_FIELDS = ["definition", "partOfSpeech", "ipa"] as const;
+export type DictionaryOverridableField = (typeof DICTIONARY_OVERRIDABLE_FIELDS)[number];
+
+/**
  * Vocabulary-specific fields (spec 08 §18), one-to-one with `learning_items`
  * via a shared primary key. Never stores learner-specific state (SRS stage,
  * notes, synonyms) — that lives in the progress/learner-content tables.
@@ -168,6 +179,26 @@ export const vocabularyItems = pgTable("vocabulary_items", {
   ipa: text("ipa"),
   context: text("context"),
   creatorNotes: text("creator_notes"),
+  /**
+   * Which dictionary-supplied fields an author has taken over (spec 17).
+   *
+   * Confirming a dictionary match writes `definition`, `part_of_speech` and
+   * `ipa` into this row. Once someone edits one of those by hand, the
+   * dictionary must stop overwriting it — through re-confirmation, a sense
+   * change, a dictionary re-import, or a curriculum re-import — until they
+   * explicitly reset it.
+   *
+   * A list of field names rather than one boolean per field: the set of
+   * promotable fields is defined in code
+   * (`DICTIONARY_OVERRIDABLE_FIELDS`), and growing it should not cost a
+   * migration. Marks are per field on purpose — editing the teaching
+   * meaning must not freeze the IPA.
+   */
+  dictionaryFieldOverrides: text("dictionary_field_overrides")
+    .array()
+    .$type<DictionaryOverridableField[]>()
+    .notNull()
+    .default(sql`'{}'::text[]`),
   ...timestamps(),
 });
 

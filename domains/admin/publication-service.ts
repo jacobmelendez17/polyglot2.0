@@ -8,6 +8,7 @@ import {
   getAcceptedAnswers,
   getDraft,
   getVocabularyDictionaryFields,
+  setDictionaryFieldOverrides,
   getDuplicateCandidateRows,
   getLevelTargets,
   getLevelValidationCounts,
@@ -26,6 +27,8 @@ import {
 } from "@/domains/curriculum/curriculum-mutation-repository";
 import { findDuplicateCandidates } from "@/domains/curriculum/curriculum-duplicate-detection";
 import type { DictionarySuppliedVocabularyFields } from "@/domains/curriculum/curriculum-mutation-repository";
+import { DICTIONARY_OVERRIDABLE_FIELDS, type DictionaryOverridableField } from "@/db/schema";
+import type { VocabularyFieldsInput } from "@/domains/curriculum/curriculum-mutation-types";
 import type {
   ArchiveLearningItemInput,
   BulkArchiveLearningItemsInput,
@@ -166,6 +169,13 @@ export async function updateItem(db: DbClient, input: UpdateItemServiceInput): P
       const savedAsDraft = locked.status === "published";
       const itemData = input.type === "vocabulary" ? { type: "vocabulary" as const, fields: input.fields } : { type: "grammar" as const, fields: input.fields };
 
+      // Editing a dictionary-supplied field by hand takes authorship of it
+      // (spec 17). Derived by comparing against what is stored rather than
+      // trusting a client-sent flag, and marked even when the edit is saved
+      // as a draft: the author has expressed intent, and the dictionary
+      // should stop overwriting the live value in the meantime.
+      const authoredFields = input.type === "vocabulary" ? await markAuthoredDictionaryFields(tx, input.learningItemId, input.fields) : [];
+
       if (savedAsDraft) {
         await repoSaveDraft(tx, {
           learningItemId: input.learningItemId,
@@ -192,10 +202,94 @@ export async function updateItem(db: DbClient, input: UpdateItemServiceInput): P
         resourceType: itemResourceType(input.type),
         resourceId: input.learningItemId,
         beforeData: { acceptedAnswers: beforeAnswers },
-        afterData: { fields: input.fields, savedAsDraft },
+        afterData: { fields: input.fields, savedAsDraft, ...(authoredFields.length > 0 ? { authoredFields } : {}) },
       });
 
       return { savedAsDraft };
+    },
+  );
+}
+
+
+/**
+ * Marks every dictionary-supplied field this save actually changed as
+ * authored by hand, and returns them for the audit trail. Fields whose
+ * submitted value matches what is stored are left alone — re-saving a form
+ * without touching the teaching meaning must not silently take it over.
+ */
+async function markAuthoredDictionaryFields(
+  tx: DbClient,
+  learningItemId: string,
+  fields: VocabularyFieldsInput,
+): Promise<DictionaryOverridableField[]> {
+  const current = await getVocabularyDictionaryFields(tx, learningItemId);
+  if (!current) return [];
+
+  const submitted: Record<DictionaryOverridableField, string | null> = {
+    definition: fields.definition ?? null,
+    partOfSpeech: fields.partOfSpeech,
+    ipa: fields.ipa ?? null,
+  };
+  const changed = DICTIONARY_OVERRIDABLE_FIELDS.filter((field) => submitted[field] !== current[field]);
+  if (changed.length === 0) return [];
+
+  await setDictionaryFieldOverrides(tx, learningItemId, [...current.dictionaryFieldOverrides, ...changed]);
+  return changed;
+}
+
+export type ResetDictionaryFieldServiceInput = {
+  learningItemId: string;
+  field: DictionaryOverridableField;
+  actorUserId: string;
+  idempotencyKey: string;
+};
+
+/**
+ * Hands one field back to the dictionary (spec 17's "Reset to dictionary").
+ *
+ * Only clears the mark — it does not itself write a dictionary value, because
+ * this domain has no access to one. The caller re-runs the promotion
+ * afterwards, which is the same path every other dictionary write takes, so
+ * there is exactly one place that knows how a dictionary value reaches an
+ * item.
+ */
+export async function resetDictionaryFieldOverride(
+  db: DbClient,
+  input: ResetDictionaryFieldServiceInput,
+): Promise<void> {
+  return withIdempotency(
+    db,
+    {
+      userId: input.actorUserId,
+      operation: "admin.curriculum.reset-dictionary-field",
+      key: input.idempotencyKey,
+      payload: { learningItemId: input.learningItemId, field: input.field },
+    },
+    async (tx) => {
+      const locked = await lockLearningItemForEdit(tx, input.learningItemId);
+      if (!locked) throw new AdminError("CURRICULUM_ITEM_NOT_FOUND");
+      if (locked.type !== "vocabulary") {
+        throw new AdminError("CURRICULUM_VALIDATION_FAILED", "Only vocabulary items have dictionary fields.");
+      }
+
+      const current = await getVocabularyDictionaryFields(tx, input.learningItemId);
+      if (!current) throw new AdminError("CURRICULUM_ITEM_NOT_FOUND");
+      if (!current.dictionaryFieldOverrides.includes(input.field)) return;
+
+      await setDictionaryFieldOverrides(
+        tx,
+        input.learningItemId,
+        current.dictionaryFieldOverrides.filter((field) => field !== input.field),
+      );
+      await recordAuditEvent(tx, {
+        actorUserId: input.actorUserId,
+        action: "CURRICULUM_ITEM_UPDATED",
+        resourceType: "vocabulary_item",
+        resourceId: input.learningItemId,
+        beforeData: { authoredFields: current.dictionaryFieldOverrides },
+        afterData: { resetToDictionary: input.field },
+      });
+      invalidateCurriculumCache(locked.languageId);
     },
   );
 }
@@ -322,10 +416,17 @@ export async function applyDictionaryFieldsToItem(
       const current = await getVocabularyDictionaryFields(tx, input.learningItemId);
       if (!current) throw new AdminError("CURRICULUM_ITEM_NOT_FOUND");
 
+      // A field an author has taken over is never overwritten again (spec
+      // 17), no matter how the promotion was triggered — re-confirming,
+      // changing the selected sense, or a re-import all arrive here.
+      const overridden = new Set(current.dictionaryFieldOverrides);
+      const supplied = (field: DictionaryOverridableField, value: string | null) =>
+        overridden.has(field) ? null : value;
+
       const next = {
-        partOfSpeech: input.fields.partOfSpeech ?? current.partOfSpeech,
-        definition: input.fields.definition ?? current.definition,
-        ipa: input.fields.ipa ?? current.ipa,
+        partOfSpeech: supplied("partOfSpeech", input.fields.partOfSpeech) ?? current.partOfSpeech,
+        definition: supplied("definition", input.fields.definition) ?? current.definition,
+        ipa: supplied("ipa", input.fields.ipa) ?? current.ipa,
       };
       const unchanged =
         next.partOfSpeech === current.partOfSpeech && next.definition === current.definition && next.ipa === current.ipa;

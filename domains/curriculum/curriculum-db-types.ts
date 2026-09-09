@@ -1,3 +1,5 @@
+import type { DictionaryOverridableField } from "@/db/schema";
+
 import type { LevelValidationTargets } from "./curriculum-validation-config";
 
 /**
@@ -58,6 +60,8 @@ export interface CurriculumVocabularyDetail {
   ipa: string | null;
   context: string | null;
   creatorNotes: string | null;
+  /** Fields an author has taken over from the dictionary (spec 17) — the editor shows provenance from this. */
+  dictionaryFieldOverrides: DictionaryOverridableField[];
 }
 
 export type CurriculumGrammarQuestionDirection = "targetToEnglish" | "englishToTarget";

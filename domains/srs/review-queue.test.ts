@@ -25,6 +25,7 @@ function vocab(id: string): CurriculumLearningItem {
       ipa: null,
       context: null,
       creatorNotes: null,
+      dictionaryFieldOverrides: [],
     },
   };
 }

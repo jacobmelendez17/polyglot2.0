@@ -54,6 +54,7 @@ function vocab(id: string, position: number): VocabularyLearningItem {
       ipa: null,
       context: null,
       creatorNotes: null,
+    dictionaryFieldOverrides: [],
     },
   };
 }

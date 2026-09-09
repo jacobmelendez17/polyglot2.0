@@ -11,6 +11,7 @@ import { getAuditEvents } from "./audit-repository";
 import {
   applyDictionaryFieldsToItem,
   archiveItem,
+  resetDictionaryFieldOverride,
   createItem,
   deleteItem,
   moveItem,
@@ -449,6 +450,114 @@ describe("applyDictionaryFieldsToItem", () => {
           actorUserId: DEVELOPER_ID,
           idempotencyKey: crypto.randomUUID(),
           fields: dictionaryFields,
+        }),
+      ).rejects.toBeInstanceOf(AdminError);
+    });
+  });
+});
+
+describe("manual overrides of dictionary-supplied fields (spec 17)", () => {
+  const dictionaryFields = { partOfSpeech: "noun", definition: "a domesticated feline", ipa: "/ˈɡa.to/" };
+
+  async function pendingItem(tx: Parameters<Parameters<typeof withTestTransaction>[0]>[0], term: string) {
+    const { languageId, level1Id } = await seedTestFixtures(tx);
+    const { learningItemId } = await createItem(tx, {
+      languageId,
+      levelId: level1Id,
+      actorUserId: DEVELOPER_ID,
+      idempotencyKey: crypto.randomUUID(),
+      type: "vocabulary",
+      fields: { vocabularyGroupId: VOCAB_GROUP_ID, term, primaryMeaning: "meaning", partOfSpeech: "", acceptedAnswers: [] },
+    });
+    await applyDictionaryFieldsToItem(tx, { learningItemId, actorUserId: DEVELOPER_ID, idempotencyKey: crypto.randomUUID(), fields: dictionaryFields });
+    return learningItemId;
+  }
+
+  /** Saves the editor form with one dictionary-backed field changed. */
+  async function editTeachingMeaning(tx: Parameters<Parameters<typeof withTestTransaction>[0]>[0], learningItemId: string, term: string, definition: string) {
+    await updateItem(tx, {
+      learningItemId,
+      actorUserId: DEVELOPER_ID,
+      idempotencyKey: crypto.randomUUID(),
+      type: "vocabulary",
+      fields: { vocabularyGroupId: VOCAB_GROUP_ID, term, primaryMeaning: "meaning", partOfSpeech: "noun", ipa: "/ˈɡa.to/", definition, acceptedAnswers: [] },
+    });
+  }
+
+  it("marks only the field an author actually changed", async () => {
+    await withTestTransaction(async (tx) => {
+      const learningItemId = await pendingItem(tx, "gatito-override");
+      await editTeachingMeaning(tx, learningItemId, "gatito-override", "a small cat, taught this way on purpose");
+
+      const stored = await getVocabularyDictionaryFields(tx, learningItemId);
+      expect(stored?.dictionaryFieldOverrides).toEqual(["definition"]);
+      // Editing the teaching meaning must not freeze the IPA.
+      expect(stored?.dictionaryFieldOverrides).not.toContain("ipa");
+    });
+  });
+
+  it("does not mark a field when the form is saved unchanged", async () => {
+    await withTestTransaction(async (tx) => {
+      const learningItemId = await pendingItem(tx, "gatito-unchanged");
+      await editTeachingMeaning(tx, learningItemId, "gatito-unchanged", dictionaryFields.definition);
+
+      const stored = await getVocabularyDictionaryFields(tx, learningItemId);
+      expect(stored?.dictionaryFieldOverrides).toEqual([]);
+    });
+  });
+
+  it("never lets a later promotion overwrite an authored field", async () => {
+    await withTestTransaction(async (tx) => {
+      const learningItemId = await pendingItem(tx, "gatito-protected");
+      await editTeachingMeaning(tx, learningItemId, "gatito-protected", "authored meaning");
+
+      // The admin changes the selected sense, so promotion runs again with a
+      // different gloss — and an IPA the author never touched.
+      await applyDictionaryFieldsToItem(tx, {
+        learningItemId,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+        fields: { partOfSpeech: "noun", definition: "a completely different sense", ipa: "/ˈɡa.to.NEW/" },
+      });
+
+      const stored = await getVocabularyDictionaryFields(tx, learningItemId);
+      expect(stored?.definition).toBe("authored meaning");
+      expect(stored?.ipa).toBe("/ˈɡa.to.NEW/");
+    });
+  });
+
+  it("reset hands the field back, so the next promotion writes it again", async () => {
+    await withTestTransaction(async (tx) => {
+      const learningItemId = await pendingItem(tx, "gatito-reset");
+      await editTeachingMeaning(tx, learningItemId, "gatito-reset", "authored meaning");
+
+      await resetDictionaryFieldOverride(tx, {
+        learningItemId,
+        field: "definition",
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+      });
+      expect((await getVocabularyDictionaryFields(tx, learningItemId))?.dictionaryFieldOverrides).toEqual([]);
+
+      await applyDictionaryFieldsToItem(tx, {
+        learningItemId,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+        fields: dictionaryFields,
+      });
+      expect((await getVocabularyDictionaryFields(tx, learningItemId))?.definition).toBe(dictionaryFields.definition);
+    });
+  });
+
+  it("refuses to reset a field on a grammar item", async () => {
+    await withTestTransaction(async (tx) => {
+      const { grammarYId } = await seedTestFixtures(tx);
+      await expect(
+        resetDictionaryFieldOverride(tx, {
+          learningItemId: grammarYId,
+          field: "definition",
+          actorUserId: DEVELOPER_ID,
+          idempotencyKey: crypto.randomUUID(),
         }),
       ).rejects.toBeInstanceOf(AdminError);
     });

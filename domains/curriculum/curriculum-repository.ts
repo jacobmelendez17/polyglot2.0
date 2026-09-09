@@ -74,6 +74,7 @@ function toCurriculumVocabularyDetail(row: typeof vocabularyItems.$inferSelect):
     ipa: row.ipa,
     context: row.context,
     creatorNotes: row.creatorNotes,
+    dictionaryFieldOverrides: row.dictionaryFieldOverrides,
   };
 }
 

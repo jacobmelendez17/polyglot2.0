@@ -1,6 +1,7 @@
 import { and, count, eq, sql, TransactionRollbackError } from "drizzle-orm";
 
 import type { DbClient } from "@/db/client";
+import type { DictionaryOverridableField } from "@/db/schema";
 import {
   acceptedAnswers,
   curriculumItemDrafts,
@@ -235,6 +236,8 @@ export async function updateVocabularyDictionaryFields(
  */
 export type CurrentVocabularyFields = {
   vocabularyGroupId: string;
+  /** Fields an author has taken over from the dictionary (spec 17). */
+  dictionaryFieldOverrides: DictionaryOverridableField[];
   term: string;
   primaryMeaning: string;
   definition: string | null;
@@ -262,11 +265,28 @@ export async function getVocabularyDictionaryFields(
       ipa: vocabularyItems.ipa,
       context: vocabularyItems.context,
       creatorNotes: vocabularyItems.creatorNotes,
+      dictionaryFieldOverrides: vocabularyItems.dictionaryFieldOverrides,
     })
     .from(vocabularyItems)
     .where(eq(vocabularyItems.learningItemId, learningItemId))
     .limit(1);
   return row ?? null;
+}
+
+/**
+ * Records which dictionary-supplied fields are now authored by hand (spec
+ * 17). Replaces the whole set rather than appending, so clearing a mark —
+ * "reset to dictionary" — uses the same one call.
+ */
+export async function setDictionaryFieldOverrides(
+  db: DbClient,
+  learningItemId: string,
+  overrides: DictionaryOverridableField[],
+): Promise<void> {
+  await db
+    .update(vocabularyItems)
+    .set({ dictionaryFieldOverrides: [...new Set(overrides)].sort() })
+    .where(eq(vocabularyItems.learningItemId, learningItemId));
 }
 
 export type DraftData = { type: "vocabulary"; fields: VocabularyFieldsInput } | { type: "grammar"; fields: GrammarFieldsInput };

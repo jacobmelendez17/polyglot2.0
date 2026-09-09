@@ -26,6 +26,7 @@ function vocabulary(id: string, term: string, meaning: string, article: string |
       ipa: null,
       context: null,
       creatorNotes: null,
+      dictionaryFieldOverrides: [],
     },
   };
 }

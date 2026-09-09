@@ -6,7 +6,8 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-import { createItemAction, updateItemAction } from "@/app/(admin)/admin/curriculum/actions";
+import { createItemAction, resetDictionaryFieldAction, updateItemAction } from "@/app/(admin)/admin/curriculum/actions";
+import type { DictionaryOverridableField } from "@/db/schema";
 import type { AcceptedAnswerValue } from "./accepted-answers-editor";
 import { GrammarEditor, type GrammarEditorValue, type GrammarQuestionDirection } from "./grammar-editor";
 import { VocabularyEditor, type ResolvedVocabularyFieldInfo, type VocabularyEditorValue } from "./vocabulary-editor";
@@ -109,6 +110,25 @@ export function CurriculumItemForm({ languageId, levels, groups, existing, resol
   const [type, setType] = useState<ItemType>(existing?.type ?? "vocabulary");
   const [levelId, setLevelId] = useState(levels[0]?.id ?? "");
   const [vocab, setVocab] = useState<VocabularyEditorValue>(existing?.vocabulary ?? EMPTY_VOCAB);
+  const [isResetting, startResetting] = useTransition();
+
+  /**
+   * Hands one dictionary-backed field back (spec 17). The server clears the
+   * authored mark and re-applies the confirmed match, so the corrected value
+   * is read back from a fresh render rather than guessed at here — the same
+   * reason nothing else in this form invents server state.
+   */
+  function resetField(field: DictionaryOverridableField) {
+    if (!existing) return;
+    startResetting(async () => {
+      const result = await resetDictionaryFieldAction({
+        learningItemId: existing.learningItemId,
+        field,
+        idempotencyKey: crypto.randomUUID(),
+      });
+      if (result.ok) router.refresh();
+    });
+  }
   const [grammar, setGrammar] = useState<GrammarEditorValue>(existing?.grammar ?? EMPTY_GRAMMAR);
   const [error, setError] = useState<string | null>(null);
   const [duplicateCandidates, setDuplicateCandidates] = useState<{ learningItemId: string; displayLabel: string }[] | null>(null);
@@ -184,7 +204,14 @@ export function CurriculumItemForm({ languageId, levels, groups, existing, resol
       ) : null}
 
       {type === "vocabulary" ? (
-        <VocabularyEditor value={vocab} onChange={setVocab} groups={groups} resolved={resolvedVocabulary} />
+        <VocabularyEditor
+          value={vocab}
+          onChange={setVocab}
+          groups={groups}
+          resolved={resolvedVocabulary}
+          onResetField={existing ? resetField : undefined}
+          isResetting={isResetting}
+        />
       ) : (
         <GrammarEditor value={grammar} onChange={setGrammar} />
       )}

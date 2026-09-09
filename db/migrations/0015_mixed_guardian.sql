@@ -1,0 +1,1 @@
+ALTER TABLE "vocabulary_items" ADD COLUMN "dictionary_field_overrides" text[] DEFAULT '{}'::text[] NOT NULL;
