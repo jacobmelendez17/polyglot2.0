@@ -9,7 +9,6 @@ export {
   getCharacterHelpers,
   getLanguageDisplayName,
   getLessonBatchSize,
-  getLessonGrammarShare,
   getLessonTokenTtlSeconds,
   getRetrySpacingMinimum,
 } from "./lesson-config";

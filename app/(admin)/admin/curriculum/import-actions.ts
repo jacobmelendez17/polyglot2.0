@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 
-import { canManageCurriculum } from "@/domains/admin";
+import { canPublishCurriculum } from "@/domains/admin";
 import { bulkImportVocabulary, previewVocabularyImport } from "@/domains/admin/server";
 import type { ImportRowPreview } from "@/domains/admin/server";
 import { MAX_IMPORT_FILE_BYTES, MAX_IMPORT_ROWS, validateVocabularyImportRow } from "@/domains/curriculum";
@@ -23,7 +23,7 @@ import { AdminError } from "@/lib/errors/admin-errors";
  * action file's own auth-wrapper local rather than sharing one — see
  * `lib/errors/*.ts`'s identical per-workflow separation) rather than a new
  * pattern: Zod-validated, re-authenticates and re-checks
- * `canManageCurriculum` on every call, business rules stay in
+ * `canPublishCurriculum` on every call, business rules stay in
  * `domains/admin`/`domains/curriculum`/`domains/lexicon`.
  */
 
@@ -32,7 +32,7 @@ export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: { code
 async function runImportAction<T>(fn: (actorUserId: string) => Promise<T>): Promise<ActionResult<T>> {
   try {
     const user = await requireUser();
-    if (!canManageCurriculum(user)) {
+    if (!canPublishCurriculum(user)) {
       return { ok: false, error: { code: "FORBIDDEN", message: "You don't have access to do that." } };
     }
     return { ok: true, data: await fn(user.id) };

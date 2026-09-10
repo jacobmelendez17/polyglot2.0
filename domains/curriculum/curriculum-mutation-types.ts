@@ -1,4 +1,3 @@
-import type { LevelValidationTargets } from "./curriculum-validation-config";
 import type { CurriculumGrammarQuestionRequirement, CurriculumStatus } from "./curriculum-db-types";
 
 /** One official accepted-answer value on either side (mirrors `user_synonyms`' `side` distinction). */
@@ -88,14 +87,16 @@ export type CreateLevelInput = {
   actorUserId: string;
 };
 
-/** Setting `status: "published"` is rejected unless the level's curriculum counts satisfy `CURRICULUM_VALIDATION_CONFIG` (spec 11 rewrite's "Publishing should fail if mandatory Level validation is not satisfied"). */
+/**
+ * A level publishes on an Admin's say-so alone (spec 17). It used to be
+ * gated on counting 48 vocabulary / 4 groups / 12 grammar, which made a
+ * level a fixed shape; levels are flexible and hold whatever they hold.
+ */
 export type UpdateLevelInput = {
   levelId: string;
   actorUserId: string;
   name?: string | null;
   status?: CurriculumStatus;
-  /** Per-level curriculum targets. Omitted fields are left unchanged; `null` restores the configured default. */
-  targets?: LevelValidationTargets;
 };
 
 export type CreateVocabularyGroupInput = {

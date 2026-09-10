@@ -21,7 +21,6 @@ import type {
   VocabularyFieldsInput,
 } from "./curriculum-mutation-types";
 import type { CurriculumStatus } from "./curriculum-db-types";
-import type { LevelValidationCounts, LevelValidationTargets } from "./curriculum-validation-config";
 
 /**
  * Postgres's integrity-constraint-violation SQLSTATEs relevant to a blocked
@@ -538,16 +537,22 @@ export async function moveLearningItem(
  * mid-reorder (classic reordering-under-a-unique-constraint problem).
  */
 export async function reorderLearningItems(db: DbClient, levelId: string, type: "vocabulary" | "grammar", orderedLearningItemIds: string[]): Promise<void> {
+  // `lesson_priority` moves with `position` (spec 17). The two were allowed
+  // to diverge and nothing ever set the second one after creation, so the
+  // curriculum order an Admin arranged and the order lessons actually taught
+  // in could silently disagree — and `domains/lessons` sorts by
+  // `lesson_priority`. The level board presents this one order as "the order
+  // they'll appear in the lesson queue", so it has to be exactly that.
   for (let i = 0; i < orderedLearningItemIds.length; i++) {
     await db
       .update(learningItems)
-      .set({ position: -(i + 1) })
+      .set({ position: -(i + 1), lessonPriority: -(i + 1) })
       .where(and(eq(learningItems.id, orderedLearningItemIds[i]!), eq(learningItems.levelId, levelId), eq(learningItems.type, type)));
   }
   for (let i = 0; i < orderedLearningItemIds.length; i++) {
     await db
       .update(learningItems)
-      .set({ position: i + 1 })
+      .set({ position: i + 1, lessonPriority: i + 1 })
       .where(and(eq(learningItems.id, orderedLearningItemIds[i]!), eq(learningItems.levelId, levelId), eq(learningItems.type, type)));
   }
 }
@@ -639,38 +644,27 @@ export async function createLevel(db: DbClient, input: { languageId: string; lev
 export async function updateLevel(
   db: DbClient,
   levelId: string,
-  input: { name?: string | null; status?: CurriculumStatus; targets?: LevelValidationTargets },
+  input: { name?: string | null; status?: CurriculumStatus },
 ): Promise<void> {
   await db
     .update(levels)
     .set({
       ...(input.name !== undefined ? { name: input.name } : {}),
       ...(input.status ? { status: input.status } : {}),
-      // Each target is written only when the caller actually supplied it, so
-      // saving a level's name never silently resets its curriculum targets.
-      ...(input.targets?.vocabularyItems !== undefined ? { vocabularyItemTarget: input.targets.vocabularyItems } : {}),
-      ...(input.targets?.vocabularyGroups !== undefined ? { vocabularyGroupTarget: input.targets.vocabularyGroups } : {}),
-      ...(input.targets?.grammarItems !== undefined ? { grammarItemTarget: input.targets.grammarItems } : {}),
     })
     .where(eq(levels.id, levelId));
 }
 
-/** A level's own targets, for resolving the effective validation denominators before a publish check. */
-export async function getLevelTargets(db: DbClient, levelId: string): Promise<LevelValidationTargets> {
-  const [row] = await db
-    .select({
-      vocabularyItems: levels.vocabularyItemTarget,
-      vocabularyGroups: levels.vocabularyGroupTarget,
-      grammarItems: levels.grammarItemTarget,
-    })
-    .from(levels)
-    .where(eq(levels.id, levelId))
-    .limit(1);
-  return row ?? {};
-}
+/**
+ * What a level actually contains, for display. Always derived live, never a
+ * stored summary (architecture.md's authoritative-data rule).
+ *
+ * Informational only since spec 17: a level holds any number of any kind of
+ * item, and publishing is an Admin decision rather than a count being met.
+ */
+export type LevelContentCounts = { vocabularyItems: number; grammarItems: number; vocabularyGroups: number };
 
-/** Real counts behind spec 11 rewrite's "Level 8: Vocabulary 47/48 ⚠" validation display — always derived live, never a stored/cacheable summary (architecture.md's authoritative-data rule). */
-export async function getLevelValidationCounts(db: DbClient, levelId: string): Promise<LevelValidationCounts> {
+export async function getLevelContentCounts(db: DbClient, levelId: string): Promise<LevelContentCounts> {
   const [[vocabRow], [grammarRow], [groupRow]] = await Promise.all([
     db.select({ n: count() }).from(learningItems).where(and(eq(learningItems.levelId, levelId), eq(learningItems.type, "vocabulary"))),
     db.select({ n: count() }).from(learningItems).where(and(eq(learningItems.levelId, levelId), eq(learningItems.type, "grammar"))),

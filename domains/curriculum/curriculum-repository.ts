@@ -43,11 +43,6 @@ function toCurriculumLevel(row: typeof levels.$inferSelect): CurriculumLevel {
     levelNumber: row.levelNumber,
     name: row.name,
     status: row.status,
-    targets: {
-      vocabularyItems: row.vocabularyItemTarget,
-      vocabularyGroups: row.vocabularyGroupTarget,
-      grammarItems: row.grammarItemTarget,
-    },
   };
 }
 

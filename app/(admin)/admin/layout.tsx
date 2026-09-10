@@ -5,7 +5,7 @@ import { forbidden } from "next/navigation";
 import { AdminMobileNav } from "@/components/admin/admin-mobile-nav";
 import { AdminSidebarNav } from "@/components/admin/admin-sidebar-nav";
 import { EnvironmentBadge } from "@/components/admin/environment-badge";
-import { canAccessAdminArea, canManageCurriculum } from "@/domains/admin";
+import { canAccessAdminArea, canManageCurriculum, canUseDeveloperTools } from "@/domains/admin";
 import { requireUser } from "@/domains/users/server";
 import { env } from "@/lib/env";
 
@@ -29,12 +29,13 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     forbidden();
   }
   const canManage = canManageCurriculum(user);
+  const canUseTools = canUseDeveloperTools(user);
 
   return (
     <div className="flex min-h-svh flex-col bg-background">
       <header className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border px-4 sm:px-6">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-          <AdminMobileNav canManageCurriculum={canManage} />
+          <AdminMobileNav canManageCurriculum={canManage} canUseDeveloperTools={canUseTools} />
           {/* "Polyglot" is dropped below `sm:` — at mobile widths the full
               wordmark plus the environment badge and Exit link don't fit
               without wrapping/overlapping (found via real-browser check at
@@ -54,7 +55,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
 
       <div className="flex flex-1">
         <aside className="hidden w-56 shrink-0 border-r border-border sm:block">
-          <AdminSidebarNav canManageCurriculum={canManage} />
+          <AdminSidebarNav canManageCurriculum={canManage} canUseDeveloperTools={canUseTools} />
         </aside>
         <main className="min-w-0 flex-1 px-4 py-6 sm:px-6">{children}</main>
       </div>

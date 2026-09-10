@@ -68,14 +68,6 @@ export type {
 export { LEVEL_NUMBER_MAX, LEVEL_NUMBER_MIN, buildLevelViewModel, parseLevelNumber } from "./level-view";
 export type { LevelCardItem, LevelViewModel } from "./level-view";
 
-// Spec 11 rewrite's Levels Management validation display — pure, database-free.
-export {
-  CURRICULUM_VALIDATION_CONFIG,
-  evaluateLevelValidation,
-  resolveLevelValidationTargets,
-} from "./curriculum-validation-config";
-export type { LevelValidationCounts, LevelValidationResult, LevelValidationTargets } from "./curriculum-validation-config";
-
 // Spec 13's bulk vocabulary import — column contract, size limits, and
 // row-shape validation, pure and database-free. `parseVocabularyImportFile`
 // itself (the one thing here that touches `csv-parse`) is deliberately

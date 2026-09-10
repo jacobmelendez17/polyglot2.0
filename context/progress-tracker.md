@@ -16,7 +16,8 @@ units, in this order:
 
 1. **Teaching meaning: editable, with a manual override lock — done.**
 2. **Curriculum re-import updates existing words in place — done.**
-3. `writer` role, with Admin verifying everything before publication.
+3. **`writer` role, with Admin verifying everything — done**, together with
+   the flexible-levels change the user asked for alongside it.
 4. Usage contexts (the "como / comes" tabs) and the example editor — the
    largest, and it wants the role model to exist first.
 
@@ -111,6 +112,88 @@ writing to real `user_item_progress` rows.
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
 
+- **Flexible levels + spec 17 unit 3 — the `writer` role and Admin
+  verification** (2026-09-09) — asked for together, and they turned out to be
+  the same idea: a level publishes because an Admin says so, not because a
+  count was met.
+  - **Curriculum targets are gone.** `curriculum-validation-config.ts` and
+    its test are deleted, `updateLevel` no longer refuses a publish, the
+    level editor's "Curriculum targets" fieldset and the Validation card are
+    replaced by a plain sentence saying what the level contains, and the
+    import manifest no longer carries `targets`. `architecture.md`'s
+    "Universal Curriculum Validation" section is now "Level Shape" and
+    `project-overview.md`'s 48/4/12 structure list is corrected — both said
+    the opposite of what the product now does.
+    - **The three `levels.*_target` columns are left in place, unused.**
+      Dropping a column is destructive and `ai-workflow-rules.md` requires
+      explicit approval; nothing reads or writes them now. Say the word and
+      they go in a contract migration.
+  - **Lesson pacing now derives from the level itself.** The grammar share of
+    a batch was a fixed 48:12 constant; it is now `grammarCount / total` over
+    the level's remaining eligible items, so a lopsided level is paced as
+    what it is. Capped at one slot short of the batch while vocabulary
+    remains — a level of one word and eleven grammar points otherwise rounds
+    to an all-grammar batch and never teaches that last word.
+  - **The level page is now where a level's curriculum is arranged**
+    (`LevelItemBoard`): every vocabulary and grammar item it holds, in
+    lesson-queue order, each row reorderable, regroupable, and movable to
+    another level. One sequence per item type rather than per group, because
+    the lesson queue is level-wide and a per-group order would display an
+    order that does not exist.
+  - **Reordering now sets `lesson_priority`, not just `position`.** This
+    closes Next Up #12: the two were allowed to diverge, nothing ever set the
+    second after creation, and `domains/lessons` sorts by it — so the order
+    an Admin arranged and the order lessons taught in could silently
+    disagree. The board presents one order and it is that one.
+  - **The `writer` role** (migration `0016`, an additive enum value appended
+    at the end, which is the only safe position). Authorization splits three
+    ways rather than two, so 89 call sites did not each need a decision:
+    - `canManageCurriculum` — **author**: create, edit, draft, move, reorder,
+      dictionary mappings. Admin **and writer**.
+    - `canPublishCurriculum` — **release or destroy**: publish, bulk publish,
+      archive, delete, levels, groups, bulk import. **Admin only.**
+    - `canUseDeveloperTools` — Sandbox and Logs. Admin and developer, never a
+      writer.
+    Delegating authoring is safe precisely because it cannot reach a learner:
+    a new item is `pending`, an edit to a published item is a draft, and only
+    the publish predicate releases either.
+  - **`/admin/curriculum/review`** lists both kinds together — new items and
+    open drafts — with who authored each, when, and a Publish button for
+    Admins. It is visible to writers too, so they can see their own work
+    queued; the publish action re-checks the predicate itself rather than
+    trusting what rendered.
+  - **Verified**: `typecheck`, `lint`, `npm run test` (630 passing),
+    `npm run build`, `db:verify`, `db:migrate`. Four publish-gate integration
+    tests were deleted rather than adapted — the gate they proved no longer
+    exists — and replaced by one asserting an empty level publishes on an
+    Admin's say-so. New unit tests cover the three-way role split and the
+    level-derived grammar share.
+  - **Two more shared-database drift failures, and how they were told apart
+    from regressions.** A full integration run showed 13 failures, most of
+    them 10-34s. Re-running the files individually passed everything but two,
+    so the long ones were **contention** from integration runs killed earlier
+    in the session, not code — worth remembering before reading a slow
+    failure as a broken feature. The two real ones had the same cause: `cero`
+    is now **published** in Level 1 (an Admin publish made while testing the
+    dictionary flow), and two tests asserted exact contents of that level.
+    `curriculum-repository`'s now asserts the fixtures' *relative* order and
+    ignores real curriculum sharing the level;
+    `dashboard-service.integration.test.ts` now **creates its own language,
+    level, items and learner**, so every count it asserts is exact and
+    independent of what the curriculum contains.
+    - Two more surfaced on the next run, same cause: the level-unlock test
+      hardcoded "the other three fixture items" as the whole unlock
+      denominator, and `countLevelGatingItems counts every learning item in
+      the level` hardcoded 4 for Level 1. The first now reads the level's
+      published items from the database — which is what the unlock rule
+      actually counts — and the second owns a level with one item of each
+      status, so it asserts the *rule* (published count, pending and archived
+      do not) rather than a number that drifts. Its name was stale too: it
+      has counted published items only since this morning's unlock fix.
+    - **Four instances in one day, all from the same condition in Next Up A.**
+      Any test asserting the exact contents of Level 1 will keep breaking as
+      the real curriculum is published, because Level 1 is simultaneously the
+      fixture level and the real one.
 - **Spec 17 unit 2 — re-import updates existing words in place** (2026-09-09)
   — re-running a corrected file used to create a second copy of every word it
   already contained. Now every row resolves to one of **create, update, move,
@@ -155,7 +238,10 @@ Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real
     change; only genuine problems start unticked. The CLI prints the same
     classification, and `--dry-run` reports a full breakdown.
   - **Verified**: `typecheck`, `lint`, `npm run test` (642), `npm run build`,
-    and 23 passing tests in `bulk-import-service.integration.test.ts` (8 new).
+    and `test:integration` at **300 of 304** — the same 4 long-standing
+    failures (#9, #10), unchanged in identity, and the level-publish timeout
+    from unit 1 now passing under its raised latency budget. 23 passing tests
+    in `bulk-import-service.integration.test.ts` (8 new).
     Two older tests were rewritten rather than deleted, because the behaviour
     they asserted is what changed: a row matching an existing item is now an
     update, not a duplicate to approve. Also exercised against the **real

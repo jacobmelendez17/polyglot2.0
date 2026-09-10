@@ -16,8 +16,17 @@ import {
 import { timestamps } from "./columns";
 import { languages } from "./languages";
 
-/** Spec 08 §8 — User Roles. The database is authoritative; Clerk metadata is never trusted for authorization. */
-export const userRoleEnum = pgEnum("user_role", ["user", "admin", "beta-tester", "developer"]);
+/**
+ * Spec 08 §8 — User Roles. The database is authoritative; Clerk metadata is
+ * never trusted for authorization.
+ *
+ * `writer` (spec 17) authors curriculum but cannot publish it: new items land
+ * `pending` and edits to published items land in that item's draft, both of
+ * which only an Admin can release. Added to the end of the enum, which is
+ * the only safe place — Postgres orders an enum by declaration, and existing
+ * values must keep their positions.
+ */
+export const userRoleEnum = pgEnum("user_role", ["user", "admin", "beta-tester", "developer", "writer"]);
 
 /**
  * Internal Polyglot user record (spec 08 §9). `clerk_user_id` is nullable —

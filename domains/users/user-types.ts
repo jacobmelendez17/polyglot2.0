@@ -1,5 +1,5 @@
 /** Spec 08 §8 — User Roles. Never trust a client-supplied value against this type; the database is authoritative (see server.ts). */
-export const USER_ROLES = ["user", "admin", "beta-tester", "developer"] as const;
+export const USER_ROLES = ["user", "admin", "beta-tester", "developer", "writer"] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
 /**

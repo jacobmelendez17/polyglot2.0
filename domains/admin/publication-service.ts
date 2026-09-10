@@ -10,8 +10,6 @@ import {
   getVocabularyDictionaryFields,
   setDictionaryFieldOverrides,
   getDuplicateCandidateRows,
-  getLevelTargets,
-  getLevelValidationCounts,
   getNextPosition,
   lockLearningItemForEdit,
   moveLearningItem as repoMoveLearningItem,
@@ -47,7 +45,6 @@ import type {
   UpdateLevelInput,
   UpdateVocabularyGroupInput,
 } from "@/domains/curriculum/curriculum-mutation-types";
-import { evaluateLevelValidation } from "@/domains/curriculum/curriculum-validation-config";
 import { withIdempotency } from "@/domains/idempotency";
 import { AdminError } from "@/lib/errors/admin-errors";
 
@@ -601,7 +598,13 @@ export async function createLevel(db: DbClient, input: CreateLevelServiceInput):
 
 export type UpdateLevelServiceInput = UpdateLevelInput & { idempotencyKey: string };
 
-/** Rejects `status: "published"` unless `evaluateLevelValidation` reports every configured curriculum count satisfied (spec 11 rewrite: "Publishing should fail if mandatory Level validation is not satisfied"). */
+/**
+ * Publishing a level is an Admin decision, full stop (spec 17).
+ *
+ * This used to refuse unless the level counted 48 vocabulary, 4 groups and
+ * 12 grammar items — which made every level the same fixed shape. Levels
+ * hold whatever they hold; an Admin publishing one is the approval.
+ */
 export async function updateLevel(db: DbClient, input: UpdateLevelServiceInput): Promise<void> {
   return withIdempotency(
     db,
@@ -609,28 +612,16 @@ export async function updateLevel(db: DbClient, input: UpdateLevelServiceInput):
       userId: input.actorUserId,
       operation: "admin.curriculum.update-level",
       key: input.idempotencyKey,
-      payload: { levelId: input.levelId, name: input.name, status: input.status, targets: input.targets },
+      payload: { levelId: input.levelId, name: input.name, status: input.status },
     },
     async (tx) => {
-      if (input.status === "published") {
-        const counts = await getLevelValidationCounts(tx, input.levelId);
-        // Resolved against the level's *own* targets, including any this very
-        // request is setting — an admin lowering a target and publishing in
-        // one save must be validated against the new target, not the old one.
-        const storedTargets = await getLevelTargets(tx, input.levelId);
-        const validation = evaluateLevelValidation(counts, { ...storedTargets, ...(input.targets ?? {}) });
-        if (!validation.allSatisfied) {
-          throw new AdminError("CURRICULUM_VALIDATION_FAILED", "This level does not yet meet the minimum curriculum requirements to publish.", { validation });
-        }
-      }
-
-      await repoUpdateLevel(tx, input.levelId, { name: input.name, status: input.status, targets: input.targets });
+      await repoUpdateLevel(tx, input.levelId, { name: input.name, status: input.status });
       await recordAuditEvent(tx, {
         actorUserId: input.actorUserId,
         action: "LEVEL_UPDATED",
         resourceType: "level",
         resourceId: input.levelId,
-        afterData: { name: input.name, status: input.status, targets: input.targets },
+        afterData: { name: input.name, status: input.status },
       });
     },
   );

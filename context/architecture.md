@@ -708,18 +708,25 @@ Ordering may include:
 - Item position
 - Lesson priority
 
-## Universal Curriculum Validation
+## Level Shape
 
-The initial curriculum rule is:
+**Levels are flexible.** A level may hold any number of vocabulary items,
+vocabulary groups, and grammar items, in any proportion (user decision,
+2026-09-09, spec 17).
 
-- 48 vocabulary items per level
-- 4 vocabulary groups
-- 12 vocabulary items per group
-- 12 grammar items per level
+There is no count a level must reach. Publication is an **Admin decision**:
+an Admin publishes a level, and that act is the approval. Nothing counts
+items and refuses.
 
-These are **validation/configuration rules**, not rigid database schema assumptions.
+This replaces the original rule (48 vocabulary / 4 groups / 12 per group / 12
+grammar, enforced as a publish gate with optional per-level overrides). That
+made every level the same fixed shape and made a deliberately short or
+grammar-free level unpublishable without configuration.
 
-The database must support future configuration changes without requiring a schema redesign.
+Anything that needs to know a level's proportions derives them from the
+level's actual contents rather than a configured shape — lesson batches size
+their grammar share that way, so a level of 200 words and 3 grammar points is
+paced as what it is.
 
 ---
 
@@ -1051,11 +1058,13 @@ with anything left to teach):
 
 Grammar sequencing stays authoritative to the grammar curriculum's own
 order in Theme and Balanced modes. Those modes reserve a proportional share
-of each batch for grammar, derived from the configured curriculum shape
-(48 vocabulary : 12 grammar), not a hardcoded count. That share is a pace,
-not a filler: a short vocabulary side yields a shorter batch rather than a
-grammar-heavy one. The single exception is a level whose vocabulary is fully
-learned, where grammar fills the batch.
+of each batch for grammar, derived from **what the level itself still has
+left to teach** — levels are flexible, so a configured shape would pace a
+200-word level and a 10-word one identically. That share is a pace, not a
+filler: a short vocabulary side yields a shorter batch rather than a
+grammar-heavy one, and grammar never takes the whole batch while vocabulary
+remains. The single exception is a level whose vocabulary is fully learned,
+where grammar fills the batch.
 
 Theme and Balanced selection must stay deterministic and testable. Random
 takes an injected number source for the same reason.

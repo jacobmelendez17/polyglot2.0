@@ -5,7 +5,7 @@ import * as adminRepository from "./curriculum-admin-repository";
 import {
   getAcceptedAnswers as repoGetAcceptedAnswers,
   getDraft as repoGetDraft,
-  getLevelValidationCounts as repoGetLevelValidationCounts,
+  getLevelContentCounts as repoGetLevelContentCounts,
 } from "./curriculum-mutation-repository";
 import { getEligibleLessonItems, getLessonItemsByIds } from "./lesson-curriculum-repository";
 import * as repository from "./curriculum-repository";
@@ -83,8 +83,8 @@ export async function getItemDraft(learningItemId: string) {
   return repoGetDraft(db, learningItemId);
 }
 
-export async function getLevelValidationCounts(levelId: string) {
-  return repoGetLevelValidationCounts(db, levelId);
+export async function getLevelContentCounts(levelId: string) {
+  return repoGetLevelContentCounts(db, levelId);
 }
 
 /**
@@ -141,3 +141,8 @@ export const databaseCurriculumReader = {
   getEligibleLearningItems: async (userId: string, languageId: string) => withConfirmedDictionaryData(await getEligibleLessonItems(db, userId, languageId)),
   getLearningItemsByIds: async (ids: string[]) => withConfirmedDictionaryData(await getLessonItemsByIds(db, ids)),
 };
+
+/** Everything awaiting Admin verification in one language (spec 17). */
+export async function getReviewQueue(languageId: string) {
+  return adminRepository.getReviewQueue(db, languageId);
+}

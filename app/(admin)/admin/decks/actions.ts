@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { canManageCurriculum } from "@/domains/admin";
+import { canPublishCurriculum } from "@/domains/admin";
 import {
   addPolyglotDeckItems,
   createPolyglotDeck,
@@ -29,7 +29,7 @@ import { DeckError } from "@/lib/errors/deck-errors";
 /**
  * Thin Server Action entry points for admin-authored Polyglot decks (spec
  * 14's "Admin"). Every action re-authenticates and re-checks
- * `canManageCurriculum` server-side — never trusting hidden navigation or a
+ * `canPublishCurriculum` server-side — never trusting hidden navigation or a
  * disabled button — and every deck rule stays in `domains/decks`. Mirrors
  * `app/(admin)/admin/curriculum/actions.ts`'s shape.
  */
@@ -39,7 +39,7 @@ export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: { code
 async function runAdminDeckAction<T>(fn: (actorUserId: string) => Promise<T>): Promise<ActionResult<T>> {
   try {
     const user = await requireUser();
-    if (!canManageCurriculum(user)) {
+    if (!canPublishCurriculum(user)) {
       return { ok: false, error: { code: "FORBIDDEN", message: "You don't have access to do that." } };
     }
     return { ok: true, data: await fn(user.id) };

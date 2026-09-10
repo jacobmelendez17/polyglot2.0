@@ -24,7 +24,8 @@ export {
   getLevelByLanguageAndNumber,
   getLevelItems,
   getLevelsByLanguage,
-  getLevelValidationCounts,
+  getLevelContentCounts,
+  getReviewQueue,
   getVocabularyGroup,
   getVocabularyGroupsByLanguage,
 } from "./curriculum-db-service";

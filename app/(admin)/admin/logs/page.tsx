@@ -6,7 +6,7 @@ import { CurriculumPagination } from "@/components/admin/curriculum/curriculum-p
 import { AuditLogFilters } from "@/components/admin/logs/audit-log-filters";
 import { AuditLogTable } from "@/components/admin/logs/audit-log-table";
 import { LogsTabsNav } from "@/components/admin/logs/logs-tabs-nav";
-import { ADMIN_AUDIT_ACTIONS, canAccessAdminArea, type AdminAuditAction } from "@/domains/admin";
+import { ADMIN_AUDIT_ACTIONS, canUseDeveloperTools, type AdminAuditAction } from "@/domains/admin";
 import { getAuditEvents } from "@/domains/admin/server";
 import { getUsersByIds, requireUser } from "@/domains/users/server";
 
@@ -37,7 +37,7 @@ function displayNameFor(user: { id: string; displayName: string | null; clerkUse
  */
 export default async function AdminLogsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const user = await requireUser();
-  if (!canAccessAdminArea(user)) {
+  if (!canUseDeveloperTools(user)) {
     forbidden();
   }
 

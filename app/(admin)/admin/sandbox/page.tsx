@@ -5,7 +5,7 @@ import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { SandboxControls } from "@/components/admin/sandbox/sandbox-controls";
 import { SandboxCurriculumPanel } from "@/components/admin/sandbox/sandbox-curriculum-panel";
 import { SandboxSnapshotView } from "@/components/admin/sandbox/sandbox-snapshot-view";
-import { canAccessAdminArea } from "@/domains/admin";
+import { canUseDeveloperTools } from "@/domains/admin";
 import { getAdminCurriculumItems, getLevelsByLanguage } from "@/domains/curriculum/server";
 import { getSandboxSnapshotForOwner, previewSandboxCurriculum } from "@/domains/sandbox/server";
 import { requireUser } from "@/domains/users/server";
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 
 /**
  * Developer sandbox route (spec 11 §53-§59). Available to both admin and
- * developer (spec 11 §53) — gated on `canAccessAdminArea`, not
+ * developer (spec 11 §53) — gated on `canUseDeveloperTools`, not
  * `canManageCurriculum`, since a developer without Admin rights may use the
  * sandbox but never mutates official curriculum here regardless.
  *
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
  */
 export default async function AdminSandboxPage() {
   const user = await requireUser();
-  if (!canAccessAdminArea(user)) {
+  if (!canUseDeveloperTools(user)) {
     forbidden();
   }
 

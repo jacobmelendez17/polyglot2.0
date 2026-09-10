@@ -8,6 +8,8 @@ import { getAdminNavItems, isAdminNavItemCurrent } from "./admin-nav-items";
 
 type AdminSidebarNavProps = {
   canManageCurriculum: boolean;
+  /** Admin and developer only — a writer never sees Logs or the Sandbox (spec 17). */
+  canUseDeveloperTools: boolean;
 };
 
 /**
@@ -20,9 +22,9 @@ type AdminSidebarNavProps = {
  * equivalent — desktop is the primary Admin target (spec 11 §74), but
  * mobile must stay navigable, not merely present.
  */
-export function AdminSidebarNav({ canManageCurriculum }: AdminSidebarNavProps) {
+export function AdminSidebarNav({ canManageCurriculum, canUseDeveloperTools }: AdminSidebarNavProps) {
   const pathname = usePathname();
-  const items = getAdminNavItems(canManageCurriculum);
+  const items = getAdminNavItems(canManageCurriculum, canUseDeveloperTools);
 
   return (
     <nav aria-label="Admin" className="flex flex-col gap-1 p-3">

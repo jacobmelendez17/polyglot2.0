@@ -5,10 +5,8 @@ import { forbidden } from "next/navigation";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { CreateLevelDialog } from "@/components/admin/curriculum/create-level-dialog";
 import { CurriculumStatusBadge } from "@/components/admin/curriculum/curriculum-status-badge";
-import { LevelValidationSummary } from "@/components/admin/curriculum/level-validation-summary";
 import { canManageCurriculum } from "@/domains/admin";
-import { evaluateLevelValidation } from "@/domains/curriculum";
-import { getLanguages, getLevelsByLanguage, getLevelValidationCounts } from "@/domains/curriculum/server";
+import { getLanguages, getLevelsByLanguage, getLevelContentCounts } from "@/domains/curriculum/server";
 import { requireUser } from "@/domains/users/server";
 
 export const metadata: Metadata = {
@@ -33,7 +31,7 @@ export default async function AdminLevelsPage({ searchParams }: { searchParams: 
   if (languages.length === 0) {
     return (
       <div>
-        <AdminPageHeader title="Levels" description="Manage level properties, ordering, and publication readiness." />
+        <AdminPageHeader title="Levels" description="Manage level properties, ordering, and publication." />
         <p className="text-sm text-muted-foreground">No languages are configured yet.</p>
       </div>
     );
@@ -41,12 +39,12 @@ export default async function AdminLevelsPage({ searchParams }: { searchParams: 
 
   const languageId = languages.some((l) => l.id === params.language) ? params.language! : languages[0]!.id;
   const levels = await getLevelsByLanguage(languageId);
-  const validationCounts = await Promise.all(levels.map((level) => getLevelValidationCounts(level.id)));
+  const contentCounts = await Promise.all(levels.map((level) => getLevelContentCounts(level.id)));
 
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <AdminPageHeader title="Levels" description="Manage level properties, ordering, and publication readiness." />
+        <AdminPageHeader title="Levels" description="Manage level properties, ordering, and publication." />
         <CreateLevelDialog languageId={languageId} />
       </div>
 
@@ -66,9 +64,10 @@ export default async function AdminLevelsPage({ searchParams }: { searchParams: 
                     <CurriculumStatusBadge status={level.status} />
                   </div>
                 </div>
-                <div className="w-full sm:w-64">
-                  <LevelValidationSummary validation={evaluateLevelValidation(validationCounts[index]!, level.targets)} />
-                </div>
+                <p className="text-sm text-muted-foreground">
+                  {contentCounts[index]!.vocabularyItems} vocabulary · {contentCounts[index]!.grammarItems} grammar ·{" "}
+                  {contentCounts[index]!.vocabularyGroups} group{contentCounts[index]!.vocabularyGroups === 1 ? "" : "s"}
+                </p>
               </div>
             </li>
           ))}

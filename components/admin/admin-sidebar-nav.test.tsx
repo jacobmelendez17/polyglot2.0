@@ -11,7 +11,7 @@ vi.mock("next/navigation", () => ({
 describe("AdminSidebarNav", () => {
   it("shows every nav item, including Curriculum, when the user can manage curriculum", () => {
     mockPathname = "/admin";
-    render(<AdminSidebarNav canManageCurriculum />);
+    render(<AdminSidebarNav canManageCurriculum canUseDeveloperTools />);
 
     expect(screen.getByRole("link", { name: "Overview" })).toHaveAttribute("href", "/admin");
     expect(screen.getByRole("link", { name: "Curriculum" })).toHaveAttribute("href", "/admin/curriculum");
@@ -23,7 +23,7 @@ describe("AdminSidebarNav", () => {
 
   it("omits Curriculum/Levels/Groups for a developer-only user", () => {
     mockPathname = "/admin";
-    render(<AdminSidebarNav canManageCurriculum={false} />);
+    render(<AdminSidebarNav canManageCurriculum={false} canUseDeveloperTools={true} />);
 
     expect(screen.queryByRole("link", { name: "Curriculum" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Levels" })).not.toBeInTheDocument();
@@ -32,7 +32,7 @@ describe("AdminSidebarNav", () => {
 
   it("marks only the current route as aria-current", () => {
     mockPathname = "/admin/sandbox";
-    render(<AdminSidebarNav canManageCurriculum />);
+    render(<AdminSidebarNav canManageCurriculum canUseDeveloperTools />);
 
     expect(screen.getByRole("link", { name: "Sandbox" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Overview" })).not.toHaveAttribute("aria-current");
@@ -40,7 +40,7 @@ describe("AdminSidebarNav", () => {
 
   it("marks Levels, not Curriculum, as current on a Levels sub-route (sibling-prefix disambiguation)", () => {
     mockPathname = "/admin/curriculum/levels/abc-123";
-    render(<AdminSidebarNav canManageCurriculum />);
+    render(<AdminSidebarNav canManageCurriculum canUseDeveloperTools />);
 
     expect(screen.getByRole("link", { name: "Levels" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Curriculum" })).not.toHaveAttribute("aria-current");

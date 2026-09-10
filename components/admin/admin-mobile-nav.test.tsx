@@ -11,7 +11,7 @@ vi.mock("next/navigation", () => ({
 describe("AdminMobileNav", () => {
   it("opens a sheet with every permitted nav item on trigger click", async () => {
     const user = userEvent.setup();
-    render(<AdminMobileNav canManageCurriculum={false} />);
+    render(<AdminMobileNav canManageCurriculum={false} canUseDeveloperTools={true} />);
 
     const trigger = screen.getByRole("button", { name: "Open Admin navigation" });
     expect(trigger).toBeInTheDocument();
@@ -28,7 +28,7 @@ describe("AdminMobileNav", () => {
 
   it("includes Curriculum, Levels, and Groups when the user can manage curriculum", async () => {
     const user = userEvent.setup();
-    render(<AdminMobileNav canManageCurriculum />);
+    render(<AdminMobileNav canManageCurriculum canUseDeveloperTools />);
 
     await user.click(screen.getByRole("button", { name: "Open Admin navigation" }));
     expect(screen.getByRole("link", { name: "Curriculum" })).toHaveAttribute("href", "/admin/curriculum");

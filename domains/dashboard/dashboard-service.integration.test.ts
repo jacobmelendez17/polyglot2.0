@@ -1,23 +1,92 @@
 import { and, eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 
-import { languages, userItemProgress, users } from "@/db/schema";
+import {
+  grammarItems,
+  languages,
+  learningItems,
+  levels,
+  userItemProgress,
+  userLevelProgress,
+  users,
+  vocabularyGroups,
+  vocabularyItems,
+} from "@/db/schema";
+import type { DbClient } from "@/db/client";
 import { seedTestFixtures } from "@/db/seed/test-fixtures";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
 
 import { getDashboardData } from "./dashboard-service";
 
 /**
- * End-to-end aggregation against real seeded data — `seedTestFixtures`
- * gives `learnerId` exactly one progress row (gato, beginner_2, no
- * scheduled review) and one unlocked level (Level 1: gato/casa/agua
- * vocabulary + one grammar item). Every number below is derived from that
- * exact fixture shape, not an approximation.
+ * End-to-end aggregation against a curriculum this test creates and owns.
+ *
+ * It used to read the seeded fixture Level 1 and assert exact counts against
+ * it. That level is shared with the real curriculum — `TEST_DATABASE_URL`
+ * and `DATABASE_URL` are the same database — so the moment a real word was
+ * published there, "3 available lessons" became 4 and the aggregation looked
+ * broken when it was right. Owning the data keeps every number exact and
+ * permanently independent of what the curriculum happens to contain.
  */
+type IsolatedLearner = { learnerId: string; languageId: string; levelId: string; gatoId: string };
+
+async function seedIsolatedLearner(tx: DbClient): Promise<IsolatedLearner> {
+  const unique = crypto.randomUUID();
+  const [language] = await tx
+    .insert(languages)
+    .values({ code: `fixture-dash-${unique}`, slug: `fixture-dash-${unique}`, name: "Dashboard Fixture" })
+    .returning();
+  const languageId = language!.id;
+
+  const [level] = await tx.insert(levels).values({ languageId, levelNumber: 1, name: "Level 1", status: "published" }).returning();
+  const [group] = await tx
+    .insert(vocabularyGroups)
+    .values({ levelId: level!.id, languageId, name: "Fixture group", position: 1, status: "published" })
+    .returning();
+
+  const inserted = await tx
+    .insert(learningItems)
+    .values([
+      { languageId, levelId: level!.id, type: "vocabulary", status: "published", position: 1, lessonPriority: 1 },
+      { languageId, levelId: level!.id, type: "vocabulary", status: "published", position: 2, lessonPriority: 2 },
+      { languageId, levelId: level!.id, type: "vocabulary", status: "published", position: 3, lessonPriority: 3 },
+      { languageId, levelId: level!.id, type: "grammar", status: "published", position: 1, lessonPriority: 4 },
+    ])
+    .returning({ id: learningItems.id });
+  const [gatoId, casaId, aguaId, grammarId] = inserted.map((row) => row.id);
+
+  await tx.insert(vocabularyItems).values([
+    { learningItemId: gatoId!, vocabularyGroupId: group!.id, term: "gato", primaryMeaning: "cat", article: "el", partOfSpeech: "noun" },
+    { learningItemId: casaId!, vocabularyGroupId: group!.id, term: "casa", primaryMeaning: "house", article: "la", partOfSpeech: "noun" },
+    { learningItemId: aguaId!, vocabularyGroupId: group!.id, term: "agua", primaryMeaning: "water", article: "el", partOfSpeech: "noun" },
+  ]);
+  await tx.insert(grammarItems).values({
+    learningItemId: grammarId!,
+    structure: "y",
+    primaryMeaning: "and",
+    explanation: "Connects two words.",
+    requiredQuestions: [{ format: "translation", direction: "targetToEnglish" }],
+  });
+
+  const [learner] = await tx.insert(users).values({ activeLanguageId: languageId, role: "user" }).returning();
+  await tx.insert(userLevelProgress).values({ userId: learner!.id, levelId: level!.id, unlockedAt: new Date() });
+  // Exactly one item learned, with no review scheduled — the shape every
+  // assertion below is derived from.
+  await tx.insert(userItemProgress).values({
+    userId: learner!.id,
+    learningItemId: gatoId!,
+    languageId,
+    srsStage: "beginner_2",
+    correctCount: 1,
+    reviewCount: 1,
+  });
+
+  return { learnerId: learner!.id, languageId, levelId: level!.id, gatoId: gatoId! };
+}
 describe("getDashboardData", () => {
   it("aggregates real lessons/reviews/level-progress data for a partially-progressed learner", async () => {
     await withTestTransaction(async (tx) => {
-      const { learnerId, languageId } = await seedTestFixtures(tx);
+      const { learnerId, languageId } = await seedIsolatedLearner(tx);
 
       const data = await getDashboardData(tx, { userId: learnerId, languageId });
 

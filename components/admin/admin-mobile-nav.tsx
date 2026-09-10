@@ -10,6 +10,8 @@ import { getAdminNavItems, isAdminNavItemCurrent } from "./admin-nav-items";
 
 type AdminMobileNavProps = {
   canManageCurriculum: boolean;
+  /** Admin and developer only — a writer never sees Logs or the Sandbox (spec 17). */
+  canUseDeveloperTools: boolean;
 };
 
 /**
@@ -19,9 +21,9 @@ type AdminMobileNavProps = {
  * below `sm:` and would hide this trigger too) so it stays reachable at
  * every viewport width the desktop sidebar itself is hidden at.
  */
-export function AdminMobileNav({ canManageCurriculum }: AdminMobileNavProps) {
+export function AdminMobileNav({ canManageCurriculum, canUseDeveloperTools }: AdminMobileNavProps) {
   const pathname = usePathname();
-  const items = getAdminNavItems(canManageCurriculum);
+  const items = getAdminNavItems(canManageCurriculum, canUseDeveloperTools);
 
   return (
     <Sheet>

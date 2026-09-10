@@ -242,8 +242,16 @@ describe("curriculum repository", () => {
     await withTestTransaction(async (tx) => {
       const { level1Id, gatoId, casaId, aguaId, grammarYId } = await seedTestFixtures(tx);
       const items = await getLevelItems(tx, level1Id);
+      const ids = items.map((item) => item.id);
 
-      expect(items.map((item) => item.id)).toEqual([gatoId, casaId, aguaId, grammarYId]);
+      // Relative order, not the exact list: `TEST_DATABASE_URL` and
+      // `DATABASE_URL` are the same database, so the real Level 1 curriculum
+      // shares this level and any of it that is published legitimately
+      // appears here too. What this test is about is that the fixtures come
+      // back in position order.
+      expect(ids).toEqual(expect.arrayContaining([gatoId, casaId, aguaId, grammarYId]));
+      const fixtureOrder = ids.filter((id) => [gatoId, casaId, aguaId, grammarYId].includes(id));
+      expect(fixtureOrder).toEqual([gatoId, casaId, aguaId, grammarYId]);
     });
   });
 

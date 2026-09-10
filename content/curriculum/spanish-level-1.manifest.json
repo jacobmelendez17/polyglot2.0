@@ -5,14 +5,21 @@
   "file": "spanish-level-1.csv",
   "delimiter": ",",
   "themes": [
-    { "groupNumber": 1, "name": "Numbers" },
-    { "groupNumber": 2, "name": "Greetings & Courtesy" },
-    { "groupNumber": 3, "name": "Family & People" },
-    { "groupNumber": 4, "name": "Colors" }
-  ],
-  "targets": {
-    "vocabularyItems": 45,
-    "vocabularyGroups": 4,
-    "grammarItems": 12
-  }
+    {
+      "groupNumber": 1,
+      "name": "Numbers"
+    },
+    {
+      "groupNumber": 2,
+      "name": "Greetings & Courtesy"
+    },
+    {
+      "groupNumber": 3,
+      "name": "Family & People"
+    },
+    {
+      "groupNumber": 4,
+      "name": "Colors"
+    }
+  ]
 }

@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 
 import type { DbClient } from "@/db/client";
-import { reviewEvents, userItemProgress, userLevelProgress } from "@/db/schema";
+import { learningItems, reviewEvents, userItemProgress, userLevelProgress } from "@/db/schema";
 import { seedTestFixtures } from "@/db/seed/test-fixtures";
 import { testDb } from "@/db/test/test-client";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
@@ -651,14 +651,27 @@ describe("atomic review completion (spec 09 unit 4)", () => {
 
   it("a newly earned level unlock persists as part of the completing transaction", async () => {
     await withTestTransaction(async (tx) => {
-      const { learnerId, gatoId, casaId, aguaId, grammarYId, level2Id, languageId } = await seedTestFixtures(tx);
+      const { learnerId, gatoId, level1Id, level2Id, languageId } = await seedTestFixtures(tx);
 
-      // Bring 3 of level 1's 4 items to Familiar 1 already (not due
-      // themselves — only gato should be in this session's queue); leave
-      // gato as the one about to complete and cross the 5/6 threshold (4/4
-      // here, since the fixture level only has 4 gating items).
-      for (const itemId of [casaId, aguaId, grammarYId]) {
-        await setStageNotDue(tx, learnerId, itemId, languageId, "familiar_1");
+      // Bring every *other* published item in level 1 to Familiar 1 already
+      // (not due themselves — only gato should be in this session's queue),
+      // leaving gato as the one about to complete and cross the 5/6
+      // threshold.
+      //
+      // Read from the database rather than listing the three fixture items:
+      // this level is shared with the real curriculum
+      // (`TEST_DATABASE_URL` and `DATABASE_URL` are the same database), and
+      // any real word published into it counts toward the unlock
+      // denominator. Hardcoding "the other three" made the test assert the
+      // size of the curriculum, and it started failing the moment one real
+      // word was published.
+      const gatingItems = await tx
+        .select({ id: learningItems.id })
+        .from(learningItems)
+        .where(and(eq(learningItems.levelId, level1Id), eq(learningItems.status, "published")));
+      for (const item of gatingItems) {
+        if (item.id === gatoId) continue;
+        await setStageNotDue(tx, learnerId, item.id, languageId, "familiar_1");
       }
       await markDue(tx, learnerId, gatoId, languageId, { srsStage: "beginner_4" });
 
@@ -682,7 +695,8 @@ describe("atomic review completion (spec 09 unit 4)", () => {
         idempotencyKey: crypto.randomUUID(),
       });
 
-      // gato is now familiar_1 too -> 4/4 of level 1 at Familiar 1+ -> level 2 unlocks.
+      // gato is now familiar_1 too, so every gating item in level 1 is at
+      // Familiar 1+ and level 2 unlocks.
       const [unlock] = await tx
         .select()
         .from(userLevelProgress)

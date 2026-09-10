@@ -213,3 +213,74 @@ export async function getAdminCurriculumStatusCounts(db: DbClient, languageId: s
   }
   return counts;
 }
+
+/**
+ * Everything waiting for an Admin to verify it (spec 17): items that have
+ * never been published, and open drafts against items that have.
+ *
+ * One query per kind rather than a union — they are genuinely different
+ * things (a whole new item versus an edit to a live one), and an Admin
+ * deciding needs to see which is which. Authors come back as ids; the page
+ * resolves them to names through `domains/users`, which owns that.
+ */
+export type ReviewQueueEntry = {
+  learningItemId: string;
+  kind: "new" | "edit";
+  type: "vocabulary" | "grammar";
+  itemLabel: string;
+  meaningLabel: string;
+  levelNumber: number;
+  groupName: string | null;
+  authorUserId: string | null;
+  updatedAt: Date;
+  version: number;
+};
+
+export async function getReviewQueue(db: DbClient, languageId: string): Promise<ReviewQueueEntry[]> {
+  const base = db
+    .select({
+      learningItemId: learningItems.id,
+      type: learningItems.type,
+      status: learningItems.status,
+      levelNumber: levels.levelNumber,
+      version: learningItems.version,
+      updatedAt: learningItems.updatedAt,
+      term: vocabularyItems.term,
+      article: vocabularyItems.article,
+      vocabularyMeaning: vocabularyItems.primaryMeaning,
+      groupName: vocabularyGroups.name,
+      structure: grammarItems.structure,
+      grammarMeaning: grammarItems.primaryMeaning,
+      draftCreatedBy: curriculumItemDrafts.createdBy,
+      draftUpdatedAt: curriculumItemDrafts.updatedAt,
+    })
+    .from(learningItems)
+    .innerJoin(levels, eq(levels.id, learningItems.levelId))
+    .leftJoin(vocabularyItems, eq(vocabularyItems.learningItemId, learningItems.id))
+    .leftJoin(vocabularyGroups, eq(vocabularyGroups.id, vocabularyItems.vocabularyGroupId))
+    .leftJoin(grammarItems, eq(grammarItems.learningItemId, learningItems.id))
+    .leftJoin(curriculumItemDrafts, eq(curriculumItemDrafts.learningItemId, learningItems.id));
+
+  const rows = await base.where(
+    and(
+      eq(learningItems.languageId, languageId),
+      or(eq(learningItems.status, "pending"), isNotNull(curriculumItemDrafts.id)),
+    ),
+  );
+
+  return rows
+    .filter((row) => row.status !== "archived")
+    .map((row) => ({
+      learningItemId: row.learningItemId,
+      kind: row.draftCreatedBy ? ("edit" as const) : ("new" as const),
+      type: row.type,
+      itemLabel: row.type === "vocabulary" ? (row.article ? `${row.article} ${row.term}` : (row.term ?? "")) : (row.structure ?? ""),
+      meaningLabel: (row.type === "vocabulary" ? row.vocabularyMeaning : row.grammarMeaning) ?? "",
+      levelNumber: row.levelNumber,
+      groupName: row.groupName,
+      authorUserId: row.draftCreatedBy,
+      updatedAt: row.draftUpdatedAt ?? row.updatedAt,
+      version: row.version,
+    }))
+    .sort((a, b) => a.levelNumber - b.levelNumber || a.itemLabel.localeCompare(b.itemLabel));
+}

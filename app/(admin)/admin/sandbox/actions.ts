@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { cookies } from "next/headers";
 
-import { canAccessAdminArea } from "@/domains/admin";
+import { canUseDeveloperTools } from "@/domains/admin";
 import { resetOwnAccountProgress } from "@/domains/admin/server";
 import { db } from "@/db/client";
 import {
@@ -27,7 +27,7 @@ import { AdminError } from "@/lib/errors/admin-errors";
  * Thin Server Action entry points for the Developer Sandbox (spec 11
  * rewrite). Available to both `admin` and `developer` roles (spec's "A
  * developer without Admin rights may use the sandbox but cannot mutate
- * official curriculum") — every action re-checks `canAccessAdminArea`
+ * official curriculum") — every action re-checks `canUseDeveloperTools`
  * itself, never trusting the page having already gated access. Mirrors
  * `app/(admin)/admin/curriculum/actions.ts`'s `ActionResult`/error-mapping
  * shape exactly.
@@ -38,7 +38,7 @@ export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: { code
 async function runSandboxAction<T>(fn: () => Promise<T>): Promise<ActionResult<T>> {
   try {
     const user = await requireUser();
-    if (!canAccessAdminArea(user)) {
+    if (!canUseDeveloperTools(user)) {
       return { ok: false, error: { code: "FORBIDDEN", message: "You don't have access to do that." } };
     }
     return { ok: true, data: await fn() };

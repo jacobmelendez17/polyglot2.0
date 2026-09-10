@@ -38,10 +38,9 @@ manifest supplies them:
 
 - `themes` — the display name for each `batch_id`, in position order. These
   are the names a learner sees in Theme mode.
-- `targets` — this level's own validation denominators
-  (`levels.vocabulary_item_target` and friends). Level 1 is deliberately 45
-  vocabulary items rather than the configured 48 default; without its own
-  target the level could never be published.
+
+A level holds whatever it holds — there are no per-level item targets, and
+publishing is an Admin decision (spec 17).
 
 ## Importing
 

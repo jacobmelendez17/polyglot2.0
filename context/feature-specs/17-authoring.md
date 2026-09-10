@@ -143,6 +143,37 @@ change), move, unchanged, or blocked.
 An exact term match is now an update, not a duplicate. Duplicate detection
 and the homonym approval it triggers apply only to genuinely different items.
 
+## Levels Are Flexible
+
+A level may hold **any number** of vocabulary items, vocabulary groups, and
+grammar items, in any proportion (user decision, 2026-09-09).
+
+There is no count a level must reach and no shape it must have. Publication
+is an Admin decision: an Admin publishing a level *is* the approval.
+
+This replaces the original 48 vocabulary / 4 groups / 12 per group / 12
+grammar rule, which was enforced as a publish gate with optional per-level
+overrides.
+
+Anything needing a level's proportions derives them from its actual contents.
+Lesson batches size their grammar share that way, so a level of 200 words and
+3 grammar points is paced as what it is — and grammar never takes a whole
+batch while vocabulary remains.
+
+### The level page
+
+A level's page is where its curriculum is arranged. It shows every vocabulary
+and grammar item the level holds, **in the order lessons will teach them**,
+and each item can be:
+
+* reordered, which sets that lesson order
+* moved to a different vocabulary group
+* moved to a different level
+
+Ordering is one sequence per item type across the level, not per group — the
+lesson queue is level-wide, so a per-group order would show an order that
+does not exist. Each row names its group instead.
+
 ## Roles and Verification
 
 Add a `writer` role.
@@ -202,5 +233,8 @@ Every authoring action is already audited by actor; keep it that way.
 * The import preview classifies every row.
 * A writer can author curriculum but cannot publish, archive, or delete.
 * Admin has a queue of everything awaiting verification.
+* A level publishes whatever it contains, with no count to satisfy.
+* A level's page lists everything it teaches, in lesson order.
+* Items can be reordered, regrouped, and moved between levels from there.
 * Tests pass.
 * `npm run build` passes.

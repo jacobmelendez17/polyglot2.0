@@ -117,7 +117,29 @@ describe("selectLessonBatch", () => {
         mode: "theme",
         selectedThemeId: COLORS.id,
       });
-      expect(batch.filter((item) => item.type === "grammar").map((item) => item.id)).toEqual(["grammar-0"]);
+      // The grammar share follows the level's own shape (spec 17: levels
+      // hold any number of either). This fixture level is 12 vocabulary to 4
+      // grammar, so a quarter of a 6-item batch is grammar — and it is the
+      // grammar curriculum's first two items, in its own order.
+      expect(batch.filter((item) => item.type === "grammar").map((item) => item.id)).toEqual(["grammar-0", "grammar-1"]);
+    });
+
+    it("scales the grammar share to the level, not to a fixed curriculum shape", () => {
+      // A level that is almost all grammar teaches mostly grammar; a level
+      // with a single grammar point spends a batch almost entirely on words.
+      const grammarHeavy = [
+        makeItem({ id: "solo-word", theme: NUMBERS, lessonPriority: 1 }),
+        ...Array.from({ length: 11 }, (_, i) => makeGrammar({ id: `g-${i}`, lessonPriority: i + 1 })),
+      ];
+      const heavyBatch = selectLessonBatch({ eligibleItems: grammarHeavy, batchSize: 6, mode: "theme", selectedThemeId: NUMBERS.id });
+      expect(heavyBatch.filter((item) => item.type === "grammar")).toHaveLength(5);
+
+      const vocabularyHeavy = [
+        ...Array.from({ length: 23 }, (_, i) => makeItem({ id: `w-${i}`, theme: NUMBERS, lessonPriority: i + 1 })),
+        makeGrammar({ id: "solo-grammar", lessonPriority: 1 }),
+      ];
+      const lightBatch = selectLessonBatch({ eligibleItems: vocabularyHeavy, batchSize: 6, mode: "theme", selectedThemeId: NUMBERS.id });
+      expect(lightBatch.filter((item) => item.type === "grammar")).toHaveLength(0);
     });
   });
 

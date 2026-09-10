@@ -24,7 +24,7 @@ import {
   ITEM_ROJO_ID,
   ITEM_Y_ID,
 } from "@/db/seed/test-fixtures";
-import { archiveItem, createLevel, createVocabularyGroup, updateLevel } from "@/domains/admin/publication-service";
+import { archiveItem, createLevel, createVocabularyGroup } from "@/domains/admin/publication-service";
 import { bulkImportVocabulary, previewVocabularyImport } from "@/domains/admin/bulk-import-service";
 import type { ImportRowDecision, ImportRowPreview } from "@/domains/admin/bulk-import-service";
 import { GRAMMAR_GROUP_NUMBER, MAX_VOCABULARY_GROUP_NUMBER, validateVocabularyImportRow } from "@/domains/curriculum/vocabulary-import-parsing";
@@ -102,13 +102,6 @@ const manifestSchema = z.object({
       }),
     )
     .min(1),
-  targets: z
-    .object({
-      vocabularyItems: z.number().int().min(0).nullish(),
-      vocabularyGroups: z.number().int().min(0).nullish(),
-      grammarItems: z.number().int().min(0).nullish(),
-    })
-    .optional(),
 });
 
 type Manifest = z.infer<typeof manifestSchema>;
@@ -244,48 +237,6 @@ async function ensureThemeGroups(
   }
 }
 
-/**
- * Applies the manifest's validation targets when they differ from what the
- * level already stores. Publishing still stays an explicit Admin act — this
- * only sets the denominators that act is checked against, which is what
- * makes a deliberately 45-item Level 1 publishable at all.
- */
-async function applyLevelTargets(
-  db: DbClient,
-  manifest: Manifest,
-  { levelId, actorUserId, keyPrefix }: { levelId: string; actorUserId: string; keyPrefix: string },
-): Promise<void> {
-  if (!manifest.targets) return;
-
-  const [stored] = await db
-    .select({
-      vocabularyItems: levels.vocabularyItemTarget,
-      vocabularyGroups: levels.vocabularyGroupTarget,
-      grammarItems: levels.grammarItemTarget,
-    })
-    .from(levels)
-    .where(eq(levels.id, levelId))
-    .limit(1);
-
-  const desired = {
-    vocabularyItems: manifest.targets.vocabularyItems ?? null,
-    vocabularyGroups: manifest.targets.vocabularyGroups ?? null,
-    grammarItems: manifest.targets.grammarItems ?? null,
-  };
-  const unchanged =
-    stored &&
-    stored.vocabularyItems === desired.vocabularyItems &&
-    stored.vocabularyGroups === desired.vocabularyGroups &&
-    stored.grammarItems === desired.grammarItems;
-  if (unchanged) return;
-
-  await updateLevel(db, { levelId, targets: desired, actorUserId, idempotencyKey: stepKey(keyPrefix, "targets") });
-  console.log(
-    `  level targets set to ${desired.vocabularyItems ?? "default"} vocabulary / ${desired.vocabularyGroups ?? "default"} groups / ${desired.grammarItems ?? "default"} grammar` +
-      (stored ? ` (was ${stored.vocabularyItems ?? "default"}/${stored.vocabularyGroups ?? "default"}/${stored.grammarItems ?? "default"})` : ""),
-  );
-}
-
 /** Archives the seeded demo items so the authored curriculum is the only teachable Level 1 content. Archive, never delete: learner progress and notes reference these rows. */
 async function archiveSeedFixtures(db: DbClient, { actorUserId, keyPrefix }: { actorUserId: string; keyPrefix: string }): Promise<void> {
   const present = await db
@@ -396,7 +347,6 @@ async function prepareAndPreview(
 ): Promise<{ importable: ImportRowDecision[]; blocked: number; counts: Record<string, number> }> {
   const levelId = await resolveLevelId(db, context.manifest, context.languageId, context.actorUserId, context.keyPrefix);
   await ensureThemeGroups(db, context.manifest, { languageId: context.languageId, levelId, actorUserId: context.actorUserId, keyPrefix: context.keyPrefix });
-  await applyLevelTargets(db, context.manifest, { levelId, actorUserId: context.actorUserId, keyPrefix: context.keyPrefix });
 
   if (context.archiveSeedFixtures) {
     await archiveSeedFixtures(db, { actorUserId: context.actorUserId, keyPrefix: context.keyPrefix });

@@ -4,7 +4,7 @@ import { forbidden } from "next/navigation";
 
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { CreatePolyglotDeckDialog } from "@/components/admin/decks/create-polyglot-deck-dialog";
-import { canManageCurriculum } from "@/domains/admin";
+import { canPublishCurriculum } from "@/domains/admin";
 import { getLanguages, getLevelsByLanguage } from "@/domains/curriculum/server";
 import { listPolyglotDecks } from "@/domains/decks/server";
 import { requireUser } from "@/domains/users/server";
@@ -22,7 +22,7 @@ type SearchParams = { language?: string };
  */
 export default async function AdminDecksPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const user = await requireUser();
-  if (!canManageCurriculum(user)) forbidden();
+  if (!canPublishCurriculum(user)) forbidden();
 
   const params = await searchParams;
   const languages = await getLanguages();

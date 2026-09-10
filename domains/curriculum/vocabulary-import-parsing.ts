@@ -57,7 +57,14 @@ export const IMPORT_COLUMN_ALIASES: Readonly<Record<string, ImportColumn>> = {
   group_number: "group",
 };
 
-/** A level's vocabulary groups are numbered 1..4 by position (the codebase's own default group count per level). */
+/**
+ * The highest group number this file format treats as a vocabulary group.
+ *
+ * A convention of the CSV format, not a limit on the curriculum: a level may
+ * hold any number of groups (spec 17). What this fixes is where the grammar
+ * sentinel sits, so the meaning of a `group` cell never shifts under an
+ * already-authored file.
+ */
 export const MAX_VOCABULARY_GROUP_NUMBER = 4;
 /** One past the last real vocabulary group number — a row with this group value has no group at all; it's a grammar item. */
 export const GRAMMAR_GROUP_NUMBER = MAX_VOCABULARY_GROUP_NUMBER + 1;

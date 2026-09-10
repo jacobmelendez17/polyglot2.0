@@ -5,6 +5,8 @@ export type AdminNavItem = {
 
 const CURRICULUM_ONLY_NAV: AdminNavItem[] = [
   { label: "Curriculum", href: "/admin/curriculum" },
+  // Spec 17 — everything a writer has left waiting for Admin verification.
+  { label: "Review", href: "/admin/curriculum/review" },
   { label: "Levels", href: "/admin/curriculum/levels" },
   { label: "Groups", href: "/admin/curriculum/groups" },
   // Spec 12 — dictionary mapping review. Curriculum-only, like the three
@@ -17,7 +19,8 @@ const CURRICULUM_ONLY_NAV: AdminNavItem[] = [
   { label: "Decks", href: "/admin/decks" },
 ];
 
-const ADMIN_AREA_NAV: AdminNavItem[] = [
+/** Operational surfaces — Admin and developer, never a writer (spec 17). */
+const DEVELOPER_TOOLS_NAV: AdminNavItem[] = [
   { label: "Logs", href: "/admin/logs" },
   { label: "Sandbox", href: "/admin/sandbox" },
 ];
@@ -28,8 +31,12 @@ const ADMIN_AREA_NAV: AdminNavItem[] = [
  * lives in exactly one place — same reasoning as `LevelLink` being shared
  * between the header dropdown and the mobile sheet in spec 10.
  */
-export function getAdminNavItems(canManageCurriculum: boolean): AdminNavItem[] {
-  return [{ label: "Overview", href: "/admin" }, ...(canManageCurriculum ? CURRICULUM_ONLY_NAV : []), ...ADMIN_AREA_NAV];
+export function getAdminNavItems(canManageCurriculum: boolean, canUseDeveloperTools = true): AdminNavItem[] {
+  return [
+    { label: "Overview", href: "/admin" },
+    ...(canManageCurriculum ? CURRICULUM_ONLY_NAV : []),
+    ...(canUseDeveloperTools ? DEVELOPER_TOOLS_NAV : []),
+  ];
 }
 
 /**

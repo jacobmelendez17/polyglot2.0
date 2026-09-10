@@ -4,7 +4,7 @@ import { forbidden, notFound } from "next/navigation";
 
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { PolyglotDeckEditor } from "@/components/admin/decks/polyglot-deck-editor";
-import { canManageCurriculum } from "@/domains/admin";
+import { canPublishCurriculum } from "@/domains/admin";
 import { getLevelsByLanguage } from "@/domains/curriculum/server";
 import { getPolyglotDeck, getPolyglotDeckItems } from "@/domains/decks/server";
 import { requireUser } from "@/domains/users/server";
@@ -19,7 +19,7 @@ const UUID_LIKE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
 /** Spec 14's Admin deck editor. A personal deck reaching this route 404s — it is not administrable content. */
 export default async function AdminDeckDetailPage({ params }: { params: Promise<{ deckId: string }> }) {
   const user = await requireUser();
-  if (!canManageCurriculum(user)) forbidden();
+  if (!canPublishCurriculum(user)) forbidden();
 
   const { deckId } = await params;
   if (!UUID_LIKE.test(deckId)) {

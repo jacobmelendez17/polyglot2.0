@@ -55,11 +55,15 @@ The first curriculum is Latin American Spanish focused on Mexican usage.
 
 Every language uses the same top-level curriculum structure:
 
-- 48 vocabulary items per level
-- 4 vocabulary groups per level
-- 12 vocabulary items per group
-- 12 grammar points per level
+- Levels, each holding vocabulary groups and grammar points
 - Optional intermissions for informational concepts or mini-lessons that are useful but are not appropriate as normal practicable grammar items
+
+**A level may hold any number of any of these** (user decision, 2026-09-09).
+There is no required count per level and no shape a level must reach before
+it can be published — an Admin publishing a level is the approval. Earlier
+drafts of this document specified 48 vocabulary items in 4 groups of 12 plus
+12 grammar points per level; that was enforced as a publish gate and has been
+removed.
 
 Official levels are sequential.
 

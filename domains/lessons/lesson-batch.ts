@@ -1,7 +1,6 @@
 import type { LearningItem, VocabularyItem, VocabularyTheme } from "@/domains/curriculum";
 import type { CurriculumMode } from "@/domains/users";
 
-import { getLessonGrammarShare } from "./lesson-config";
 import type { LessonBatchItem } from "./lesson-types";
 
 /**
@@ -53,6 +52,21 @@ function currentLevelItems(eligibleItems: LearningItem[]): LearningItem[] {
   if (eligibleItems.length === 0) return [];
   const currentLevel = Math.min(...eligibleItems.map((item) => item.levelNumber));
   return eligibleItems.filter((item) => item.levelNumber === currentLevel);
+}
+
+/**
+ * How much of a batch grammar should take, derived from what this level
+ * still has left rather than from a configured curriculum shape.
+ *
+ * Levels are flexible — any level may hold any number of vocabulary and
+ * grammar items (spec 17) — so a fixed 48:12 assumption would pace a level
+ * of 200 words and 3 grammar points exactly as badly as a level of 10 and
+ * 10. Taking the ratio from the remaining eligible pool means both sides
+ * run out at roughly the same time, whatever shape the level is.
+ */
+function grammarShareOf(vocabularyCount: number, grammarCount: number): number {
+  const total = vocabularyCount + grammarCount;
+  return total === 0 ? 0 : grammarCount / total;
 }
 
 /** Fisher-Yates over a copy, driven by the injected source, so Random mode is uniform rather than sort-comparator "random". */
@@ -123,11 +137,11 @@ function selectBalancedVocabulary(vocabulary: VocabularyItem[], slots: number): 
 /**
  * Builds the next lesson batch for one learner under one curriculum mode.
  *
- * Non-random modes reserve a share of the batch for grammar, sized from the
- * configured curriculum shape (`getLessonGrammarShare`) rather than a magic
- * number, and fill it in the grammar curriculum's own order — spec 16's
- * "grammar sequencing stays authoritative to the existing grammar
- * curriculum configuration", untouched by which vocabulary theme is active.
+ * Non-random modes reserve a share of the batch for grammar, sized from what
+ * the level itself still has left to teach, and fill it in the grammar
+ * curriculum's own order — spec 16's "grammar sequencing stays authoritative
+ * to the existing grammar curriculum configuration", untouched by which
+ * vocabulary theme is active.
  *
  * The reserved share is a pace, not a filler. When the vocabulary side comes
  * up short the batch is simply shorter — grammar does not expand to fill it,
@@ -160,7 +174,17 @@ export function selectLessonBatch({
   const grammar = candidates.filter((item) => item.type === "grammar").sort(byLessonPriority);
   const vocabulary = candidates.filter(isVocabulary).sort(byLessonPriority);
 
-  const reservedGrammar = Math.min(grammar.length, Math.round(batchSize * getLessonGrammarShare()));
+  // Capped at one slot short of the batch whenever vocabulary is available:
+  // a level of one word and eleven grammar points rounds to a batch that is
+  // *entirely* grammar, which would leave that last word untaught until the
+  // grammar ran out. The share decides the pace; this keeps both sides
+  // moving.
+  const grammarCeiling = vocabulary.length > 0 ? batchSize - 1 : batchSize;
+  const reservedGrammar = Math.min(
+    grammar.length,
+    grammarCeiling,
+    Math.round(batchSize * grammarShareOf(vocabulary.length, grammar.length)),
+  );
   const vocabularySlots = batchSize - reservedGrammar;
 
   if (mode === "theme" && !selectedThemeId) {

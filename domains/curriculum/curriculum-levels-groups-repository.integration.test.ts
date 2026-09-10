@@ -7,7 +7,7 @@ import {
   createLearningItem,
   createLevel,
   createVocabularyGroup,
-  getLevelValidationCounts,
+  getLevelContentCounts,
   reorderVocabularyGroups,
   updateLevel,
   updateVocabularyGroup,
@@ -29,7 +29,7 @@ describe("Levels management", () => {
     });
   });
 
-  it("reports real validation counts for a level", async () => {
+  it("reports what a level actually contains", async () => {
     await withTestTransaction(async (tx) => {
       const { languageId } = await seedTestFixtures(tx);
 
@@ -58,7 +58,7 @@ describe("Levels management", () => {
         fields: { title: null, structure: "conteo-gramatical", primaryMeaning: "counting", explanation: "fixture", category: null, creatorNotes: null, requiredQuestions: [{ format: "translation", direction: "targetToEnglish" }], acceptedAnswers: [] },
       });
 
-      const counts = await getLevelValidationCounts(tx, levelId);
+      const counts = await getLevelContentCounts(tx, levelId);
       expect(counts.vocabularyItems).toBe(1);
       expect(counts.grammarItems).toBe(1);
       expect(counts.vocabularyGroups).toBe(1);

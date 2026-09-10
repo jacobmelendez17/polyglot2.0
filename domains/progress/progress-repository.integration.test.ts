@@ -388,12 +388,26 @@ describe("progress repository — review-completion mutations (spec 09 unit 4)",
     });
   });
 
-  it("countLevelGatingItems counts every learning item in the level", async () => {
+  it("countLevelGatingItems counts published items only, never pending or archived ones", async () => {
     await withTestTransaction(async (tx) => {
-      const { level1Id, level2Id } = await seedTestFixtures(tx);
-      // Level 1 fixture: gato, casa, agua, grammar-y (4). Level 2: rojo (1).
-      expect(await countLevelGatingItems(tx, level1Id)).toBe(4);
-      expect(await countLevelGatingItems(tx, level2Id)).toBe(1);
+      const { languageId } = await seedTestFixtures(tx);
+
+      // A level of this test's own, with one of each status. Counting the
+      // shared fixture level instead made this assert how much real
+      // curriculum happens to be published there (`TEST_DATABASE_URL` and
+      // `DATABASE_URL` are the same database), which is not the rule under
+      // test.
+      const [level] = await tx.insert(levels).values({ languageId, levelNumber: 71, name: "Gating fixture" }).returning();
+      await tx.insert(learningItems).values([
+        { languageId, levelId: level!.id, type: "grammar", status: "published", position: 1, lessonPriority: 1 },
+        { languageId, levelId: level!.id, type: "grammar", status: "published", position: 2, lessonPriority: 2 },
+        // Neither of these can ever be taught, so neither may raise the bar
+        // a learner has to clear to unlock the next level.
+        { languageId, levelId: level!.id, type: "grammar", status: "pending", position: 3, lessonPriority: 3 },
+        { languageId, levelId: level!.id, type: "grammar", status: "archived", position: 4, lessonPriority: 4 },
+      ]);
+
+      expect(await countLevelGatingItems(tx, level!.id)).toBe(2);
     });
   });
 

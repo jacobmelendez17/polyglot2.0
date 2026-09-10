@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 
-import { canManageCurriculum } from "@/domains/admin";
+import { canManageCurriculum, canPublishCurriculum } from "@/domains/admin";
 import {
   archiveItem,
   bulkArchiveItems,
@@ -25,6 +25,7 @@ import {
 import { DICTIONARY_OVERRIDABLE_FIELDS } from "@/db/schema";
 import { resolveConfirmedDictionaryFields } from "@/domains/lexicon";
 import { getVocabularyMappingView } from "@/domains/lexicon/server";
+import type { PolyglotUser } from "@/domains/users";
 import { requireUser } from "@/domains/users/server";
 import { AdminError } from "@/lib/errors/admin-errors";
 
@@ -39,10 +40,27 @@ import { AdminError } from "@/lib/errors/admin-errors";
 
 export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: { code: string; message: string; details?: unknown } };
 
+/**
+ * Authoring actions: Admin or writer (spec 17). Safe to delegate because
+ * nothing here reaches a learner — new items are `pending`, edits to
+ * published items are drafts, and releasing either needs `runPublishAction`.
+ */
 async function runAdminAction<T>(fn: () => Promise<T>): Promise<ActionResult<T>> {
+  return runGuarded(canManageCurriculum, fn);
+}
+
+/** Actions that make curriculum live, or take it away. Admin only — this is where a writer's work waits for verification. */
+async function runPublishAction<T>(fn: () => Promise<T>): Promise<ActionResult<T>> {
+  return runGuarded(canPublishCurriculum, fn);
+}
+
+async function runGuarded<T>(
+  permits: (user: { role: PolyglotUser["role"] }) => boolean,
+  fn: () => Promise<T>,
+): Promise<ActionResult<T>> {
   try {
     const user = await requireUser();
-    if (!canManageCurriculum(user)) {
+    if (!permits(user)) {
       return { ok: false, error: { code: "FORBIDDEN", message: "You don't have access to do that." } };
     }
     return { ok: true, data: await fn() };
@@ -173,7 +191,7 @@ const publishItemActionSchema = z.object({
 });
 
 export async function publishItemAction(input: z.infer<typeof publishItemActionSchema>): Promise<ActionResult<void>> {
-  return runAdminAction(async () => {
+  return runPublishAction(async () => {
     const parsed = publishItemActionSchema.parse(input);
     const user = await requireUser();
     await publishItem({ ...parsed, actorUserId: user.id });
@@ -187,7 +205,7 @@ const archiveItemActionSchema = z.object({
 });
 
 export async function archiveItemAction(input: z.infer<typeof archiveItemActionSchema>): Promise<ActionResult<void>> {
-  return runAdminAction(async () => {
+  return runPublishAction(async () => {
     const parsed = archiveItemActionSchema.parse(input);
     const user = await requireUser();
     await archiveItem({ ...parsed, actorUserId: user.id });
@@ -197,7 +215,7 @@ export async function archiveItemAction(input: z.infer<typeof archiveItemActionS
 const deleteItemActionSchema = z.object({ learningItemId: z.string().min(1), idempotencyKey: z.string().min(1) });
 
 export async function deleteItemAction(input: z.infer<typeof deleteItemActionSchema>) {
-  return runAdminAction(async () => {
+  return runPublishAction(async () => {
     const parsed = deleteItemActionSchema.parse(input);
     const user = await requireUser();
     return deleteItem({ ...parsed, actorUserId: user.id });
@@ -244,32 +262,23 @@ const createLevelActionSchema = z.object({
 });
 
 export async function createLevelAction(input: z.infer<typeof createLevelActionSchema>): Promise<ActionResult<{ levelId: string }>> {
-  return runAdminAction(async () => {
+  return runPublishAction(async () => {
     const parsed = createLevelActionSchema.parse(input);
     const user = await requireUser();
     return createLevel({ ...parsed, actorUserId: user.id });
   });
 }
 
-const levelTargetActionSchema = z.number().int().min(0).max(1000).nullish();
 
 const updateLevelActionSchema = z.object({
   levelId: z.string().min(1),
   name: z.string().trim().min(1).nullish(),
   status: curriculumStatusActionSchema.optional(),
-  /** Per-level curriculum targets; `null` restores the configured default, `0` means no requirement. */
-  targets: z
-    .object({
-      vocabularyItems: levelTargetActionSchema,
-      vocabularyGroups: levelTargetActionSchema,
-      grammarItems: levelTargetActionSchema,
-    })
-    .optional(),
   idempotencyKey: z.string().min(1),
 });
 
 export async function updateLevelAction(input: z.infer<typeof updateLevelActionSchema>): Promise<ActionResult<void>> {
-  return runAdminAction(async () => {
+  return runPublishAction(async () => {
     const parsed = updateLevelActionSchema.parse(input);
     const user = await requireUser();
     await updateLevel({ ...parsed, actorUserId: user.id });
@@ -286,7 +295,7 @@ const createVocabularyGroupActionSchema = z.object({
 export async function createVocabularyGroupAction(
   input: z.infer<typeof createVocabularyGroupActionSchema>,
 ): Promise<ActionResult<{ groupId: string }>> {
-  return runAdminAction(async () => {
+  return runPublishAction(async () => {
     const parsed = createVocabularyGroupActionSchema.parse(input);
     const user = await requireUser();
     return createVocabularyGroup({ ...parsed, actorUserId: user.id });
@@ -303,7 +312,7 @@ const updateVocabularyGroupActionSchema = z.object({
 export async function updateVocabularyGroupAction(
   input: z.infer<typeof updateVocabularyGroupActionSchema>,
 ): Promise<ActionResult<void>> {
-  return runAdminAction(async () => {
+  return runPublishAction(async () => {
     const parsed = updateVocabularyGroupActionSchema.parse(input);
     const user = await requireUser();
     await updateVocabularyGroup({ ...parsed, actorUserId: user.id });
@@ -319,7 +328,7 @@ const reorderVocabularyGroupsActionSchema = z.object({
 export async function reorderVocabularyGroupsAction(
   input: z.infer<typeof reorderVocabularyGroupsActionSchema>,
 ): Promise<ActionResult<void>> {
-  return runAdminAction(async () => {
+  return runPublishAction(async () => {
     const parsed = reorderVocabularyGroupsActionSchema.parse(input);
     const user = await requireUser();
     await reorderVocabularyGroups({ ...parsed, actorUserId: user.id });
@@ -333,7 +342,7 @@ const bulkArchiveItemsActionSchema = z.object({
 });
 
 export async function bulkArchiveItemsAction(input: z.infer<typeof bulkArchiveItemsActionSchema>): Promise<ActionResult<void>> {
-  return runAdminAction(async () => {
+  return runPublishAction(async () => {
     const parsed = bulkArchiveItemsActionSchema.parse(input);
     const user = await requireUser();
     await bulkArchiveItems({ ...parsed, actorUserId: user.id });
@@ -348,7 +357,7 @@ const bulkMoveItemsActionSchema = z.object({
 });
 
 export async function bulkMoveItemsAction(input: z.infer<typeof bulkMoveItemsActionSchema>): Promise<ActionResult<void>> {
-  return runAdminAction(async () => {
+  return runPublishAction(async () => {
     const parsed = bulkMoveItemsActionSchema.parse(input);
     const user = await requireUser();
     await bulkMoveItems({ ...parsed, actorUserId: user.id });
@@ -363,7 +372,7 @@ const bulkPublishPendingItemsActionSchema = z.object({
 export async function bulkPublishPendingItemsAction(
   input: z.infer<typeof bulkPublishPendingItemsActionSchema>,
 ): Promise<ActionResult<void>> {
-  return runAdminAction(async () => {
+  return runPublishAction(async () => {
     const parsed = bulkPublishPendingItemsActionSchema.parse(input);
     const user = await requireUser();
     await bulkPublishPendingItems({ ...parsed, actorUserId: user.id });
