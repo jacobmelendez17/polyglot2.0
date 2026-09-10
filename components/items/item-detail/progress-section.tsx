@@ -28,7 +28,7 @@ export function ProgressSection({ progress, levelUnlockedAt, timeZone, now }: Pr
   if (!progress) {
     return (
       <div className="flex flex-col gap-4">
-        <p className="text-sm text-muted-foreground">
+        <p className="text-base text-muted-foreground">
           Not yet studied — your progress appears here once you learn this item in a lesson.
         </p>
         <dl className="grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-3 lg:grid-cols-4">
@@ -82,8 +82,8 @@ export function ProgressSection({ progress, levelUnlockedAt, timeZone, now }: Pr
 function Metric({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
-      <dd className="mt-1 text-sm font-medium text-foreground">{children}</dd>
+      <dt className="text-sm font-medium text-muted-foreground">{label}</dt>
+      <dd className="mt-1 text-base font-medium text-foreground">{children}</dd>
     </div>
   );
 }
@@ -99,7 +99,7 @@ function SrsVisualizationSlot() {
       aria-hidden="true"
       className="flex min-h-24 items-center justify-center rounded-xl border border-dashed border-border bg-muted/20 px-4 py-6"
     >
-      <p className="text-xs text-muted-foreground">Stage visualization coming soon</p>
+      <p className="text-sm text-muted-foreground">Stage visualization coming soon</p>
     </div>
   );
 }

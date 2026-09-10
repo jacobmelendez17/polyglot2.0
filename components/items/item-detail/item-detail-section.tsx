@@ -28,7 +28,7 @@ export function ItemDetailSection({ id, title, children }: ItemDetailSectionProp
       aria-labelledby={`item-section-heading-${id}`}
       className="scroll-mt-[calc(var(--nav-h)+5rem)] focus-visible:outline-none"
     >
-      <h2 id={`item-section-heading-${id}`} className="font-heading text-xl font-semibold text-foreground sm:text-2xl">
+      <h2 id={`item-section-heading-${id}`} className="font-heading text-2xl font-semibold text-foreground sm:text-3xl">
         {title ?? ITEM_DETAIL_SECTION_LABELS[id]}
       </h2>
       <div className="mt-4">{children}</div>

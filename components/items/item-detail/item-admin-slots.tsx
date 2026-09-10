@@ -163,13 +163,13 @@ function AdminBanner({ status, hasOpenDraft, itemId }: { status: CurriculumStatu
   return (
     <div className="rounded-xl border border-state-warning/50 bg-state-warning/5 px-4 py-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <p className="flex items-start gap-2 text-sm text-foreground">
+        <p className="flex items-start gap-2 text-base text-foreground">
           <FileClock className="mt-0.5 h-4 w-4 shrink-0 text-state-warning" aria-hidden="true" />
           {message}
         </p>
         <Link
           href={`/admin/curriculum/items/${itemId}`}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-sm font-medium text-foreground underline underline-offset-4 hover:text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-base font-medium text-foreground underline underline-offset-4 hover:text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           Open in Admin curriculum
           <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />

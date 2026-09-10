@@ -123,8 +123,8 @@ export function ItemDetailShell({ hero, headline, translation, sections, childre
       >
         <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
           <div className="min-w-0">
-            <p className="truncate font-heading text-base font-semibold text-foreground">{headline}</p>
-            <p className="truncate text-xs text-muted-foreground">{translation}</p>
+            <p className="truncate font-heading text-lg font-semibold text-foreground">{headline}</p>
+            <p className="truncate text-sm text-muted-foreground">{translation}</p>
           </div>
           <ItemDetailTabs
             sections={sections}
@@ -151,7 +151,7 @@ export function ItemDetailShell({ hero, headline, translation, sections, childre
         aria-hidden={isHeroVisible}
         tabIndex={isHeroVisible ? -1 : 0}
         className={cn(
-          "fixed right-4 bottom-20 z-30 inline-flex cursor-pointer items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-lg transition-opacity duration-(--dur-fast) md:bottom-6",
+          "fixed right-4 bottom-20 z-30 inline-flex cursor-pointer items-center gap-2 rounded-full bg-primary px-4 py-2 text-base font-medium text-primary-foreground shadow-lg transition-opacity duration-(--dur-fast) md:bottom-6",
           "hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
           isHeroVisible ? "pointer-events-none opacity-0" : "opacity-100",
         )}

@@ -28,8 +28,8 @@ export function InfoSummary({ view, languageCode }: InfoSummaryProps) {
         <dl className="flex flex-col gap-2">
           {view.details.map((field) => (
             <div key={field.label}>
-              <dt className="text-xs font-medium text-muted-foreground">{field.label}</dt>
-              <dd className="mt-0.5 text-sm break-words text-foreground">{field.value}</dd>
+              <dt className="text-sm font-medium text-muted-foreground">{field.label}</dt>
+              <dd className="mt-0.5 text-base break-words text-foreground">{field.value}</dd>
             </div>
           ))}
         </dl>
@@ -46,13 +46,13 @@ export function InfoSummary({ view, languageCode }: InfoSummaryProps) {
                 label={view.headline}
                 size="sm"
               />
-              <span className="text-sm text-foreground">{view.pronunciation.guide ?? EMPTY_FIELD}</span>
+              <span className="text-base text-foreground">{view.pronunciation.guide ?? EMPTY_FIELD}</span>
             </div>
             {/* Stored IPA already carries its own delimiters — do not add another pair. */}
-            <p className="font-mono text-sm text-muted-foreground">{view.pronunciation.ipa ?? EMPTY_FIELD}</p>
+            <p className="font-mono text-base text-muted-foreground">{view.pronunciation.ipa ?? EMPTY_FIELD}</p>
             <div>
-              <dt className="text-xs font-medium text-muted-foreground">Word Type</dt>
-              <dd className="mt-0.5 text-sm text-foreground">{view.pronunciation.wordType ?? EMPTY_FIELD}</dd>
+              <dt className="text-sm font-medium text-muted-foreground">Word Type</dt>
+              <dd className="mt-0.5 text-base text-foreground">{view.pronunciation.wordType ?? EMPTY_FIELD}</dd>
             </div>
           </div>
         ) : (
@@ -74,14 +74,14 @@ export function InfoSummary({ view, languageCode }: InfoSummaryProps) {
 function SummaryCard({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-3 rounded-xl bg-muted/30 p-4 ring-1 ring-foreground/5">
-      <h3 className="font-heading text-sm font-semibold text-foreground">{title}</h3>
+      <h3 className="font-heading text-base font-semibold text-foreground">{title}</h3>
       {children}
     </div>
   );
 }
 
 function EmptyNote({ children }: { children: ReactNode }) {
-  return <p className="text-sm text-muted-foreground">{children}</p>;
+  return <p className="text-base text-muted-foreground">{children}</p>;
 }
 
 /**
@@ -99,7 +99,7 @@ function AnswerList({ list, emptyLabel }: { list: ItemDetailAnswerListView; empt
       {list.official.length > 0 ? (
         <ul className="flex flex-wrap gap-1.5">
           {list.official.map((value) => (
-            <li key={value} className="rounded-md bg-card px-2 py-0.5 text-sm text-foreground ring-1 ring-foreground/10">
+            <li key={value} className="rounded-md bg-card px-2 py-0.5 text-base text-foreground ring-1 ring-foreground/10">
               {value}
             </li>
           ))}
@@ -108,10 +108,10 @@ function AnswerList({ list, emptyLabel }: { list: ItemDetailAnswerListView; empt
 
       {list.personal.length > 0 ? (
         <div>
-          <p className="text-xs font-medium text-muted-foreground">Yours</p>
+          <p className="text-sm font-medium text-muted-foreground">Yours</p>
           <ul className="mt-1 flex flex-wrap gap-1.5">
             {list.personal.map((value) => (
-              <li key={value} className="rounded-md bg-primary/10 px-2 py-0.5 text-sm text-foreground ring-1 ring-primary/20">
+              <li key={value} className="rounded-md bg-primary/10 px-2 py-0.5 text-base text-foreground ring-1 ring-primary/20">
                 {value}
               </li>
             ))}

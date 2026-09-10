@@ -25,8 +25,8 @@ export function GrammarContentBlocks({ blocks, languageCode }: GrammarContentBlo
           return (
             <div key={block.id} className="flex items-start justify-between gap-3 rounded-lg border border-border px-4 py-3">
               <div className="min-w-0">
-                <p className="text-base text-foreground">{block.targetText}</p>
-                <p className="mt-1 text-sm text-muted-foreground">{block.translation}</p>
+                <p className="text-lg text-foreground">{block.targetText}</p>
+                <p className="mt-1 text-base text-muted-foreground">{block.translation}</p>
               </div>
               <PronunciationButton text={block.targetText} languageCode={languageCode} label={block.targetText} size="sm" />
             </div>
@@ -36,14 +36,14 @@ export function GrammarContentBlocks({ blocks, languageCode }: GrammarContentBlo
         if (block.type === "note") {
           return (
             <div key={block.id} className="rounded-lg border border-state-warning/50 bg-state-warning/5 px-4 py-3">
-              <p className="text-xs font-semibold tracking-wide text-state-warning uppercase">Polyglot note</p>
-              <p className="mt-1 text-sm text-foreground">{block.body}</p>
+              <p className="text-sm font-semibold tracking-wide text-state-warning uppercase">Polyglot note</p>
+              <p className="mt-1 text-base text-foreground">{block.body}</p>
             </div>
           );
         }
 
         return (
-          <p key={block.id} className="text-base leading-relaxed text-foreground">
+          <p key={block.id} className="text-lg leading-relaxed text-foreground">
             {block.body}
           </p>
         );
