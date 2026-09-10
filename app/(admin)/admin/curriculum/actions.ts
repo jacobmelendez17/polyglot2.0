@@ -13,6 +13,8 @@ import {
   createVocabularyGroup,
   deleteItem,
   moveItem,
+  mutateItemExample,
+  mutateUsageContext,
   publishItem,
   applyDictionaryFieldsToItem,
   reorderItems,
@@ -24,7 +26,9 @@ import {
 } from "@/domains/admin/server";
 import { DICTIONARY_OVERRIDABLE_FIELDS } from "@/db/schema";
 import { resolveConfirmedDictionaryFields } from "@/domains/lexicon";
+import { proposeUsageContexts } from "@/domains/curriculum/usage-context-seeding";
 import { getVocabularyMappingView } from "@/domains/lexicon/server";
+import { getUsageContexts } from "@/domains/curriculum/server";
 import type { PolyglotUser } from "@/domains/users";
 import { requireUser } from "@/domains/users/server";
 import { AdminError } from "@/lib/errors/admin-errors";
@@ -181,6 +185,102 @@ export async function resetDictionaryFieldAction(
       fields: { partOfSpeech: resolved.partOfSpeech, definition: resolved.definition, ipa: resolved.ipa },
     });
     return { reapplied: applied.applied };
+  });
+}
+
+
+const usageContextMutationSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("create"), learningItemId: z.string().min(1), label: z.string().trim().min(1).max(80), note: z.string().trim().max(200).nullish(), sourceForm: z.string().trim().max(80).nullish() }),
+  z.object({ kind: z.literal("update"), usageContextId: z.string().uuid(), label: z.string().trim().min(1).max(80).optional(), note: z.string().trim().max(200).nullish() }),
+  z.object({ kind: z.literal("delete"), usageContextId: z.string().uuid() }),
+  z.object({ kind: z.literal("reorder"), learningItemId: z.string().min(1), orderedIds: z.array(z.string().uuid()).max(50) }),
+]);
+
+const usageContextActionSchema = z.object({
+  learningItemId: z.string().min(1),
+  idempotencyKey: z.string().min(1),
+  mutation: usageContextMutationSchema,
+});
+
+/** Spec 17 — creating, renaming, reordering, and removing a word's usage-context tabs. Authoring, so a writer may do it. */
+export async function usageContextAction(
+  input: z.infer<typeof usageContextActionSchema>,
+): Promise<ActionResult<{ usageContextId: string | null }>> {
+  return runAdminAction(async () => {
+    const parsed = usageContextActionSchema.parse(input);
+    const user = await requireUser();
+    return mutateUsageContext({ ...parsed, actorUserId: user.id });
+  });
+}
+
+const exampleMutationSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("create"), targetText: z.string().trim().min(1).max(500), translation: z.string().trim().min(1).max(500), usageContextId: z.string().uuid().nullish() }),
+  z.object({ kind: z.literal("update"), exampleId: z.string().uuid(), targetText: z.string().trim().min(1).max(500).optional(), translation: z.string().trim().min(1).max(500).optional(), usageContextId: z.string().uuid().nullish() }),
+  z.object({ kind: z.literal("delete"), exampleId: z.string().uuid() }),
+  z.object({ kind: z.literal("reorder"), orderedIds: z.array(z.string().uuid()).max(100) }),
+]);
+
+const exampleActionSchema = z.object({
+  learningItemId: z.string().min(1),
+  idempotencyKey: z.string().min(1),
+  mutation: exampleMutationSchema,
+});
+
+/** Spec 17 — the example sentences themselves, for vocabulary and grammar alike. */
+export async function itemExampleAction(
+  input: z.infer<typeof exampleActionSchema>,
+): Promise<ActionResult<{ exampleId: string | null }>> {
+  return runAdminAction(async () => {
+    const parsed = exampleActionSchema.parse(input);
+    const user = await requireUser();
+    return mutateItemExample({ ...parsed, actorUserId: user.id });
+  });
+}
+
+const seedUsageContextsSchema = z.object({ learningItemId: z.string().min(1) });
+
+/**
+ * Spec 17 — fills a word's tabs from its confirmed dictionary entry's
+ * inflected forms.
+ *
+ * Composed in the action layer, like the dictionary field promotion:
+ * `domains/lexicon` supplies the forms, `domains/curriculum` decides which
+ * become contexts, and `domains/admin` writes them. Additive by design —
+ * forms that already seeded a context are skipped, so pressing it twice adds
+ * nothing and pressing it after new dictionary data adds only what is new.
+ */
+export async function seedUsageContextsAction(
+  input: z.infer<typeof seedUsageContextsSchema>,
+): Promise<ActionResult<{ created: number; reason: string | null }>> {
+  return runAdminAction(async () => {
+    const { learningItemId } = seedUsageContextsSchema.parse(input);
+    const user = await requireUser();
+
+    const view = await getVocabularyMappingView(learningItemId);
+    if (view.mapping?.matchStatus !== "manual" || !view.entry) {
+      return { created: 0, reason: "Confirm a dictionary match for this word first — the tabs come from its forms." };
+    }
+
+    const existing = await getUsageContexts(learningItemId);
+    const proposed = proposeUsageContexts({
+      lemma: view.entry.lemma,
+      forms: view.entry.forms.map((form) => ({ form: form.form, tags: form.tags })),
+      existingSourceForms: existing.map((context) => context.sourceForm).filter((form): form is string => form !== null),
+    });
+
+    if (proposed.length === 0) {
+      return { created: 0, reason: "The dictionary lists no inflected forms for this word beyond the word itself." };
+    }
+
+    for (const context of proposed) {
+      await mutateUsageContext({
+        learningItemId,
+        actorUserId: user.id,
+        idempotencyKey: crypto.randomUUID(),
+        mutation: { kind: "create", learningItemId, label: context.label, note: context.note, sourceForm: context.sourceForm },
+      });
+    }
+    return { created: proposed.length, reason: null };
   });
 }
 

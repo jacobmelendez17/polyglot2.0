@@ -7,8 +7,16 @@ import {
   createVocabularyGroup as repoCreateVocabularyGroup,
   getAcceptedAnswers,
   getDraft,
+  createExample,
+  createUsageContext,
+  deleteExample,
+  deleteUsageContext,
   getVocabularyDictionaryFields,
+  reorderExamples,
+  reorderUsageContexts,
   setDictionaryFieldOverrides,
+  updateExample,
+  updateUsageContext,
   getDuplicateCandidateRows,
   getNextPosition,
   lockLearningItemForEdit,
@@ -287,6 +295,145 @@ export async function resetDictionaryFieldOverride(
         afterData: { resetToDictionary: input.field },
       });
       invalidateCurriculumCache(locked.languageId);
+    },
+  );
+}
+
+
+export type UsageContextMutation =
+  | { kind: "create"; learningItemId: string; label: string; note?: string | null; sourceForm?: string | null }
+  | { kind: "update"; usageContextId: string; label?: string; note?: string | null }
+  | { kind: "delete"; usageContextId: string }
+  | { kind: "reorder"; learningItemId: string; orderedIds: string[] };
+
+export type UsageContextServiceInput = { learningItemId: string; actorUserId: string; idempotencyKey: string; mutation: UsageContextMutation };
+
+/**
+ * One entry point for every change to a word's usage contexts (spec 17),
+ * rather than four near-identical services: they share the same lock, the
+ * same authorization, and the same audit action, and differ only in the one
+ * repository call they make.
+ *
+ * Authoring, not publishing — a writer may do this. The tabs belong to the
+ * item, so a published item's tabs change live rather than through a draft:
+ * `curriculum_item_drafts` snapshots the *editable fields* of an item and
+ * has nowhere to put a list of contexts. That is a deliberate limit worth
+ * knowing: rearranging tabs on a published word is immediately visible.
+ */
+export async function mutateUsageContext(db: DbClient, input: UsageContextServiceInput): Promise<{ usageContextId: string | null }> {
+  return withIdempotency(
+    db,
+    {
+      userId: input.actorUserId,
+      operation: "admin.curriculum.usage-context",
+      key: input.idempotencyKey,
+      payload: { learningItemId: input.learningItemId, mutation: input.mutation },
+    },
+    async (tx) => {
+      const locked = await lockLearningItemForEdit(tx, input.learningItemId);
+      if (!locked) throw new AdminError("CURRICULUM_ITEM_NOT_FOUND");
+      if (locked.type !== "vocabulary") {
+        throw new AdminError("CURRICULUM_VALIDATION_FAILED", "Only vocabulary items have usage contexts.");
+      }
+      if (locked.status === "archived") {
+        throw new AdminError("CURRICULUM_VALIDATION_FAILED", "Archived items cannot be edited.");
+      }
+
+      let usageContextId: string | null = null;
+      const { mutation } = input;
+      if (mutation.kind === "create") {
+        usageContextId = await createUsageContext(tx, {
+          learningItemId: input.learningItemId,
+          label: mutation.label,
+          note: mutation.note,
+          sourceForm: mutation.sourceForm,
+        });
+      } else if (mutation.kind === "update") {
+        await updateUsageContext(tx, mutation.usageContextId, { label: mutation.label, note: mutation.note });
+        usageContextId = mutation.usageContextId;
+      } else if (mutation.kind === "delete") {
+        await deleteUsageContext(tx, mutation.usageContextId);
+      } else {
+        await reorderUsageContexts(tx, input.learningItemId, mutation.orderedIds);
+      }
+
+      await recordAuditEvent(tx, {
+        actorUserId: input.actorUserId,
+        action: "USAGE_CONTEXT_CHANGED",
+        resourceType: "vocabulary_item",
+        resourceId: input.learningItemId,
+        afterData: { ...mutation },
+      });
+      invalidateCurriculumCache(locked.languageId);
+      return { usageContextId };
+    },
+  );
+}
+
+export type ExampleMutation =
+  | { kind: "create"; targetText: string; translation: string; usageContextId?: string | null }
+  | { kind: "update"; exampleId: string; targetText?: string; translation?: string; usageContextId?: string | null }
+  | { kind: "delete"; exampleId: string }
+  | { kind: "reorder"; orderedIds: string[] };
+
+export type ExampleServiceInput = { learningItemId: string; actorUserId: string; idempotencyKey: string; mutation: ExampleMutation };
+
+/**
+ * Every change to a word's or grammar point's example sentences (spec 17).
+ *
+ * Grammar is allowed here even though it has no usage contexts — it has
+ * examples, and until now nothing in the application could author one at
+ * all: the tables existed and rendered to learners, but no surface wrote
+ * them.
+ */
+export async function mutateItemExample(db: DbClient, input: ExampleServiceInput): Promise<{ exampleId: string | null }> {
+  return withIdempotency(
+    db,
+    {
+      userId: input.actorUserId,
+      operation: "admin.curriculum.item-example",
+      key: input.idempotencyKey,
+      payload: { learningItemId: input.learningItemId, mutation: input.mutation },
+    },
+    async (tx) => {
+      const locked = await lockLearningItemForEdit(tx, input.learningItemId);
+      if (!locked) throw new AdminError("CURRICULUM_ITEM_NOT_FOUND");
+      if (locked.status === "archived") {
+        throw new AdminError("CURRICULUM_VALIDATION_FAILED", "Archived items cannot be edited.");
+      }
+
+      let exampleId: string | null = null;
+      const { mutation } = input;
+      if (mutation.kind === "create") {
+        exampleId = await createExample(tx, {
+          learningItemId: input.learningItemId,
+          languageId: locked.languageId,
+          targetText: mutation.targetText,
+          translation: mutation.translation,
+          usageContextId: mutation.usageContextId,
+        });
+      } else if (mutation.kind === "update") {
+        await updateExample(tx, mutation.exampleId, {
+          targetText: mutation.targetText,
+          translation: mutation.translation,
+          usageContextId: mutation.usageContextId,
+        });
+        exampleId = mutation.exampleId;
+      } else if (mutation.kind === "delete") {
+        await deleteExample(tx, mutation.exampleId);
+      } else {
+        await reorderExamples(tx, input.learningItemId, mutation.orderedIds);
+      }
+
+      await recordAuditEvent(tx, {
+        actorUserId: input.actorUserId,
+        action: "ITEM_EXAMPLES_CHANGED",
+        resourceType: itemResourceType(locked.type),
+        resourceId: input.learningItemId,
+        afterData: { ...mutation },
+      });
+      invalidateCurriculumCache(locked.languageId);
+      return { exampleId };
     },
   );
 }

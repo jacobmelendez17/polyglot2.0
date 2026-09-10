@@ -9,13 +9,16 @@ import type { GrammarEditorValue } from "@/components/admin/curriculum/grammar-e
 import { PublishDialog } from "@/components/admin/curriculum/publish-dialog";
 import type { VocabularyEditorValue } from "@/components/admin/curriculum/vocabulary-editor";
 import { DictionaryMappingPanel } from "@/components/admin/dictionary/dictionary-mapping-panel";
+import { UsageContextEditor } from "@/components/admin/curriculum/usage-context-editor";
 import { canManageCurriculum } from "@/domains/admin";
 import type { AcceptedAnswerInput, CurriculumLearningItem } from "@/domains/curriculum";
 import {
   getAcceptedAnswers,
   getItemDraft,
+  getItemExamples,
   getLearningItem,
   getLevelsByLanguage,
+  getUsageContexts,
   getVocabularyGroupsByLanguage,
 } from "@/domains/curriculum/server";
 import { composeVocabularyDisplayWord, resolveConfirmedDictionaryFields } from "@/domains/lexicon";
@@ -107,7 +110,7 @@ export default async function EditCurriculumItemPage({ params }: { params: Promi
   const item: CurriculumLearningItem | null = await getLearningItem(itemId);
   if (!item) notFound();
 
-  const [liveAcceptedAnswers, draft, levels, groups, mappingView] = await Promise.all([
+  const [liveAcceptedAnswers, draft, levels, groups, mappingView, usageContexts, examples] = await Promise.all([
     getAcceptedAnswers(itemId),
     getItemDraft(itemId),
     getLevelsByLanguage(item.languageId),
@@ -115,6 +118,8 @@ export default async function EditCurriculumItemPage({ params }: { params: Promi
     // Spec 12 — the dictionary half of the editor. Vocabulary only:
     // dictionary integration applies to vocabulary, not grammar.
     item.type === "vocabulary" ? getVocabularyMappingView(itemId) : Promise.resolve(null),
+    getUsageContexts(itemId),
+    getItemExamples(itemId),
   ]);
 
   // Deliberately not `getVocabularyDetail`/`resolveVocabularyPresentation`:
@@ -176,6 +181,22 @@ export default async function EditCurriculumItemPage({ params }: { params: Promi
         existing={existing}
         resolvedVocabulary={resolvedVocabulary}
       />
+
+      <div className="mt-8">
+        <UsageContextEditor
+          learningItemId={item.id}
+          itemType={item.type}
+          contexts={usageContexts}
+          examples={examples.map((example) => ({
+            id: example.id,
+            usageContextId: example.usageContextId,
+            position: example.position,
+            targetText: example.targetText,
+            translation: example.translation,
+          }))}
+          canSeedFromDictionary={mappingView?.mapping?.matchStatus === "manual" && mappingView.entry !== null}
+        />
+      </div>
 
       {item.type === "vocabulary" && mappingView ? (
         <div className="mt-6">

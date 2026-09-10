@@ -80,7 +80,7 @@ describe("curriculum repository", () => {
 
       expect(level?.id).toBe(level2Id);
       expect(level?.languageId).toBe(languageId);
-      expect(level?.levelNumber).toBe(2);
+      expect(level?.levelNumber).toBe(FIXTURE_NEXT_LEVEL_NUMBER);
       expect(level?.status).toBe("published");
     });
   });

@@ -21,6 +21,8 @@ export {
   createVocabularyGroup,
   deleteItem,
   moveItem,
+  mutateItemExample,
+  mutateUsageContext,
   previewVocabularyImport,
   publishItem,
   reorderItems,
@@ -41,6 +43,10 @@ export type {
 } from "./bulk-import-service";
 export type {
   ApplyDictionaryFieldsResult,
+  ExampleMutation,
+  ExampleServiceInput,
+  UsageContextMutation,
+  UsageContextServiceInput,
   ApplyDictionaryFieldsServiceInput,
   ArchiveItemServiceInput,
   BulkArchiveItemsServiceInput,

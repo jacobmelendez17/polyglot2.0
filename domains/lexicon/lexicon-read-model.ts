@@ -8,6 +8,7 @@ import {
   sentences,
   vocabularyGroups,
   vocabularyItems,
+  vocabularyUsageContexts,
 } from "@/db/schema";
 import { getItemProgress } from "@/domains/progress/repository";
 import type { ItemProgress } from "@/domains/progress";
@@ -59,7 +60,14 @@ export interface VocabularyDetailCurriculum {
   teachingSummary: string | null;
   levelNumber: number;
   groupName: string;
-  examples: { targetText: string; translation: string }[];
+  /**
+   * Examples, each carrying the usage context it belongs to (spec 17).
+   * `usageContext: null` is the **General** tab — which is what every
+   * example authored before usage contexts existed already is.
+   */
+  examples: { targetText: string; translation: string; usageContext: { id: string; label: string; note: string | null } | null }[];
+  /** The word's usage-context tabs in display order, so a tab with no examples yet still renders. */
+  usageContexts: { id: string; label: string; note: string | null }[];
   creatorNotes: string | null;
   /** Admin-authored pronunciation fields, kept as deliberate manual overrides of the dictionary's own. */
   manualPronunciation: string | null;
@@ -240,12 +248,32 @@ async function loadCurriculumHalf(
 
   if (!row) return null;
 
-  const exampleRows = await db
-    .select({ targetText: sentences.targetText, translation: sentences.translation })
-    .from(learningItemSentences)
-    .innerJoin(sentences, eq(sentences.id, learningItemSentences.sentenceId))
-    .where(and(eq(learningItemSentences.learningItemId, vocabularyItemId), eq(sentences.status, "published")))
-    .orderBy(asc(learningItemSentences.position));
+  const [exampleRows, usageContextRows] = await Promise.all([
+    db
+      .select({
+        targetText: sentences.targetText,
+        translation: sentences.translation,
+        usageContextId: learningItemSentences.usageContextId,
+        contextLabel: vocabularyUsageContexts.label,
+        contextNote: vocabularyUsageContexts.note,
+      })
+      .from(learningItemSentences)
+      .innerJoin(sentences, eq(sentences.id, learningItemSentences.sentenceId))
+      .leftJoin(vocabularyUsageContexts, eq(vocabularyUsageContexts.id, learningItemSentences.usageContextId))
+      .where(and(eq(learningItemSentences.learningItemId, vocabularyItemId), eq(sentences.status, "published")))
+      .orderBy(asc(learningItemSentences.position)),
+    db
+      .select({ id: vocabularyUsageContexts.id, label: vocabularyUsageContexts.label, note: vocabularyUsageContexts.note })
+      .from(vocabularyUsageContexts)
+      .where(eq(vocabularyUsageContexts.learningItemId, vocabularyItemId))
+      .orderBy(asc(vocabularyUsageContexts.position)),
+  ]);
+
+  const examples = exampleRows.map((row) => ({
+    targetText: row.targetText,
+    translation: row.translation,
+    usageContext: row.usageContextId ? { id: row.usageContextId, label: row.contextLabel ?? "", note: row.contextNote } : null,
+  }));
 
   return {
     learningItemId: row.learningItemId,
@@ -254,7 +282,8 @@ async function loadCurriculumHalf(
     teachingSummary: row.definition,
     levelNumber: row.levelNumber,
     groupName: row.groupName,
-    examples: exampleRows,
+    examples,
+    usageContexts: usageContextRows,
     creatorNotes: row.creatorNotes,
     manualPronunciation: row.pronunciation,
     manualIpa: row.ipa,

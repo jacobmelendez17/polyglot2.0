@@ -11,6 +11,7 @@ function curriculum(overrides: Partial<VocabularyDetailCurriculum> = {}): Vocabu
     teachingSummary: "Admin-written teaching note.",
     levelNumber: 1,
     groupName: "Home & Basics",
+    usageContexts: [],
     examples: [],
     creatorNotes: null,
     manualPronunciation: "GAH-toh",

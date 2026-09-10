@@ -18,6 +18,7 @@ units, in this order:
 2. **Curriculum re-import updates existing words in place — done.**
 3. **`writer` role, with Admin verifying everything — done**, together with
    the flexible-levels change the user asked for alongside it.
+4. **Usage contexts and the example editor — done.** Spec 17 is complete.
 4. Usage contexts (the "como / comes" tabs) and the example editor — the
    largest, and it wants the role model to exist first.
 
@@ -112,6 +113,80 @@ writing to real `user_item_progress` rows.
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
 
+- **Curriculum reset + fixture separation** (2026-09-09) — the user asked to
+  delete the entire curriculum, archived included, and start over.
+  `npm run curriculum:reset` deletes every learning item in a language plus
+  everything referencing it, keeping levels, groups, and the dictionary. It
+  refuses to run without `--confirm`, prints what it will destroy first, and
+  asks for the language code again when a human is at the terminal. **62
+  items are gone** (5 archived, 56 pending, 1 published); the 130 dictionary
+  entries and the four themes remain.
+  - **The fixtures were more entangled with real curriculum than the level
+    number suggested.** `VOCAB_GROUP_ID` *was* the real "Numbers" group and
+    `LEVEL_2_ID` *was* the real Level 2 — the seed's `onConflictDoNothing`
+    silently left the fixture pointing into live curriculum. Fixtures now
+    have their own levels (90/91) **and their own ids**, so the integration
+    suite can no longer write demo words into the real Level 1. That is the
+    root of every drift failure fixed today.
+  - Worth knowing for next time: separate ids were what actually fixed it.
+    Moving the level number alone would have looked right and changed
+    nothing.
+  - **Separating them surfaced 10 tests that had conflated "the fixture's
+    first level" with "the application's Level 1"** — and the distinction is
+    real: `getOrCreateSandbox`, `resetOwnAccountProgress`, and
+    `resetSandboxForOwner` all anchor to **level number 1** on purpose, so a
+    persona or a reset account starts where a real learner starts. Those
+    tests now look up the application's Level 1 explicitly instead of
+    assuming the fixture's. The bulk-import tests likewise now name the
+    fixture's levels (90/91) rather than 1/2. Each of these reads better than
+    it did: what used to be an accident of shared numbering is now stated.
+  - `seedTestFixtures` also **clears the fixture learner's level unlocks
+    before re-establishing its own**, because the learner still carried an
+    unlock for the real Level 1 from before the move and "lists every level a
+    user has unlocked" started seeing two.
+- **Spec 17 unit 4 — usage contexts and the example editor** (2026-09-09) —
+  a word's examples are now grouped by how the word is used, and examples can
+  be authored at all for the first time.
+  - **Schema** (migration `0017`): `vocabulary_usage_contexts` (label, note,
+    position, and the `source_form` it was seeded from), plus a nullable
+    `usage_context_id` on `learning_item_sentences`. `NULL` is the **General**
+    tab, which is exactly what every pre-existing example already was — so
+    nothing needed migrating and no example can become unreachable. Deleting
+    a context is `SET NULL`, not cascade: losing a tab must not silently lose
+    the sentences somebody wrote in it, and there is an integration test that
+    says so.
+  - **Seeding from the dictionary** is a pure function
+    (`usage-context-seeding.ts`, 8 unit tests): it reads the imported
+    inflected forms, labels each tab with the form and describes it from the
+    grammatical tags in *reading* order ("first-person singular present"),
+    skips the lemma itself and editorial tags, collapses forms the extract
+    lists twice, and caps a full conjugation table at 12. Additive — forms
+    that already seeded a tab are skipped, so the button is safe to press
+    twice.
+  - **Composed in the action layer** like the dictionary promotion:
+    `domains/lexicon` supplies forms, `domains/curriculum` decides which
+    become contexts, `domains/admin` writes them. Neither domain reaches into
+    the other.
+  - **The learner's word page** (`UsageContextTabs`) shows one tab per
+    context plus General. Tabs only appear when there is more than one group,
+    so every word today renders exactly the flat list it always did — the
+    tabs grow out of the content rather than being chrome it has to fill. A
+    context with no examples yet is still offered, because "this form exists
+    and nothing is written for it" is more useful than the form silently not
+    existing.
+  - **One limit worth knowing**: tabs on a *published* word change live
+    rather than through a draft. `curriculum_item_drafts` snapshots an item's
+    editable fields and has nowhere to put a list of contexts. Recorded in
+    the service's own docstring.
+  - **Verified**: `typecheck`, `lint`, `npm run test` (**650 passing**),
+    `npm run build`, `db:migrate`, `db:verify`, and `test:integration` at
+    **305 of 309** — the same 4 long-standing failures (#9, #10), unchanged
+    in identity. 8 new integration tests cover create/rename/reorder/delete,
+    examples surviving a deleted tab, and grammar being refused contexts but
+    allowed examples.
+  - **Not browser-verified.** The admin editor and the learner tabs are
+    covered by component and integration tests only. There is also nothing to
+    look at yet: the curriculum is empty until it is re-imported.
 - **Flexible levels + spec 17 unit 3 — the `writer` role and Admin
   verification** (2026-09-09) — asked for together, and they turned out to be
   the same idea: a level publishes because an Admin says so, not because a

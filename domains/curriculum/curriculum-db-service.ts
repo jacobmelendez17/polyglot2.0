@@ -4,6 +4,8 @@ import { getConfirmedDictionaryDataForItems } from "@/domains/lexicon/server";
 import * as adminRepository from "./curriculum-admin-repository";
 import {
   getAcceptedAnswers as repoGetAcceptedAnswers,
+  getItemExamples as repoGetItemExamples,
+  getUsageContexts as repoGetUsageContexts,
   getDraft as repoGetDraft,
   getLevelContentCounts as repoGetLevelContentCounts,
 } from "./curriculum-mutation-repository";
@@ -145,4 +147,14 @@ export const databaseCurriculumReader = {
 /** Everything awaiting Admin verification in one language (spec 17). */
 export async function getReviewQueue(languageId: string) {
   return adminRepository.getReviewQueue(db, languageId);
+}
+
+/** A word's usage-context tabs, in display order (spec 17). */
+export async function getUsageContexts(learningItemId: string) {
+  return repoGetUsageContexts(db, learningItemId);
+}
+
+/** Every example attached to an item, with the tab each belongs to. */
+export async function getItemExamples(learningItemId: string) {
+  return repoGetItemExamples(db, learningItemId);
 }

@@ -238,6 +238,11 @@ export async function seedTestFixtures(db: DbClient, options: SeedTestFixturesOp
     .values({ id: SANDBOX_ID, isSandbox: true, sandboxOwnerUserId: DEVELOPER_ID, activeLanguageId: languageId })
     .onConflictDoNothing({ target: users.id });
 
+  // The fixture learner has unlocked the fixture level and nothing else.
+  // Asserted rather than assumed: this learner previously had an unlock row
+  // for the real Level 1, left behind when the fixtures moved to their own
+  // level, and "lists every level a user has unlocked" started seeing two.
+  await db.delete(userLevelProgress).where(eq(userLevelProgress.userId, LEARNER_ID));
   await db
     .insert(userLevelProgress)
     .values({ userId: LEARNER_ID, levelId: level1Id, unlockedAt: new Date() })

@@ -63,6 +63,12 @@ export const ADMIN_AUDIT_ACTIONS = [
   "DECK_DELETED",
   "DECK_ITEMS_CHANGED",
   "DECK_ITEMS_REORDERED",
+  // Spec 17 — usage contexts (the tabs a word's examples are grouped under)
+  // and the examples themselves. Authored content, so every change is
+  // attributable like any other curriculum edit; a writer can make these,
+  // and an Admin sees who did.
+  "USAGE_CONTEXT_CHANGED",
+  "ITEM_EXAMPLES_CHANGED",
 ] as const;
 
 export type AdminAuditAction = (typeof ADMIN_AUDIT_ACTIONS)[number];

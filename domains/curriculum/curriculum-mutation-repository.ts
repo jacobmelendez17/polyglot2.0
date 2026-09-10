@@ -1,4 +1,4 @@
-import { and, count, eq, sql, TransactionRollbackError } from "drizzle-orm";
+import { and, asc, count, eq, sql, TransactionRollbackError } from "drizzle-orm";
 
 import type { DbClient } from "@/db/client";
 import type { DictionaryOverridableField } from "@/db/schema";
@@ -9,8 +9,10 @@ import {
   learningItemSentences,
   learningItems,
   levels,
+  sentences,
   vocabularyGroups,
   vocabularyItems,
+  vocabularyUsageContexts,
 } from "@/db/schema";
 import { normalizeForComparison } from "@/lib/answer-checking/normalize";
 
@@ -414,6 +416,210 @@ export async function updateGrammarFieldsFromImport(
   const changes = Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== null && value !== ""));
   if (Object.keys(changes).length === 0) return;
   await db.update(grammarItems).set(changes).where(eq(grammarItems.learningItemId, learningItemId));
+}
+
+
+// --- Usage contexts and examples (spec 17) ---
+
+export type UsageContextRow = {
+  id: string;
+  learningItemId: string;
+  label: string;
+  note: string | null;
+  position: number;
+  sourceForm: string | null;
+};
+
+export type ExampleRow = {
+  id: string;
+  sentenceId: string;
+  usageContextId: string | null;
+  position: number;
+  targetText: string;
+  translation: string;
+};
+
+/** A word's usage contexts in display order. */
+export async function getUsageContexts(db: DbClient, learningItemId: string): Promise<UsageContextRow[]> {
+  return db
+    .select({
+      id: vocabularyUsageContexts.id,
+      learningItemId: vocabularyUsageContexts.learningItemId,
+      label: vocabularyUsageContexts.label,
+      note: vocabularyUsageContexts.note,
+      position: vocabularyUsageContexts.position,
+      sourceForm: vocabularyUsageContexts.sourceForm,
+    })
+    .from(vocabularyUsageContexts)
+    .where(eq(vocabularyUsageContexts.learningItemId, learningItemId))
+    .orderBy(asc(vocabularyUsageContexts.position));
+}
+
+/**
+ * Every example attached to an item, with the tab it belongs to. Ordered by
+ * the item-wide position, which is also the order inside any one tab.
+ */
+export async function getItemExamples(db: DbClient, learningItemId: string): Promise<ExampleRow[]> {
+  return db
+    .select({
+      id: learningItemSentences.id,
+      sentenceId: learningItemSentences.sentenceId,
+      usageContextId: learningItemSentences.usageContextId,
+      position: learningItemSentences.position,
+      targetText: sentences.targetText,
+      translation: sentences.translation,
+    })
+    .from(learningItemSentences)
+    .innerJoin(sentences, eq(sentences.id, learningItemSentences.sentenceId))
+    .where(eq(learningItemSentences.learningItemId, learningItemId))
+    .orderBy(asc(learningItemSentences.position));
+}
+
+/** Appends a usage context at the end of the word's tabs. */
+export async function createUsageContext(
+  db: DbClient,
+  input: { learningItemId: string; label: string; note?: string | null; sourceForm?: string | null },
+): Promise<string> {
+  const [{ maxPosition }] = await db
+    .select({ maxPosition: sql<number>`coalesce(max(${vocabularyUsageContexts.position}), 0)` })
+    .from(vocabularyUsageContexts)
+    .where(eq(vocabularyUsageContexts.learningItemId, input.learningItemId));
+  const [row] = await db
+    .insert(vocabularyUsageContexts)
+    .values({
+      learningItemId: input.learningItemId,
+      label: input.label,
+      note: input.note ?? null,
+      sourceForm: input.sourceForm ?? null,
+      position: maxPosition + 1,
+    })
+    .returning({ id: vocabularyUsageContexts.id });
+  return row!.id;
+}
+
+export async function updateUsageContext(
+  db: DbClient,
+  usageContextId: string,
+  input: { label?: string; note?: string | null },
+): Promise<void> {
+  await db
+    .update(vocabularyUsageContexts)
+    .set({
+      ...(input.label !== undefined ? { label: input.label } : {}),
+      ...(input.note !== undefined ? { note: input.note } : {}),
+    })
+    .where(eq(vocabularyUsageContexts.id, usageContextId));
+}
+
+/** Deleting a tab returns its examples to General rather than destroying them — the `SET NULL` foreign key does that part. */
+export async function deleteUsageContext(db: DbClient, usageContextId: string): Promise<void> {
+  await db.delete(vocabularyUsageContexts).where(eq(vocabularyUsageContexts.id, usageContextId));
+}
+
+/** Same two-phase (negative placeholder, then final) rewrite the other reorder functions use, for the same unique-constraint reason. */
+export async function reorderUsageContexts(db: DbClient, learningItemId: string, orderedIds: string[]): Promise<void> {
+  for (let i = 0; i < orderedIds.length; i++) {
+    await db
+      .update(vocabularyUsageContexts)
+      .set({ position: -(i + 1) })
+      .where(and(eq(vocabularyUsageContexts.id, orderedIds[i]!), eq(vocabularyUsageContexts.learningItemId, learningItemId)));
+  }
+  for (let i = 0; i < orderedIds.length; i++) {
+    await db
+      .update(vocabularyUsageContexts)
+      .set({ position: i + 1 })
+      .where(and(eq(vocabularyUsageContexts.id, orderedIds[i]!), eq(vocabularyUsageContexts.learningItemId, learningItemId)));
+  }
+}
+
+/**
+ * Creates an example sentence and attaches it to the word, optionally in one
+ * of its tabs.
+ *
+ * The sentence itself is a reusable, language-scoped row (spec 08 §20), so
+ * this writes both it and the join row — an example authored here is not
+ * shared with other items today, but the shape leaves that open.
+ */
+export async function createExample(
+  db: DbClient,
+  input: { learningItemId: string; languageId: string; targetText: string; translation: string; usageContextId?: string | null },
+): Promise<string> {
+  const [sentence] = await db
+    .insert(sentences)
+    .values({ languageId: input.languageId, targetText: input.targetText, translation: input.translation, status: "published" })
+    .returning({ id: sentences.id });
+
+  const [{ maxPosition }] = await db
+    .select({ maxPosition: sql<number>`coalesce(max(${learningItemSentences.position}), 0)` })
+    .from(learningItemSentences)
+    .where(eq(learningItemSentences.learningItemId, input.learningItemId));
+
+  const [row] = await db
+    .insert(learningItemSentences)
+    .values({
+      learningItemId: input.learningItemId,
+      sentenceId: sentence!.id,
+      usageContextId: input.usageContextId ?? null,
+      position: maxPosition + 1,
+    })
+    .returning({ id: learningItemSentences.id });
+  return row!.id;
+}
+
+export async function updateExample(
+  db: DbClient,
+  exampleId: string,
+  input: { targetText?: string; translation?: string; usageContextId?: string | null },
+): Promise<void> {
+  if (input.usageContextId !== undefined) {
+    await db
+      .update(learningItemSentences)
+      .set({ usageContextId: input.usageContextId })
+      .where(eq(learningItemSentences.id, exampleId));
+  }
+  if (input.targetText === undefined && input.translation === undefined) return;
+
+  const [row] = await db
+    .select({ sentenceId: learningItemSentences.sentenceId })
+    .from(learningItemSentences)
+    .where(eq(learningItemSentences.id, exampleId))
+    .limit(1);
+  if (!row) return;
+
+  await db
+    .update(sentences)
+    .set({
+      ...(input.targetText !== undefined ? { targetText: input.targetText } : {}),
+      ...(input.translation !== undefined ? { translation: input.translation } : {}),
+    })
+    .where(eq(sentences.id, row.sentenceId));
+}
+
+/** Removes the example from the word, and the sentence with it — nothing else references it. */
+export async function deleteExample(db: DbClient, exampleId: string): Promise<void> {
+  const [row] = await db
+    .select({ sentenceId: learningItemSentences.sentenceId })
+    .from(learningItemSentences)
+    .where(eq(learningItemSentences.id, exampleId))
+    .limit(1);
+  if (!row) return;
+  await db.delete(learningItemSentences).where(eq(learningItemSentences.id, exampleId));
+  await db.delete(sentences).where(eq(sentences.id, row.sentenceId));
+}
+
+export async function reorderExamples(db: DbClient, learningItemId: string, orderedIds: string[]): Promise<void> {
+  for (let i = 0; i < orderedIds.length; i++) {
+    await db
+      .update(learningItemSentences)
+      .set({ position: -(i + 1) })
+      .where(and(eq(learningItemSentences.id, orderedIds[i]!), eq(learningItemSentences.learningItemId, learningItemId)));
+  }
+  for (let i = 0; i < orderedIds.length; i++) {
+    await db
+      .update(learningItemSentences)
+      .set({ position: i + 1 })
+      .where(and(eq(learningItemSentences.id, orderedIds[i]!), eq(learningItemSentences.learningItemId, learningItemId)));
+  }
 }
 
 export type DraftData = { type: "vocabulary"; fields: VocabularyFieldsInput } | { type: "grammar"; fields: GrammarFieldsInput };

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { ITEM_CASA_ID, ITEM_GATO_ID, LEARNER_ID, LEVEL_2_ID, seedTestFixtures } from "@/db/seed/test-fixtures";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
+import { getLevelByLanguageAndNumber } from "@/domains/curriculum/curriculum-repository";
 import { getAuditEvents } from "@/domains/admin/audit-repository";
 import { getItemProgress, getUnlockedLevels, unlockLevel } from "@/domains/progress/repository";
 
@@ -18,13 +19,16 @@ import { resetOwnAccountProgress } from "./account-reset-service";
 describe("resetOwnAccountProgress", () => {
   it("clears the caller's own progress and re-establishes only the Level 1 starting state", async () => {
     await withTestTransaction(async (tx) => {
-      const { languageId, level1Id } = await seedTestFixtures(tx);
+      const { languageId } = await seedTestFixtures(tx);
+      // Resetting an account restores the *application's* Level 1 unlock —
+      // where a real learner starts — not the fixture's own level.
+      const applicationLevel1 = await getLevelByLanguageAndNumber(tx, languageId, 1, { includeUnpublished: true });
       await unlockLevel(tx, { userId: LEARNER_ID, levelId: LEVEL_2_ID, now: new Date() });
 
       await resetOwnAccountProgress(tx, { userId: LEARNER_ID, languageId, idempotencyKey: crypto.randomUUID() });
 
       const unlocked = await getUnlockedLevels(tx, LEARNER_ID, languageId);
-      expect(unlocked.map((l) => l.levelId)).toEqual([level1Id]);
+      expect(unlocked.map((l) => l.levelId)).toEqual([applicationLevel1!.id]);
       expect(await getItemProgress(tx, LEARNER_ID, ITEM_GATO_ID)).toBeNull();
       expect(await getItemProgress(tx, LEARNER_ID, ITEM_CASA_ID)).toBeNull();
 

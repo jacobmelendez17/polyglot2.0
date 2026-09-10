@@ -1,5 +1,5 @@
 import { DictionaryPanel } from "./dictionary-panel";
-import { ExampleList } from "./example-list";
+import { UsageContextTabs } from "./usage-context-tabs";
 import { ItemDetailHeader } from "./item-detail-header";
 import { ItemProgressPanel } from "./item-progress-panel";
 import type { CurriculumStatus } from "@/domains/curriculum";
@@ -59,10 +59,10 @@ export function VocabularyItemDetail({ detail, status }: VocabularyItemDetailPro
         ) : null}
       </section>
 
-      {curriculum.examples.length > 0 ? (
+      {curriculum.examples.length > 0 || curriculum.usageContexts.length > 0 ? (
         <section className="flex flex-col gap-2">
-          <h2 className="font-heading text-sm font-semibold text-foreground">Examples</h2>
-          <ExampleList examples={curriculum.examples} />
+          <h2 className="font-heading text-sm font-semibold text-foreground">Context</h2>
+          <UsageContextTabs examples={curriculum.examples} usageContexts={curriculum.usageContexts} />
         </section>
       ) : null}
 

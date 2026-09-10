@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { DEVELOPER_ID, ITEM_GATO_ID, seedTestFixtures } from "@/db/seed/test-fixtures";
+import {
+  DEVELOPER_ID,
+  FIXTURE_LEVEL_NUMBER,
+  FIXTURE_NEXT_LEVEL_NUMBER,
+  ITEM_GATO_ID,
+  seedTestFixtures,
+} from "@/db/seed/test-fixtures";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
 import {
   archiveLearningItem,
@@ -18,13 +24,15 @@ import { getAuditEvents } from "./audit-repository";
 import { bulkImportVocabulary, previewVocabularyImport } from "./bulk-import-service";
 import type { ImportRowDecision } from "./bulk-import-service";
 
-// Level 1 (levelNumber 1) is `seedTestFixtures`' seeded level, with exactly
-// one vocabulary group at position 1 (`vocabGroupId`). Level 2 (levelNumber
-// 2) exists but has no vocabulary groups at all — deliberately reused below
-// to exercise "group doesn't exist yet" without inserting new fixture rows.
-const LEVEL_1_NUMBER = 1;
+// The fixture's own levels, not the application's (2026-09-09): fixtures
+// live at levels 90/91 so the integration suite can never write demo words
+// into the real Level 1. The first has exactly one vocabulary group at
+// position 1 (`vocabGroupId`); the second has no groups at all, which is
+// deliberately reused below to exercise "group doesn't exist yet" without
+// inserting new fixture rows.
+const LEVEL_1_NUMBER = FIXTURE_LEVEL_NUMBER;
 const LEVEL_1_GROUP_1 = 1;
-const LEVEL_2_NUMBER = 2;
+const LEVEL_2_NUMBER = FIXTURE_NEXT_LEVEL_NUMBER;
 const NONEXISTENT_LEVEL_NUMBER = 999;
 
 function vocabFields(overrides: Partial<ParsedVocabularyFields> & Pick<ParsedVocabularyFields, "term" | "primaryMeaning">): ParsedVocabularyFields {
@@ -461,7 +469,7 @@ describe("re-importing words that already exist (spec 17)", () => {
 
       const preview = await previewVocabularyImport(tx, { languageId, validatedRows: [{ rowNumber: 2, raw: {}, fields: moved, fieldIssues: [] }] });
       expect(preview[0]!.action).toBe("move");
-      expect(preview[0]!.placement).toMatchObject({ fromLevelNumber: 1, toLevelNumber: 2 });
+      expect(preview[0]!.placement).toMatchObject({ fromLevelNumber: LEVEL_1_NUMBER, toLevelNumber: LEVEL_2_NUMBER });
 
       const result = await bulkImportVocabulary(tx, {
         languageId,

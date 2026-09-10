@@ -32,7 +32,7 @@ describe("getVocabularyDetail", () => {
       expect(detail).not.toBeNull();
       expect(detail?.curriculum.displayWord).toBe("el gato");
       expect(detail?.curriculum.translation).toBe("cat");
-      expect(detail?.curriculum.examples).toEqual([{ targetText: "El gato duerme.", translation: "The cat sleeps." }]);
+      expect(detail?.curriculum.examples).toEqual([{ targetText: "El gato duerme.", translation: "The cat sleeps.", usageContext: null }]);
       expect(detail?.progress).toBeNull();
     });
   });

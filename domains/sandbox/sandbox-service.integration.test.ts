@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { users } from "@/db/schema";
 import { DEVELOPER_ID, ITEM_CASA_ID, ITEM_GATO_ID, LEVEL_2_ID, LEARNER_ID, seedTestFixtures } from "@/db/seed/test-fixtures";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
+import { getLevelByLanguageAndNumber } from "@/domains/curriculum/curriculum-repository";
 import { getAuditEvents } from "@/domains/admin/audit-repository";
 import { getItemProgress, getUnlockedLevels } from "@/domains/progress/repository";
 
@@ -25,7 +26,11 @@ describe("getOrCreateSandbox", () => {
   // LEARNER_ID has no sandbox of its own in that seed data.
   it("creates exactly one sandbox user for a first-time owner, with Level 1 already unlocked", async () => {
     await withTestTransaction(async (tx) => {
-      const { languageId, level1Id } = await seedTestFixtures(tx);
+      const { languageId } = await seedTestFixtures(tx);
+      // A sandbox persona is anchored to the *application's* Level 1, not to
+      // the fixture's own level — `findLevel1Id` resolves level number 1
+      // deliberately, so a persona starts where a real learner starts.
+      const applicationLevel1 = await getLevelByLanguageAndNumber(tx, languageId, 1, { includeUnpublished: true });
 
       const account = await getOrCreateSandbox(tx, LEARNER_ID, languageId);
       expect(account.ownerUserId).toBe(LEARNER_ID);
@@ -36,7 +41,7 @@ describe("getOrCreateSandbox", () => {
       expect(row?.clerkUserId).toBeNull();
 
       const unlocked = await getUnlockedLevels(tx, account.sandboxUserId, languageId);
-      expect(unlocked.map((l) => l.levelId)).toEqual([level1Id]);
+      expect(unlocked.map((l) => l.levelId)).toEqual([applicationLevel1!.id]);
     });
   });
 
@@ -123,7 +128,8 @@ describe("makeSandboxReviewsDue", () => {
 describe("resetSandboxForOwner", () => {
   it("clears the sandbox's own progress and re-establishes only the Level 1 starting state", async () => {
     await withTestTransaction(async (tx) => {
-      const { languageId, level1Id } = await seedTestFixtures(tx);
+      const { languageId } = await seedTestFixtures(tx);
+      const applicationLevel1 = await getLevelByLanguageAndNumber(tx, languageId, 1, { includeUnpublished: true });
       await simulateLevelForSandbox(tx, { ownerUserId: DEVELOPER_ID, languageId, levelId: LEVEL_2_ID, actorUserId: DEVELOPER_ID, idempotencyKey: crypto.randomUUID() });
       await setSandboxItemStage(tx, { ownerUserId: DEVELOPER_ID, languageId, learningItemId: ITEM_GATO_ID, srsStage: "master", actorUserId: DEVELOPER_ID, idempotencyKey: crypto.randomUUID() });
 
@@ -131,7 +137,7 @@ describe("resetSandboxForOwner", () => {
 
       const account = await getOrCreateSandbox(tx, DEVELOPER_ID, languageId);
       const unlocked = await getUnlockedLevels(tx, account.sandboxUserId, languageId);
-      expect(unlocked.map((l) => l.levelId)).toEqual([level1Id]);
+      expect(unlocked.map((l) => l.levelId)).toEqual([applicationLevel1!.id]);
       expect(await getItemProgress(tx, account.sandboxUserId, ITEM_GATO_ID)).toBeNull();
 
       const audit = await getAuditEvents(tx, { action: "SANDBOX_RESET", resourceId: account.sandboxUserId, limit: 10 });

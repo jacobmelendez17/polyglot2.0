@@ -10,6 +10,8 @@ import type { BulkImportVocabularyServiceInput } from "./bulk-import-service";
 import * as publication from "./publication-service";
 import type {
   ApplyDictionaryFieldsServiceInput,
+  ExampleServiceInput,
+  UsageContextServiceInput,
   ArchiveItemServiceInput,
   BulkArchiveItemsServiceInput,
   BulkMoveItemsServiceInput,
@@ -72,6 +74,16 @@ export async function applyDictionaryFieldsToItem(input: ApplyDictionaryFieldsSe
 export async function resetDictionaryFieldOverride(input: ResetDictionaryFieldServiceInput) {
   await checkRateLimit("admin-mutation", input.actorUserId);
   return publication.resetDictionaryFieldOverride(db, input);
+}
+
+export async function mutateUsageContext(input: UsageContextServiceInput) {
+  await checkRateLimit("admin-mutation", input.actorUserId);
+  return publication.mutateUsageContext(db, input);
+}
+
+export async function mutateItemExample(input: ExampleServiceInput) {
+  await checkRateLimit("admin-mutation", input.actorUserId);
+  return publication.mutateItemExample(db, input);
 }
 
 export async function publishItem(input: PublishItemServiceInput) {
