@@ -264,7 +264,61 @@ export const sentences = pgTable("sentences", {
   ...timestamps(),
 });
 
-/** Join table relating a learning item to its supporting example sentences, with explicit display ordering. */
+/**
+ * One way a word is actually used, and the tab a learner sees its examples
+ * under (spec 17) — `comer` gets `como`, `comes`, `come`.
+ *
+ * Display grouping only: a usage context is never a learning item, has no
+ * SRS stage, and no progress is tracked against it. That is why this
+ * cascades on delete where the rest of the curriculum restricts — a context
+ * has no independent existence and nothing outside the item can reference
+ * it, so deleting the word should take its tabs with it.
+ *
+ * Vocabulary only. Grammar items have no inflected forms and no dictionary
+ * integration, so they keep a flat list of examples.
+ */
+export const vocabularyUsageContexts = pgTable(
+  "vocabulary_usage_contexts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    learningItemId: uuid("learning_item_id")
+      .notNull()
+      .references(() => learningItems.id, { onDelete: "cascade" }),
+    /** What the tab reads, e.g. "como" — seeded from a dictionary form, then freely renameable. */
+    label: text("label").notNull(),
+    /** Optional guidance shown with the tab, e.g. "first-person singular present". */
+    note: text("note"),
+    position: integer("position").notNull(),
+    /**
+     * The dictionary form this context was seeded from, or `NULL` when it was
+     * authored by hand. Kept so re-seeding can tell "the dictionary already
+     * gave you this one" from "somebody wrote this", and so renaming a
+     * seeded tab does not make it look hand-made.
+     */
+    sourceForm: text("source_form"),
+    ...timestamps(),
+  },
+  (t) => [
+    unique("vocabulary_usage_contexts_item_position_key").on(t.learningItemId, t.position),
+    index("vocabulary_usage_contexts_item_idx").on(t.learningItemId),
+  ],
+);
+
+/**
+ * Join table relating a learning item to its supporting example sentences,
+ * with explicit display ordering.
+ *
+ * `usage_context_id` (spec 17) is which tab the example belongs to. `NULL`
+ * means the **General** tab, which is what every example authored before
+ * usage contexts existed already is — so nothing needed migrating, and an
+ * example never becomes unreachable. Deleting a context sets this back to
+ * `NULL` rather than deleting the example: losing a tab should not silently
+ * lose the sentences somebody wrote in it.
+ *
+ * `position` stays unique per *item*, not per context, so an example keeps
+ * one unambiguous place in the word's ordering however the tabs are
+ * arranged; a tab renders its own examples in that same order.
+ */
 export const learningItemSentences = pgTable(
   "learning_item_sentences",
   {
@@ -275,10 +329,14 @@ export const learningItemSentences = pgTable(
     sentenceId: uuid("sentence_id")
       .notNull()
       .references(() => sentences.id, { onDelete: "restrict" }),
+    usageContextId: uuid("usage_context_id").references(() => vocabularyUsageContexts.id, { onDelete: "set null" }),
     position: integer("position").notNull(),
     ...timestamps(),
   },
-  (t) => [unique("learning_item_sentences_item_position_key").on(t.learningItemId, t.position)],
+  (t) => [
+    unique("learning_item_sentences_item_position_key").on(t.learningItemId, t.position),
+    index("learning_item_sentences_usage_context_idx").on(t.usageContextId),
+  ],
 );
 
 /**

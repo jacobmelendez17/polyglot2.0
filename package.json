@@ -17,6 +17,7 @@
     "db:seed": "tsx db/seed/run.ts",
     "db:cleanup-idempotency": "tsx db/seed/cleanup-idempotency.ts",
     "curriculum:import": "tsx scripts/curriculum-import.ts",
+    "curriculum:reset": "tsx scripts/curriculum-reset.ts",
     "lexicon:import": "tsx scripts/lexicon-import.ts",
     "lexicon:import-rla": "tsx scripts/lexicon-import-rla.ts"
   },

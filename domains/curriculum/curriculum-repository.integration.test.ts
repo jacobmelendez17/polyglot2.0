@@ -12,7 +12,7 @@ import {
   vocabularyGroups,
   vocabularyItems,
 } from "@/db/schema";
-import { seedTestFixtures } from "@/db/seed/test-fixtures";
+import { FIXTURE_NEXT_LEVEL_NUMBER, seedTestFixtures } from "@/db/seed/test-fixtures";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
 import { getDefaultLanguageCode } from "@/domains/users";
 
@@ -88,7 +88,7 @@ describe("curriculum repository", () => {
   it("getLevelByLanguageAndNumber resolves a level by its learner-facing number, scoped to the given language", async () => {
     await withTestTransaction(async (tx) => {
       const { level2Id, languageId } = await seedTestFixtures(tx);
-      const level = await getLevelByLanguageAndNumber(tx, languageId, 2);
+      const level = await getLevelByLanguageAndNumber(tx, languageId, FIXTURE_NEXT_LEVEL_NUMBER);
       expect(level?.id).toBe(level2Id);
     });
   });
@@ -108,12 +108,14 @@ describe("curriculum repository", () => {
         .insert(languages)
         .values({ code: "fr-FR", slug: "french-level-number-test", name: "French" })
         .returning();
-      await tx.insert(levels).values({ languageId: otherLanguage!.id, levelNumber: 2, name: "Level 2", status: "published" });
+      await tx
+        .insert(levels)
+        .values({ languageId: otherLanguage!.id, levelNumber: FIXTURE_NEXT_LEVEL_NUMBER, name: "Level 2", status: "published" });
 
-      const found = await getLevelByLanguageAndNumber(tx, languageId, 2);
+      const found = await getLevelByLanguageAndNumber(tx, languageId, FIXTURE_NEXT_LEVEL_NUMBER);
       expect(found?.id).toBe(level2Id);
 
-      const foundOther = await getLevelByLanguageAndNumber(tx, otherLanguage!.id, 2);
+      const foundOther = await getLevelByLanguageAndNumber(tx, otherLanguage!.id, FIXTURE_NEXT_LEVEL_NUMBER);
       expect(foundOther?.id).not.toBe(level2Id);
       expect(foundOther?.languageId).toBe(otherLanguage!.id);
     });

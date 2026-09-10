@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 import type { DbClient } from "@/db/client";
 import {
@@ -26,19 +26,40 @@ import { normalizeForComparison } from "@/lib/answer-checking/normalize";
  * UUIDs so integration tests can reference specific rows without querying
  * for them first.
  *
- * `LANGUAGE_CODE`'s language and its Level 1 are the one exception: spec 08
- * unit 3's concurrency integration test already committed real rows for
- * that exact code/level-number combination directly against the shared
- * dev/test Neon branch (deliberately, as the real provisioning fixture —
- * see progress-tracker.md). `seedTestFixtures` looks those up rather than
- * assuming its own IDs for them, so it stays correct whether it's the first
- * or the hundredth thing to seed this database. Every other row here has
- * never been touched by anything else, so a plain deterministic-ID insert
- * with `onConflictDoNothing` is sufficient for idempotent reruns.
+ * `LANGUAGE_CODE`'s language is shared with the real application — it is the
+ * language every real learner is provisioned into — so it is looked up
+ * rather than assumed. Everything else here is the fixture's own.
+ *
+ * **The fixture curriculum lives in its own levels** (`FIXTURE_LEVEL_NUMBER`
+ * and the one after it), not in the real Level 1 (user decision,
+ * 2026-09-09). It used to share Level 1, and because three concurrency tests
+ * commit their seed, running the integration suite wrote five demo words
+ * into the real curriculum — which then broke four tests that asserted what
+ * Level 1 contains, and quietly re-published demo items an admin had
+ * archived. Levels 90/91 are numbers no real curriculum will reach and no
+ * other test uses.
+ *
+ * `TestFixtureIds` still calls them `level1Id`/`level2Id`: they are this
+ * fixture's first and second level, and renaming the keys would churn every
+ * test that reads them without telling anyone anything new.
  */
 
-export const LEVEL_2_ID = "20000000-0000-0000-0000-000000000002";
-export const VOCAB_GROUP_ID = "30000000-0000-0000-0000-000000000001";
+/**
+ * Deliberately far above any real level, and above the ad-hoc levels other
+ * tests create (93-99 are taken).
+ *
+ * The ids below moved with them (2026-09-09). `LEVEL_2_ID` and
+ * `VOCAB_GROUP_ID` used to be `…0002`/`…0001`, which were *also* the real
+ * Level 2 and the real "Numbers" group — the seed's `onConflictDoNothing`
+ * then silently left the fixture pointing into live curriculum. Separate ids
+ * are what actually keeps the two apart; the level number alone did not.
+ */
+export const FIXTURE_LEVEL_NUMBER = 90;
+export const FIXTURE_NEXT_LEVEL_NUMBER = 91;
+export const LEVEL_1_ID = "20000000-0000-0000-0000-000000000001";
+
+export const LEVEL_2_ID = "20000000-0000-0000-0000-000000000091";
+export const VOCAB_GROUP_ID = "30000000-0000-0000-0000-000000000090";
 export const ITEM_GATO_ID = "40000000-0000-0000-0000-000000000001";
 export const ITEM_CASA_ID = "40000000-0000-0000-0000-000000000002";
 export const ITEM_AGUA_ID = "40000000-0000-0000-0000-000000000003";
@@ -96,25 +117,15 @@ export async function seedTestFixtures(db: DbClient, options: SeedTestFixturesOp
     insertedLanguage ?? (await db.select().from(languages).where(eq(languages.code, languageCode)).limit(1))[0];
   const languageId = language.id;
 
-  const [insertedLevel1] = await db
+  await db
     .insert(levels)
-    .values({ languageId, levelNumber: 1, name: "Level 1", status: "published" })
-    .onConflictDoNothing({ target: [levels.languageId, levels.levelNumber] })
-    .returning();
-  const level1 =
-    insertedLevel1 ??
-    (
-      await db
-        .select()
-        .from(levels)
-        .where(and(eq(levels.languageId, languageId), eq(levels.levelNumber, 1)))
-        .limit(1)
-    )[0];
-  const level1Id = level1.id;
+    .values({ id: LEVEL_1_ID, languageId, levelNumber: FIXTURE_LEVEL_NUMBER, name: "Fixture level", status: "published" })
+    .onConflictDoNothing({ target: levels.id });
+  const level1Id = LEVEL_1_ID;
 
   await db
     .insert(levels)
-    .values({ id: LEVEL_2_ID, languageId, levelNumber: 2, name: "Level 2", status: "published" })
+    .values({ id: LEVEL_2_ID, languageId, levelNumber: FIXTURE_NEXT_LEVEL_NUMBER, name: "Fixture level 2", status: "published" })
     .onConflictDoNothing({ target: levels.id });
 
   await db
