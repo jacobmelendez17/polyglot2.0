@@ -104,3 +104,24 @@ describe("composeVocabularyDisplayWord", () => {
     expect(composeVocabularyDisplayWord("rojo", undefined)).toBe("rojo");
   });
 });
+
+describe("grammaticalGenderForArticle", () => {
+  it("derives Spanish gender from the article the noun is taught with (spec 18)", () => {
+    expect(spanishLexicalProvider.grammaticalGenderForArticle("el")).toBe("masculine");
+    expect(spanishLexicalProvider.grammaticalGenderForArticle("los")).toBe("masculine");
+    expect(spanishLexicalProvider.grammaticalGenderForArticle("la")).toBe("feminine");
+    expect(spanishLexicalProvider.grammaticalGenderForArticle("unas")).toBe("feminine");
+  });
+
+  it("returns null when there is no article, so the item page shows N/A rather than a guess", () => {
+    expect(spanishLexicalProvider.grammaticalGenderForArticle(null)).toBeNull();
+    expect(spanishLexicalProvider.grammaticalGenderForArticle(undefined)).toBeNull();
+    expect(spanishLexicalProvider.grammaticalGenderForArticle("")).toBeNull();
+    // `él` is the pronoun, a different word — normalization preserves the accent precisely so it cannot match.
+    expect(spanishLexicalProvider.grammaticalGenderForArticle("él")).toBeNull();
+  });
+
+  it("never applies one language's gender rules to a language with no provider", () => {
+    expect(defaultLexicalProvider.grammaticalGenderForArticle("el")).toBeNull();
+  });
+});

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { foreignKey, index, integer, jsonb, pgEnum, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { check, foreignKey, index, integer, jsonb, pgEnum, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 
 import { timestamps } from "./columns";
 import { languages } from "./languages";
@@ -28,6 +28,45 @@ export const learningItemTypeEnum = pgEnum("learning_item_type", ["vocabulary", 
  * circular module dependency.
  */
 export const answerSideEnum = pgEnum("answer_side", ["term", "meaning"]);
+
+/**
+ * CEFR band a curriculum level corresponds to (spec 18's `A1 - Level 1 - 1/13`
+ * hero line). Nullable and admin-set: nothing in the curriculum derives a
+ * band from the level number, and inventing a mapping ("levels 1-5 are A1")
+ * would be a curriculum progression decision nobody has made. A level with
+ * no band set simply renders `Level 1 - 1/13`.
+ */
+export const cefrLevelEnum = pgEnum("cefr_level", ["A1", "A2", "B1", "B2", "C1", "C2"]);
+export type CefrLevel = (typeof cefrLevelEnum.enumValues)[number];
+
+/**
+ * How formal/marked a learning item is (spec 18's Details summary card).
+ * A configured enum rather than free text, per spec 18's "prefer
+ * enums/configured types for values such as Register" — the same value has
+ * to read identically on every item page and be filterable later.
+ *
+ * Nullable on both item tables: register is genuinely unknown for every
+ * item authored before this column existed, and "unknown" must not silently
+ * render as "neutral" — a learner reading `neutral` on a word nobody
+ * classified would be told something false.
+ *
+ * Deliberately excludes a "regional" value: where a word is used is already
+ * modelled, with evidence, by `domains/lexicon`'s regional evidence, and a
+ * second, weaker answer to the same question would be worse than none.
+ */
+export const registerEnum = pgEnum("register", ["neutral", "formal", "informal", "colloquial", "slang", "vulgar", "literary"]);
+export type Register = (typeof registerEnum.enumValues)[number];
+
+/**
+ * Ordered block types inside a grammar item's About content (spec 18).
+ * Exactly three, deliberately: `text` is ordinary explanation, `example` is
+ * an outlined target-sentence/translation pair, and `note` is a highlighted
+ * Polyglot aside. Spec 18's scope limits rule out a generic rich-text or
+ * page-builder system, so this stays a closed set rather than an open
+ * block registry.
+ */
+export const grammarContentBlockTypeEnum = pgEnum("grammar_content_block_type", ["text", "example", "note"]);
+export type GrammarContentBlockType = (typeof grammarContentBlockTypeEnum.enumValues)[number];
 
 /**
  * Curriculum levels (spec 08 §14). Level numbers are scoped to language, not
@@ -63,6 +102,8 @@ export const levels = pgTable(
     vocabularyItemTarget: integer("vocabulary_item_target"),
     vocabularyGroupTarget: integer("vocabulary_group_target"),
     grammarItemTarget: integer("grammar_item_target"),
+    /** The CEFR band shown in an item page's hero line (spec 18). `NULL` until an admin sets it — see `cefrLevelEnum`. */
+    cefrLevel: cefrLevelEnum("cefr_level"),
     ...timestamps(),
   },
   (t) => [
@@ -179,6 +220,8 @@ export const vocabularyItems = pgTable("vocabulary_items", {
   ipa: text("ipa"),
   context: text("context"),
   creatorNotes: text("creator_notes"),
+  /** Spec 18's Details summary card. `NULL` means nobody has classified this word — rendered as an em dash, never as "neutral". */
+  register: registerEnum("register"),
   /**
    * Which dictionary-supplied fields an author has taken over (spec 17).
    *
@@ -239,6 +282,8 @@ export const grammarItems = pgTable("grammar_items", {
   explanation: text("explanation").notNull(),
   category: text("category"),
   creatorNotes: text("creator_notes"),
+  /** Spec 18's Details summary card — the same enum vocabulary uses, since register is a property of the item, not of its type. */
+  register: registerEnum("register"),
   requiredQuestions: jsonb("required_questions")
     .$type<GrammarQuestionRequirement[]>()
     .notNull()
@@ -274,8 +319,14 @@ export const sentences = pgTable("sentences", {
  * has no independent existence and nothing outside the item can reference
  * it, so deleting the word should take its tabs with it.
  *
- * Vocabulary only. Grammar items have no inflected forms and no dictionary
- * integration, so they keep a flat list of examples.
+ * Named for vocabulary because that is what spec 17 built it for, and the
+ * table name is kept rather than renamed (a rename is a destructive
+ * migration for a cosmetic gain). Spec 18 widened it to grammar as well —
+ * its "Pattern of Use" tabs are this exact concept, and the table has always
+ * keyed on `learning_item_id` rather than on a vocabulary row, so a grammar
+ * item's patterns need no new table and no second authoring surface. A
+ * grammar pattern is authored by hand; only vocabulary can seed one from a
+ * dictionary form.
  */
 export const vocabularyUsageContexts = pgTable(
   "vocabulary_usage_contexts",
@@ -412,4 +463,81 @@ export const curriculumItemDrafts = pgTable(
       .$onUpdate(() => new Date()),
   },
   (t) => [index("curriculum_item_drafts_created_by_idx").on(t.createdBy)],
+);
+
+/**
+ * The ordered blocks making up a grammar item's About content (spec 18).
+ *
+ * Three closed types (`grammarContentBlockTypeEnum`), not a rich-text
+ * document: spec 18's scope limits rule out a generic page builder, and a
+ * closed set is what lets the same three blocks render identically in the
+ * item page, the lesson, and the admin editor.
+ *
+ * `body` carries `text` and `note` content; `target_text`/`translation`
+ * carry an `example`. A check constraint enforces that shape at the
+ * database level so a half-filled block cannot exist even if a future
+ * caller skips validation.
+ *
+ * Cascades on delete, like `vocabulary_usage_contexts` and unlike the rest
+ * of the curriculum, for the same reason: a block has no independent
+ * existence, nothing outside its item can reference it, and deleting the
+ * grammar point should take its explanation with it.
+ */
+export const grammarContentBlocks = pgTable(
+  "grammar_content_blocks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    learningItemId: uuid("learning_item_id")
+      .notNull()
+      .references(() => learningItems.id, { onDelete: "cascade" }),
+    type: grammarContentBlockTypeEnum("type").notNull(),
+    position: integer("position").notNull(),
+    /** `text`/`note` content. `NULL` for an `example` block. */
+    body: text("body"),
+    /** `example` blocks only — the target-language sentence. */
+    targetText: text("target_text"),
+    /** `example` blocks only — its English translation. */
+    translation: text("translation"),
+    ...timestamps(),
+  },
+  (t) => [
+    unique("grammar_content_blocks_item_position_key").on(t.learningItemId, t.position),
+    index("grammar_content_blocks_item_idx").on(t.learningItemId),
+    check(
+      "grammar_content_blocks_shape_check",
+      sql`(
+        (${t.type} in ('text', 'note') and ${t.body} is not null and ${t.targetText} is null and ${t.translation} is null)
+        or (${t.type} = 'example' and ${t.body} is null and ${t.targetText} is not null and ${t.translation} is not null)
+      )`,
+    ),
+  ],
+);
+
+/**
+ * Admin-authored external learning resources for one item (spec 18's
+ * Resources section) — the first time this codebase has stored them; the
+ * fixture curriculum's `resources` array had no table behind it.
+ *
+ * Official content only. Learner-private notes, synonyms, and examples live
+ * in `learner-content.ts` and are never mixed into this list (spec 18: "do
+ * not mix user-private content with official resource links").
+ *
+ * Cascades on delete for the same reason grammar content blocks do.
+ */
+export const learningItemResources = pgTable(
+  "learning_item_resources",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    learningItemId: uuid("learning_item_id")
+      .notNull()
+      .references(() => learningItems.id, { onDelete: "cascade" }),
+    label: text("label").notNull(),
+    url: text("url").notNull(),
+    position: integer("position").notNull(),
+    ...timestamps(),
+  },
+  (t) => [
+    unique("learning_item_resources_item_position_key").on(t.learningItemId, t.position),
+    index("learning_item_resources_item_idx").on(t.learningItemId),
+  ],
 );

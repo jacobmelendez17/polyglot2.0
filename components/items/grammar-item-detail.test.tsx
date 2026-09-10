@@ -11,6 +11,7 @@ const grammar: CurriculumGrammarDetail = {
   explanation: "Ser is for permanent traits; estar is for states and locations.",
   category: "Verbs",
   creatorNotes: "Contrast with plenty of examples.",
+  register: null,
   requiredQuestions: [{ format: "translation", direction: "targetToEnglish" }],
 };
 

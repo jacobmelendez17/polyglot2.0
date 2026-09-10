@@ -2,8 +2,10 @@ import { and, asc, eq, inArray } from "drizzle-orm";
 
 import type { DbClient } from "@/db/client";
 import {
+  grammarContentBlocks,
   grammarItems,
   languages,
+  learningItemResources,
   learningItems,
   learningItemSentences,
   levels,
@@ -14,7 +16,9 @@ import {
 
 import type {
   CurriculumExampleSentence,
+  CurriculumGrammarContentBlock,
   CurriculumGrammarDetail,
+  CurriculumItemResource,
   CurriculumLanguage,
   CurriculumLearningItem,
   CurriculumLevel,
@@ -43,6 +47,7 @@ function toCurriculumLevel(row: typeof levels.$inferSelect): CurriculumLevel {
     levelNumber: row.levelNumber,
     name: row.name,
     status: row.status,
+    cefrLevel: row.cefrLevel,
   };
 }
 
@@ -69,6 +74,7 @@ function toCurriculumVocabularyDetail(row: typeof vocabularyItems.$inferSelect):
     ipa: row.ipa,
     context: row.context,
     creatorNotes: row.creatorNotes,
+    register: row.register,
     dictionaryFieldOverrides: row.dictionaryFieldOverrides,
   };
 }
@@ -81,6 +87,7 @@ function toCurriculumGrammarDetail(row: typeof grammarItems.$inferSelect): Curri
     explanation: row.explanation,
     category: row.category,
     creatorNotes: row.creatorNotes,
+    register: row.register,
     requiredQuestions: row.requiredQuestions,
   };
 }
@@ -314,4 +321,87 @@ export async function getLearningItemExamples(db: DbClient, learningItemId: stri
     .innerJoin(sentences, eq(sentences.id, learningItemSentences.sentenceId))
     .where(and(eq(learningItemSentences.learningItemId, learningItemId), eq(sentences.status, "published")))
     .orderBy(asc(learningItemSentences.position));
+}
+
+// --- Spec 18: grammar About blocks, resources, and hero navigation ---
+
+/**
+ * A grammar item's About blocks in authored order.
+ *
+ * The row-to-union mapping asserts what `grammar_content_blocks`' check
+ * constraint already guarantees, and throws rather than silently dropping a
+ * malformed block: a block that violates the constraint cannot exist, so
+ * reaching this branch means the constraint was bypassed, which is a data
+ * integrity error worth surfacing — not a block to quietly hide from a
+ * learner.
+ */
+export async function getGrammarContentBlocks(db: DbClient, learningItemId: string): Promise<CurriculumGrammarContentBlock[]> {
+  const rows = await db
+    .select()
+    .from(grammarContentBlocks)
+    .where(eq(grammarContentBlocks.learningItemId, learningItemId))
+    .orderBy(asc(grammarContentBlocks.position));
+
+  return rows.map((row) => {
+    if (row.type === "example") {
+      if (row.targetText === null || row.translation === null) {
+        throw new Error(`Data integrity error: grammar content block ${row.id} is type "example" with no target text or translation.`);
+      }
+      return { id: row.id, position: row.position, type: "example", targetText: row.targetText, translation: row.translation };
+    }
+    if (row.body === null) {
+      throw new Error(`Data integrity error: grammar content block ${row.id} is type "${row.type}" with no body.`);
+    }
+    return { id: row.id, position: row.position, type: row.type, body: row.body };
+  });
+}
+
+/** An item's admin-authored external resources in display order. */
+export async function getItemResources(db: DbClient, learningItemId: string): Promise<CurriculumItemResource[]> {
+  return db
+    .select({
+      id: learningItemResources.id,
+      label: learningItemResources.label,
+      url: learningItemResources.url,
+      position: learningItemResources.position,
+    })
+    .from(learningItemResources)
+    .where(eq(learningItemResources.learningItemId, learningItemId))
+    .orderBy(asc(learningItemResources.position));
+}
+
+/**
+ * The ordered item ids the item page's hero arrows cycle through (spec 18).
+ *
+ * Grammar cycles through every grammar item in the level; vocabulary cycles
+ * through its own theme (vocabulary group). Returns ids only — the hero
+ * needs a position, a count, and two link targets, not sixty detail rows, so
+ * loading the siblings' content would be pure waste on every item page.
+ *
+ * Published-only by the same default the rest of this module uses: an
+ * archived or pending sibling must not appear in a learner's navigation.
+ */
+export async function getSiblingItemIds(
+  db: DbClient,
+  item: { id: string; type: "vocabulary" | "grammar"; levelId: string },
+  vocabularyGroupId: string | null,
+): Promise<string[]> {
+  if (item.type === "grammar") {
+    const rows = await db
+      .select({ id: learningItems.id })
+      .from(learningItems)
+      .where(and(eq(learningItems.levelId, item.levelId), eq(learningItems.type, "grammar"), eq(learningItems.status, PUBLISHED)))
+      .orderBy(asc(learningItems.position));
+    return rows.map((row) => row.id);
+  }
+
+  if (!vocabularyGroupId) return [];
+
+  const rows = await db
+    .select({ id: learningItems.id })
+    .from(learningItems)
+    .innerJoin(vocabularyItems, eq(vocabularyItems.learningItemId, learningItems.id))
+    .where(and(eq(vocabularyItems.vocabularyGroupId, vocabularyGroupId), eq(learningItems.status, PUBLISHED)))
+    .orderBy(asc(learningItems.position));
+  return rows.map((row) => row.id);
 }

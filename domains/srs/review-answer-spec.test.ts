@@ -27,6 +27,7 @@ const gato: CurriculumLearningItem = {
     ipa: null,
     context: null,
     creatorNotes: null,
+    register: null,
     dictionaryFieldOverrides: [],
   },
 };
@@ -47,6 +48,7 @@ const y: CurriculumLearningItem = {
     explanation: "Connects two words.",
     category: null,
     creatorNotes: null,
+    register: null,
     requiredQuestions: [{ format: "translation", direction: "targetToEnglish" }],
   },
 };

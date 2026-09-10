@@ -127,6 +127,13 @@
       "when": 1789007796830,
       "tag": "0017_certain_pyro",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1789012619126,
+      "tag": "0018_fast_sandman",
+      "breakpoints": true
     }
   ]
 }

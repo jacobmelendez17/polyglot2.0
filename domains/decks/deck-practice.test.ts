@@ -26,6 +26,7 @@ function vocabulary(id: string, term: string, meaning: string, article: string |
       ipa: null,
       context: null,
       creatorNotes: null,
+      register: null,
       dictionaryFieldOverrides: [],
     },
   };
@@ -53,6 +54,7 @@ function grammar(
       explanation: "explanation",
       category: null,
       creatorNotes: null,
+      register: null,
       requiredQuestions: directions.map((direction) => ({ format: "translation" as const, direction })),
     },
   };

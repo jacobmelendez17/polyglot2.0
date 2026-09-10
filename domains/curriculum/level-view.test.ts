@@ -54,6 +54,7 @@ function vocab(id: string, position: number): VocabularyLearningItem {
       ipa: null,
       context: null,
       creatorNotes: null,
+    register: null,
     dictionaryFieldOverrides: [],
     },
   };
@@ -76,6 +77,7 @@ function grammar(id: string, position: number): CurriculumLearningItem {
       explanation: "explanation",
       category: null,
       creatorNotes: null,
+      register: null,
       requiredQuestions: [{ format: "translation", direction: "targetToEnglish" }],
     },
   };

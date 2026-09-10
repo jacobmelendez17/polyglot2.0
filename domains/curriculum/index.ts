@@ -94,3 +94,39 @@ export type {
   RawVocabularyImportRow,
   ValidatedImportRow,
 } from "./vocabulary-import-parsing";
+
+// Spec 18 — the shared item-detail presentation model. Pure and
+// database-free (same rule as `level-view.ts` above), so the shared item
+// components — several of which are `"use client"` for scroll tracking and
+// tabs — can value-import the builders and label maps directly.
+export {
+  buildItemDetailView,
+  buildItemNavigation,
+  EMPTY_FIELD,
+  GENDER_LABELS,
+  GENERAL_PATTERN_ID,
+  ITEM_DETAIL_SECTION_LABELS,
+  itemDetailSections,
+  NOT_APPLICABLE_FIELD,
+  REGISTER_LABELS,
+} from "./item-detail-view";
+export type {
+  GrammarContentBlockSource,
+  ItemDetailAboutView,
+  ItemDetailAnswerListView,
+  ItemDetailExampleSource,
+  ItemDetailExampleView,
+  ItemDetailField,
+  ItemDetailMode,
+  ItemDetailPatternSource,
+  ItemDetailPatternView,
+  ItemDetailPronunciationView,
+  ItemDetailResourceSource,
+  ItemDetailSectionId,
+  ItemDetailSenseSource,
+  ItemDetailSource,
+  ItemDetailType,
+  ItemDetailView,
+  ItemNavigationView,
+} from "./item-detail-view";
+export type { CurriculumGrammarContentBlock, CurriculumItemResource } from "./curriculum-db-types";

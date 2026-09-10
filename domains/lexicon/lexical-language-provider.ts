@@ -35,7 +35,25 @@ export interface LexicalLanguageProvider {
    * to infer one from mere absence.
    */
   regionCodeForSourceLabel(label: string): string | null;
+
+  /**
+   * The grammatical gender a curriculum item's stored article implies, or
+   * `null` when the language has no grammatical gender, the item has no
+   * article, or the article does not determine one.
+   *
+   * Spec 18's Details card shows Gender for vocabulary. Polyglot stores the
+   * article a noun is taught with (`vocabulary_items.article`), not a gender
+   * column, and for Spanish the article answers the question exactly — so
+   * gender is derived rather than stored a second time and kept in sync by
+   * hand. It lives on the provider, not in a shared helper, because
+   * "`la` means feminine" is Spanish morphology, and a language without
+   * gendered articles must not inherit it.
+   */
+  grammaticalGenderForArticle(article: string | null | undefined): GrammaticalGender | null;
 }
+
+/** Grammatical genders Polyglot can currently derive. Spanish needs two; the union grows when a language that needs more gets a provider. */
+export type GrammaticalGender = "masculine" | "feminine";
 
 /**
  * Spanish articles that may legitimately precede a noun in a curriculum
@@ -44,6 +62,23 @@ export interface LexicalLanguageProvider {
  * set can't accidentally match it.
  */
 const SPANISH_ARTICLES = new Set(["el", "la", "los", "las", "un", "una", "unos", "unas"]);
+
+/**
+ * Gender implied by each article in `SPANISH_ARTICLES`. Plural articles map
+ * to the same gender as their singular — a learner asking "what gender is
+ * this noun?" wants `masculine`, and plurality is already visible in the
+ * word itself.
+ */
+const SPANISH_ARTICLE_GENDERS: Record<string, GrammaticalGender> = {
+  el: "masculine",
+  los: "masculine",
+  un: "masculine",
+  unos: "masculine",
+  la: "feminine",
+  las: "feminine",
+  una: "feminine",
+  unas: "feminine",
+};
 
 const SPANISH_REGION_LABELS: Record<string, string> = {
   mexico: "es-MX",
@@ -99,6 +134,11 @@ export const spanishLexicalProvider: LexicalLanguageProvider = {
   regionCodeForSourceLabel(label: string): string | null {
     return SPANISH_REGION_LABELS[normalizeLexicalForm(label)] ?? null;
   },
+
+  grammaticalGenderForArticle(article: string | null | undefined): GrammaticalGender | null {
+    if (!article) return null;
+    return SPANISH_ARTICLE_GENDERS[normalizeLexicalForm(article)] ?? null;
+  },
 };
 
 /**
@@ -115,6 +155,9 @@ export const defaultLexicalProvider: LexicalLanguageProvider = {
     return normalized.length > 0 ? [normalized] : [];
   },
   regionCodeForSourceLabel(): string | null {
+    return null;
+  },
+  grammaticalGenderForArticle(): GrammaticalGender | null {
     return null;
   },
 };

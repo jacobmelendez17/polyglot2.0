@@ -158,3 +158,13 @@ export async function getUsageContexts(learningItemId: string) {
 export async function getItemExamples(learningItemId: string) {
   return repoGetItemExamples(db, learningItemId);
 }
+
+/** A grammar item's ordered About blocks (spec 18). */
+export async function getGrammarContentBlocks(learningItemId: string) {
+  return repository.getGrammarContentBlocks(db, learningItemId);
+}
+
+/** An item's admin-authored external resources, in display order (spec 18). */
+export async function getItemResources(learningItemId: string) {
+  return repository.getItemResources(db, learningItemId);
+}

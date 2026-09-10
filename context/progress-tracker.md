@@ -8,6 +8,48 @@ Implementation / feature specs
 
 ## Current Goal
 
+**Spec 18 (Item Detail & Lesson Item Layout) is in progress — unit 1 shipped
+2026-09-09.** The spec (`context/feature-specs/18-item-page.md`) redesigns
+`/items/[itemId]` and the lesson study view around one shared, polished
+layout. It is far larger than a normal unit, so per `ai-workflow-rules.md`'s
+scoping rules it is being built as **five units, pausing after each** (the
+user chose this over one continuous effort):
+
+1. **Data model + shared read model — done.** See the Completed entry.
+2. **The shared item-detail UI shell** — hero with wraparound arrows, section
+   tabs with scroll-spy, sticky item header + Back to Top, the four Info
+   summary cards, About/Definition, Context, Examples, Progress, Resources.
+   Rebuilds `/items/[itemId]` on it.
+3. **Lesson mode reuse** — `components/lessons/lesson-item-tabs.tsx` and the
+   study half of `lesson-session-view.tsx` are replaced by the same shared
+   components, configured with `mode: "lesson"` (no Progress section, arrows
+   confined to the session's own items).
+4. **Learner actions** — add personal synonym, note, personal example, and
+   Add to a Deck, each placed beneath the section it belongs to.
+5. **Admin editing from the Item page** — grammar content blocks, resources,
+   register, context patterns, official examples; the same domain services
+   and validation the Admin curriculum editors use, never a second copy.
+
+**Four decisions were put to the user before any code was written
+(2026-09-09), and all four are now implemented as chosen:**
+
+- **Audio.** Spec 18 says to reuse "the existing audio/speech system"; there
+  is none — nothing in the codebase plays audio, and the `media` domain/R2
+  is unbuilt. Chosen: a small provider-shaped pronunciation component that
+  plays a real audio file when one exists and otherwise falls back to the
+  browser's Web Speech `speechSynthesis` voice. Unit 2 builds it; unit 1
+  already carries `audioUrl` and `spokenText` through the view model so the
+  component has both inputs on day one.
+- **The hero's `A1` band.** Nothing stored a CEFR level. Chosen: a nullable
+  `levels.cefr_level` an admin sets, rather than a hardcoded level-number
+  mapping. The hero reads `Level 1 - 1/13` until somebody sets one.
+- **Context / "Pattern of Use".** Chosen: reuse spec 17's
+  `vocabulary_usage_contexts` rather than build the separate
+  `context_patterns`/`context_examples` tables spec 18's Data Model section
+  lists. They are the same concept, and a second one would mean two
+  authoring surfaces for admins to keep straight.
+- **Sequencing.** Five units, pausing between each.
+
 **Spec 17 (Curriculum Authoring & Verification) is in progress — unit 1
 shipped 2026-09-09.** The spec (`context/feature-specs/17-authoring.md`) was
 drafted by Claude from a spoken request and four decisions the user made the
@@ -112,6 +154,101 @@ writing to real `user_item_progress` rows.
 ## Completed
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
+
+- **Spec 18 unit 1 — item-detail data model and shared read model**
+  (2026-09-09). No UI yet, deliberately: the two surfaces spec 18 has to
+  unify read completely different data, so the view model between them is
+  what makes "one shared layout" true rather than aspirational.
+  - **Migration `0018_fast_sandman.sql` — fully additive.** Three new enums
+    (`cefr_level`, `register`, `grammar_content_block_type`), three new
+    nullable columns (`levels.cefr_level`, `vocabulary_items.register`,
+    `grammar_items.register`), and two new tables
+    (`grammar_content_blocks`, `learning_item_resources`). Nothing is
+    dropped, renamed, or retyped; no backfill; safe against the previously
+    deployed application version, since every addition is nullable or
+    unreferenced. Applied to the dev database.
+  - **`grammar_content_blocks` has a check constraint, not just a
+    convention** — `text`/`note` blocks must have a body and no sentence
+    fields; an `example` must have both target text and translation and no
+    body. A half-filled block is unrepresentable in the database as well as
+    in the TypeScript union. Both tables cascade on delete, matching
+    `vocabulary_usage_contexts` and unlike the restrict-by-default rest of
+    the curriculum: neither a block nor a resource has any existence apart
+    from its item, and nothing outside the item can reference one.
+  - **`register` is nullable everywhere and renders as an em dash, never as
+    "neutral".** Every item authored before today genuinely has no register,
+    and defaulting the column would have told learners something false about
+    ~57 real curriculum items. The enum deliberately has no `regional`
+    value — where a word is used is already answered, with evidence, by
+    `domains/lexicon`'s regional evidence.
+  - **`domains/curriculum/item-detail-view.ts` is the one presentation
+    model.** Pure and database-free (the `level-view.ts` rule), so the
+    client components unit 2 builds can value-import it. It decides every
+    label, fallback, and grouping exactly once: `Vocabulary Info`/`Grammar
+    Info`, the Details fields per type, `Definition` vs
+    `About <grammar point>`, the `N/A` gender case, pattern grouping and the
+    General tab, and the wraparound arrow arithmetic. 16 unit tests.
+  - **Gender is derived, not stored.** Polyglot already stores the article a
+    noun is taught with, and for Spanish the article answers the gender
+    question exactly — so a `gender` column would be a second copy to keep in
+    sync. It is derived by a new `grammaticalGenderForArticle` on
+    `LexicalLanguageProvider`, not by a shared helper, because "`la` means
+    feminine" is Spanish morphology: a language with no gendered articles
+    inherits `null` rather than another language's rules.
+  - **Word Type is the existing `part_of_speech`, not a new enum.** Spec 18
+    suggests enums for "Register and Word Type"; register got one, word type
+    did not. `part_of_speech` is populated from the dictionary on every
+    confirmed mapping, so converting it to a closed enum would be a
+    destructive change to live data for a cosmetic gain. Recorded here so
+    the omission reads as a decision rather than an oversight.
+  - **Synonyms and Variations are split official/personal, and derived from
+    data that already existed.** Official synonyms are confirmed-dictionary
+    synonyms plus `meaning`-side `accepted_answers`; variations are
+    dictionary variants/forms plus `term`-side accepted answers. The
+    learner's own `user_synonyms` are carried in a separate `personal` list
+    on both cards, never merged into the official one — spec 18 requires
+    private learner content stay distinguishable.
+  - **`getItemDetailPageData` is one composition, not a page full of
+    awaits.** It fans out with `Promise.all` and reaches other domains only
+    through their public server surfaces (`domains/lexicon` for the composed
+    vocabulary read model, `domains/progress` for SRS state and the level
+    unlock date, `domains/learner-content` for the reader's own synonyms).
+    It lives in `domains/curriculum` because the item is curriculum content,
+    the same reason `curriculum-db-service.ts` already depends on
+    `domains/lexicon/server`.
+  - **`getSiblingItemIds` returns ids only** — the hero needs a position, a
+    count, and two link targets, not sixty sibling detail rows. Published-only,
+    so an archived or pending sibling never appears in a learner's
+    navigation. Grammar cycles the level; vocabulary cycles its own theme.
+  - Verified: `tsc --noEmit`, `npm run lint`, `npm run test` (669 passing,
+    115 files), `npm run build`, `drizzle-kit check`, and
+    `npm run db:migrate` against the dev database. New integration coverage
+    in `item-detail-repository.integration.test.ts` (9 tests, all passing)
+    for the check constraint, ordering, and published-only sibling
+    filtering. **No real-browser pass** — there is no UI yet.
+  - **`npm run test:integration` finishes with 5 pre-existing failures**,
+    all four of them symptoms of the shared test/app database (Next Up A):
+    three in `audit-repository.integration.test.ts` (the accumulated audit
+    log, Next Up #9), one in `with-idempotency.integration.test.ts` (the
+    accumulated idempotency keys, #10), and one in
+    `curriculum-repository.integration.test.ts`. The last was confirmed
+    pre-existing by stashing this unit entirely and re-running it at `HEAD`,
+    where it fails identically — not assumed from its subject matter.
+  - **A concrete new instance of that problem, found while classifying those
+    failures.** The seeded fixture grammar item `y`
+    (`40000000-…-0004`) no longer lives in the fixture level: it sits at
+    `level_id d08bbb5e-…`, the *real* Level 1, at position 5 — and it is
+    the single published learning item the real database has. Something
+    moved it (an admin move, or spec 16's import), and `seedTestFixtures`
+    cannot move it back, because its `ON CONFLICT (id)` clause re-asserts
+    only `status`, never `level_id` or `position`. That is why
+    `getLevelItems` returns three items where the test expects four. Two
+    possible fixes, neither taken here because both are wider than spec 18:
+    widen the seed's conflict clause to re-assert placement, or (better, and
+    already recorded as Next Up A) give the integration suite its own Neon
+    branch. This unit's own new test was rewritten to create the grammar
+    items it navigates rather than depend on where a fixture row happens to
+    have been moved.
 
 - **Curriculum reset + fixture separation** (2026-09-09) — the user asked to
   delete the entire curriculum, archived included, and start over.
@@ -1017,7 +1154,15 @@ Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real
 
 ## In Progress
 
-Nothing. Specs 01–16 are all complete. Spec 16 shipped 2026-09-09; spec 15
+**Spec 18 (Item Detail & Lesson Item Layout)** — unit 1 of 5 shipped
+2026-09-09 (data model + shared read model). Unit 2 is next: the shared
+item-detail UI shell, rebuilding `/items/[itemId]` on it. See Current Goal
+for the full unit list and the four decisions taken before implementation
+started. Unit 1's new tables are live but empty — no grammar content block
+and no item resource exists yet, so those sections will render their empty
+states until unit 5 gives admins a way to author them.
+
+Specs 01–17 are all complete. Spec 16 shipped 2026-09-09; spec 15
 (Onboarding) the same day; spec 14 (Decks) 2026-09-08. All three carry the
 same single outstanding item — a **real-browser pass**, which every earlier
 unit had and these do not; their UI is verified by component tests and
@@ -1051,7 +1196,11 @@ file) does not shift.
   were quietly asserting the size of the curriculum, and a seed helper
   briefly un-archived real curriculum rows as a side effect of running the
   suite. All of that is fixed, but the underlying condition is unchanged and
-  will bite again on the next import. **The real fix is a dedicated Neon test
+  will bite again on the next import. **It already has** (2026-09-09, found
+  during spec 18 unit 1): the fixture grammar item `y` has been moved out of
+  the fixture level into the real Level 1 and the seed cannot move it back,
+  because its `ON CONFLICT (id)` clause re-asserts only `status` — see that
+  unit's Completed entry for the full diagnosis and the two possible fixes. **The real fix is a dedicated Neon test
   branch** pointed at by `TEST_DATABASE_URL` — a branch created in the Neon
   console and one env var changed. It would also retire #9 and #10 below (the
   accumulated audit log and the idempotency cleanup count), which have
@@ -1124,6 +1273,20 @@ All are now specified in `architecture.md` and `code-standards.md`.
 
 ## Open Questions
 
+- **No leech rule exists anywhere, and spec 18's Progress section asks for a
+  `Leech` metric** (2026-09-09). `project-overview.md` says "repeatedly
+  missed items may be identified as leeches" and `architecture.md` assigns
+  "leech classification inputs" to `domains/srs`, but no threshold, no
+  formula, and no stored flag exist — nothing in `domains/srs` mentions
+  leeches at all. Inventing one would be exactly the improvised
+  high-risk SRS rule `ai-workflow-rules.md` forbids, so unit 2 renders the
+  `Leech` row as an em dash rather than as "No", which would assert
+  something nobody has computed. **What is needed:** a decision on what
+  makes an item a leech (e.g. N incorrect answers at or below a given stage,
+  or an accuracy floor over a minimum number of reviews), after which it
+  becomes a small pure function in `domains/srs` plus one read. Blocks
+  nothing else; the rest of the Progress section shows real data.
+
 **8,510 records in the real Spanish extract are still rejected by the import
 schema** (2026-09-09, down from 18,417 once the string `etymology_number` was
 accepted). That is ~1% of 811,049 scanned, and no rejected record has been
@@ -1146,6 +1309,38 @@ say whether more real vocabulary is being dropped silently.
 - ~~**Whether `vocabulary_items`' dictionary-shaped columns should eventually go.**~~ — **answered in part, 2026-09-07.** For `definition` and `ipa` specifically: the columns stay (an admin still authors them before a mapping exists or is confirmed, and they remain the fallback when no confirmed mapping exists), but a confirmed dictionary mapping's own values are now the resolved default everywhere the item is shown — see the "Confirmed dictionary mapping becomes the effective teaching content" Completed entry for the full precedence rule and its "live, never copied" design. `part_of_speech` and plain-text `pronunciation` (the guide, distinct from `ipa`) are untouched — no dictionary equivalent exists to override the former, and no product decision was made to override the latter.
 
 ## Architecture Decisions
+
+- **One pure view model sits between the item page and the lesson**
+  (2026-09-09, spec 18 unit 1) — `domains/curriculum/item-detail-view.ts`.
+  Spec 18 requires `/items/[itemId]` and the lesson study view to be the
+  same presentation, but they read entirely different data: the page
+  composes `domains/lexicon`'s `getVocabularyDetail` plus the curriculum
+  read model, while a lesson receives `domains/lessons`' fixture-shaped
+  `LearningItem`. Each surface builds an `ItemDetailSource` from what it
+  already has, and `buildItemDetailView` decides every label, fallback, and
+  grouping once. Without it, "the same layout" would have meant two
+  component trees that drift apart on the first change. The module is pure
+  and database-free so the scroll-tracking client components can
+  value-import it — the same rule `level-view.ts` follows, and the same
+  bundle-leak hazard `domains/lessons` already hit once.
+- **Spec 17's usage contexts are spec 18's "Pattern of Use", widened to
+  grammar** (2026-09-09, user decision). Spec 18's Data Model section lists
+  `context_patterns`/`context_examples` as potential new tables; they are the
+  same concept as `vocabulary_usage_contexts`, which has always keyed on
+  `learning_item_id` rather than on a vocabulary row. So grammar items get
+  patterns with no new table, no migration, and no second authoring surface
+  — spec 17's editor keeps working for both. The table name still says
+  "vocabulary" and is deliberately not renamed: a rename is a destructive
+  migration for a cosmetic gain. Only vocabulary can seed a pattern from a
+  dictionary form; a grammar pattern is authored by hand.
+- **Grammatical gender is derived from the article, by the language's
+  lexical provider** (2026-09-09, spec 18 unit 1) — a new
+  `grammaticalGenderForArticle` on `LexicalLanguageProvider`, not a `gender`
+  column and not a shared helper. Polyglot already stores the article a noun
+  is taught with, and for Spanish the article answers the question exactly,
+  so a column would be a second copy to keep in sync. Putting it on the
+  provider is what stops "`la` means feminine" from being applied to a
+  language with no gendered articles: the default provider returns `null`.
 
 - **Onboarding completion is a nullable timestamp, guarded on write** (2026-09-09) — `users.onboarding_completed_at`. The completion update is `WHERE ... AND onboarding_completed_at IS NULL`, which makes it exactly-once by construction: a repeated "Start Now!" writes nothing and cannot move the original time. Deliberately **no idempotency key** — a conditional update already is the idempotency, and `withIdempotency` would add a key row and a transaction for no extra guarantee. Contrast lesson completion, where the effect is a multi-row insert that genuinely needs one.
 - **Existing accounts were backfilled as onboarded** (2026-09-09, user decision) — migration `0013` fills every pre-existing row with `now()`. Onboarding is shown "after first successful account creation", and an account predating the feature was not just created. The practical consequence is that a real account cannot see onboarding by signing in again; Sandbox → Replay Onboarding is the intended way to view it.

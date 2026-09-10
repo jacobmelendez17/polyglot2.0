@@ -25,9 +25,17 @@ export {
   getLevelItems,
   getLevelsByLanguage,
   getLevelContentCounts,
+  getGrammarContentBlocks,
   getItemExamples,
+  getItemResources,
   getReviewQueue,
   getUsageContexts,
   getVocabularyGroup,
   getVocabularyGroupsByLanguage,
 } from "./curriculum-db-service";
+
+// Spec 18 — the composed item-detail read model. Server-only: it reaches
+// `domains/lexicon/server`, `domains/progress/server`, and
+// `domains/learner-content/server`, all of which touch the database.
+export { getItemDetailPageData } from "./item-detail-service";
+export type { ItemDetailPageData } from "./item-detail-service";
