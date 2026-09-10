@@ -1,8 +1,8 @@
 import { SrsStageBadge } from "@/components/shared/srs-stage-badge";
 import { EMPTY_FIELD } from "@/domains/curriculum";
 import type { ItemProgress } from "@/domains/progress";
-import { formatAbsoluteDate, formatAbsoluteDateTime } from "@/lib/time/format-absolute-date";
-import { formatRelativeTime } from "@/lib/time/format-relative-time";
+import { formatAbsoluteDate } from "@/lib/time/format-absolute-date";
+import { formatNextReviewLabel } from "@/lib/time/format-next-review";
 
 type ProgressSectionProps = {
   progress: ItemProgress | null;
@@ -43,11 +43,11 @@ export function ProgressSection({ progress, levelUnlockedAt, timeZone, now }: Pr
   }
 
   const accuracy = progress.reviewCount === 0 ? EMPTY_FIELD : `${Math.round((progress.correctCount / progress.reviewCount) * 100)}%`;
-  // Relative for the "when do I see this again?" question, absolute so the
-  // learner can also plan around it. A Fluent item has no next review at all,
-  // which is a completed cycle rather than missing data.
+  // One phrase, sized by how soon the review actually is (user decision,
+  // 2026-09-10) — see `formatNextReviewLabel`. A Fluent item has no next
+  // review at all, which is a completed cycle rather than missing data.
   const nextReview = progress.nextReviewAt
-    ? `${formatRelativeTime(progress.nextReviewAt, now)} · ${formatAbsoluteDateTime(progress.nextReviewAt, timeZone)}`
+    ? formatNextReviewLabel(progress.nextReviewAt, now, timeZone)
     : progress.srsStage === "fluent"
       ? "Review cycle complete"
       : EMPTY_FIELD;

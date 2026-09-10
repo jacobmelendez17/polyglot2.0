@@ -43,9 +43,26 @@ describe("ProgressSection", () => {
     expect(screen.queryByText("First Studied")).not.toBeInTheDocument();
   });
 
-  it("gives Next Review both a relative and an absolute reading", () => {
+  it("shows the plain date once a review is a day or more out", () => {
     render(<ProgressSection progress={progress()} levelUnlockedAt={UNLOCKED} timeZone="UTC" now={NOW} />);
-    expect(screen.getByText(/tomorrow · Sep 10, 2026/)).toBeInTheDocument();
+    expect(screen.getByText("Sep 10, 2026")).toBeInTheDocument();
+  });
+
+  it("counts down in hours, then minutes, as a review gets closer", () => {
+    const { rerender } = render(
+      <ProgressSection progress={progress({ nextReviewAt: new Date("2026-09-09T18:00:00Z") })} levelUnlockedAt={UNLOCKED} timeZone="UTC" now={NOW} />,
+    );
+    expect(screen.getByText("6 hours")).toBeInTheDocument();
+
+    rerender(
+      <ProgressSection progress={progress({ nextReviewAt: new Date("2026-09-09T12:20:00Z") })} levelUnlockedAt={UNLOCKED} timeZone="UTC" now={NOW} />,
+    );
+    expect(screen.getByText("20 minutes")).toBeInTheDocument();
+
+    rerender(
+      <ProgressSection progress={progress({ nextReviewAt: new Date("2026-09-09T12:00:30Z") })} levelUnlockedAt={UNLOCKED} timeZone="UTC" now={NOW} />,
+    );
+    expect(screen.getByText("~ Less than a minute")).toBeInTheDocument();
   });
 
   it("reports a completed cycle rather than a missing next review at Fluent", () => {
