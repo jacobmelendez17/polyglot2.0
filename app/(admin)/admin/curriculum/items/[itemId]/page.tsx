@@ -10,7 +10,7 @@ import { PublishDialog } from "@/components/admin/curriculum/publish-dialog";
 import type { VocabularyEditorValue } from "@/components/admin/curriculum/vocabulary-editor";
 import { DictionaryMappingPanel } from "@/components/admin/dictionary/dictionary-mapping-panel";
 import { UsageContextEditor } from "@/components/admin/curriculum/usage-context-editor";
-import { toRegisterEditorValue } from "@/components/admin/curriculum/register-select";
+import { toRegisterEditorValue } from "@/components/admin/curriculum/register-value";
 import type { Register } from "@/db/schema";
 import { canManageCurriculum } from "@/domains/admin";
 import type { AcceptedAnswerInput, CurriculumLearningItem } from "@/domains/curriculum";

@@ -10,7 +10,7 @@ import { createItemAction, resetDictionaryFieldAction, updateItemAction } from "
 import type { DictionaryOverridableField } from "@/db/schema";
 import type { AcceptedAnswerValue } from "./accepted-answers-editor";
 import { GrammarEditor, type GrammarEditorValue, type GrammarQuestionDirection } from "./grammar-editor";
-import { REGISTER_UNSET, registerPayload } from "./register-select";
+import { REGISTER_UNSET, registerPayload } from "./register-value";
 import { VocabularyEditor, type ResolvedVocabularyFieldInfo, type VocabularyEditorValue } from "./vocabulary-editor";
 
 type ItemType = "vocabulary" | "grammar";

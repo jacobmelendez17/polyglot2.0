@@ -6,7 +6,7 @@ import { AdminSectionEditor } from "./admin-section-editor";
 import { CurriculumItemForm } from "@/components/admin/curriculum/curriculum-item-form";
 import { GrammarContentBlockEditor } from "@/components/admin/curriculum/grammar-content-block-editor";
 import { ItemResourceEditor } from "@/components/admin/curriculum/item-resource-editor";
-import { toRegisterEditorValue } from "@/components/admin/curriculum/register-select";
+import { toRegisterEditorValue } from "@/components/admin/curriculum/register-value";
 import { UsageContextEditor } from "@/components/admin/curriculum/usage-context-editor";
 import type { ItemAdminEditingData } from "@/domains/curriculum/server";
 import type { CurriculumStatus } from "@/domains/curriculum";

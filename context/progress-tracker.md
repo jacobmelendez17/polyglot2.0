@@ -223,12 +223,31 @@ Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real
     Delete along with their version-conflict handling. Duplicating the
     publish dialog onto a learner-facing route would have meant two places to
     get `ADMIN_EDIT_CONFLICT` right.
-  - Verified: `tsc --noEmit`, `npm run lint`, `npm run test` (717 passing,
-    118 files — 23 new across 3 files), `npm run build`, and 6 new
+  - Verified: `tsc --noEmit`, `npm run lint`, `npm run test` (718 passing,
+    119 files — 24 new across 4 files), `npm run build`, and 6 new
     integration tests in `item-content-mutations.integration.test.ts` (the
     block shape check and the two-pass reorder are the database's behavior,
-    so a mocked test would prove nothing about either). **No real-browser
-    pass** — see unit 2's entry for the one URL that renders real content.
+    so a mocked test would prove nothing about either).
+  - **A runtime bug shipped and was caught by the user, not by the checks**
+    (fixed 2026-09-09, same day). `toRegisterEditorValue` lived in
+    `register-select.tsx` next to the control that uses it, and two server
+    components called it — the item page's admin slots and the Admin item
+    page. A `"use client"` module's non-component exports may only be
+    *rendered* or *passed as props* from a server component, never called, so
+    the item page threw on load for an admin. `tsc`, lint, the full test
+    suite, and `npm run build` all passed: Next enforces this at render time
+    only. Fixed by moving the two conversions into a plain
+    `register-value.ts` beside the control, which is also what lets both
+    server pages share the exact conversion the editor uses.
+    - **`lib/client-boundary.test.ts` now walks the import graph** and fails
+      on any non-client module that imports a callable export from a
+      `"use client"` module, naming both files. It was verified by
+      re-introducing the original bug and watching it fail with exactly that
+      message, then restoring the fix — an untested guard for a bug that
+      already escaped every other check would have been worth little.
+  - **No real-browser pass** — see unit 2's entry for the one URL that renders
+    real content. The bug above is what that gap looks like in practice: three
+    units of visual, admin-gated work verified entirely by component tests.
 
 - **Spec 18 unit 2 — the shared item-detail layout, and `/items/[itemId]`
   rebuilt on it** (2026-09-09).

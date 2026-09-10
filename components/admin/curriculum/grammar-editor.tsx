@@ -4,7 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
 import { AcceptedAnswersEditor, type AcceptedAnswerValue } from "./accepted-answers-editor";
-import { RegisterSelect, type RegisterEditorValue } from "./register-select";
+import { RegisterSelect } from "./register-select";
+import type { RegisterEditorValue } from "./register-value";
 
 export type GrammarQuestionDirection = "targetToEnglish" | "englishToTarget";
 

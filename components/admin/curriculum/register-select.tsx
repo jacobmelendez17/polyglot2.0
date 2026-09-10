@@ -4,10 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { REGISTER_LABELS } from "@/domains/curriculum";
 import type { Register } from "@/db/schema";
 
-/** The editor's representation of "no register chosen". `Select` cannot hold an empty string as a value, so unset needs a real sentinel. */
-export const REGISTER_UNSET = "unset";
-
-export type RegisterEditorValue = Register | typeof REGISTER_UNSET;
+import { REGISTER_UNSET, type RegisterEditorValue } from "./register-value";
 
 type RegisterSelectProps = {
   value: RegisterEditorValue;
@@ -22,6 +19,9 @@ type RegisterSelectProps = {
  * "Not set" is a real, selectable option rather than an absence: most items
  * genuinely have no register, and an admin needs to be able to put one back
  * to unclassified after setting it by mistake.
+ *
+ * The value conversions live in `./register-value.ts`, outside this client
+ * boundary, because server components have to call them — see that file.
  */
 export function RegisterSelect({ value, onChange }: RegisterSelectProps) {
   return (
@@ -42,14 +42,4 @@ export function RegisterSelect({ value, onChange }: RegisterSelectProps) {
       </Select>
     </label>
   );
-}
-
-/** Editor value → payload. The sentinel becomes the `null` the database and domain both mean by "unclassified". */
-export function registerPayload(value: RegisterEditorValue): Register | null {
-  return value === REGISTER_UNSET ? null : value;
-}
-
-/** Stored value → editor value. */
-export function toRegisterEditorValue(register: Register | null | undefined): RegisterEditorValue {
-  return register ?? REGISTER_UNSET;
 }
