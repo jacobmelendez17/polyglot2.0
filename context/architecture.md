@@ -1239,6 +1239,30 @@ The provider abstraction must allow a future cloud speech-recognition service to
 
 ---
 
+# Pronunciation Playback
+
+Pronunciation playback is the opposite direction from speech recognition, and
+is a separate provider (`providers/speech/speech-synthesis-provider.ts`).
+
+Order of preference, decided once in `components/shared/pronunciation-button.tsx`
+and never at a call site:
+
+1. A real recording, when the item has one.
+2. The browser's Web Speech `speechSynthesis` voice for the item's language.
+3. A disabled control with a stated reason, when the browser offers neither.
+
+The fallback exists because the `media` domain and its R2 bucket are not built
+yet, so no item has a recording today (user decision, 2026-09-09, taken while
+implementing spec 18). When permanent pronunciation audio does land, items gain
+an `audioUrl` and the same control starts playing it with no change at any call
+site — synthesis quietly stops being reached.
+
+Synthesized speech is never treated as content: it is generated at play time
+from text Polyglot already stores, is never persisted, and no learning decision
+depends on it.
+
+---
+
 # Demo Architecture
 
 Demo mode uses temporary server-side demo sessions.

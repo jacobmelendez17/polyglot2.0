@@ -16,10 +16,11 @@ scoping rules it is being built as **five units, pausing after each** (the
 user chose this over one continuous effort):
 
 1. **Data model + shared read model — done.** See the Completed entry.
-2. **The shared item-detail UI shell** — hero with wraparound arrows, section
-   tabs with scroll-spy, sticky item header + Back to Top, the four Info
-   summary cards, About/Definition, Context, Examples, Progress, Resources.
-   Rebuilds `/items/[itemId]` on it.
+2. **The shared item-detail UI shell — done.** Hero with wraparound arrows,
+   section tabs with scroll-spy, sticky item header + Back to Top, the four
+   Info summary cards, About/Definition, Context, Examples, Progress,
+   Resources; `/items/[itemId]` rebuilt on it, and the seven components it
+   replaced deleted.
 3. **Lesson mode reuse** — `components/lessons/lesson-item-tabs.tsx` and the
    study half of `lesson-session-view.tsx` are replaced by the same shared
    components, configured with `mode: "lesson"` (no Progress section, arrows
@@ -154,6 +155,84 @@ writing to real `user_item_progress` rows.
 ## Completed
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
+
+- **Spec 18 unit 2 — the shared item-detail layout, and `/items/[itemId]`
+  rebuilt on it** (2026-09-09).
+  - **`components/items/item-detail/` is the shared system**, built now and
+    consumed by the item page; unit 3 points the lesson at the same
+    components. `ItemDetailLayout` assembles hero → Info (four summary cards,
+    About/Definition, Context) → Examples → Progress → Resources, and `mode`
+    is the only difference between the two surfaces.
+  - **Only one client component in the whole layout.** `ItemDetailShell`
+    owns the scroll behavior and receives every section as
+    already-server-rendered `children`, finding them by the
+    `data-item-section` attribute rather than by knowing their data. So the
+    content tree stays a server tree while one component owns tabs, the
+    sticky header, and Back to Top.
+  - **Scroll position is read by IntersectionObserver, never a scroll
+    handler**, and `setState` runs only when the answer changes — scrolling
+    through one long section causes no re-renders (spec 18's explicit
+    performance rule). Two observers: one on the hero for sticky-header and
+    Back-to-Top visibility, one over the sections for the active tab.
+  - **`ItemHero`, `ItemNavigation`, and `ItemDetailLayout` are deliberately
+    *not* `"use client"` modules.** They render inside a server tree on the
+    item page and a client tree during a lesson, and the two pass different
+    navigation props — a link resolver (`hrefForItem`) or a callback
+    (`onNavigate`). Marking them client would break the page outright,
+    because a function prop cannot cross the server-to-client boundary. The
+    same split is what keeps a lesson from ever producing a URL that leaves
+    the session (spec 18) — in lesson mode there is no href to render.
+  - **Section tabs use `aria-current`, not `role="tab"`.** Spec 18 says
+    "tabs are anchor navigation, not separate mini-pages": every section
+    stays mounted and scroll-reachable, so a tablist would promise panels
+    that show and hide. The Context card's "Pattern of Use" list *is* a real
+    tablist, with roving arrow-key focus, because that one genuinely swaps
+    panels.
+  - **Pronunciation playback is new infrastructure**, not a reuse:
+    `providers/speech/speech-synthesis-provider.ts` plus
+    `components/shared/pronunciation-button.tsx`. A real recording wins
+    whenever one exists; otherwise the browser's `speechSynthesis` voice
+    speaks the target text; a browser with neither gets a disabled control
+    with a stated reason instead of a dead button. Support is read through
+    `useSyncExternalStore` with a distinct server snapshot — not in the
+    render body, which would be the same hydration mismatch already recorded
+    against `reveal.tsx`, and not in an effect, which the project's lint
+    rules reject. Documented in `architecture.md`'s new "Pronunciation
+    Playback" section.
+  - **`Leech` renders as an em dash, not "No".** No leech rule exists
+    anywhere in the product (see Open Questions), and printing "No" would
+    assert something nobody has computed. The row stays so the metric has a
+    settled place when the rule arrives.
+  - **`Unlock Date` is the learner's level-unlock date**, which is the item's
+    real unlock moment and the only unlock event `domains/progress` records.
+    `First Studied` is deliberately absent per spec 18, though
+    `user_item_progress.learned_at` holds it. Dates render in
+    `users.timezone` via a new `lib/time/format-absolute-date.ts`, and `now`
+    is passed in from the server rather than read in the component.
+  - **Seven old components were deleted, not left beside the new ones**:
+    `vocabulary-item-detail`, `grammar-item-detail`, `item-detail-header`,
+    `item-progress-panel`, `dictionary-panel`, `usage-context-tabs`, and
+    `example-list`, with their tests. Nothing referenced them once the page
+    was rebuilt.
+  - **One deliberate content regression, flagged rather than hidden.** The
+    old `DictionaryPanel` rendered a "Regional usage" list (spec 12's
+    regional evidence — "recognized in es-MX", and the not-listed caveat).
+    Spec 18 specifies the item page's sections exhaustively and includes no
+    place for it, so it is gone from the item page. The data and its read
+    model are untouched and still power dictionary matching and the Admin
+    dictionary surfaces. Put it back — probably as a line in the Details
+    card — if losing it from the learner view was not intended.
+  - **`vitest.setup.ts` now stubs `IntersectionObserver`**, which jsdom does
+    not implement at all. The stub is a no-op observer that never fires, so
+    components render in their initial state (first section active, hero
+    visible) and no test can accidentally assert observed behavior that
+    jsdom never produced.
+  - Verified: `tsc --noEmit`, `npm run lint`, `npm run test` (694 passing,
+    115 files — 48 of them new across 7 files), `npm run build`. **No
+    real-browser pass**, matching specs 14-16. Worth knowing for whoever
+    does one: `/items/40000000-0000-0000-0000-000000000004` is currently the
+    only published learning item in the database, so it is the one URL that
+    renders real content today.
 
 - **Spec 18 unit 1 — item-detail data model and shared read model**
   (2026-09-09). No UI yet, deliberately: the two surfaces spec 18 has to
@@ -1154,13 +1233,19 @@ Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real
 
 ## In Progress
 
-**Spec 18 (Item Detail & Lesson Item Layout)** — unit 1 of 5 shipped
-2026-09-09 (data model + shared read model). Unit 2 is next: the shared
-item-detail UI shell, rebuilding `/items/[itemId]` on it. See Current Goal
-for the full unit list and the four decisions taken before implementation
-started. Unit 1's new tables are live but empty — no grammar content block
-and no item resource exists yet, so those sections will render their empty
-states until unit 5 gives admins a way to author them.
+**Spec 18 (Item Detail & Lesson Item Layout)** — units 1 and 2 of 5 shipped
+2026-09-09 (data model + shared read model; the shared UI shell and the
+rebuilt `/items/[itemId]`). Unit 3 is next: pointing the lesson study view at
+the same components. See Current Goal for the full unit list and the four
+decisions taken before implementation started.
+
+Two things to know about what unit 2 renders today. **The new tables are live
+but empty** — no grammar content block and no item resource exists yet, so
+those sections show their empty states until unit 5 gives admins a way to
+author them. And **one content regression is deliberate and awaiting your
+call**: the dictionary "Regional usage" list is gone from the item page,
+because spec 18 specifies the page's sections exhaustively and has no place
+for it. The data is untouched; see unit 2's Completed entry.
 
 Specs 01–17 are all complete. Spec 16 shipped 2026-09-09; spec 15
 (Onboarding) the same day; spec 14 (Decks) 2026-09-08. All three carry the

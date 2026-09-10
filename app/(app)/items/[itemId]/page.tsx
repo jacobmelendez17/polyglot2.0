@@ -1,11 +1,9 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { GrammarItemDetail } from "@/components/items/grammar-item-detail";
-import { VocabularyItemDetail } from "@/components/items/vocabulary-item-detail";
-import { getLearningItem, getLearningItemExamples, getLevelById } from "@/domains/curriculum/server";
-import { getVocabularyDetail } from "@/domains/lexicon/server";
-import { getItemProgress } from "@/domains/progress/server";
+import { ItemDetailLayout } from "@/components/items/item-detail/item-detail-layout";
+import { buildItemDetailView } from "@/domains/curriculum";
+import { getItemDetailPageData, getLearningItem } from "@/domains/curriculum/server";
 import { requireUser } from "@/domains/users/server";
 
 type ItemDetailPageProps = {
@@ -21,13 +19,6 @@ type ItemDetailPageProps = {
 // "invalid input syntax for type uuid" error.
 const UUID_LIKE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-// A learner can only ever have organically reached a published or archived
-// item, via a level, lesson, or review link — draft/pending items have
-// never been shown to any learner, so they 404 exactly like a missing id
-// (spec 13: "invalid item ID" / "missing item" / "archived item where
-// still referenceable").
-const VIEWABLE_STATUSES = new Set(["published", "archived"]);
-
 export async function generateMetadata({ params }: ItemDetailPageProps): Promise<Metadata> {
   const { itemId } = await params;
   if (!UUID_LIKE.test(itemId)) return { title: "Polyglot" };
@@ -38,11 +29,14 @@ export async function generateMetadata({ params }: ItemDetailPageProps): Promise
 }
 
 /**
- * Spec 13's Learner Item Detail. Vocabulary is composed entirely through
- * `domains/lexicon`'s existing tested `getVocabularyDetail` read model, per
- * the spec's explicit instruction not to rebuild the dictionary/curriculum
- * join here. Grammar uses only `domains/curriculum`, never the Lexicon
- * mapping (grammar has no dictionary counterpart).
+ * Spec 18's Item Detail page.
+ *
+ * Thin by design: one read model call, one pure view-model build, one shared
+ * layout. `getItemDetailPageData` owns the composition (curriculum, Lexicon,
+ * progress, and the learner's own private synonyms) and returns `null` for
+ * anything the learner may not see — a missing item and a draft/pending item
+ * are the same 404, since a learner could never have organically reached
+ * either.
  */
 export default async function ItemDetailPage({ params }: ItemDetailPageProps) {
   const { itemId } = await params;
@@ -55,31 +49,25 @@ export default async function ItemDetailPage({ params }: ItemDetailPageProps) {
   // never reaches this far in practice.
   const user = await requireUser();
 
-  const item = await getLearningItem(itemId);
-  if (!item || !VIEWABLE_STATUSES.has(item.status)) {
+  const data = await getItemDetailPageData(itemId, user.id);
+  if (!data) {
     notFound();
   }
 
-  if (item.type === "vocabulary") {
-    const detail = await getVocabularyDetail({ vocabularyItemId: itemId, userId: user.id, includeArchived: true });
-    if (!detail) {
-      // Defensive only: `item` above already confirmed a viewable vocabulary
-      // row exists, so this branch should be unreachable in practice.
-      notFound();
-    }
-    return <VocabularyItemDetail detail={detail} status={item.status} />;
-  }
-
-  const [level, examples, progress] = await Promise.all([
-    getLevelById(item.levelId),
-    getLearningItemExamples(itemId),
-    getItemProgress(user.id, itemId),
-  ]);
-  if (!level) {
-    throw new Error(`Data integrity error: learning item ${itemId} references level ${item.levelId}, which does not exist.`);
-  }
-
   return (
-    <GrammarItemDetail grammar={item.grammar} levelNumber={level.levelNumber} status={item.status} examples={examples} progress={progress} />
+    <ItemDetailLayout
+      view={buildItemDetailView(data.source)}
+      navigation={data.navigation}
+      languageCode={data.languageCode}
+      mode="page"
+      status={data.status}
+      progress={data.progress}
+      levelUnlockedAt={data.levelUnlockedAt}
+      timeZone={user.timezone}
+      // Server time, not the browser's: `architecture.md` requires
+      // authoritative learning decisions and their display to agree.
+      now={new Date()}
+      hrefForItem={(id) => `/items/${id}`}
+    />
   );
 }
