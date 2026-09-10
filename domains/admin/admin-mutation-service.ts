@@ -11,6 +11,8 @@ import * as publication from "./publication-service";
 import type {
   ApplyDictionaryFieldsServiceInput,
   ExampleServiceInput,
+  GrammarContentBlockServiceInput,
+  ItemResourceServiceInput,
   UsageContextServiceInput,
   ArchiveItemServiceInput,
   BulkArchiveItemsServiceInput,
@@ -84,6 +86,16 @@ export async function mutateUsageContext(input: UsageContextServiceInput) {
 export async function mutateItemExample(input: ExampleServiceInput) {
   await checkRateLimit("admin-mutation", input.actorUserId);
   return publication.mutateItemExample(db, input);
+}
+
+export async function mutateGrammarContentBlock(input: GrammarContentBlockServiceInput) {
+  await checkRateLimit("admin-mutation", input.actorUserId);
+  return publication.mutateGrammarContentBlock(db, input);
+}
+
+export async function mutateItemResource(input: ItemResourceServiceInput) {
+  await checkRateLimit("admin-mutation", input.actorUserId);
+  return publication.mutateItemResource(db, input);
 }
 
 export async function publishItem(input: PublishItemServiceInput) {

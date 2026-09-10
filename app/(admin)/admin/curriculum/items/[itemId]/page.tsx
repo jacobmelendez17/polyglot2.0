@@ -10,6 +10,8 @@ import { PublishDialog } from "@/components/admin/curriculum/publish-dialog";
 import type { VocabularyEditorValue } from "@/components/admin/curriculum/vocabulary-editor";
 import { DictionaryMappingPanel } from "@/components/admin/dictionary/dictionary-mapping-panel";
 import { UsageContextEditor } from "@/components/admin/curriculum/usage-context-editor";
+import { toRegisterEditorValue } from "@/components/admin/curriculum/register-select";
+import type { Register } from "@/db/schema";
 import { canManageCurriculum } from "@/domains/admin";
 import type { AcceptedAnswerInput, CurriculumLearningItem } from "@/domains/curriculum";
 import {
@@ -49,6 +51,7 @@ type VocabularyDetailLike = {
   ipa?: string | null;
   context?: string | null;
   creatorNotes?: string | null;
+  register?: Register | null;
 };
 
 type GrammarDetailLike = {
@@ -58,6 +61,7 @@ type GrammarDetailLike = {
   explanation: string;
   category?: string | null;
   creatorNotes?: string | null;
+  register?: Register | null;
   requiredQuestions: { direction: "targetToEnglish" | "englishToTarget" }[];
 };
 
@@ -73,6 +77,7 @@ function toVocabularyFormValue(detail: VocabularyDetailLike, acceptedAnswers: Ac
     ipa: detail.ipa ?? "",
     context: detail.context ?? "",
     creatorNotes: detail.creatorNotes ?? "",
+    register: toRegisterEditorValue(detail.register),
     acceptedAnswers,
   };
 }
@@ -85,6 +90,7 @@ function toGrammarFormValue(detail: GrammarDetailLike, acceptedAnswers: Accepted
     explanation: detail.explanation,
     category: detail.category ?? "",
     creatorNotes: detail.creatorNotes ?? "",
+    register: toRegisterEditorValue(detail.register),
     requiredDirections: detail.requiredQuestions.map((q) => q.direction),
     acceptedAnswers,
   };

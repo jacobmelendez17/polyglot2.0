@@ -5,9 +5,15 @@ import { getSynonyms } from "@/domains/learner-content/server";
 import { getItemProgress, getLevelProgress } from "@/domains/progress/server";
 import type { ItemProgress } from "@/domains/progress";
 
-import { getAcceptedAnswers as repoGetAcceptedAnswers, getItemExamples as repoGetItemExamples, getUsageContexts as repoGetUsageContexts } from "./curriculum-mutation-repository";
+import {
+  getAcceptedAnswers as repoGetAcceptedAnswers,
+  getDraft as repoGetDraft,
+  getItemExamples as repoGetItemExamples,
+  getUsageContexts as repoGetUsageContexts,
+} from "./curriculum-mutation-repository";
 import * as repository from "./curriculum-repository";
-import type { CurriculumStatus } from "./curriculum-db-types";
+import type { AcceptedAnswerInput } from "./curriculum-mutation-types";
+import type { CurriculumGrammarContentBlock, CurriculumItemResource, CurriculumLearningItem, CurriculumStatus } from "./curriculum-db-types";
 import type { ItemDetailExampleSource, ItemDetailPatternSource, ItemDetailSource, ItemNavigationView } from "./item-detail-view";
 import { buildItemNavigation } from "./item-detail-view";
 
@@ -213,5 +219,70 @@ export async function getItemDetailPageData(itemId: string, userId: string): Pro
     languageCode: language.code,
     progress: detail.progress,
     levelUnlockedAt: levelProgress?.unlockedAt ?? null,
+  };
+}
+
+/**
+ * Everything the item page's admin editing controls need (spec 18), loaded
+ * only for a viewer who may actually manage curriculum.
+ *
+ * A separate function from {@link getItemDetailPageData}, not extra fields on
+ * it, so an ordinary learner's item page pays nothing for a capability they
+ * do not have — the editors need the item's raw editable fields, the group
+ * list, the accepted answers, and the open draft, none of which a learner
+ * ever sees.
+ *
+ * Returning this is not authorization. The caller checks the role before
+ * asking, and every mutation the editors invoke re-checks it server-side.
+ */
+export type ItemAdminEditingData = {
+  item: CurriculumLearningItem;
+  acceptedAnswers: AcceptedAnswerInput[];
+  /** Vocabulary groups in the item's language, already annotated with their level number and ordered for a picker. */
+  groups: { id: string; name: string; levelNumber: number }[];
+  blocks: CurriculumGrammarContentBlock[];
+  patterns: { id: string; label: string; note: string | null; position: number; sourceForm: string | null }[];
+  examples: { id: string; usageContextId: string | null; position: number; targetText: string; translation: string }[];
+  resources: CurriculumItemResource[];
+  /** True when an unpublished edit is staged against this item — the page warns that what it shows is not what learners see. */
+  hasOpenDraft: boolean;
+};
+
+export async function getItemAdminEditingData(itemId: string): Promise<ItemAdminEditingData | null> {
+  const item = await repository.getLearningItem(db, itemId);
+  if (!item) return null;
+
+  const [acceptedAnswers, groups, levels, blocks, patterns, examples, resources, draft] = await Promise.all([
+    repoGetAcceptedAnswers(db, itemId),
+    repository.getVocabularyGroupsByLanguage(db, item.languageId),
+    repository.getLevelsByLanguage(db, item.languageId),
+    item.type === "grammar" ? repository.getGrammarContentBlocks(db, itemId) : Promise.resolve([]),
+    repoGetUsageContexts(db, itemId),
+    repoGetItemExamples(db, itemId),
+    repository.getItemResources(db, itemId),
+    repoGetDraft(db, itemId),
+  ]);
+
+  // The group picker labels each option by its level, so the level lookup
+  // happens once here rather than in the component that renders it.
+  const levelNumberById = new Map(levels.map((level) => [level.id, level.levelNumber]));
+
+  return {
+    item,
+    acceptedAnswers,
+    groups: groups
+      .map((group) => ({ id: group.id, name: group.name, levelNumber: levelNumberById.get(group.levelId) ?? 0 }))
+      .sort((a, b) => a.levelNumber - b.levelNumber || a.name.localeCompare(b.name)),
+    blocks,
+    patterns: patterns.map((pattern) => ({
+      id: pattern.id,
+      label: pattern.label,
+      note: pattern.note,
+      position: pattern.position,
+      sourceForm: pattern.sourceForm,
+    })),
+    examples,
+    resources,
+    hasOpenDraft: draft !== null,
   };
 }

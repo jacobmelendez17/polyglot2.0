@@ -24,12 +24,15 @@ user chose this over one continuous effort):
 3. **Lesson mode reuse** — `components/lessons/lesson-item-tabs.tsx` and the
    study half of `lesson-session-view.tsx` are replaced by the same shared
    components, configured with `mode: "lesson"` (no Progress section, arrows
-   confined to the session's own items).
+   confined to the session's own items). **Still outstanding.**
 4. **Learner actions** — add personal synonym, note, personal example, and
-   Add to a Deck, each placed beneath the section it belongs to.
-5. **Admin editing from the Item page** — grammar content blocks, resources,
-   register, context patterns, official examples; the same domain services
-   and validation the Admin curriculum editors use, never a second copy.
+   Add to a Deck, each placed beneath the section it belongs to. **Still
+   outstanding.**
+5. **Admin editing from the Item page — done, out of order.** Grammar content
+   blocks, resources, register, context patterns, official examples, plus the
+   CEFR band on levels; the same domain services and validation the Admin
+   curriculum editors use, never a second copy. Brought forward ahead of
+   units 3 and 4 because the user asked for it directly.
 
 **Four decisions were put to the user before any code was written
 (2026-09-09), and all four are now implemented as chosen:**
@@ -155,6 +158,77 @@ writing to real `user_item_progress` rows.
 ## Completed
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
+
+- **Spec 18 unit 5 — admin editing from the item page** (2026-09-09).
+  Brought forward ahead of units 3 and 4 at the user's request ("How can I
+  edit the page directly if I'm under an admin account? I'd like to be able
+  to do that"). One decision was put to the user first: **per-section
+  editing** — an edit control on each card opening a focused editor — rather
+  than one page-wide edit mode or a bare deep link to Admin curriculum.
+  - **Nothing is a second implementation.** Every editor the item page opens
+    is the component Admin curriculum already uses, calling the same server
+    actions and the same domain services (spec 18: "do not maintain separate
+    Item-page and Admin-page versions of the same business logic").
+    `item-admin-slots.tsx` owns only *placement* — which editor sits under
+    which section — and hands the layout finished `ReactNode`s.
+  - **The shared layout still does not know what an admin is.** It takes an
+    optional `adminSlots` record of nodes, not an `isAdmin` flag, so the
+    lesson (unit 3) inherits none of this by simply passing nothing.
+  - **`register` now flows end to end**, which it did not after unit 1: the
+    column existed but no editor could set it. Added to the domain field
+    types, both Zod schemas (domain and action boundary, each declared
+    independently as this codebase already does), create/update/draft-publish,
+    and a shared `RegisterSelect` used by the vocabulary editor, the grammar
+    editor, and the item page. Worth knowing why nothing was silently lost in
+    between: `updateLearningItemDirect` sets an explicit column list, so
+    edits made before this never clobbered the column — they just could not
+    write it.
+  - **`levels.cefr_level` is now editable**, in the existing Admin level
+    form. Until this, unit 1's column had no way to be set, so the hero's
+    `A1 - Level 1 - 1/13` line could never render its first segment.
+  - **Two new authored collections**: `mutateGrammarContentBlock` and
+    `mutateItemResource`, each one service for create/update/delete/reorder,
+    following `mutateUsageContext`'s existing shape exactly — same lock, same
+    idempotency, same rate limit, same audit-event-per-change, differing only
+    in the repository call. Two new audit actions
+    (`GRAMMAR_CONTENT_BLOCKS_CHANGED`, `ITEM_RESOURCES_CHANGED`).
+  - **Resource URLs are constrained to `http`/`https` at the action
+    boundary.** These render as links a learner clicks, so a `javascript:`
+    URL has no business reaching the database — rejecting it there means the
+    item page never has to sanitize what it renders.
+  - **Usage contexts were widened to grammar**, completing the unit-1
+    decision to reuse them as spec 18's "Pattern of Use". Spec 17 restricted
+    them to vocabulary; that gate is gone from both the service and the
+    editor. Seeding tabs from a dictionary entry stays vocabulary-only, and
+    needed no new check: a grammar item can never have a confirmed vocabulary
+    mapping, so `seedUsageContextsAction` already declines it.
+  - **The draft model is surfaced, not hidden.** An admin viewing an item
+    sees a banner saying exactly what they are looking at, because the item
+    page renders the *live* content: on a published item, field edits stage a
+    draft and are invisible here until published, while patterns, examples,
+    About blocks, and resources are live immediately. Without that, an admin
+    could reasonably save a field, see nothing change, and conclude the save
+    failed. Archived items get the banner and **no editing controls at all** —
+    the services refuse to edit one, and offering a control guaranteed to
+    fail is worse than offering none.
+  - **A known asymmetry, recorded rather than fixed:** item *fields* are
+    drafted, but the four child collections are not.
+    `curriculum_item_drafts` snapshots an item's editable fields and has
+    nowhere to put an ordered child collection. That predates spec 18 (usage
+    contexts and examples already behaved this way); this unit adds two more
+    collections with the same property and says so in the UI. Making child
+    collections draftable is a real piece of work and its own unit.
+  - **Publishing is deliberately not on the item page.** The banner links to
+    `/admin/curriculum/items/[itemId]`, which owns Publish, Archive, and
+    Delete along with their version-conflict handling. Duplicating the
+    publish dialog onto a learner-facing route would have meant two places to
+    get `ADMIN_EDIT_CONFLICT` right.
+  - Verified: `tsc --noEmit`, `npm run lint`, `npm run test` (717 passing,
+    118 files — 23 new across 3 files), `npm run build`, and 6 new
+    integration tests in `item-content-mutations.integration.test.ts` (the
+    block shape check and the two-pass reorder are the database's behavior,
+    so a mocked test would prove nothing about either). **No real-browser
+    pass** — see unit 2's entry for the one URL that renders real content.
 
 - **Spec 18 unit 2 — the shared item-detail layout, and `/items/[itemId]`
   rebuilt on it** (2026-09-09).
@@ -1233,19 +1307,20 @@ Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real
 
 ## In Progress
 
-**Spec 18 (Item Detail & Lesson Item Layout)** — units 1 and 2 of 5 shipped
+**Spec 18 (Item Detail & Lesson Item Layout)** — units 1, 2, and 5 shipped
 2026-09-09 (data model + shared read model; the shared UI shell and the
-rebuilt `/items/[itemId]`). Unit 3 is next: pointing the lesson study view at
-the same components. See Current Goal for the full unit list and the four
-decisions taken before implementation started.
+rebuilt `/items/[itemId]`; admin editing from the item page, brought forward
+at the user's request). **Units 3 (lesson mode reuse) and 4 (learner actions)
+remain.** See Current Goal for the full list and the decisions taken along
+the way.
 
-Two things to know about what unit 2 renders today. **The new tables are live
-but empty** — no grammar content block and no item resource exists yet, so
-those sections show their empty states until unit 5 gives admins a way to
-author them. And **one content regression is deliberate and awaiting your
-call**: the dictionary "Regional usage" list is gone from the item page,
-because spec 18 specifies the page's sections exhaustively and has no place
-for it. The data is untouched; see unit 2's Completed entry.
+Two things to know about the item page as it stands. **An admin can now
+author the content the new tables hold** — grammar About blocks and resource
+links start empty on every item, and the per-section editors are how they get
+filled. And **one content regression is deliberate and awaiting your call**:
+the dictionary "Regional usage" list is gone from the item page, because spec
+18 specifies the page's sections exhaustively and has no place for it. The
+data is untouched; see unit 2's Completed entry.
 
 Specs 01–17 are all complete. Spec 16 shipped 2026-09-09; spec 15
 (Onboarding) the same day; spec 14 (Decks) 2026-09-08. All three carry the

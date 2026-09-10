@@ -10,6 +10,7 @@ import { createItemAction, resetDictionaryFieldAction, updateItemAction } from "
 import type { DictionaryOverridableField } from "@/db/schema";
 import type { AcceptedAnswerValue } from "./accepted-answers-editor";
 import { GrammarEditor, type GrammarEditorValue, type GrammarQuestionDirection } from "./grammar-editor";
+import { REGISTER_UNSET, registerPayload } from "./register-select";
 import { VocabularyEditor, type ResolvedVocabularyFieldInfo, type VocabularyEditorValue } from "./vocabulary-editor";
 
 type ItemType = "vocabulary" | "grammar";
@@ -43,6 +44,7 @@ const EMPTY_VOCAB: VocabularyEditorValue = {
   ipa: "",
   context: "",
   creatorNotes: "",
+  register: REGISTER_UNSET,
   acceptedAnswers: [],
 };
 
@@ -53,6 +55,7 @@ const EMPTY_GRAMMAR: GrammarEditorValue = {
   explanation: "",
   category: "",
   creatorNotes: "",
+  register: REGISTER_UNSET,
   requiredDirections: ["targetToEnglish"],
   acceptedAnswers: [],
 };
@@ -77,6 +80,7 @@ function vocabularyFieldsPayload(v: VocabularyEditorValue) {
     ipa: nullIfEmpty(v.ipa),
     context: nullIfEmpty(v.context),
     creatorNotes: nullIfEmpty(v.creatorNotes),
+    register: registerPayload(v.register),
     acceptedAnswers: toAcceptedAnswersInput(v.acceptedAnswers),
   };
 }
@@ -90,6 +94,7 @@ function grammarFieldsPayload(g: GrammarEditorValue) {
     category: nullIfEmpty(g.category),
     creatorNotes: nullIfEmpty(g.creatorNotes),
     requiredQuestions: g.requiredDirections.map((direction: GrammarQuestionDirection) => ({ format: "translation" as const, direction })),
+    register: registerPayload(g.register),
     acceptedAnswers: toAcceptedAnswersInput(g.acceptedAnswers),
   };
 }

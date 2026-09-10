@@ -2,8 +2,12 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { ItemDetailLayout } from "@/components/items/item-detail/item-detail-layout";
+import { buildItemAdminSlots } from "@/components/items/item-detail/item-admin-slots";
+import { canManageCurriculum } from "@/domains/admin";
 import { buildItemDetailView } from "@/domains/curriculum";
-import { getItemDetailPageData, getLearningItem } from "@/domains/curriculum/server";
+import type { CurriculumStatus } from "@/domains/curriculum";
+import { getItemAdminEditingData, getItemDetailPageData, getLearningItem } from "@/domains/curriculum/server";
+import { getVocabularyMappingView } from "@/domains/lexicon/server";
 import { requireUser } from "@/domains/users/server";
 
 type ItemDetailPageProps = {
@@ -37,6 +41,11 @@ export async function generateMetadata({ params }: ItemDetailPageProps): Promise
  * anything the learner may not see — a missing item and a draft/pending item
  * are the same 404, since a learner could never have organically reached
  * either.
+ *
+ * A curriculum manager additionally gets spec 18's per-section editing
+ * controls. The extra reads that needs happen only for such a user, and
+ * rendering the controls is never the authorization: every action they
+ * invoke re-checks the role server-side.
  */
 export default async function ItemDetailPage({ params }: ItemDetailPageProps) {
   const { itemId } = await params;
@@ -54,6 +63,8 @@ export default async function ItemDetailPage({ params }: ItemDetailPageProps) {
     notFound();
   }
 
+  const adminSlots = canManageCurriculum(user) ? await buildAdminSlots(itemId, data.status, data.source.type) : undefined;
+
   return (
     <ItemDetailLayout
       view={buildItemDetailView(data.source)}
@@ -68,6 +79,26 @@ export default async function ItemDetailPage({ params }: ItemDetailPageProps) {
       // authoritative learning decisions and their display to agree.
       now={new Date()}
       hrefForItem={(id) => `/items/${id}`}
+      adminSlots={adminSlots}
     />
   );
+}
+
+/**
+ * Loads the admin editing state and turns it into the layout's per-section
+ * slots. Split out of the page body so the learner path reads as one
+ * straight line, and so these queries are unmistakably behind the role check
+ * at the call site.
+ */
+async function buildAdminSlots(itemId: string, status: CurriculumStatus, itemType: "vocabulary" | "grammar") {
+  const editing = await getItemAdminEditingData(itemId);
+  if (!editing) return undefined;
+
+  // Only vocabulary can seed patterns from a dictionary entry's inflected
+  // forms, so grammar skips the mapping lookup entirely rather than issuing
+  // a query that can only ever come back empty.
+  const canSeedFromDictionary =
+    itemType === "vocabulary" ? (await getVocabularyMappingView(itemId)).mapping?.matchStatus === "manual" : false;
+
+  return buildItemAdminSlots({ data: editing, status, canSeedFromDictionary });
 }

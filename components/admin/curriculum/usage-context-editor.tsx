@@ -26,14 +26,17 @@ type UsageContextEditorProps = {
 const GENERAL = "general";
 
 /**
- * Authoring a word's usage contexts and its examples (spec 17).
+ * Authoring an item's usage contexts and its examples (spec 17, widened by
+ * spec 18).
  *
  * Nothing in the application could write an example before this: the tables
  * existed and rendered to learners, but no surface created one. So this is
  * the example editor as much as it is the tab editor.
  *
- * Grammar items get the examples half only — they have no inflected forms
- * and no dictionary integration, so tabs would be an empty ceremony.
+ * Grammar items get tabs too as of spec 18 — its "Pattern of Use" section
+ * asks for them on both item types. What stays vocabulary-only is *seeding*
+ * tabs from a dictionary entry's inflected forms: a grammar point has no
+ * dictionary mapping to read, so that one control is still gated.
  */
 export function UsageContextEditor({ learningItemId, itemType, contexts, examples, canSeedFromDictionary }: UsageContextEditorProps) {
   const router = useRouter();
@@ -86,9 +89,7 @@ export function UsageContextEditor({ learningItemId, itemType, contexts, example
   return (
     <section className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-heading text-lg font-semibold text-foreground">
-          {itemType === "vocabulary" ? "Usage contexts & examples" : "Examples"}
-        </h2>
+        <h2 className="font-heading text-lg font-semibold text-foreground">Patterns of use &amp; examples</h2>
         {itemType === "vocabulary" && canSeedFromDictionary ? (
           <Button type="button" variant="outline" size="sm" onClick={seed} disabled={isPending}>
             <Sparkles className="h-4 w-4" aria-hidden="true" />
@@ -110,9 +111,8 @@ export function UsageContextEditor({ learningItemId, itemType, contexts, example
       ) : null}
       {notice ? <p className="text-sm text-muted-foreground">{notice}</p> : null}
 
-      {itemType === "vocabulary" ? (
-        <div className="flex flex-col gap-3">
-          {contexts.map((context, index) => (
+      <div className="flex flex-col gap-3">
+        {contexts.map((context, index) => (
             <div key={context.id} className="rounded-xl border border-border bg-card p-3">
               <div className="flex flex-wrap items-center gap-2">
                 <Input
@@ -180,11 +180,10 @@ export function UsageContextEditor({ learningItemId, itemType, contexts, example
               Add tab
             </Button>
           </div>
-        </div>
-      ) : null}
+      </div>
 
       <div className="rounded-xl border border-dashed border-border p-3">
-        <h3 className="text-sm font-medium text-foreground">{itemType === "vocabulary" ? "General" : "Examples"}</h3>
+        <h3 className="text-sm font-medium text-foreground">General</h3>
         <ExampleList examples={examplesFor(null)} isPending={isPending} onDelete={(exampleId) => run(() => itemExampleAction({ learningItemId, idempotencyKey: key(), mutation: { kind: "delete", exampleId } }))} />
       </div>
 
@@ -207,7 +206,7 @@ export function UsageContextEditor({ learningItemId, itemType, contexts, example
             onChange={(event) => setNewExample((previous) => ({ ...previous, translation: event.target.value }))}
           />
         </label>
-        {itemType === "vocabulary" && contexts.length > 0 ? (
+        {contexts.length > 0 ? (
           <label className="text-sm">
             <span className="font-medium text-foreground">Tab</span>
             <Select value={newExample.contextId} onValueChange={(value) => setNewExample((previous) => ({ ...previous, contextId: value }))}>

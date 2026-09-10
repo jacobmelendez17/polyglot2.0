@@ -13,7 +13,9 @@ import {
   createVocabularyGroup,
   deleteItem,
   moveItem,
+  mutateGrammarContentBlock,
   mutateItemExample,
+  mutateItemResource,
   mutateUsageContext,
   publishItem,
   applyDictionaryFieldsToItem,
@@ -82,6 +84,9 @@ async function runGuarded<T>(
 
 const acceptedAnswerSchema = z.object({ side: z.enum(["term", "meaning"]), value: z.string().trim().min(1) });
 
+/** Spec 18. Mirrors `registerEnum`, and is re-declared here rather than imported for the same reason every other field schema in this file is: this is the transport boundary, validated independently of the domain's own schema. */
+const registerSchema = z.enum(["neutral", "formal", "informal", "colloquial", "slang", "vulgar", "literary"]);
+
 const vocabularyFieldsSchema = z.object({
   vocabularyGroupId: z.string().min(1),
   term: z.string().trim().min(1),
@@ -93,6 +98,7 @@ const vocabularyFieldsSchema = z.object({
   ipa: z.string().trim().min(1).nullish(),
   context: z.string().trim().min(1).nullish(),
   creatorNotes: z.string().trim().min(1).nullish(),
+  register: registerSchema.nullish(),
   acceptedAnswers: z.array(acceptedAnswerSchema),
 });
 
@@ -106,6 +112,7 @@ const grammarFieldsSchema = z.object({
   requiredQuestions: z
     .array(z.object({ format: z.literal("translation"), direction: z.enum(["targetToEnglish", "englishToTarget"]) }))
     .min(1),
+  register: registerSchema.nullish(),
   acceptedAnswers: z.array(acceptedAnswerSchema),
 });
 
@@ -234,6 +241,93 @@ export async function itemExampleAction(
     const parsed = exampleActionSchema.parse(input);
     const user = await requireUser();
     return mutateItemExample({ ...parsed, actorUserId: user.id });
+  });
+}
+
+/**
+ * Spec 18 — a grammar item's About content blocks.
+ *
+ * `body` and the sentence pair are validated per block type, mirroring the
+ * `grammar_content_blocks_shape_check` constraint: a malformed block is
+ * rejected at the boundary rather than by a database error the learner-facing
+ * layer would have to translate.
+ */
+const grammarContentBlockMutationSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("create"), type: z.enum(["text", "note"]), body: z.string().trim().min(1).max(4000) }),
+  z.object({
+    kind: z.literal("create"),
+    type: z.literal("example"),
+    targetText: z.string().trim().min(1).max(500),
+    translation: z.string().trim().min(1).max(500),
+  }),
+  z.object({ kind: z.literal("update"), blockId: z.string().min(1), type: z.enum(["text", "note"]), body: z.string().trim().min(1).max(4000) }),
+  z.object({
+    kind: z.literal("update"),
+    blockId: z.string().min(1),
+    type: z.literal("example"),
+    targetText: z.string().trim().min(1).max(500),
+    translation: z.string().trim().min(1).max(500),
+  }),
+  z.object({ kind: z.literal("delete"), blockId: z.string().min(1) }),
+  z.object({ kind: z.literal("reorder"), orderedIds: z.array(z.string().min(1)).max(100) }),
+]);
+
+const grammarContentBlockActionSchema = z.object({
+  learningItemId: z.string().min(1),
+  idempotencyKey: z.string().min(1),
+  mutation: grammarContentBlockMutationSchema,
+});
+
+export async function grammarContentBlockAction(
+  input: z.infer<typeof grammarContentBlockActionSchema>,
+): Promise<ActionResult<{ blockId: string | null }>> {
+  return runAdminAction(async () => {
+    const parsed = grammarContentBlockActionSchema.parse(input);
+    const user = await requireUser();
+    return mutateGrammarContentBlock({ ...parsed, actorUserId: user.id });
+  });
+}
+
+/**
+ * Spec 18 — an item's external resource links.
+ *
+ * The URL must be absolute `http`/`https`. These render as links a learner
+ * clicks, so anything else — a `javascript:` URL above all — has no business
+ * reaching the database, and rejecting it here means the item page never has
+ * to sanitize what it renders.
+ */
+const resourceUrlSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(2000)
+  .refine((value) => /^https?:\/\//i.test(value), { message: "Resource links must start with http:// or https://" });
+
+const itemResourceMutationSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("create"), label: z.string().trim().min(1).max(120), url: resourceUrlSchema }),
+  z.object({
+    kind: z.literal("update"),
+    resourceId: z.string().min(1),
+    label: z.string().trim().min(1).max(120).optional(),
+    url: resourceUrlSchema.optional(),
+  }),
+  z.object({ kind: z.literal("delete"), resourceId: z.string().min(1) }),
+  z.object({ kind: z.literal("reorder"), orderedIds: z.array(z.string().min(1)).max(100) }),
+]);
+
+const itemResourceActionSchema = z.object({
+  learningItemId: z.string().min(1),
+  idempotencyKey: z.string().min(1),
+  mutation: itemResourceMutationSchema,
+});
+
+export async function itemResourceAction(
+  input: z.infer<typeof itemResourceActionSchema>,
+): Promise<ActionResult<{ resourceId: string | null }>> {
+  return runAdminAction(async () => {
+    const parsed = itemResourceActionSchema.parse(input);
+    const user = await requireUser();
+    return mutateItemResource({ ...parsed, actorUserId: user.id });
   });
 }
 
@@ -374,6 +468,8 @@ const updateLevelActionSchema = z.object({
   levelId: z.string().min(1),
   name: z.string().trim().min(1).nullish(),
   status: curriculumStatusActionSchema.optional(),
+  /** Spec 18 — `null` clears the band, `undefined` leaves it alone. */
+  cefrLevel: z.enum(["A1", "A2", "B1", "B2", "C1", "C2"]).nullish(),
   idempotencyKey: z.string().min(1),
 });
 

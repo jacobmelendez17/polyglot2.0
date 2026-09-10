@@ -54,7 +54,7 @@ export default async function LevelDetailPage({ params }: { params: Promise<{ le
           title={`Level ${level.levelNumber}${level.name ? ` — ${level.name}` : ""}`}
           description="Edit level properties, and arrange everything it teaches."
         />
-        <LevelEditForm levelId={level.id} name={level.name} status={level.status} counts={counts} />
+        <LevelEditForm levelId={level.id} name={level.name} status={level.status} cefrLevel={level.cefrLevel} counts={counts} />
       </div>
 
       <LevelItemBoard

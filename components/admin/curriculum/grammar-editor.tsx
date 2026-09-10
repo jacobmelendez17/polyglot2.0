@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
 import { AcceptedAnswersEditor, type AcceptedAnswerValue } from "./accepted-answers-editor";
+import { RegisterSelect, type RegisterEditorValue } from "./register-select";
 
 export type GrammarQuestionDirection = "targetToEnglish" | "englishToTarget";
 
@@ -14,6 +15,8 @@ export type GrammarEditorValue = {
   explanation: string;
   category: string;
   creatorNotes: string;
+  /** Spec 18. `REGISTER_UNSET` when nobody has classified the structure. */
+  register: RegisterEditorValue;
   requiredDirections: GrammarQuestionDirection[];
   acceptedAnswers: AcceptedAnswerValue[];
 };
@@ -67,6 +70,9 @@ export function GrammarEditor({ value, onChange }: GrammarEditorProps) {
         <label className="block text-sm">
           <span className="font-medium text-foreground">Category</span>
           <Input className="mt-1" value={value.category} onChange={(e) => set("category", e.target.value)} />
+        </label>
+        <label className="block text-sm">
+          <RegisterSelect value={value.register} onChange={(register) => onChange({ ...value, register })} />
         </label>
       </div>
 

@@ -69,6 +69,12 @@ export const ADMIN_AUDIT_ACTIONS = [
   // and an Admin sees who did.
   "USAGE_CONTEXT_CHANGED",
   "ITEM_EXAMPLES_CHANGED",
+  // Spec 18 — a grammar item's About content blocks, and an item's external
+  // resource links. Both are official, learner-facing curriculum content
+  // authored from either the Admin item page or the item page itself, so
+  // both are attributable like any other curriculum edit.
+  "GRAMMAR_CONTENT_BLOCKS_CHANGED",
+  "ITEM_RESOURCES_CHANGED",
 ] as const;
 
 export type AdminAuditAction = (typeof ADMIN_AUDIT_ACTIONS)[number];

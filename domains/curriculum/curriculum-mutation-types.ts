@@ -1,3 +1,5 @@
+import type { CefrLevel, Register } from "@/db/schema";
+
 import type { CurriculumGrammarQuestionRequirement, CurriculumStatus } from "./curriculum-db-types";
 
 /** One official accepted-answer value on either side (mirrors `user_synonyms`' `side` distinction). */
@@ -14,6 +16,8 @@ export type VocabularyFieldsInput = {
   ipa?: string | null;
   context?: string | null;
   creatorNotes?: string | null;
+  /** Spec 18. `null` is "unclassified", a real and common state — never coerced to "neutral". */
+  register?: Register | null;
   acceptedAnswers: AcceptedAnswerInput[];
 };
 
@@ -25,6 +29,8 @@ export type GrammarFieldsInput = {
   category?: string | null;
   creatorNotes?: string | null;
   requiredQuestions: CurriculumGrammarQuestionRequirement[];
+  /** Spec 18 — the same enum vocabulary uses; register is a property of the item, not of its type. */
+  register?: Register | null;
   acceptedAnswers: AcceptedAnswerInput[];
 };
 
@@ -97,6 +103,8 @@ export type UpdateLevelInput = {
   actorUserId: string;
   name?: string | null;
   status?: CurriculumStatus;
+  /** Spec 18 — the CEFR band item pages show in their hero. `null` clears it. */
+  cefrLevel?: CefrLevel | null;
 };
 
 export type CreateVocabularyGroupInput = {

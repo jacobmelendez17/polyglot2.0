@@ -1,11 +1,13 @@
 import { and, asc, count, eq, sql, TransactionRollbackError } from "drizzle-orm";
 
 import type { DbClient } from "@/db/client";
-import type { DictionaryOverridableField } from "@/db/schema";
+import type { CefrLevel, DictionaryOverridableField } from "@/db/schema";
 import {
   acceptedAnswers,
   curriculumItemDrafts,
+  grammarContentBlocks,
   grammarItems,
+  learningItemResources,
   learningItemSentences,
   learningItems,
   levels,
@@ -127,6 +129,7 @@ export async function createLearningItem(
       ipa: f.ipa ?? null,
       context: f.context ?? null,
       creatorNotes: f.creatorNotes ?? null,
+      register: f.register ?? null,
     });
     await replaceAcceptedAnswers(db, learningItemId, f.acceptedAnswers);
   } else {
@@ -139,6 +142,7 @@ export async function createLearningItem(
       explanation: f.explanation,
       category: f.category ?? null,
       creatorNotes: f.creatorNotes ?? null,
+      register: f.register ?? null,
       requiredQuestions: f.requiredQuestions,
     });
     await replaceAcceptedAnswers(db, learningItemId, f.acceptedAnswers);
@@ -164,6 +168,7 @@ export async function updateLearningItemDirect(db: DbClient, learningItemId: str
         ipa: f.ipa ?? null,
         context: f.context ?? null,
         creatorNotes: f.creatorNotes ?? null,
+        register: f.register ?? null,
       })
       .where(eq(vocabularyItems.learningItemId, learningItemId));
     await replaceAcceptedAnswers(db, learningItemId, f.acceptedAnswers);
@@ -178,6 +183,7 @@ export async function updateLearningItemDirect(db: DbClient, learningItemId: str
         explanation: f.explanation,
         category: f.category ?? null,
         creatorNotes: f.creatorNotes ?? null,
+        register: f.register ?? null,
         requiredQuestions: f.requiredQuestions,
       })
       .where(eq(grammarItems.learningItemId, learningItemId));
@@ -850,13 +856,14 @@ export async function createLevel(db: DbClient, input: { languageId: string; lev
 export async function updateLevel(
   db: DbClient,
   levelId: string,
-  input: { name?: string | null; status?: CurriculumStatus },
+  input: { name?: string | null; status?: CurriculumStatus; cefrLevel?: CefrLevel | null },
 ): Promise<void> {
   await db
     .update(levels)
     .set({
       ...(input.name !== undefined ? { name: input.name } : {}),
       ...(input.status ? { status: input.status } : {}),
+      ...(input.cefrLevel !== undefined ? { cefrLevel: input.cefrLevel } : {}),
     })
     .where(eq(levels.id, levelId));
 }
@@ -907,5 +914,112 @@ export async function reorderVocabularyGroups(db: DbClient, levelId: string, ord
   }
   for (let i = 0; i < orderedGroupIds.length; i++) {
     await db.update(vocabularyGroups).set({ position: i + 1 }).where(and(eq(vocabularyGroups.id, orderedGroupIds[i]!), eq(vocabularyGroups.levelId, levelId)));
+  }
+}
+
+// --- Spec 18: grammar content blocks and item resources ---
+
+/**
+ * Both of the collections below are ordered child lists of one learning
+ * item, exactly like usage contexts and examples above, and they follow the
+ * same three conventions:
+ *
+ * - a create appends at `max(position) + 1`, so authoring order is the
+ *   default reading order;
+ * - a reorder writes negative positions first and then the real ones, so the
+ *   `(item, position)` unique constraint is never transiently violated
+ *   mid-swap;
+ * - a delete leaves a gap in `position` rather than renumbering, since
+ *   ordering only ever needs to be relative.
+ */
+
+export type GrammarContentBlockInput =
+  | { type: "text" | "note"; body: string }
+  | { type: "example"; targetText: string; translation: string };
+
+function contentBlockColumns(input: GrammarContentBlockInput) {
+  return input.type === "example"
+    ? { type: input.type, body: null, targetText: input.targetText, translation: input.translation }
+    : { type: input.type, body: input.body, targetText: null, translation: null };
+}
+
+export async function createGrammarContentBlock(db: DbClient, learningItemId: string, input: GrammarContentBlockInput): Promise<string> {
+  const [{ maxPosition }] = await db
+    .select({ maxPosition: sql<number>`coalesce(max(${grammarContentBlocks.position}), 0)` })
+    .from(grammarContentBlocks)
+    .where(eq(grammarContentBlocks.learningItemId, learningItemId));
+  const [row] = await db
+    .insert(grammarContentBlocks)
+    .values({ learningItemId, position: maxPosition + 1, ...contentBlockColumns(input) })
+    .returning({ id: grammarContentBlocks.id });
+  return row!.id;
+}
+
+/**
+ * Replaces a block's content. Every content column is rewritten, not merged:
+ * a block that changes type must not keep the previous type's fields, which
+ * the table's check constraint would reject anyway.
+ */
+export async function updateGrammarContentBlock(db: DbClient, blockId: string, input: GrammarContentBlockInput): Promise<void> {
+  await db.update(grammarContentBlocks).set(contentBlockColumns(input)).where(eq(grammarContentBlocks.id, blockId));
+}
+
+export async function deleteGrammarContentBlock(db: DbClient, blockId: string): Promise<void> {
+  await db.delete(grammarContentBlocks).where(eq(grammarContentBlocks.id, blockId));
+}
+
+export async function reorderGrammarContentBlocks(db: DbClient, learningItemId: string, orderedIds: string[]): Promise<void> {
+  for (let i = 0; i < orderedIds.length; i++) {
+    await db
+      .update(grammarContentBlocks)
+      .set({ position: -(i + 1) })
+      .where(and(eq(grammarContentBlocks.id, orderedIds[i]!), eq(grammarContentBlocks.learningItemId, learningItemId)));
+  }
+  for (let i = 0; i < orderedIds.length; i++) {
+    await db
+      .update(grammarContentBlocks)
+      .set({ position: i + 1 })
+      .where(and(eq(grammarContentBlocks.id, orderedIds[i]!), eq(grammarContentBlocks.learningItemId, learningItemId)));
+  }
+}
+
+export async function createItemResource(db: DbClient, learningItemId: string, input: { label: string; url: string }): Promise<string> {
+  const [{ maxPosition }] = await db
+    .select({ maxPosition: sql<number>`coalesce(max(${learningItemResources.position}), 0)` })
+    .from(learningItemResources)
+    .where(eq(learningItemResources.learningItemId, learningItemId));
+  const [row] = await db
+    .insert(learningItemResources)
+    .values({ learningItemId, label: input.label, url: input.url, position: maxPosition + 1 })
+    .returning({ id: learningItemResources.id });
+  return row!.id;
+}
+
+export async function updateItemResource(db: DbClient, resourceId: string, input: { label?: string; url?: string }): Promise<void> {
+  await db
+    .update(learningItemResources)
+    .set({
+      ...(input.label !== undefined ? { label: input.label } : {}),
+      ...(input.url !== undefined ? { url: input.url } : {}),
+    })
+    .where(eq(learningItemResources.id, resourceId));
+}
+
+export async function deleteItemResource(db: DbClient, resourceId: string): Promise<void> {
+  await db.delete(learningItemResources).where(eq(learningItemResources.id, resourceId));
+}
+
+export async function reorderItemResources(db: DbClient, learningItemId: string, orderedIds: string[]): Promise<void> {
+  for (let i = 0; i < orderedIds.length; i++) {
+    await db
+      .update(learningItemResources)
+      .set({ position: -(i + 1) })
+      .where(and(eq(learningItemResources.id, orderedIds[i]!), eq(learningItemResources.learningItemId, learningItemId)));
+  }
+  for (let i = 0; i < orderedIds.length; i++) {
+    await db
+      .update(learningItemResources)
+      .set({ position: i + 1 })
+      .where(and(eq(learningItemResources.id, orderedIds[i]!), eq(learningItemResources.learningItemId, learningItemId)));
   }
 }

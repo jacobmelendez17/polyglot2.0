@@ -10,16 +10,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 import { updateLevelAction } from "@/app/(admin)/admin/curriculum/actions";
 import type { CurriculumStatus } from "@/domains/curriculum";
+import type { CefrLevel } from "@/db/schema";
 
 type LevelEditFormProps = {
   levelId: string;
   name: string | null;
   status: CurriculumStatus;
+  /** Spec 18 — the band item pages show in their hero. `null` until set. */
+  cefrLevel: CefrLevel | null;
   /** What the level actually contains — shown so an Admin can see it, never a gate. */
   counts: { vocabularyItems: number; grammarItems: number; vocabularyGroups: number };
 };
 
 const STATUS_OPTIONS: CurriculumStatus[] = ["draft", "pending", "published", "archived"];
+
+const CEFR_OPTIONS: CefrLevel[] = ["A1", "A2", "B1", "B2", "C1", "C2"];
+
+/** `Select` cannot hold an empty string as a value, so "no band" needs a real sentinel. */
+const CEFR_UNSET = "unset";
 
 /**
  * Spec 11 rewrite's "Levels Management" edit surface, rewritten for spec 17's
@@ -30,10 +38,11 @@ const STATUS_OPTIONS: CurriculumStatus[] = ["draft", "pending", "published", "ar
  * whatever they hold; the counts below are information, and publishing is an
  * Admin's decision rather than a threshold being crossed.
  */
-export function LevelEditForm({ levelId, name: initialName, status: initialStatus, counts }: LevelEditFormProps) {
+export function LevelEditForm({ levelId, name: initialName, status: initialStatus, cefrLevel: initialCefr, counts }: LevelEditFormProps) {
   const router = useRouter();
   const [name, setName] = useState(initialName ?? "");
   const [status, setStatus] = useState<CurriculumStatus>(initialStatus);
+  const [cefrLevel, setCefrLevel] = useState<CefrLevel | typeof CEFR_UNSET>(initialCefr ?? CEFR_UNSET);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -46,6 +55,7 @@ export function LevelEditForm({ levelId, name: initialName, status: initialStatu
         levelId,
         name: name.trim() === "" ? null : name.trim(),
         status,
+        cefrLevel: cefrLevel === CEFR_UNSET ? null : cefrLevel,
         idempotencyKey: crypto.randomUUID(),
       });
       if (!result.ok) {
@@ -62,6 +72,24 @@ export function LevelEditForm({ levelId, name: initialName, status: initialStatu
       <label className="block text-sm">
         <span className="font-medium text-foreground">Name</span>
         <Input className="mt-1" value={name} placeholder="Optional" onChange={(event) => setName(event.target.value)} />
+      </label>
+
+      <label className="block text-sm">
+        <span className="font-medium text-foreground">CEFR band</span>
+        <Select value={cefrLevel} onValueChange={(value) => setCefrLevel(value as CefrLevel | typeof CEFR_UNSET)}>
+          <SelectTrigger className="mt-1 w-full" aria-label="CEFR band">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={CEFR_UNSET}>Not set</SelectItem>
+            {CEFR_OPTIONS.map((option) => (
+              <SelectItem key={option} value={option}>
+                {option}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <span className="mt-1 block text-xs text-muted-foreground">Shown on every item page in this level. Leave unset and item pages simply omit it.</span>
       </label>
 
       <label className="block text-sm">

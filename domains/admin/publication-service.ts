@@ -8,14 +8,22 @@ import {
   getAcceptedAnswers,
   getDraft,
   createExample,
+  createGrammarContentBlock,
+  createItemResource,
   createUsageContext,
   deleteExample,
+  deleteGrammarContentBlock,
+  deleteItemResource,
   deleteUsageContext,
   getVocabularyDictionaryFields,
   reorderExamples,
+  reorderGrammarContentBlocks,
+  reorderItemResources,
   reorderUsageContexts,
   setDictionaryFieldOverrides,
   updateExample,
+  updateGrammarContentBlock,
+  updateItemResource,
   updateUsageContext,
   getDuplicateCandidateRows,
   getNextPosition,
@@ -32,7 +40,7 @@ import {
   updateVocabularyGroup as repoUpdateVocabularyGroup,
 } from "@/domains/curriculum/curriculum-mutation-repository";
 import { findDuplicateCandidates } from "@/domains/curriculum/curriculum-duplicate-detection";
-import type { DictionarySuppliedVocabularyFields } from "@/domains/curriculum/curriculum-mutation-repository";
+import type { DictionarySuppliedVocabularyFields, GrammarContentBlockInput } from "@/domains/curriculum/curriculum-mutation-repository";
 import { DICTIONARY_OVERRIDABLE_FIELDS, type DictionaryOverridableField } from "@/db/schema";
 import type { VocabularyFieldsInput } from "@/domains/curriculum/curriculum-mutation-types";
 import type {
@@ -332,9 +340,13 @@ export async function mutateUsageContext(db: DbClient, input: UsageContextServic
     async (tx) => {
       const locked = await lockLearningItemForEdit(tx, input.learningItemId);
       if (!locked) throw new AdminError("CURRICULUM_ITEM_NOT_FOUND");
-      if (locked.type !== "vocabulary") {
-        throw new AdminError("CURRICULUM_VALIDATION_FAILED", "Only vocabulary items have usage contexts.");
-      }
+      // Grammar items may have usage contexts too, as of spec 18: its
+      // "Pattern of Use" tabs are this exact concept, and it asks for them
+      // on both item types. Spec 17 restricted them to vocabulary because
+      // only vocabulary can *seed* a context from a dictionary form — which
+      // is still true, and stays true without a check here: seeding reads a
+      // confirmed vocabulary dictionary mapping, which a grammar item can
+      // never have, so `seedUsageContextsAction` already declines it.
       if (locked.status === "archived") {
         throw new AdminError("CURRICULUM_VALIDATION_FAILED", "Archived items cannot be edited.");
       }
@@ -360,7 +372,7 @@ export async function mutateUsageContext(db: DbClient, input: UsageContextServic
       await recordAuditEvent(tx, {
         actorUserId: input.actorUserId,
         action: "USAGE_CONTEXT_CHANGED",
-        resourceType: "vocabulary_item",
+        resourceType: itemResourceType(locked.type),
         resourceId: input.learningItemId,
         afterData: { ...mutation },
       });
@@ -375,6 +387,139 @@ export type ExampleMutation =
   | { kind: "update"; exampleId: string; targetText?: string; translation?: string; usageContextId?: string | null }
   | { kind: "delete"; exampleId: string }
   | { kind: "reorder"; orderedIds: string[] };
+
+/**
+ * Every change to a grammar item's About content blocks (spec 18), in one
+ * service for the same reasons `mutateUsageContext` is one: shared lock,
+ * shared authorization, shared audit action, differing only in the single
+ * repository call.
+ *
+ * Live, not drafted — the same deliberate limit usage contexts and examples
+ * have. `curriculum_item_drafts` snapshots an item's *editable fields* and
+ * has nowhere to put an ordered child collection, so editing a published
+ * grammar point's blocks changes what learners see immediately. Worth
+ * knowing before rewriting an explanation on a live item.
+ */
+export type GrammarContentBlockMutation =
+  | ({ kind: "create" } & GrammarContentBlockInput)
+  | ({ kind: "update"; blockId: string } & GrammarContentBlockInput)
+  | { kind: "delete"; blockId: string }
+  | { kind: "reorder"; orderedIds: string[] };
+
+export type GrammarContentBlockServiceInput = {
+  learningItemId: string;
+  actorUserId: string;
+  idempotencyKey: string;
+  mutation: GrammarContentBlockMutation;
+};
+
+export async function mutateGrammarContentBlock(
+  db: DbClient,
+  input: GrammarContentBlockServiceInput,
+): Promise<{ blockId: string | null }> {
+  return withIdempotency(
+    db,
+    {
+      userId: input.actorUserId,
+      operation: "admin.curriculum.grammar-content-block",
+      key: input.idempotencyKey,
+      payload: { learningItemId: input.learningItemId, mutation: input.mutation },
+    },
+    async (tx) => {
+      const locked = await lockLearningItemForEdit(tx, input.learningItemId);
+      if (!locked) throw new AdminError("CURRICULUM_ITEM_NOT_FOUND");
+      if (locked.type !== "grammar") {
+        throw new AdminError("CURRICULUM_VALIDATION_FAILED", "Only grammar items have content blocks.");
+      }
+      if (locked.status === "archived") {
+        throw new AdminError("CURRICULUM_VALIDATION_FAILED", "Archived items cannot be edited.");
+      }
+
+      let blockId: string | null = null;
+      const { mutation } = input;
+      if (mutation.kind === "create") {
+        blockId = await createGrammarContentBlock(tx, input.learningItemId, mutation);
+      } else if (mutation.kind === "update") {
+        await updateGrammarContentBlock(tx, mutation.blockId, mutation);
+        blockId = mutation.blockId;
+      } else if (mutation.kind === "delete") {
+        await deleteGrammarContentBlock(tx, mutation.blockId);
+      } else {
+        await reorderGrammarContentBlocks(tx, input.learningItemId, mutation.orderedIds);
+      }
+
+      await recordAuditEvent(tx, {
+        actorUserId: input.actorUserId,
+        action: "GRAMMAR_CONTENT_BLOCKS_CHANGED",
+        resourceType: itemResourceType(locked.type),
+        resourceId: input.learningItemId,
+        afterData: { ...mutation },
+      });
+      invalidateCurriculumCache(locked.languageId);
+      return { blockId };
+    },
+  );
+}
+
+/**
+ * Every change to an item's external resource links (spec 18). Applies to
+ * both item types, and is live rather than drafted for the same reason the
+ * other child collections are.
+ */
+export type ItemResourceMutation =
+  | { kind: "create"; label: string; url: string }
+  | { kind: "update"; resourceId: string; label?: string; url?: string }
+  | { kind: "delete"; resourceId: string }
+  | { kind: "reorder"; orderedIds: string[] };
+
+export type ItemResourceServiceInput = {
+  learningItemId: string;
+  actorUserId: string;
+  idempotencyKey: string;
+  mutation: ItemResourceMutation;
+};
+
+export async function mutateItemResource(db: DbClient, input: ItemResourceServiceInput): Promise<{ resourceId: string | null }> {
+  return withIdempotency(
+    db,
+    {
+      userId: input.actorUserId,
+      operation: "admin.curriculum.item-resource",
+      key: input.idempotencyKey,
+      payload: { learningItemId: input.learningItemId, mutation: input.mutation },
+    },
+    async (tx) => {
+      const locked = await lockLearningItemForEdit(tx, input.learningItemId);
+      if (!locked) throw new AdminError("CURRICULUM_ITEM_NOT_FOUND");
+      if (locked.status === "archived") {
+        throw new AdminError("CURRICULUM_VALIDATION_FAILED", "Archived items cannot be edited.");
+      }
+
+      let resourceId: string | null = null;
+      const { mutation } = input;
+      if (mutation.kind === "create") {
+        resourceId = await createItemResource(tx, input.learningItemId, { label: mutation.label, url: mutation.url });
+      } else if (mutation.kind === "update") {
+        await updateItemResource(tx, mutation.resourceId, { label: mutation.label, url: mutation.url });
+        resourceId = mutation.resourceId;
+      } else if (mutation.kind === "delete") {
+        await deleteItemResource(tx, mutation.resourceId);
+      } else {
+        await reorderItemResources(tx, input.learningItemId, mutation.orderedIds);
+      }
+
+      await recordAuditEvent(tx, {
+        actorUserId: input.actorUserId,
+        action: "ITEM_RESOURCES_CHANGED",
+        resourceType: itemResourceType(locked.type),
+        resourceId: input.learningItemId,
+        afterData: { ...mutation },
+      });
+      invalidateCurriculumCache(locked.languageId);
+      return { resourceId };
+    },
+  );
+}
 
 export type ExampleServiceInput = { learningItemId: string; actorUserId: string; idempotencyKey: string; mutation: ExampleMutation };
 
@@ -759,16 +904,16 @@ export async function updateLevel(db: DbClient, input: UpdateLevelServiceInput):
       userId: input.actorUserId,
       operation: "admin.curriculum.update-level",
       key: input.idempotencyKey,
-      payload: { levelId: input.levelId, name: input.name, status: input.status },
+      payload: { levelId: input.levelId, name: input.name, status: input.status, cefrLevel: input.cefrLevel },
     },
     async (tx) => {
-      await repoUpdateLevel(tx, input.levelId, { name: input.name, status: input.status });
+      await repoUpdateLevel(tx, input.levelId, { name: input.name, status: input.status, cefrLevel: input.cefrLevel });
       await recordAuditEvent(tx, {
         actorUserId: input.actorUserId,
         action: "LEVEL_UPDATED",
         resourceType: "level",
         resourceId: input.levelId,
-        afterData: { name: input.name, status: input.status },
+        afterData: { name: input.name, status: input.status, cefrLevel: input.cefrLevel },
       });
     },
   );

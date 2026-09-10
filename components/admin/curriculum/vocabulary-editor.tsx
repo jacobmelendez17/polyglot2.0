@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import type { DictionaryOverridableField } from "@/db/schema";
 
 import { AcceptedAnswersEditor, type AcceptedAnswerValue } from "./accepted-answers-editor";
+import { RegisterSelect, type RegisterEditorValue } from "./register-select";
 
 export type VocabularyEditorValue = {
   vocabularyGroupId: string;
@@ -22,6 +23,8 @@ export type VocabularyEditorValue = {
   ipa: string;
   context: string;
   creatorNotes: string;
+  /** Spec 18. `REGISTER_UNSET` when nobody has classified the word. */
+  register: RegisterEditorValue;
   acceptedAnswers: AcceptedAnswerValue[];
 };
 
@@ -96,6 +99,7 @@ export function VocabularyEditor({ value, onChange, groups, resolved, onResetFie
           <Input className="mt-1" value={value.partOfSpeech} onChange={(e) => set("partOfSpeech", e.target.value)} required />
           {provenanceFor("partOfSpeech", resolved?.partOfSpeech ?? null)}
         </label>
+        <RegisterSelect value={value.register} onChange={(register) => onChange({ ...value, register })} />
       </div>
 
       <label className="block text-sm">

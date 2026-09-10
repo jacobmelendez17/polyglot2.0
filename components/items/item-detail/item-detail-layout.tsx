@@ -7,6 +7,8 @@ import { ItemDetailShell } from "./item-detail-shell";
 import { ItemHero } from "./item-hero";
 import { ProgressSection } from "./progress-section";
 import { ResourcesSection } from "./resources-section";
+import type { ReactNode } from "react";
+
 import { itemDetailSections } from "@/domains/curriculum";
 import type { CurriculumStatus, ItemDetailMode, ItemDetailView, ItemNavigationView } from "@/domains/curriculum";
 import type { ItemProgress } from "@/domains/progress";
@@ -25,6 +27,23 @@ type ItemDetailLayoutProps = {
   now?: Date;
   hrefForItem?: (itemId: string) => string;
   onNavigate?: (itemId: string) => void;
+  /**
+   * Admin editing controls, one per section (spec 18). Rendered directly
+   * beneath the content each one edits rather than gathered into a toolbar.
+   *
+   * `ReactNode` slots rather than an `isAdmin` flag on purpose: this layout
+   * is shared with the lesson, and it should not know what an admin is, how
+   * to check a role, or which editor belongs to which section. The page
+   * decides all of that and hands over finished nodes; a lesson passes none.
+   */
+  adminSlots?: {
+    banner?: ReactNode;
+    details?: ReactNode;
+    about?: ReactNode;
+    context?: ReactNode;
+    examples?: ReactNode;
+    resources?: ReactNode;
+  };
 };
 
 /**
@@ -52,6 +71,7 @@ export function ItemDetailLayout({
   now,
   hrefForItem,
   onNavigate,
+  adminSlots,
 }: ItemDetailLayoutProps) {
   const sections = itemDetailSections(mode);
 
@@ -71,17 +91,34 @@ export function ItemDetailLayout({
       translation={view.translation}
       sections={sections}
     >
+      {adminSlots?.banner}
+
       <ItemDetailSection id="info">
         <div className="flex flex-col gap-6">
-          <InfoSummary view={view} languageCode={languageCode} />
-          <AboutDefinition about={view.about} languageCode={languageCode} />
-          {/* Rendered only when the item actually has patterns — an empty Context card would be chrome with nothing in it. */}
-          {view.patterns.length > 0 ? <ContextSection patterns={view.patterns} languageCode={languageCode} /> : null}
+          <div>
+            <InfoSummary view={view} languageCode={languageCode} />
+            {adminSlots?.details}
+          </div>
+          <div>
+            <AboutDefinition about={view.about} languageCode={languageCode} />
+            {adminSlots?.about}
+          </div>
+          {/*
+            The Context card renders only when the item actually has patterns
+            — an empty one would be chrome with nothing in it. An admin still
+            needs a way to create the first pattern, so their slot renders
+            whether or not the card does.
+          */}
+          <div>
+            {view.patterns.length > 0 ? <ContextSection patterns={view.patterns} languageCode={languageCode} /> : null}
+            {adminSlots?.context}
+          </div>
         </div>
       </ItemDetailSection>
 
       <ItemDetailSection id="examples">
         <ExamplesSection examples={view.examples} languageCode={languageCode} />
+        {adminSlots?.examples}
       </ItemDetailSection>
 
       {mode === "page" ? (
@@ -92,6 +129,7 @@ export function ItemDetailLayout({
 
       <ItemDetailSection id="resources">
         <ResourcesSection resources={view.resources} />
+        {adminSlots?.resources}
       </ItemDetailSection>
     </ItemDetailShell>
   );
