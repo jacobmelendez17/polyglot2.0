@@ -78,8 +78,13 @@ export function ImportVocabularyDialog({ languageId }: ImportVocabularyDialogPro
       const initialDecisions = new Map<number, RowDecision>();
       for (const row of preview.rows) {
         if (!row.fields) continue;
-        const isFlagged = row.existingDuplicates.length > 0 || row.duplicateOfEarlierRow !== null;
-        initialDecisions.set(rowKey(row), isFlagged ? "skip" : "import");
+        // An update or a move is an ordinary outcome of re-importing a
+        // corrected file (spec 17), so only genuine problems start unticked:
+        // a real duplicate, a repeat within this same file, or a row nothing
+        // can be done with.
+        const needsAttention =
+          row.existingDuplicates.length > 0 || row.duplicateOfEarlierRow !== null || row.action === "blocked" || row.action === "unchanged";
+        initialDecisions.set(rowKey(row), needsAttention ? "skip" : "import");
       }
       setDecisions(initialDecisions);
       setStep({ phase: "preview", rows: preview.rows });
@@ -180,12 +185,14 @@ export function ImportVocabularyDialog({ languageId }: ImportVocabularyDialogPro
                         <td className="px-3 py-2">
                           {!row.fields ? (
                             <span className="text-state-error">{row.fieldIssues.map((issue) => issue.message).join(" ")}</span>
+                          ) : row.action === "blocked" ? (
+                            <span className="text-state-error">{row.blockedReason}</span>
                           ) : row.existingDuplicates.length > 0 ? (
                             <span className="text-state-warning">Matches existing: {row.existingDuplicates[0]!.displayLabel}</span>
                           ) : row.duplicateOfEarlierRow !== null ? (
                             <span className="text-state-warning">Duplicates row {row.duplicateOfEarlierRow}</span>
                           ) : (
-                            <span className="text-state-success">Ready</span>
+                            <RowOutcome row={row} />
                           )}
                         </td>
                         <td className="px-3 py-2">
@@ -216,8 +223,30 @@ export function ImportVocabularyDialog({ languageId }: ImportVocabularyDialogPro
         {step.phase === "done" ? (
           <div className="flex flex-col gap-2 text-sm">
             <p className="font-medium text-foreground">
-              Created {step.summary.createdCount} item{step.summary.createdCount === 1 ? "" : "s"}, Pending.
+              {[
+                step.summary.createdCount > 0 ? `Created ${step.summary.createdCount}, Pending` : null,
+                step.summary.updatedCount > 0 ? `updated ${step.summary.updatedCount} in place` : null,
+                step.summary.movedCount > 0 ? `moved ${step.summary.movedCount}` : null,
+                step.summary.unchangedCount > 0 ? `${step.summary.unchangedCount} already current` : null,
+              ]
+                .filter(Boolean)
+                .join(", ") || "Nothing changed"}
+              .
             </p>
+            {step.summary.draftedCount > 0 ? (
+              <p className="text-state-warning">
+                {step.summary.draftedCount} published item{step.summary.draftedCount === 1 ? "" : "s"} updated as a draft — publish to make the change live.
+              </p>
+            ) : null}
+            {step.summary.blocked.length > 0 ? (
+              <ul className="text-state-error">
+                {step.summary.blocked.map((blocked) => (
+                  <li key={blocked.displayForm}>
+                    {blocked.displayForm}: {blocked.reason}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
             <p className="text-muted-foreground">
               {Object.entries(step.summary.matched)
                 .map(([status, count]) => `${count} ${status.replaceAll("_", " ")}`)
@@ -251,4 +280,36 @@ export function ImportVocabularyDialog({ languageId }: ImportVocabularyDialogPro
       </DialogContent>
     </Dialog>
   );
+}
+
+/**
+ * What re-importing this row would do (spec 17). An update names the fields
+ * it would change, because "update" alone does not tell an admin whether a
+ * file is about to correct one translation or rewrite the whole word.
+ */
+function RowOutcome({ row }: { row: ImportRowPreview }) {
+  if (row.action === "unchanged") return <span className="text-muted-foreground">Already current</span>;
+
+  if (row.action === "move") {
+    const { placement } = row;
+    const from = placement ? `L${placement.fromLevelNumber}${placement.fromGroupNumber ? `·G${placement.fromGroupNumber}` : ""}` : "";
+    const to = placement ? `L${placement.toLevelNumber}${placement.toGroupNumber ? `·G${placement.toGroupNumber}` : ""}` : "";
+    return (
+      <span className="text-state-warning">
+        Move {from} → {to}
+        {row.changes.length > 0 ? `, and update ${row.changes.map((change) => change.field).join(", ")}` : ""}
+      </span>
+    );
+  }
+
+  if (row.action === "update") {
+    return (
+      <span className="text-foreground">
+        Update {row.changes.map((change) => change.field).join(", ")}
+        {row.savesAsDraft ? " (as a draft — published item)" : ""}
+      </span>
+    );
+  }
+
+  return <span className="text-state-success">New</span>;
 }

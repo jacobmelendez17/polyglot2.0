@@ -289,6 +289,134 @@ export async function setDictionaryFieldOverrides(
     .where(eq(vocabularyItems.learningItemId, learningItemId));
 }
 
+
+/**
+ * What a re-import needs to know about an item that already exists (spec 17).
+ *
+ * `normalizedTerm` is normalized exactly as duplicate detection normalizes —
+ * case and whitespace only, never accents — so `sí` and `si` stay different
+ * words here for the same reason they are not duplicates of each other.
+ */
+export type ImportMatchTarget = {
+  learningItemId: string;
+  normalizedTerm: string;
+  status: CurriculumStatus;
+  levelId: string;
+  levelNumber: number;
+  version: number;
+  /** Vocabulary only — the group it currently sits in, and that group's position within its level. */
+  vocabularyGroupId: string | null;
+  groupNumber: number | null;
+  /** Vocabulary only — fields an author has taken over, which a re-import must not overwrite. */
+  dictionaryFieldOverrides: DictionaryOverridableField[];
+  /** The item's current content, so a preview can say what a row would actually change. */
+  current: Record<string, string | null>;
+};
+
+/**
+ * Every existing item of one type in a language, keyed by the term a CSV row
+ * would match on. Loaded once per import, never once per row.
+ */
+export async function getImportMatchTargets(
+  db: DbClient,
+  languageId: string,
+  type: "vocabulary" | "grammar",
+): Promise<ImportMatchTarget[]> {
+  if (type === "vocabulary") {
+    const rows = await db
+      .select({
+        learningItemId: learningItems.id,
+        term: vocabularyItems.term,
+        status: learningItems.status,
+        levelId: learningItems.levelId,
+        levelNumber: levels.levelNumber,
+        version: learningItems.version,
+        vocabularyGroupId: vocabularyItems.vocabularyGroupId,
+        groupNumber: vocabularyGroups.position,
+        dictionaryFieldOverrides: vocabularyItems.dictionaryFieldOverrides,
+        primaryMeaning: vocabularyItems.primaryMeaning,
+        definition: vocabularyItems.definition,
+        article: vocabularyItems.article,
+        partOfSpeech: vocabularyItems.partOfSpeech,
+        pronunciation: vocabularyItems.pronunciation,
+        ipa: vocabularyItems.ipa,
+        context: vocabularyItems.context,
+        creatorNotes: vocabularyItems.creatorNotes,
+      })
+      .from(learningItems)
+      .innerJoin(vocabularyItems, eq(vocabularyItems.learningItemId, learningItems.id))
+      .innerJoin(levels, eq(levels.id, learningItems.levelId))
+      .innerJoin(vocabularyGroups, eq(vocabularyGroups.id, vocabularyItems.vocabularyGroupId))
+      .where(and(eq(learningItems.languageId, languageId), eq(learningItems.type, "vocabulary")));
+    return rows.map(({ primaryMeaning, definition, article, partOfSpeech, pronunciation, ipa, context, creatorNotes, ...row }) => ({
+      ...row,
+      normalizedTerm: normalizeForComparison(row.term),
+      current: { primaryMeaning, definition, article, partOfSpeech, pronunciation, ipa, context, creatorNotes },
+    }));
+  }
+
+  const rows = await db
+    .select({
+      learningItemId: learningItems.id,
+      term: grammarItems.structure,
+      status: learningItems.status,
+      levelId: learningItems.levelId,
+      levelNumber: levels.levelNumber,
+      version: learningItems.version,
+      primaryMeaning: grammarItems.primaryMeaning,
+      title: grammarItems.title,
+      explanation: grammarItems.explanation,
+      category: grammarItems.category,
+      creatorNotes: grammarItems.creatorNotes,
+    })
+    .from(learningItems)
+    .innerJoin(grammarItems, eq(grammarItems.learningItemId, learningItems.id))
+    .innerJoin(levels, eq(levels.id, learningItems.levelId))
+    .where(and(eq(learningItems.languageId, languageId), eq(learningItems.type, "grammar")));
+  return rows.map(({ primaryMeaning, title, explanation, category, creatorNotes, ...row }) => ({
+    ...row,
+    normalizedTerm: normalizeForComparison(row.term),
+    vocabularyGroupId: null,
+    groupNumber: null,
+    dictionaryFieldOverrides: [],
+    current: { primaryMeaning, title, explanation, category, creatorNotes },
+  }));
+}
+
+/**
+ * Updates only the columns a re-import actually carries (spec 17).
+ *
+ * Every optional column an import file omits arrives here as `null`, and a
+ * blind write would erase it. Re-importing the authored Level 1 file — four
+ * columns wide — would blank the article, context, pronunciation, IPA and
+ * creator notes of all 45 words. So `null` means "the file said nothing",
+ * never "set this to nothing".
+ *
+ * Accepted answers are untouched for the same reason: an import file has no
+ * way to express them, and `updateLearningItemDirect` would replace the
+ * authored set with an empty one.
+ */
+export async function updateVocabularyFieldsFromImport(
+  db: DbClient,
+  learningItemId: string,
+  fields: Partial<Record<"primaryMeaning" | "definition" | "article" | "partOfSpeech" | "pronunciation" | "ipa" | "context" | "creatorNotes", string | null>>,
+): Promise<void> {
+  const changes = Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== null && value !== ""));
+  if (Object.keys(changes).length === 0) return;
+  await db.update(vocabularyItems).set(changes).where(eq(vocabularyItems.learningItemId, learningItemId));
+}
+
+/** The grammar equivalent, with the same "absent means unchanged" rule. */
+export async function updateGrammarFieldsFromImport(
+  db: DbClient,
+  learningItemId: string,
+  fields: Partial<Record<"primaryMeaning" | "title" | "explanation" | "category" | "creatorNotes", string | null>>,
+): Promise<void> {
+  const changes = Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== null && value !== ""));
+  if (Object.keys(changes).length === 0) return;
+  await db.update(grammarItems).set(changes).where(eq(grammarItems.learningItemId, learningItemId));
+}
+
 export type DraftData = { type: "vocabulary"; fields: VocabularyFieldsInput } | { type: "grammar"; fields: GrammarFieldsInput };
 
 /** Creates or replaces the one allowed open draft for an already-published item (spec 11 rewrite's "Draft" status). The live rows are untouched. */

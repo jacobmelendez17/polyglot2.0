@@ -2,7 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import { DEVELOPER_ID, ITEM_GATO_ID, seedTestFixtures } from "@/db/seed/test-fixtures";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
-import { lockLearningItemForEdit } from "@/domains/curriculum/curriculum-mutation-repository";
+import {
+  archiveLearningItem,
+  createVocabularyGroup as repoCreateVocabularyGroup,
+  getDraft,
+  getVocabularyDictionaryFields,
+  lockLearningItemForEdit,
+  setDictionaryFieldOverrides,
+  updateVocabularyFieldsFromImport,
+} from "@/domains/curriculum/curriculum-mutation-repository";
 import { GRAMMAR_GROUP_NUMBER } from "@/domains/curriculum/vocabulary-import-parsing";
 import type { ParsedGrammarFields, ParsedVocabularyFields, ValidatedImportRow } from "@/domains/curriculum/vocabulary-import-parsing";
 
@@ -64,13 +72,18 @@ describe("previewVocabularyImport", () => {
     });
   });
 
-  it("flags a row matching an existing curriculum item", async () => {
+  it("treats a row matching an existing item as an update of it, not a duplicate of it", async () => {
     await withTestTransaction(async (tx) => {
       const { languageId } = await seedTestFixtures(tx);
       const preview = await previewVocabularyImport(tx, { languageId, validatedRows: [validRow(2, "gato", "cat (again)")] });
 
-      expect(preview[0]!.existingDuplicates).toHaveLength(1);
-      expect(preview[0]!.existingDuplicates[0]!.learningItemId).toBe(ITEM_GATO_ID);
+      // Before spec 17 this row was a duplicate an admin had to approve as a
+      // homonym; re-importing a corrected file is now ordinary, so the row
+      // resolves to the item it names and reports what it would change.
+      expect(preview[0]!.action).toBe("update");
+      expect(preview[0]!.matchedItemId).toBe(ITEM_GATO_ID);
+      expect(preview[0]!.changes).toEqual([{ field: "primaryMeaning", from: "cat", to: "cat (again)" }]);
+      expect(preview[0]!.existingDuplicates).toHaveLength(0);
     });
   });
 
@@ -90,7 +103,15 @@ describe("previewVocabularyImport", () => {
       const invalidRow: ValidatedImportRow = { rowNumber: 2, raw: { word: "", translation: "", level: "", group: "" }, fields: null, fieldIssues: [{ field: "word", message: "Missing word." }] };
       const preview = await previewVocabularyImport(tx, { languageId, validatedRows: [invalidRow] });
 
-      expect(preview[0]).toEqual({ rowNumber: 2, raw: invalidRow.raw, fields: null, fieldIssues: invalidRow.fieldIssues, existingDuplicates: [], duplicateOfEarlierRow: null });
+      expect(preview[0]).toMatchObject({
+        rowNumber: 2,
+        raw: invalidRow.raw,
+        fields: null,
+        fieldIssues: invalidRow.fieldIssues,
+        action: "blocked",
+        existingDuplicates: [],
+        duplicateOfEarlierRow: null,
+      });
     });
   });
 
@@ -187,7 +208,7 @@ describe("bulkImportVocabulary", () => {
     });
   });
 
-  it("creates an imported row over a real duplicate anyway, recording DUPLICATE_APPROVED — the decision to import *is* the homonym approval", async () => {
+  it("updates the word it matches instead of creating a second one — a file cannot author a homonym (spec 17)", async () => {
     await withTestTransaction(async (tx) => {
       const { languageId } = await seedTestFixtures(tx);
       const idempotencyKey = crypto.randomUUID();
@@ -199,9 +220,16 @@ describe("bulkImportVocabulary", () => {
         rows: [{ fields: vocabFields({ term: "gato", primaryMeaning: "cat (deliberate homonym)" }), decision: "import" }],
       });
 
-      expect(result.createdVocabularyItemIds).toHaveLength(1);
+      // Until spec 17 this created a second `gato` and recorded
+      // DUPLICATE_APPROVED. Re-importing a corrected file is now the common
+      // case, and duplicate detection normalizes the same display form the
+      // same way this matcher does — so an identical term can only mean the
+      // same word. A genuine homonym is created in Admin, where the two can
+      // be told apart.
+      expect(result.createdVocabularyItemIds).toHaveLength(0);
+      expect(result.draftedItemIds).toEqual([ITEM_GATO_ID]);
       const audit = await getAuditEvents(tx, { action: "DUPLICATE_APPROVED", limit: 10 });
-      expect(audit.items.some((e) => e.correlationId === idempotencyKey && e.resourceId === result.createdVocabularyItemIds[0])).toBe(true);
+      expect(audit.items.some((e) => e.correlationId === idempotencyKey)).toBe(false);
     });
   });
 
@@ -262,6 +290,201 @@ describe("bulkImportVocabulary", () => {
 
       const [first, second] = await Promise.all(result.createdVocabularyItemIds.map((id) => lockLearningItemForEdit(tx, id)));
       expect(second!.position).toBe(first!.position + 1);
+    });
+  });
+});
+
+describe("re-importing words that already exist (spec 17)", () => {
+  function importRow(fields: ParsedVocabularyFields | ParsedGrammarFields): ImportRowDecision {
+    return { fields, decision: "import" };
+  }
+
+  it("updates a pending item in place, keeping its permanent ID", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+
+      // Imported once, then re-imported with a corrected translation — the
+      // exact shape of fixing a typo in a file and running it again.
+      const first = await bulkImportVocabulary(tx, {
+        languageId,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+        rows: [importRow(vocabFields({ term: "murcielago", primaryMeaning: "bat (typo)" }))],
+      });
+      const createdId = first.createdVocabularyItemIds[0]!;
+
+      const second = await bulkImportVocabulary(tx, {
+        languageId,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+        rows: [importRow(vocabFields({ term: "murcielago", primaryMeaning: "bat" }))],
+      });
+
+      // The same row a learner's progress, SRS state, and decks point at.
+      expect(second.updatedVocabularyItemIds).toEqual([createdId]);
+      expect(second.createdVocabularyItemIds).toEqual([]);
+      expect((await getVocabularyDictionaryFields(tx, createdId))?.primaryMeaning).toBe("bat");
+    });
+  });
+
+  it("collapses a term repeated inside one file into a create and an update, never two items", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+
+      const result = await bulkImportVocabulary(tx, {
+        languageId,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+        rows: [
+          importRow(vocabFields({ term: "lechuza", primaryMeaning: "owl" })),
+          importRow(vocabFields({ term: "lechuza", primaryMeaning: "barn owl" })),
+        ],
+      });
+
+      expect(result.createdVocabularyItemIds).toHaveLength(1);
+      expect(result.updatedVocabularyItemIds).toEqual(result.createdVocabularyItemIds);
+      expect((await getVocabularyDictionaryFields(tx, result.createdVocabularyItemIds[0]!))?.primaryMeaning).toBe("barn owl");
+    });
+  });
+
+  it("leaves fields the file does not carry exactly as they were", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      const first = await bulkImportVocabulary(tx, {
+        languageId,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+        rows: [
+          importRow(vocabFields({ term: "murcielago", primaryMeaning: "bat", article: "el", creatorNotes: "authored note", partOfSpeech: "noun" })),
+        ],
+      });
+      const createdId = first.createdVocabularyItemIds[0]!;
+
+      // The authored Level 1 file is four columns wide, so every optional
+      // field arrives as null. Writing those through would blank the article
+      // and creator notes of every word it touched.
+      await bulkImportVocabulary(tx, {
+        languageId,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+        rows: [importRow(vocabFields({ term: "murcielago", primaryMeaning: "bat, the mammal", partOfSpeech: "" }))],
+      });
+
+      const after = await getVocabularyDictionaryFields(tx, createdId);
+      expect(after?.primaryMeaning).toBe("bat, the mammal");
+      expect(after?.article).toBe("el");
+      expect(after?.partOfSpeech).toBe("noun");
+      expect(after?.creatorNotes).toBe("authored note");
+    });
+  });
+
+  it("never overwrites a field an author has taken over", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      await setDictionaryFieldOverrides(tx, ITEM_GATO_ID, ["definition"]);
+      await updateVocabularyFieldsFromImport(tx, ITEM_GATO_ID, { definition: "authored by hand" });
+
+      const preview = await previewVocabularyImport(tx, {
+        languageId,
+        validatedRows: [{ rowNumber: 2, raw: {}, fields: vocabFields({ term: "gato", primaryMeaning: "cat", definition: "a dictionary definition" }), fieldIssues: [] }],
+      });
+      expect(preview[0]!.changes).toEqual([]);
+      expect(preview[0]!.action).toBe("unchanged");
+    });
+  });
+
+  it("routes a published item's update into its draft rather than editing it live", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+
+      const result = await bulkImportVocabulary(tx, {
+        languageId,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+        rows: [importRow(vocabFields({ term: "gato", primaryMeaning: "cat, revised" }))],
+      });
+
+      expect(result.draftedItemIds).toEqual([ITEM_GATO_ID]);
+      // Live curriculum is untouched until an Admin publishes.
+      expect((await getVocabularyDictionaryFields(tx, ITEM_GATO_ID))?.primaryMeaning).toBe("cat");
+      const draft = await getDraft(tx, ITEM_GATO_ID);
+      expect(draft?.data).toMatchObject({ type: "vocabulary", fields: { primaryMeaning: "cat, revised", term: "gato" } });
+    });
+  });
+
+  it("reports an archived word instead of silently reviving it", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      await archiveLearningItem(tx, ITEM_GATO_ID);
+
+      const preview = await previewVocabularyImport(tx, { languageId, validatedRows: [validRow(2, "gato", "cat")] });
+      expect(preview[0]!.action).toBe("blocked");
+      expect(preview[0]!.blockedReason).toMatch(/archived/i);
+
+      const result = await bulkImportVocabulary(tx, {
+        languageId,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+        rows: [importRow(vocabFields({ term: "gato", primaryMeaning: "cat" }))],
+      });
+      expect(result.blocked).toHaveLength(1);
+      expect(result.createdVocabularyItemIds).toEqual([]);
+      expect(result.updatedVocabularyItemIds).toEqual([]);
+    });
+  });
+
+  it("classifies a row that changes nothing as unchanged, and writes nothing for it", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+
+      const preview = await previewVocabularyImport(tx, { languageId, validatedRows: [validRow(2, "gato", "cat")] });
+      expect(preview[0]!.action).toBe("unchanged");
+
+      const result = await bulkImportVocabulary(tx, {
+        languageId,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+        rows: [importRow(vocabFields({ term: "gato", primaryMeaning: "cat" }))],
+      });
+      expect(result.unchangedCount).toBe(1);
+      expect(result.updatedVocabularyItemIds).toEqual([]);
+    });
+  });
+
+  it("reports a different level or group as a move, and applies it to the same item", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId, level2Id } = await seedTestFixtures(tx);
+
+      const moved = vocabFields({ term: "gato", primaryMeaning: "cat", levelNumber: LEVEL_2_NUMBER, groupNumber: LEVEL_1_GROUP_1 });
+      // Level 2 needs a group before a vocabulary row can land in it.
+      await repoCreateVocabularyGroup(tx, { levelId: level2Id, languageId, name: "Level 2 group" });
+
+      const preview = await previewVocabularyImport(tx, { languageId, validatedRows: [{ rowNumber: 2, raw: {}, fields: moved, fieldIssues: [] }] });
+      expect(preview[0]!.action).toBe("move");
+      expect(preview[0]!.placement).toMatchObject({ fromLevelNumber: 1, toLevelNumber: 2 });
+
+      const result = await bulkImportVocabulary(tx, {
+        languageId,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+        rows: [importRow(moved)],
+      });
+      expect(result.movedItemIds).toEqual([ITEM_GATO_ID]);
+      expect((await lockLearningItemForEdit(tx, ITEM_GATO_ID))?.levelId).toBe(level2Id);
+    });
+  });
+
+  it("still creates a word the curriculum does not have", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      const result = await bulkImportVocabulary(tx, {
+        languageId,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+        rows: [importRow(vocabFields({ term: "murcielago", primaryMeaning: "bat" }))],
+      });
+      expect(result.createdVocabularyItemIds).toHaveLength(1);
+      expect(result.updatedVocabularyItemIds).toEqual([]);
     });
   });
 });

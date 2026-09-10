@@ -123,19 +123,43 @@ const bulkImportInputSchema = z.object({
 
 export type BulkImportSummary = {
   createdCount: number;
-  /** Keyed by `DictionaryMatchStatus` — how the newly created *vocabulary* items resolved against the Lexicon after creation. Grammar items never enter this (spec 12: "Lexicon applies to vocabulary only"). */
+  /** Existing words this import changed in place, keeping their IDs and every learner's progress (spec 17). */
+  updatedCount: number;
+  movedCount: number;
+  /** Updates to published words that landed in a draft, waiting for an Admin publish. */
+  draftedCount: number;
+  unchangedCount: number;
+  blocked: { displayForm: string; reason: string }[];
+  /** Keyed by `DictionaryMatchStatus` — how the affected *vocabulary* items resolved against the Lexicon afterwards. Grammar items never enter this (spec 12: "Lexicon applies to vocabulary only"). */
   matched: Record<string, number>;
 };
 
-/** The real write: creates every "import"-decided row, then runs Lexicon matching on exactly the vocabulary items it just created. */
+/**
+ * The real write: applies every "import"-decided row — creating, updating in
+ * place, or moving — then runs Lexicon matching over the vocabulary it
+ * touched.
+ *
+ * Updated items are re-matched as well as created ones: a re-import can
+ * change the article, and the article is part of the lookup form a match is
+ * derived from.
+ */
 export async function bulkImportVocabularyAction(input: z.infer<typeof bulkImportInputSchema>): Promise<ActionResult<BulkImportSummary>> {
   return runImportAction(async (actorUserId) => {
     const parsed = bulkImportInputSchema.parse(input);
-    const { createdVocabularyItemIds, createdGrammarItemIds } = await bulkImportVocabulary({ ...parsed, actorUserId });
+    const outcome = await bulkImportVocabulary({ ...parsed, actorUserId });
+    const vocabularyItemIds = [...outcome.createdVocabularyItemIds, ...outcome.updatedVocabularyItemIds];
     const matchSummary =
-      createdVocabularyItemIds.length > 0
-        ? await matchImportedVocabularyItems({ vocabularyItemIds: createdVocabularyItemIds, actorUserId })
+      vocabularyItemIds.length > 0
+        ? await matchImportedVocabularyItems({ vocabularyItemIds, actorUserId })
         : { processed: 0, skippedLocked: 0, byStatus: {} };
-    return { createdCount: createdVocabularyItemIds.length + createdGrammarItemIds.length, matched: matchSummary.byStatus };
+    return {
+      createdCount: outcome.createdVocabularyItemIds.length + outcome.createdGrammarItemIds.length,
+      updatedCount: outcome.updatedVocabularyItemIds.length + outcome.updatedGrammarItemIds.length,
+      movedCount: outcome.movedItemIds.length,
+      draftedCount: outcome.draftedItemIds.length,
+      unchangedCount: outcome.unchangedCount,
+      blocked: outcome.blocked,
+      matched: matchSummary.byStatus,
+    };
   });
 }

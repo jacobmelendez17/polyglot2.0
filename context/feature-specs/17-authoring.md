@@ -119,6 +119,21 @@ Publication status decides where the update lands:
 
 Manually authored fields are respected: a re-import does not overwrite them.
 
+**A field the file does not carry is left alone.** An absent column or a
+blank cell means "this file says nothing about that", never "clear it". The
+authored Level 1 file is four columns wide, so without this rule re-importing
+it would blank the article, context, pronunciation, IPA and creator notes of
+all 45 words. Accepted answers are untouched for the same reason — a file has
+no way to express them.
+
+A file cannot author a homonym. Duplicate detection normalizes the same
+display form the same way this matching does, so an identical term can only
+mean the same word; a second item with that spelling is created in Admin,
+where the two can be told apart.
+
+A term repeated inside one file creates the word once and then updates it,
+rather than producing two items.
+
 A row whose level or group differs from the item's current placement is a
 **move**, and is reported as one in the preview rather than applied silently.
 

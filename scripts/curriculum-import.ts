@@ -321,15 +321,40 @@ function describeRow(preview: ImportRowPreview): string {
   return `row ${preview.rowNumber} (${label})`;
 }
 
-function reportPreview(previews: ImportRowPreview[]): { importable: ImportRowDecision[]; blocked: number } {
+/**
+ * Prints what the file would do and returns the rows worth sending.
+ *
+ * Rows that would change nothing are still sent: the service classifies them
+ * itself against fresh data and counts them as unchanged, and dropping them
+ * here would mean the CLI and the Admin dialog disagreed about what
+ * "import this row" means.
+ */
+function reportPreview(previews: ImportRowPreview[]): { importable: ImportRowDecision[]; blocked: number; counts: Record<string, number> } {
   const importable: ImportRowDecision[] = [];
+  const counts: Record<string, number> = { create: 0, update: 0, move: 0, unchanged: 0, blocked: 0 };
   let blocked = 0;
 
   for (const preview of previews) {
+    counts[preview.action] = (counts[preview.action] ?? 0) + 1;
+
     if (!preview.fields) {
       blocked += 1;
       console.warn(`  ! ${describeRow(preview)} skipped: ${preview.fieldIssues.map((issue) => issue.message).join(" ")}`);
       continue;
+    }
+    if (preview.action === "blocked") {
+      blocked += 1;
+      console.warn(`  ! ${describeRow(preview)} skipped: ${preview.blockedReason}`);
+      continue;
+    }
+    if (preview.action === "update") {
+      console.log(
+        `  ~ ${describeRow(preview)} updates ${preview.changes.map((change) => change.field).join(", ")}${preview.savesAsDraft ? " (as a draft — published item)" : ""}`,
+      );
+    }
+    if (preview.action === "move" && preview.placement) {
+      const { fromLevelNumber, toLevelNumber, fromGroupNumber, toGroupNumber } = preview.placement;
+      console.log(`  → ${describeRow(preview)} moves L${fromLevelNumber}·G${fromGroupNumber ?? "-"} → L${toLevelNumber}·G${toGroupNumber ?? "-"}`);
     }
     if (preview.duplicateOfEarlierRow !== null) {
       console.warn(`  ! ${describeRow(preview)} repeats row ${preview.duplicateOfEarlierRow} in this same file — importing both.`);
@@ -342,7 +367,7 @@ function reportPreview(previews: ImportRowPreview[]): { importable: ImportRowDec
     importable.push({ fields: preview.fields, decision: "import" });
   }
 
-  return { importable, blocked };
+  return { importable, blocked, counts };
 }
 
 /**
@@ -365,7 +390,10 @@ type ImportContext = {
 };
 
 /** Everything both a dry run and a real run do: level, groups, targets, optional fixture archiving, then the preview report. */
-async function prepareAndPreview(db: DbClient, context: ImportContext): Promise<{ importable: ImportRowDecision[]; blocked: number }> {
+async function prepareAndPreview(
+  db: DbClient,
+  context: ImportContext,
+): Promise<{ importable: ImportRowDecision[]; blocked: number; counts: Record<string, number> }> {
   const levelId = await resolveLevelId(db, context.manifest, context.languageId, context.actorUserId, context.keyPrefix);
   await ensureThemeGroups(db, context.manifest, { languageId: context.languageId, levelId, actorUserId: context.actorUserId, keyPrefix: context.keyPrefix });
   await applyLevelTargets(db, context.manifest, { levelId, actorUserId: context.actorUserId, keyPrefix: context.keyPrefix });
@@ -431,8 +459,11 @@ async function main(): Promise<void> {
     if (options.dryRun) {
       try {
         await db.transaction(async (tx) => {
-          const { importable, blocked } = await prepareAndPreview(tx, context);
-          console.log(`Dry run: ${importable.length} row(s) would be imported, ${blocked} blocked. Rolling back — nothing was written.`);
+          const { importable, blocked, counts } = await prepareAndPreview(tx, context);
+          console.log(
+            `Dry run: ${counts.create} new, ${counts.update} updated, ${counts.move} moved, ${counts.unchanged} already current, ${blocked} blocked ` +
+              `(${importable.length} row(s) would be sent). Rolling back — nothing was written.`,
+          );
           throw new DryRunRollback();
         });
       } catch (error) {
@@ -444,16 +475,26 @@ async function main(): Promise<void> {
     const { importable, blocked } = await prepareAndPreview(db, context);
     if (importable.length === 0) throw new Error("No importable rows — fix the reported problems and re-run.");
 
-    const { createdVocabularyItemIds, createdGrammarItemIds } = await bulkImportVocabulary(db, {
+    const outcome = await bulkImportVocabulary(db, {
       languageId: language.id,
       actorUserId: actor.id,
       idempotencyKey: stepKey(keyPrefix, "import"),
       rows: importable,
     });
-    console.log(`Imported ${createdVocabularyItemIds.length} vocabulary and ${createdGrammarItemIds.length} grammar items as Pending (${blocked} blocked).`);
+    const { createdVocabularyItemIds, createdGrammarItemIds, updatedVocabularyItemIds, updatedGrammarItemIds } = outcome;
+    console.log(
+      `Created ${createdVocabularyItemIds.length + createdGrammarItemIds.length} item(s) as Pending; ` +
+        `updated ${updatedVocabularyItemIds.length + updatedGrammarItemIds.length} in place; moved ${outcome.movedItemIds.length}; ` +
+        `${outcome.unchangedCount} already current; ${blocked + outcome.blocked.length} blocked.`,
+    );
+    if (outcome.draftedItemIds.length > 0) {
+      console.log(`  ${outcome.draftedItemIds.length} published item(s) updated as a draft — publish them in Admin to make the change live.`);
+    }
+    for (const blockedRow of outcome.blocked) console.warn(`  ! ${blockedRow.displayForm}: ${blockedRow.reason}`);
 
-    if (createdVocabularyItemIds.length > 0) {
-      const matched = await matchImportedVocabularyItems(db, createdVocabularyItemIds);
+    const touchedVocabularyIds = [...createdVocabularyItemIds, ...updatedVocabularyItemIds];
+    if (touchedVocabularyIds.length > 0) {
+      const matched = await matchImportedVocabularyItems(db, touchedVocabularyIds);
       const summary = Object.entries(matched.byStatus)
         .map(([status, count]) => `${status}: ${count}`)
         .join(", ");

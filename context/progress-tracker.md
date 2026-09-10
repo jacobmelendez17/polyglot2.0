@@ -15,7 +15,7 @@ same day; it is the user's document to edit, not a record of intent. Four
 units, in this order:
 
 1. **Teaching meaning: editable, with a manual override lock — done.**
-2. Curriculum re-import updates existing words in place.
+2. **Curriculum re-import updates existing words in place — done.**
 3. `writer` role, with Admin verifying everything before publication.
 4. Usage contexts (the "como / comes" tabs) and the example editor — the
    largest, and it wants the role model to exist first.
@@ -111,6 +111,57 @@ writing to real `user_item_progress` rows.
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
 
+- **Spec 17 unit 2 — re-import updates existing words in place** (2026-09-09)
+  — re-running a corrected file used to create a second copy of every word it
+  already contained. Now every row resolves to one of **create, update, move,
+  unchanged, or blocked**, computed by a single `resolveImportRow` that the
+  preview reports and the commit applies, so the two can never disagree about
+  what an admin approved (the commit still re-resolves against fresh data
+  rather than trusting a preview from an earlier request).
+  - **Identity is preserved.** A matched row updates the existing
+    `learning_items` row, so progress, SRS state, review history and deck
+    membership survive — `architecture.md`'s Permanent Identity rule, which a
+    delete-and-recreate would have broken.
+  - **A published item's update lands in its draft**, following `updateItem`'s
+    existing status rule. A **move** is applied directly even then, because
+    placement is structural and a draft has nowhere to put it — the same way
+    the existing `moveItem` path already treats a published item.
+  - **Three rules settled during implementation** and written back into the
+    spec, because each protects real authored content:
+    - **An absent column never erases.** Every optional field the file omits
+      arrives as `null`, and writing those through would have blanked the
+      article, context, pronunciation, IPA and creator notes of all 45 Level 1
+      words on the first re-import. Accepted answers are untouched for the
+      same reason — `updateLearningItemDirect` would have replaced the
+      authored set with an empty one.
+    - **A file cannot author a homonym.** Duplicate detection normalizes the
+      same display form the same way this matching does, so an identical term
+      can only mean the same word. The create path's `DUPLICATE_APPROVED`
+      branch became unreachable and was removed rather than left as dead
+      code; a genuine homonym is created in Admin.
+    - **A term repeated inside one file** creates the word once and then
+      updates it. The lookups are loaded once before the loop, so without
+      registering each created item the second row would have created a
+      second copy.
+  - **A real bug caught by running it, not reading it**: matching picked
+    whichever item happened to come last for a term, so the archived demo
+    `rojo` and `y` shadowed the live pending ones and blocked both rows. An
+    archived item now never shadows a live one, and two *live* items sharing
+    a term (approved homonyms) block the row with an explanation instead of
+    being guessed between.
+  - Manually authored fields (unit 1) are skipped by a re-import exactly as
+    they are by the dictionary.
+  - The Admin dialog names each row's outcome and the fields an update would
+    change; only genuine problems start unticked. The CLI prints the same
+    classification, and `--dry-run` reports a full breakdown.
+  - **Verified**: `typecheck`, `lint`, `npm run test` (642), `npm run build`,
+    and 23 passing tests in `bulk-import-service.integration.test.ts` (8 new).
+    Two older tests were rewritten rather than deleted, because the behaviour
+    they asserted is what changed: a row matching an existing item is now an
+    update, not a duplicate to approve. Also exercised against the **real
+    Level 1 file**: a dry run of the committed file reports all 57 rows
+    already current, and a modified copy correctly reports 10 field updates
+    and one group move.
 - **Spec 17 unit 1 — editable teaching meaning with a manual override lock**
   (2026-09-09) — approving a dictionary match used to *lock* the fields it
   filled: `vocabulary-editor.tsx` rendered the teaching meaning and IPA
