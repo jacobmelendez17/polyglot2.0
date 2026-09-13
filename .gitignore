@@ -28,6 +28,22 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Terraform (infra/terraform) — .terraform/ is a regenerated local cache of
+# downloaded provider binaries (hundreds of MB, architecture-specific);
+# never commit it. .terraform.lock.hcl (the version pin) is committed
+# deliberately, unlike the directory above. terraform.tfstate is committed
+# deliberately too (see infra/terraform/environments/dev/main.tf) — this is
+# a single-operator sandbox account with no remote state backend yet — but
+# its noisy .backup copy and crash logs never need to be.
+**/.terraform/
+*.tfstate.backup
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
 .pnpm-debug.log*
 
 # env files (can opt-in for committing if needed)

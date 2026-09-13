@@ -146,13 +146,74 @@ to this unit (traced individually, not assumed):
   three. Added to Next Up rather than fixed here — unrelated to spec 19,
   spec 18's file, not this unit's.
 
-**Next unit: §48 step 4 (S3 upload orchestration) plus the Terraform for the
-S3 bucket (§41)** — now unblocked by AWS access. This is the first unit that
-actually touches AWS: creating a dev S3 bucket via Terraform, a presigned-URL
-generator behind a small provider boundary (matching `providers/`'s existing
-shape — `providers/speech`, `providers/storage`, `providers/rate-limit`), and
-the real "create import" Server Action that binds `curriculum-import-service.ts`
-to the app's `db` for the first time.
+**Units 4-5 (§48 steps 4-5 — S3 upload orchestration + its Terraform) are
+done, 2026-09-12.** The first unit to actually touch AWS, with the user's
+explicit sign-off on `terraform apply` before anything was created (shown
+the plan first — 5 resources, 0 changes/destroys).
+
+- **Terraform** (`infra/terraform/`): a `modules/curriculum-import` module
+  (S3 bucket, public-access-block, a deny-non-TLS bucket policy, the §24
+  30-day lifecycle rule scoped to the `imports/` prefix, and a CORS rule for
+  direct browser PUTs) instantiated once so far by `environments/dev`. Local
+  Terraform state deliberately — a single-operator sandbox account doesn't
+  need a remote-state bucket/lock table yet (mirrors spec 19 §36's
+  cost-guardrail philosophy applied to the tooling itself, not just the
+  Lambda). Bucket name is `polyglot-{dev,prod}-imports-{account_id}` — spec
+  19 §28's example names aren't literal, since S3 bucket names are globally
+  unique across *all* AWS accounts, not just this one. **Applied**: the real
+  dev bucket is `polyglot-dev-imports-205922933510` in `us-west-2`.
+  SQS/DLQ/Lambda/IAM are separate later steps in this same module, added
+  when their own units ship — not stubbed out now.
+- **`providers/storage/`**: a `CurriculumImportStorage` interface (matching
+  `providers/rate-limit`'s/`providers/speech`'s existing provider shape) with
+  one real implementation, `S3CurriculumImportStorage`
+  (`@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner` — new,
+  well-justified dependencies; nothing already in the project talks to AWS).
+  `curriculumImportObjectKey(importId, extension)` is a pure function
+  (`imports/{importId}/source.{csv|tsv}`, spec 19 §6) so the key format is
+  decided in exactly one place. `getCurriculumImportStorage()` reads
+  `IMPORT_BUCKET`/`AWS_REGION` directly from `process.env` — deliberately
+  **not** added to `lib/env.ts`'s strict schema, matching
+  `domains/lexicon/lexicon-source-config.ts`'s precedent exactly: this is
+  optional, feature-specific config with no safe default, and `lib/env.ts`
+  is transitively imported by most of the test suite, so a hard requirement
+  there would break every other test the moment this merged.
+- **`import "server-only"` lives on `index.ts` only, not on
+  `s3-curriculum-import-storage.ts` itself** — a deliberate deviation from
+  `providers/rate-limit/upstash.ts`'s precedent (which does carry the guard
+  on the implementation file, and consequently has no direct test coverage).
+  Here the class takes plain constructor params with nothing
+  Next.js-specific about it, so removing the guard from just that file is
+  what let `s3-curriculum-import-storage.integration.test.ts` construct it
+  directly and prove it against the real bucket — a real presigned PUT, a
+  real `GetObjectCommand` confirming the uploaded bytes, and a real delete
+  confirmed via `NoSuchKey`. That test (and its "delete-of-a-never-existing-key
+  is a no-op" companion) is `describe.skipIf(!process.env.IMPORT_BUCKET)` —
+  confirmed to skip cleanly (not fail) when the var is absent, which is every
+  CI run today since this project has no AWS credentials wired into CI yet.
+
+Verified: `tsc --noEmit`, `eslint`, `npm run test` (729/729 — three new pure
+`curriculumImportObjectKey` unit tests), `npm run test:integration`'s new
+real-AWS file (2/2, against the actual bucket), `npm run build`,
+`terraform validate`/`plan`/`apply` (5 added, 0 changed/destroyed), and
+`npm audit` after installing the two AWS SDK packages (9 pre-existing
+moderate/high/critical advisories, all traced to `shadcn`'s own dependency
+tree — `fast-uri`/`hono` confirmed via `npm ls`, none introduced by this
+unit). `IMPORT_BUCKET`/`AWS_REGION` added to `.env.local` (real bucket
+name) and `.env.example` (placeholder + doc comment).
+
+**Still deliberately not built**: no Server Action/route calls
+`getCurriculumImportStorage()` or `createCurriculumImport` yet. Wiring a
+"create import" flow into a real Admin UI now — before SQS/Lambda exist to
+ever process what it creates — would ship a control that goes nowhere,
+which is exactly the half-finished-implementation code-standards.md
+forbids. That wiring belongs with §48 steps 12-13 (replacing the
+synchronous preview with the async UI), once enough of the pipeline exists
+for "create an import" to do something.
+
+**Next unit: §48 steps 6-7 — SQS queue + dead-letter queue**, added to the
+same Terraform module, plus the S3→SQS `ObjectCreated` notification (§41)
+connecting the bucket built this unit to the queue the next one builds.
 
 **Spec 18 (Item Detail & Lesson Item Layout) is in progress — unit 1 shipped
 2026-09-09.** The spec (`context/feature-specs/18-item-page.md`) redesigns
@@ -1473,12 +1534,11 @@ Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real
 ## In Progress
 
 **Spec 19 (Asynchronous Curriculum Imports with AWS Lambda)** — §48 steps
-1-3 shipped 2026-09-12 (import-history schema; confirmed the existing
-importer is already Lambda-shaped; the import state-machine domain layer).
-AWS access is now connected and Terraform installed — see Current Goal for
-the full design, the AWS setup, and what each unit did. Next: step 4 (S3
-upload orchestration + Terraform for the bucket), the first unit that
-actually touches AWS.
+1-5 shipped 2026-09-12 (import-history schema; confirmed the existing
+importer is already Lambda-shaped; the import state-machine domain layer;
+S3 upload orchestration + its Terraform, applied to a real dev bucket with
+the user's explicit sign-off). See Current Goal for the full design and
+what each unit did. Next: steps 6-7 (SQS + DLQ, same Terraform module).
 
 **Spec 18 (Item Detail & Lesson Item Layout)** — units 1, 2, and 5 shipped
 2026-09-09 (data model + shared read model; the shared UI shell and the
