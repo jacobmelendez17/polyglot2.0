@@ -1,8 +1,11 @@
 /**
- * Structured Admin audit action identifiers (spec 11 §48). `IMPORT_COMMITTED`
- * is intentionally absent — CSV import was descoped 2026-09-05 (see
- * progress-tracker.md). This list grows as later Admin units ship real
- * mutations; add the new action here and nowhere else.
+ * Structured Admin audit action identifiers (spec 11 §48). This list grows
+ * as later Admin units ship real mutations; add the new action here and
+ * nowhere else. Bulk CSV/TSV import's own row mutations reuse
+ * `CURRICULUM_ITEM_CREATED`/`_UPDATED`/`_MOVED` above rather than a separate
+ * "import" action (spec 13, spec 17) — the `CURRICULUM_IMPORT_*` actions
+ * below are spec 19's own import-*record* lifecycle (confirm/archive/delete),
+ * distinct from the curriculum mutations an import causes.
  */
 export const ADMIN_AUDIT_ACTIONS = [
   "CURRICULUM_ITEM_CREATED",
@@ -75,6 +78,12 @@ export const ADMIN_AUDIT_ACTIONS = [
   // both are attributable like any other curriculum edit.
   "GRAMMAR_CONTENT_BLOCKS_CHANGED",
   "ITEM_RESOURCES_CHANGED",
+  // Spec 19 — the asynchronous import record's own lifecycle (never the
+  // curriculum mutations it causes, which stay CURRICULUM_ITEM_*/above).
+  "CURRICULUM_IMPORT_CONFIRMED",
+  "CURRICULUM_IMPORT_ARCHIVED",
+  "CURRICULUM_IMPORT_RESTORED",
+  "CURRICULUM_IMPORT_DELETED",
 ] as const;
 
 export type AdminAuditAction = (typeof ADMIN_AUDIT_ACTIONS)[number];

@@ -69,9 +69,15 @@ export const MAX_VOCABULARY_GROUP_NUMBER = 4;
 /** One past the last real vocabulary group number — a row with this group value has no group at all; it's a grammar item. */
 export const GRAMMAR_GROUP_NUMBER = MAX_VOCABULARY_GROUP_NUMBER + 1;
 
-/** A file large enough to need this feature is still a hand-authored spreadsheet, not a data pipe — bounded generously, not unbounded. */
+/**
+ * A file large enough to need this feature is still a hand-authored
+ * spreadsheet, not a data pipe — bounded generously, not unbounded. Values
+ * match spec 19 §4's stated V1 limits ("Maximum file size: 5 MB, Maximum
+ * rows: 5,000"), which both the synchronous web path and the future Lambda
+ * worker must enforce identically.
+ */
 export const MAX_IMPORT_FILE_BYTES = 5 * 1024 * 1024;
-export const MAX_IMPORT_ROWS = 2000;
+export const MAX_IMPORT_ROWS = 5000;
 
 export type ImportDelimiter = "," | "\t";
 export type RawVocabularyImportRow = Record<string, string>;

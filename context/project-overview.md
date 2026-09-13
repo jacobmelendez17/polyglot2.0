@@ -451,14 +451,13 @@ item. Deck *import* remains out of scope.
 - Leech review
 - Testing and test-history flows required by the configured Spanish curriculum
 - Changelog
-- Full administrator curriculum-management features
+- Full administrator curriculum-management features, including admin-only CSV/TSV bulk curriculum import (spec 13, spec 17; moving to asynchronous AWS Lambda processing under spec 19)
 - Administrator sandbox/testing mode
 - Streaks, XP, rank, and profile achievements
 - Access-tier data model (free Levels 1-3 / premium Level 4+), unenforced during the v1 beta so all authenticated users have full access
 
 ### Out of Scope for v1
 
-- CSV curriculum import and validation (descoped 2026-09-05 — decided unnecessary; official curriculum is authored directly through the Admin curriculum editors instead)
 - AI chatbot/tutor
 - AI journal correction
 - AI-generated official curriculum

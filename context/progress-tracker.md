@@ -8,6 +8,152 @@ Implementation / feature specs
 
 ## Current Goal
 
+**Spec 19 (Asynchronous Curriculum Imports with AWS Lambda) is in progress —
+unit 1 shipped 2026-09-12.** The spec (`context/feature-specs/19-lambda-import.md`)
+moves the existing synchronous CSV/TSV bulk-import path (spec 13/17,
+`domains/admin/bulk-import-service.ts`) onto an async S3 → SQS → Lambda
+pipeline, reusing — never reimplementing — that resolver. Spec 19 §48 lays
+out its own 24-step migration sequence; per `ai-workflow-rules.md`'s scoping
+rules this is being built as separate paused units against that sequence,
+not attempted as one change. **Two things resolved before any code, worth
+recording:**
+
+- **The context docs were stale and actively contradicted this spec.**
+  `project-overview.md`'s Out of Scope list and `architecture.md`'s Homonyms
+  section both still said "CSV import was descoped 2026-09-05 — decided
+  unnecessary." That call was reversed two days later once spec 13 shipped
+  real bulk vocabulary intake (2026-09-07), and spec 17 unit 2 (2026-09-09)
+  extended it with in-place re-import — the very resolver spec 19 says to
+  reuse. Both docs are corrected: `architecture.md`'s note now describes the
+  real importer and points at spec 19; `project-overview.md` names it
+  explicitly under "Full administrator curriculum-management features." This
+  is a documentation-sync fix (`ai-workflow-rules.md`'s "faithful sync, not a
+  new decision"), not a new product call.
+- **`MAX_IMPORT_ROWS` was 2000; spec 19 §4 states 5,000 as the V1 row limit
+  both the web path and the future Lambda worker must enforce identically.**
+  Bumped in `domains/curriculum/vocabulary-import-parsing.ts` — a pure limit
+  increase referenced only through the exported constant (confirmed via its
+  test), so raising it carries no behavior risk beyond "a bigger file is now
+  accepted." `MAX_IMPORT_FILE_BYTES` already matched at 5 MB.
+
+**Unit 1 (spec 19 §48 step 1 — import-history schema) is done.** Added
+`db/schema/curriculum-imports.ts`: `curriculum_imports` (one row per
+uploaded artifact, the full state machine from §18, the counters/timestamps
+from §20) and `curriculum_import_rows` (one row per parsed line, retaining
+only what review/audit needs — never the raw CSV). Both tables are
+additive/nullable-safe, migrated as `0019_round_paper_doll.sql` and applied
+to the dev database; `npm run db:verify` reports no drift. Notable choices:
+
+- `curriculum_import_rows.classification` reuses `bulk-import-service.ts`'s
+  own `ImportRowAction` vocabulary (`create`/`update`/`move`/`unchanged`/`blocked`)
+  as a Postgres enum, rather than inventing a parallel one — spec 19 §2's
+  "never separate rules" applies to storage, not just code.
+  `admin_disposition` is a one-value enum (`"skip"`, spec 19 §9's only V1
+  resolution) so a future disposition is an enum addition, not a schema
+  change.
+- `source_import_id` (development→production promotion lineage, §29) is a
+  plain `uuid` column with **no foreign key** — `architecture.md`'s
+  environments are separate databases, so it necessarily names a row that
+  cannot be joined to from here. Same reasoning for `environment` being
+  informational `text` rather than a lookup.
+- Two partial indexes (`curriculum_imports_history_idx`/`_archived_idx`,
+  each scoped by `archived_at IS NULL`/`IS NOT NULL`) back the two listings
+  spec 19 §19/§25 need, following the existing `users.clerk_user_id` partial-index
+  pattern rather than one full index plus an application-side filter.
+
+Verified: `tsc --noEmit`, `eslint`, `npm run test` (726/726, before and after
+the row-limit change), `npm run build`, `npm run db:verify` (no drift), and a
+real `npm run db:migrate` against the dev Neon branch. No AWS work, no
+Terraform, and no Lambda code in this unit — deliberately: it needed nothing
+from AWS, so it went first.
+
+**AWS access is now connected (2026-09-12).** The user created an IAM user
+(`polyglot-terraform-dev`, account `205922933510`) with programmatic access
+and ran `aws configure` locally; `aws sts get-caller-identity` now succeeds.
+Region is **`us-west-2`** — chosen to match the dev Neon branch's own AWS
+region (confirmed by parsing `DATABASE_URL`'s host,
+`...us-west-2.aws.neon.tech`), not just geographic proximity to the user in
+Arizona, so the eventual Lambda runs in the same region as the database it
+calls. Terraform is installed (v1.9.8) via a direct binary download to
+`/opt/homebrew/bin` — Homebrew's own `hashicorp/tap/terraform` bottle
+install failed on this machine's outdated Xcode Command Line Tools, which
+was a system-level fix out of scope here, so the direct-binary route was
+used instead. **The IAM user has broad (`AdministratorAccess`-equivalent)
+permissions**, the user's deliberate choice for a personal dev/sandbox
+account — the Lambda's own execution role stays least-privilege per spec 19
+§33 regardless; this is only about who is allowed to run `terraform apply`.
+
+**Unit 2 (§48 step 2 — confirm reusable importer boundaries) needed no new
+code.** `bulk-import-service.ts`'s `previewVocabularyImport`/`bulkImportVocabulary`
+already take an injected `DbClient` as their first parameter (spec 13 unit 1
+already built this), and `scripts/curriculum-import.ts` already proves the
+exact shape a Lambda worker will need — a standalone script building its own
+Neon `Pool`/`drizzle` client and calling these functions directly, bypassing
+`db/client.ts`'s `server-only` guard. Confirmed by reading both files rather
+than assuming; nothing needed to change.
+
+**Unit 3 (§48 step 3 — import state-machine/domain behavior) is done.**
+Added `domains/admin/curriculum-import-{types,repository,service}.ts`: a
+`DbClient`-injectable repository over the spec 19 schema (unit 1) plus a
+service enforcing the state-machine transitions from spec 19 §18 — upload →
+preview → needs_review/ready_to_import → confirm (gated on every blocked row
+having a disposition, §9) → commit → completed/failed, plus archive/unarchive
+and permanent deletion (requires archived first, §26, with a minimal audit
+tombstone — id/checksum/final-status only, never the deleted row previews).
+10 integration tests (`curriculum-import-service.integration.test.ts`) cover
+every transition and every guard, including: a duplicate upload event being
+a harmless no-op (§7), confirmation refused until an unresolved row is
+resolved, a material re-preview returning `ready_to_import` back to
+`needs_review` (§12/§13), archive being idempotent, and permanent deletion
+refusing an un-archived import. Two deliberate non-decisions, recorded rather
+than silently guessed:
+
+- **Nothing calls this service yet.** No Server Action, no route, no Lambda
+  handler — this unit is the domain layer only, matching how `bulk-import-service.ts`
+  itself shipped before `import-actions.ts` wired it up. `domains/admin/server.ts`
+  deliberately does **not** re-export these functions yet: that barrel's
+  convention is to export real-`db`-bound, rate-limited wrappers (see
+  `admin-mutation-service.ts`), and there is no caller to bind for yet. The
+  next AWS-touching unit (S3 upload orchestration, §48 step 4) is what adds a
+  real caller and, with it, that binding.
+- **Permanent deletion does not yet delete the S3 source object** (§26 also
+  requires this). Documented directly in `permanentlyDeleteCurriculumImport`'s
+  docstring rather than silently omitted — it needs an S3 client, which
+  doesn't exist in this codebase yet either. Do this in the same unit that
+  introduces the S3 client for upload orchestration, not as an afterthought.
+
+Verified: `tsc --noEmit`, `eslint`, `npm run test` (726/726, unaffected — the
+new file is integration-only), `npm run test:integration` (new file: 10/10),
+and `npm run build`. Also ran the **full** integration suite once more
+(334 tests, 30 files) to check for regressions from the two new
+`ADMIN_AUDIT_ACTIONS` entries and the `audit-types.ts` comment fix: 328
+passed, 6 failed across 4 files — all 4 confirmed pre-existing and unrelated
+to this unit (traced individually, not assumed):
+
+- `with-idempotency.integration.test.ts` (1) and
+  `audit-repository.integration.test.ts` (3) are exactly Next Up #9 and #10
+  — accumulated rows on the shared real dev branch that `TEST_DATABASE_URL`
+  also points at.
+- `curriculum-repository.integration.test.ts` (1) is the fixture-grammar-item
+  drift from the spec 18 unit 1 Completed entry/Next Up #A.
+- `usage-contexts.integration.test.ts` (1, newly identified) — **"refuses a
+  grammar item" is now stale, not flaky.** Traced directly: `mutateUsageContext`
+  now *allows* a grammar item, because spec 18's "usage contexts widened to
+  grammar" decision (`architecture.md`'s Architecture Decisions entry,
+  2026-09-09) changed the real rule after this spec-17 test was written, and
+  nothing updated the test to match. Deterministic (reproduces in isolation,
+  confirmed by re-running it alone), not a shared-state flake like the other
+  three. Added to Next Up rather than fixed here — unrelated to spec 19,
+  spec 18's file, not this unit's.
+
+**Next unit: §48 step 4 (S3 upload orchestration) plus the Terraform for the
+S3 bucket (§41)** — now unblocked by AWS access. This is the first unit that
+actually touches AWS: creating a dev S3 bucket via Terraform, a presigned-URL
+generator behind a small provider boundary (matching `providers/`'s existing
+shape — `providers/speech`, `providers/storage`, `providers/rate-limit`), and
+the real "create import" Server Action that binds `curriculum-import-service.ts`
+to the app's `db` for the first time.
+
 **Spec 18 (Item Detail & Lesson Item Layout) is in progress — unit 1 shipped
 2026-09-09.** The spec (`context/feature-specs/18-item-page.md`) redesigns
 `/items/[itemId]` and the lesson study view around one shared, polished
@@ -1326,6 +1472,14 @@ Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real
 
 ## In Progress
 
+**Spec 19 (Asynchronous Curriculum Imports with AWS Lambda)** — §48 steps
+1-3 shipped 2026-09-12 (import-history schema; confirmed the existing
+importer is already Lambda-shaped; the import state-machine domain layer).
+AWS access is now connected and Terraform installed — see Current Goal for
+the full design, the AWS setup, and what each unit did. Next: step 4 (S3
+upload orchestration + Terraform for the bucket), the first unit that
+actually touches AWS.
+
 **Spec 18 (Item Detail & Lesson Item Layout)** — units 1, 2, and 5 shipped
 2026-09-09 (data model + shared read model; the shared UI shell and the
 rebuilt `/items/[itemId]`; admin editing from the item page, brought forward
@@ -1431,6 +1585,7 @@ file) does not shift.
 21. **Real-browser pass for spec 14 (Decks)** — the one gap in an otherwise fully verified unit. Follow the scratch-Playwright + `@clerk/testing/playwright` approach the CSV-import and spec 11 entries describe. Worth covering: the create-deck picker (which requires an account with real `user_item_progress` rows — a brand-new account will correctly show nothing to add), the reorder Save flow, removing down to the last item, and a full Know / Don't Know session through to the grouped summary.
 22. **`curriculum-admin-repository.integration.test.ts` fails on shared-dev-branch drift** (observed 2026-09-08, during spec 14's verification — unrelated to decks). "lists every item for a language, ordered by level then curriculum position" asserts the seeded group `30000000-…-0001` is named "Home & Basics"; the dev branch actually has it as "Numbers" (confirmed by direct query). `seedTestFixtures` uses `onConflictDoNothing`, so it never corrects a renamed committed row. Fix it the way spec 11 fixed the equivalent level-targets breakage: have the test create the group it asserts on rather than depending on a shared row. Brings the known-failing integration baseline to 5.
 23. **Real-browser pass for spec 15 (Onboarding)** — same gap as #21. Fastest route in is Admin → Sandbox → **Replay Onboarding**, which needs no throwaway account and can be repeated freely. Worth covering: transition direction differing between Back and Next, the `Start Now!` inflate/shrink emphasis (it replays whenever slide 5 becomes active again after going Back — that is spec 15's "once when Slide 5 becomes active", not a bug), mobile layout with the sticky controls, and `prefers-reduced-motion` actually stilling every loop.
+24. **`usage-contexts.integration.test.ts`'s "refuses a grammar item" test is stale, not flaky** (found 2026-09-12, during spec 19 unit 3's integration verification). It asserts `mutateUsageContext` rejects a grammar item with `AdminError`, but spec 18 later widened usage contexts to grammar (`architecture.md`'s Architecture Decisions entry, 2026-09-09) — `mutateUsageContext` was updated for that, and this one test in `publication-service.ts`'s own spec-17 coverage was not. Reproduces deterministically in isolation, unrelated to spec 19. Fix is to replace the test with one asserting the current (correct) behavior — a grammar item's usage context is created successfully — not to weaken or delete it.
 
 ## Infrastructure Status
 

@@ -778,9 +778,15 @@ When an exact normalized match already exists:
 
 The approval must be deliberate and auditable.
 
-> **CSV import was descoped 2026-09-05** (see `progress-tracker.md`). Official
-> curriculum is authored directly through the Admin curriculum editors
-> instead; there is no bulk-import workflow.
+> **CSV/TSV bulk import exists** (`domains/admin/bulk-import-service.ts`,
+> spec 13 unit 1, 2026-09-07; re-import-in-place added by spec 17 unit 2,
+> 2026-09-09). It was briefly descoped on 2026-09-05 as "unnecessary", but
+> that call was reversed two days later once bulk vocabulary intake proved
+> genuinely needed — this note previously went stale and said otherwise.
+> Every row resolves to `create`/`update`/`move`/`unchanged`/`blocked`
+> through one shared resolver (`resolveImportRow`), reused rather than
+> reimplemented by spec 19's asynchronous Lambda pipeline (see
+> `feature-specs/19-lambda-import.md`).
 
 ---
 
