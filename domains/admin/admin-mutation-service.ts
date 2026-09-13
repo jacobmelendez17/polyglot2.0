@@ -13,7 +13,7 @@ import type { ResetOwnAccountProgressServiceInput } from "./account-reset-servic
 import * as bulkImport from "./bulk-import-service";
 import type { BulkImportVocabularyServiceInput } from "./bulk-import-service";
 import * as curriculumImport from "./curriculum-import-service";
-import { getCurriculumImportById, listCurriculumImportRows } from "./curriculum-import-repository";
+import { getCurriculumImportById, listArchivedCurriculumImports, listCurriculumImportRows, listCurriculumImports } from "./curriculum-import-repository";
 import * as publication from "./publication-service";
 import type {
   ApplyDictionaryFieldsServiceInput,
@@ -257,4 +257,53 @@ export async function confirmCurriculumImport(input: { importId: string; actorUs
   const result = await curriculumImport.confirmCurriculumImport(db, input);
   await getCurriculumImportQueue().sendCommitJob({ importId: input.importId, actorUserId: input.actorUserId });
   return result;
+}
+
+/**
+ * Spec 19 §22's "Retry Import" — the domain-level `retryCurriculumImport`
+ * (unit 3) only flips `failed` back to `queued_for_import`; without also
+ * re-sending the COMMIT_IMPORT message here, a manual retry would move the
+ * status but nothing would ever consume it, identically to `confirmCurriculumImport`
+ * above needing both halves together.
+ */
+export async function retryCurriculumImport(input: { importId: string; actorUserId: string }) {
+  await checkRateLimit("admin-mutation", input.actorUserId);
+  await curriculumImport.retryCurriculumImport(db, input.importId);
+  await getCurriculumImportQueue().sendCommitJob({ importId: input.importId, actorUserId: input.actorUserId });
+}
+
+export async function listActiveCurriculumImports(input: { languageId: string; cursor?: string | null; limit: number }) {
+  return listCurriculumImports(db, input);
+}
+
+export async function listArchivedCurriculumImportsForHistory(input: { languageId: string; cursor?: string | null; limit: number }) {
+  return listArchivedCurriculumImports(db, input);
+}
+
+export async function archiveCurriculumImport(input: { importId: string; actorUserId: string }) {
+  await checkRateLimit("admin-mutation", input.actorUserId);
+  return curriculumImport.archiveCurriculumImport(db, input);
+}
+
+export async function unarchiveCurriculumImport(input: { importId: string; actorUserId: string }) {
+  await checkRateLimit("admin-mutation", input.actorUserId);
+  return curriculumImport.unarchiveCurriculumImport(db, input);
+}
+
+/**
+ * Spec 19 §26 — permanent deletion also removes the remaining S3 source
+ * object, once the DB-level deletion (and its audit tombstone) has already
+ * landed. Best-effort on the S3 side: the object also expires via the
+ * bucket's own 30-day lifecycle rule regardless, so a delete failure here
+ * leaves nothing worse than "slightly early" would have looked like.
+ */
+export async function permanentlyDeleteCurriculumImport(input: { importId: string; actorUserId: string }) {
+  await checkRateLimit("admin-mutation", input.actorUserId);
+  const record = await getCurriculumImportById(db, input.importId);
+  await curriculumImport.permanentlyDeleteCurriculumImport(db, input);
+  if (record) {
+    await getCurriculumImportStorage()
+      .deleteObject(record.s3Key)
+      .catch(() => {});
+  }
 }

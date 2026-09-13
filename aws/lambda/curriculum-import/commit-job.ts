@@ -99,8 +99,9 @@ export async function runCommitJob(
       const outcome = await bulkImportVocabulary(db, { languageId: importRecord.languageId, actorUserId, idempotencyKey: importId, rows: decisions });
 
       // Spec 19 §17 — dictionary matching follows successful curriculum
-      // creation/update, vocabulary only, exactly like the synchronous
-      // path's `bulkImportVocabularyAction`. Deliberately outside the outer
+      // creation/update, vocabulary only, exactly like the old synchronous
+      // path's Server Action did before it was removed (§48 step 22).
+      // Deliberately outside the outer
       // catch's failure path: `bulkImportVocabulary`'s transaction has
       // already committed by this point, so a matching failure must never
       // retroactively mark this import `failed` — that would both lie about

@@ -8,8 +8,11 @@ Implementation / feature specs
 
 ## Current Goal
 
-**Spec 19 (Asynchronous Curriculum Imports with AWS Lambda) is in progress —
-unit 1 shipped 2026-09-12.** The spec (`context/feature-specs/19-lambda-import.md`)
+**Spec 19 (Asynchronous Curriculum Imports with AWS Lambda) is complete for
+v1/development scope as of 2026-09-13** (steps 23-24 — production
+Terraform + promotion — explicitly deferred until a real production
+environment exists; see the step 22 entry below for detail). The spec
+(`context/feature-specs/19-lambda-import.md`)
 moves the existing synchronous CSV/TSV bulk-import path (spec 13/17,
 `domains/admin/bulk-import-service.ts`) onto an async S3 → SQS → Lambda
 pipeline, reusing — never reimplementing — that resolver. Spec 19 §48 lays
@@ -712,6 +715,150 @@ only a real "click Retry" action does both together), and showing the
 §12 asks for once `changedSincePreview` actually works (it does now).
 Steps 18-19 (import history page, archive/permanent-delete UI) remain
 fully unbuilt — the domain layer for both has existed since unit 3.
+
+**Unit — spec 19 §48 steps 16-19 done, 2026-09-13 — Retry UI, the
+"changed since preview" banner, and the import history/archive/permanent-delete
+pages.** No new domain logic: every mutation this unit's UI calls
+(`retryCurriculumImport`, `archiveCurriculumImport`, `unarchiveCurriculumImport`,
+`permanentlyDeleteCurriculumImport`) has existed in `curriculum-import-service.ts`
+since unit 3, and `admin-mutation-service.ts` already wired all of them
+(including S3 object deletion on permanent delete) during earlier units. This
+unit is purely the Next.js surface that finally calls them.
+
+- **`async-import-status.tsx`** — a `failed` import now renders its
+  `lastErrorCode`/`lastErrorSummary`/`attemptCount` plus a **Retry Import**
+  button (`retryAsyncCurriculumImportAction`); a `changedSincePreview` row
+  gets a "CHANGED SINCE PREVIEW" badge, and a `previewVersion > 1` import
+  with any such row shows an "Import changed since preview" warning banner
+  above the table (spec 19 §12/§13). The completed panel now also shows
+  `skippedCount` when nonzero.
+- **New `/admin/curriculum/imports`** (`imports/page.tsx`) — non-archived
+  history, newest first, via `listActiveCurriculumImports`; "Archived" and
+  "New Import" buttons, empty state, keyset pagination via a `cursor` query
+  param (matching every other list page in this codebase).
+- **New `/admin/curriculum/imports/archived`** (`imports/archived/page.tsx`)
+  — same shape, backed by `listArchivedCurriculumImportsForHistory`.
+- **New `curriculum-import-history-table.tsx`** — shared by both pages,
+  differing only in which row action renders (`showArchiveAction` vs
+  `archived`). Permanent delete uses a shadcn `Dialog` requiring the admin
+  to type "DELETE" before the button enables, matching spec §26's exact UI
+  mock; the Server Action independently re-validates the literal string
+  server-side (`z.literal("DELETE")`) rather than trusting the client
+  enforced it, per this codebase's boundary-validation convention.
+- **Nav** — added an "Imports" item to `CURRICULUM_ONLY_NAV` (after
+  "Groups"), which required updating two pre-existing exact-array
+  assertions in `admin-nav-items.test.ts`.
+
+**A state-machine question worth recording, not a bug**: the domain
+`retryCurriculumImport` only checks `status === "failed"` — it doesn't
+distinguish a preview-stage failure (nothing ever written to
+`curriculum_import_rows`) from a commit-stage one, and the UI's Retry
+button shows for both identically. Traced through deliberately before
+verifying: `commit-job.ts` always re-resolves fresh from S3 and diffs
+against `loadAllRows` before ever writing anything, so a preview-stage
+failure retried this way lands on an empty `storedRows` set, which
+`detectMaterialChange` treats as different from any real row set —
+bouncing back to `needs_review` instead of committing blind. Safe by
+construction for every realistic case (a truly empty, zero-row CSV both
+times is the only theoretical gap, and not worth guarding against).
+
+**Verified:** `tsc --noEmit`, `eslint` (one unescaped-quotes JSX fix in
+`imports/page.tsx`'s empty state), `npm run test` (749/749, after fixing
+`admin-nav-items.test.ts`'s two exact-array assertions to include
+"Imports"), `npm run build` (confirms all four new routes:
+`/admin/curriculum/imports`, `/admin/curriculum/imports/[importId]`,
+`/admin/curriculum/imports/archived`, `/admin/curriculum/imports/new`), a
+full integration-suite run (340/346 — identical 6 pre-existing failures
+across the same 4 files as every prior unit, zero new ones).
+
+**Real AWS + real-browser verification** (scratch Playwright +
+`@clerk/testing/playwright`, `unit16-19-admin@example.com`, elevated to
+admin via the same DB-role-update script as every prior unit, fully
+deleted from Clerk afterward — internal `users` row correctly left in
+place, blocked by the same audit-event `RESTRICT` FK as every prior
+mutating pass) against two real imports created through the actual upload
+flow at real Level 1/Group 1 (`verificaciondiecinueveA`/`B`, both cleaned
+up afterward — vocabulary item, learning item, curriculum-import rows, and
+S3 object all deleted):
+1. **Archive → Restore → Archive → Permanently Delete**, all through the
+   real UI: archiving removed the import from `/admin/curriculum/imports`
+   and it appeared under `/admin/curriculum/imports/archived`; restoring
+   reversed that; permanently deleting (after typing "DELETE") removed it
+   from the archived list, and a real S3 `HeadObject` confirmed the source
+   object was actually gone afterward (not just the DB row) — the exact
+   claim `permanentlyDeleteCurriculumImport`'s `deleteObject` call makes.
+2. **Retry, against a real failure, not a simulated one**: after an import
+   reached `ready_to_import`, its S3 source object was deleted directly
+   (real `DeleteObjectCommand`) before confirming — this makes
+   `commit-job.ts`'s `resolveFreshImport` genuinely fail when the real
+   Lambda runs, landing on `failed` through the actual error path (no DB
+   tampering involved). The UI correctly rendered the failure and its
+   error code. The object was then restored (`PutObjectCommand`, identical
+   content) and **Retry Import** clicked: the domain transition, the SQS
+   re-send, and the Lambda's fresh commit all ran for real, reaching
+   "Import complete." — confirming retry's SQS-resend wiring end to end,
+   not just the domain function that predates it.
+
+Zero console/page errors across both passes. One thing traced through but
+not a bug: right after `waitForConfirmable` first found the Confirm button,
+it was still disabled (the `rowsLoaded` guard from units 12-13) — the
+script's plain `.click()` correctly auto-waited through Playwright's
+actionability check until it enabled, exactly as the guard is supposed to
+work, not a failure.
+
+**§48 step 21 (final consolidated verification) is effectively already
+covered**: every one of units 1-19 shipped with its own tiered
+verification (unit tests → integration tests → real AWS → real browser),
+and this unit's pass re-confirmed the full pipeline once more end to end.
+No separate step 21 pass is being run as its own unit — see the final
+comprehensive pass noted after step 22 below instead.
+
+**Unit — spec 19 §48 step 22 done, 2026-09-13 — old synchronous import
+execution path removed.** Now that the async pipeline was fully verified
+(units 1-19), deleted exactly the Next.js-specific execution path per
+spec's own DELETE/KEEP split — never the shared domain logic:
+
+- **Deleted**: `app/(admin)/admin/curriculum/import-actions.ts`
+  (`previewVocabularyImportAction`/`bulkImportVocabularyAction`) and
+  `components/admin/curriculum/import-vocabulary-dialog.tsx`
+  (`ImportVocabularyDialog`). Neither had a dedicated test file.
+- **Kept, confirmed still in real use elsewhere**: `bulk-import-service.ts`,
+  `vocabulary-import-file-parser.ts`, `vocabulary-import-parsing.ts`, and
+  every repository underneath them — `commit-job.ts` calls
+  `bulkImportVocabulary` directly, `import-resolution.ts` calls the same
+  parser/resolution functions, and `scripts/curriculum-import.ts` (a CLI
+  path, untouched by this spec) depends on all three too.
+- **`app/(admin)/admin/curriculum/page.tsx`** — removed the
+  `ImportVocabularyDialog` trigger; the remaining "Import (async, beta)"
+  link is now just **"Import"** — it's the only import path, not a beta
+  alternative to anything anymore.
+- Reworded two stale comments that described the sync path as "still in
+  place, removal is a later step" (`async-import-actions.ts`,
+  `imports/new/page.tsx`, `commit-job.ts`) now that it's gone.
+
+**Verified**: `tsc --noEmit`, `eslint`, `npm run test` (749/749), `npm run
+build` (all routes compile, including the four `/admin/curriculum/imports*`
+ones), a full integration-suite run (340/346 — identical 6 pre-existing
+failures, zero new ones), and a real-browser pass (scratch Playwright +
+`@clerk/testing/playwright`, a second throwaway admin, fully deleted
+afterward — Clerk account **and** internal `users` row, since this pass
+only navigated and never generated an audit event) confirming: no "Import
+vocabulary" dialog trigger remains, no "(async, beta)" label remains, the
+plain "Import" link is present exactly once, and clicking it correctly
+navigates to `/admin/curriculum/imports/new`. Zero console/page errors.
+
+**Spec 19 is complete for v1/development scope.** Steps 1-22 of §48 are
+shipped and verified end to end against real AWS and a real browser. Steps
+23-24 (production Terraform environment + promotion) are explicitly
+deferred, not built: no production environment exists yet for this project
+(see `architecture.md`'s environments table), and building one now would
+mean fabricating infrastructure with no real target to verify it against —
+the same reasoning that has applied to every other spec's production-only
+concerns so far. When a real production environment exists, steps 23-24
+are: instantiate `infra/terraform/modules/curriculum-import/` under a new
+`infra/terraform/environments/production/` (the module is already
+environment-agnostic — this unit never touched it), and promote per
+whatever this project's eventual deploy process turns out to be.
 
 **Spec 18 (Item Detail & Lesson Item Layout) is in progress — unit 1 shipped
 2026-09-09.** The spec (`context/feature-specs/18-item-page.md`) redesigns

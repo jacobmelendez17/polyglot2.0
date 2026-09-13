@@ -9,6 +9,11 @@ const CURRICULUM_ONLY_NAV: AdminNavItem[] = [
   { label: "Review", href: "/admin/curriculum/review" },
   { label: "Levels", href: "/admin/curriculum/levels" },
   { label: "Groups", href: "/admin/curriculum/groups" },
+  // Spec 19 §19 — asynchronous curriculum import history. Nested under
+  // /admin/curriculum like Levels/Groups above, so isAdminNavItemCurrent's
+  // longest-prefix rule highlights this instead of falling back to
+  // "Curriculum" on /admin/curriculum/imports and its sub-routes.
+  { label: "Imports", href: "/admin/curriculum/imports" },
   // Spec 12 — dictionary mapping review. Curriculum-only, like the three
   // above: it reads and mutates official curriculum mappings, so a developer
   // without the admin role must not see it.

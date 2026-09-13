@@ -11,6 +11,7 @@ import {
   getCurriculumImportStatusAction,
   listCurriculumImportRowsAction,
   resolveCurriculumImportRowAction,
+  retryAsyncCurriculumImportAction,
 } from "@/app/(admin)/admin/curriculum/async-import-actions";
 
 type AsyncImportStatusProps = {
@@ -61,6 +62,7 @@ export function AsyncImportStatus({ importId, initialRecord }: AsyncImportStatus
   const [rowsLoaded, setRowsLoaded] = useState(false);
   const [pendingRowId, setPendingRowId] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [retrying, setRetrying] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const loadRows = useCallback(
@@ -115,6 +117,19 @@ export function AsyncImportStatus({ importId, initialRecord }: AsyncImportStatus
     setRows((prev) => prev.map((row) => (row.id === rowId ? { ...row, adminDisposition: "skip" } : row)));
   }
 
+  async function handleRetry() {
+    setRetrying(true);
+    setError(null);
+    const result = await retryAsyncCurriculumImportAction({ importId });
+    setRetrying(false);
+    if (!result.ok) {
+      setError(result.error.message);
+      return;
+    }
+    const refreshed = await getCurriculumImportStatusAction({ importId });
+    if (refreshed.ok && refreshed.data) setRecord(refreshed.data);
+  }
+
   async function handleConfirm() {
     setConfirming(true);
     setError(null);
@@ -137,8 +152,14 @@ export function AsyncImportStatus({ importId, initialRecord }: AsyncImportStatus
 
       {record.status === "failed" ? (
         <div className="rounded-xl border border-state-error/30 bg-state-error/5 p-4">
-          <p className="text-sm font-medium text-state-error">Import failed{record.lastErrorCode ? ` (${record.lastErrorCode})` : ""}.</p>
+          <p className="text-sm font-medium text-state-error">
+            Import failed{record.lastErrorCode ? ` (${record.lastErrorCode})` : ""} after {record.attemptCount} attempt
+            {record.attemptCount === 1 ? "" : "s"}.
+          </p>
           {record.lastErrorSummary ? <p className="mt-1 text-sm text-muted-foreground">{record.lastErrorSummary}</p> : null}
+          <Button className="mt-3" disabled={retrying} onClick={handleRetry}>
+            {retrying ? "Retrying…" : "Retry Import"}
+          </Button>
         </div>
       ) : null}
 
@@ -146,8 +167,8 @@ export function AsyncImportStatus({ importId, initialRecord }: AsyncImportStatus
         <div className="rounded-xl border border-state-success/30 bg-state-success/5 p-4">
           <p className="text-sm font-medium text-foreground">Import complete.</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            {record.createCount} created, {record.updateCount} updated, {record.moveCount} moved, {record.unchangedCount} unchanged. All newly
-            created content is Pending.
+            {record.createCount} created, {record.updateCount} updated, {record.moveCount} moved, {record.unchangedCount} unchanged
+            {record.skippedCount > 0 ? `, ${record.skippedCount} skipped` : ""}. All newly created content is Pending.
           </p>
           <Button asChild className="mt-3">
             <Link href="/admin/curriculum">View curriculum</Link>
@@ -157,6 +178,15 @@ export function AsyncImportStatus({ importId, initialRecord }: AsyncImportStatus
 
       {REVIEW_STATUSES.includes(record.status) && record.status !== "completed" ? (
         <>
+          {record.previewVersion > 1 && rows.some((row) => row.changedSincePreview) ? (
+            <div className="rounded-xl border border-state-warning/30 bg-state-warning/5 p-3">
+              <p className="text-sm font-medium text-state-warning">Import changed since preview.</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Curriculum changed after this preview was generated. Review the updated rows (marked below) before confirming again.
+              </p>
+            </div>
+          ) : null}
+
           <p className="text-sm text-muted-foreground">
             {record.totalRows} row{record.totalRows === 1 ? "" : "s"} — {record.createCount} create, {record.updateCount} update,{" "}
             {record.moveCount} move, {record.unchangedCount} unchanged, {record.reviewCount} needs review.
@@ -184,7 +214,10 @@ export function AsyncImportStatus({ importId, initialRecord }: AsyncImportStatus
                         <td className="px-3 py-2 text-muted-foreground">{row.rowNumber}</td>
                         <td className="px-3 py-2">{row.displayTerm ?? "—"}</td>
                         <td className="px-3 py-2">{row.levelNumber ?? "—"}</td>
-                        <td className={`px-3 py-2 ${label.className}`}>{label.text}</td>
+                        <td className={`px-3 py-2 ${label.className}`}>
+                          {label.text}
+                          {row.changedSincePreview ? <span className="ml-2 text-xs font-medium text-state-warning">CHANGED SINCE PREVIEW</span> : null}
+                        </td>
                         <td className="px-3 py-2 text-muted-foreground">{row.reviewReason ?? "—"}</td>
                         <td className="px-3 py-2">
                           {needsDisposition ? (

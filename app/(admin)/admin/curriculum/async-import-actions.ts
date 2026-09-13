@@ -4,31 +4,37 @@ import { z } from "zod";
 
 import { canPublishCurriculum } from "@/domains/admin";
 import {
+  archiveCurriculumImport,
   confirmCurriculumImport,
   createCurriculumImportUpload,
   getCurriculumImportStatus,
+  listActiveCurriculumImports,
+  listArchivedCurriculumImportsForHistory,
   listCurriculumImportRowsForReview,
+  permanentlyDeleteCurriculumImport,
   resolveCurriculumImportRow,
+  retryCurriculumImport,
+  unarchiveCurriculumImport,
 } from "@/domains/admin/server";
-import type { CurriculumImportRecord, CurriculumImportRowsPage } from "@/domains/admin/server";
+import type { CurriculumImportRecord, CurriculumImportRowsPage, CurriculumImportsPage } from "@/domains/admin/server";
 import { requireUser } from "@/domains/users/server";
 import { AdminError } from "@/lib/errors/admin-errors";
 
 /**
  * Server Action entry points for spec 19's asynchronous curriculum import
- * (§48 steps 12-13). Kept in its own file rather than added to
- * `import-actions.ts` — that file's actions still drive the synchronous
- * path (§44's "Removal of Old Execution Path" is a later step, once this
- * one is verified end to end), and the two are genuinely different
- * workflows: this file never parses a CSV, previews a resolution, or
+ * (§48 steps 12-13) — now the only curriculum-import execution path; the
+ * old synchronous Server Actions and dialog were removed once this one was
+ * fully verified end to end (§44's "Removal of Old Execution Path", §48
+ * step 22). This file never parses a CSV, previews a resolution, or
  * touches curriculum directly — it only creates an upload slot and reads
- * back whatever the Lambda pipeline (already verified in production,
- * see `progress-tracker.md`) has written.
+ * back whatever the Lambda pipeline (verified against real AWS, see
+ * `progress-tracker.md`) has written. `bulk-import-service.ts` and the
+ * parsers/validators it depends on are still very much alive: the Lambda's
+ * `commit-job.ts` and `scripts/curriculum-import.ts` both call them
+ * directly.
  *
- * Follows `import-actions.ts`'s exact established shape independently
- * (this codebase deliberately keeps each action file's own auth wrapper
- * local) rather than sharing one: Zod-validated, re-authenticates and
- * re-checks `canPublishCurriculum` on every call.
+ * Zod-validated, re-authenticates and re-checks `canPublishCurriculum` on
+ * every call, matching this codebase's per-workflow action-file shape.
  */
 
 export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: { code: string; message: string; details?: unknown } };
@@ -101,5 +107,61 @@ export async function confirmAsyncCurriculumImportAction(input: z.infer<typeof i
   return runAsyncImportAction(async (actorUserId) => {
     const { importId } = importIdSchema.parse(input);
     return confirmCurriculumImport({ importId, actorUserId });
+  });
+}
+
+/** Spec 19 §22 — retries a `failed` import: moves it back to `queued_for_import` and re-sends the commit message. */
+export async function retryAsyncCurriculumImportAction(input: z.infer<typeof importIdSchema>): Promise<ActionResult<void>> {
+  return runAsyncImportAction(async (actorUserId) => {
+    const { importId } = importIdSchema.parse(input);
+    await retryCurriculumImport({ importId, actorUserId });
+  });
+}
+
+const listImportsInputSchema = z.object({ languageId: z.string().min(1), cursor: z.string().nullish() });
+
+/** Spec 19 §19 — normal (non-archived) import history, newest first. */
+export async function listCurriculumImportsAction(input: z.infer<typeof listImportsInputSchema>): Promise<ActionResult<CurriculumImportsPage>> {
+  return runAsyncImportAction(async () => {
+    const parsed = listImportsInputSchema.parse(input);
+    return listActiveCurriculumImports({ languageId: parsed.languageId, cursor: parsed.cursor, limit: 20 });
+  });
+}
+
+/** Spec 19 §25 — archived import history. */
+export async function listArchivedCurriculumImportsAction(input: z.infer<typeof listImportsInputSchema>): Promise<ActionResult<CurriculumImportsPage>> {
+  return runAsyncImportAction(async () => {
+    const parsed = listImportsInputSchema.parse(input);
+    return listArchivedCurriculumImportsForHistory({ languageId: parsed.languageId, cursor: parsed.cursor, limit: 20 });
+  });
+}
+
+/** Spec 19 §25 — removes the import from normal history; never touches curriculum. */
+export async function archiveCurriculumImportAction(input: z.infer<typeof importIdSchema>): Promise<ActionResult<void>> {
+  return runAsyncImportAction(async (actorUserId) => {
+    const { importId } = importIdSchema.parse(input);
+    await archiveCurriculumImport({ importId, actorUserId });
+  });
+}
+
+export async function unarchiveCurriculumImportAction(input: z.infer<typeof importIdSchema>): Promise<ActionResult<void>> {
+  return runAsyncImportAction(async (actorUserId) => {
+    const { importId } = importIdSchema.parse(input);
+    await unarchiveCurriculumImport({ importId, actorUserId });
+  });
+}
+
+const permanentDeleteInputSchema = z.object({ importId: z.string().uuid(), confirmation: z.literal("DELETE") });
+
+/**
+ * Spec 19 §26 — requires the caller to have typed "DELETE" (the same strong
+ * confirmation the UI itself renders); this action re-validates it rather
+ * than trusting that the UI enforced it, matching the boundary-validation
+ * rule for every other destructive admin action in this codebase.
+ */
+export async function permanentlyDeleteCurriculumImportAction(input: z.infer<typeof permanentDeleteInputSchema>): Promise<ActionResult<void>> {
+  return runAsyncImportAction(async (actorUserId) => {
+    const { importId } = permanentDeleteInputSchema.parse(input);
+    await permanentlyDeleteCurriculumImport({ importId, actorUserId });
   });
 }

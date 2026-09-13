@@ -14,12 +14,12 @@ export const metadata: Metadata = {
 type SearchParams = { language?: string };
 
 /**
- * Spec 19 §48 steps 12-13 — the asynchronous curriculum import upload
- * screen. Unlike `ImportVocabularyDialog` (the existing synchronous path,
- * still in place — §44's removal is a later step), this never parses or
- * previews anything itself: it only creates an import record and a
- * presigned upload slot, then hands off to `/admin/curriculum/imports/[importId]`
- * to watch the async Lambda pipeline do the rest.
+ * Spec 19 §48 steps 12-13 — the curriculum import upload screen (now the
+ * only import path; the old synchronous dialog was removed in step 22).
+ * This never parses or previews anything itself: it only creates an import
+ * record and a presigned upload slot, then hands off to
+ * `/admin/curriculum/imports/[importId]` to watch the async Lambda pipeline
+ * do the rest.
  */
 export default async function NewCurriculumImportPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const user = await requireUser();

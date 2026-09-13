@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { forbidden, notFound } from "next/navigation";
 
@@ -32,6 +33,9 @@ export default async function CurriculumImportStatusPage({ params }: { params: P
 
   return (
     <div>
+      <Link href="/admin/curriculum/imports" className="mb-2 inline-block text-sm text-primary underline-offset-4 hover:underline">
+        ← Back to Imports
+      </Link>
       <AdminPageHeader title="Import" description={record.originalFilename} />
       <AsyncImportStatus importId={importId} initialRecord={record} />
     </div>

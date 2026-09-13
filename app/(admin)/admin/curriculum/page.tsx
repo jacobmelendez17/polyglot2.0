@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { CurriculumFilters } from "@/components/admin/curriculum/curriculum-filters";
 import { CurriculumPagination } from "@/components/admin/curriculum/curriculum-pagination";
 import { CurriculumTableSection } from "@/components/admin/curriculum/curriculum-table-section";
-import { ImportVocabularyDialog } from "@/components/admin/curriculum/import-vocabulary-dialog";
 import { ItemReorderList } from "@/components/admin/curriculum/item-reorder-list";
 import { canManageCurriculum } from "@/domains/admin";
 import type { CurriculumStatus } from "@/domains/curriculum";
@@ -126,9 +125,8 @@ export default async function AdminCurriculumPage({
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <AdminPageHeader title="Curriculum" description="Search, filter, create, edit, and publish official curriculum." />
         <div className="flex flex-wrap gap-2">
-          <ImportVocabularyDialog languageId={languageId} />
           <Button asChild variant="outline">
-            <Link href={`/admin/curriculum/imports/new?language=${languageId}`}>Import (async, beta)</Link>
+            <Link href={`/admin/curriculum/imports/new?language=${languageId}`}>Import</Link>
           </Button>
           <Button asChild>
             <Link href={`/admin/curriculum/items/new?language=${languageId}`}>Add item</Link>

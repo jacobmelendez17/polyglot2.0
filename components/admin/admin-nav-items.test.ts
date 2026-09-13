@@ -5,7 +5,7 @@ import { getAdminNavItems, isAdminNavItemCurrent } from "./admin-nav-items";
 describe("getAdminNavItems", () => {
   it("includes the curriculum-management sections when the user can manage curriculum", () => {
     const labels = getAdminNavItems(true).map((item) => item.label);
-    expect(labels).toEqual(["Overview", "Curriculum", "Review", "Levels", "Groups", "Dictionary", "Decks", "Logs", "Sandbox"]);
+    expect(labels).toEqual(["Overview", "Curriculum", "Review", "Levels", "Groups", "Imports", "Dictionary", "Decks", "Logs", "Sandbox"]);
   });
 
   it("omits every curriculum-management section for a developer-only user (spec 11 §4)", () => {
@@ -15,7 +15,7 @@ describe("getAdminNavItems", () => {
 
   it("hides Logs and the Sandbox from a writer, who authors curriculum and nothing else (spec 17)", () => {
     const labels = getAdminNavItems(true, false).map((item) => item.label);
-    expect(labels).toEqual(["Overview", "Curriculum", "Review", "Levels", "Groups", "Dictionary", "Decks"]);
+    expect(labels).toEqual(["Overview", "Curriculum", "Review", "Levels", "Groups", "Imports", "Dictionary", "Decks"]);
     expect(labels).not.toContain("Sandbox");
   });
 });

@@ -11,6 +11,7 @@
 export { getAuditEvents, recordAuditEvent } from "./audit-service";
 export {
   applyDictionaryFieldsToItem,
+  archiveCurriculumImport,
   archiveItem,
   bulkArchiveItems,
   bulkImportVocabulary,
@@ -23,12 +24,15 @@ export {
   createVocabularyGroup,
   deleteItem,
   getCurriculumImportStatus,
+  listActiveCurriculumImports,
+  listArchivedCurriculumImportsForHistory,
   listCurriculumImportRowsForReview,
   moveItem,
   mutateGrammarContentBlock,
   mutateItemExample,
   mutateItemResource,
   mutateUsageContext,
+  permanentlyDeleteCurriculumImport,
   previewVocabularyImport,
   publishItem,
   reorderItems,
@@ -36,6 +40,8 @@ export {
   resetDictionaryFieldOverride,
   resetOwnAccountProgress,
   resolveCurriculumImportRow,
+  retryCurriculumImport,
+  unarchiveCurriculumImport,
   updateItem,
   updateLevel,
   updateVocabularyGroup,
@@ -45,6 +51,7 @@ export type {
   CreateCurriculumImportUploadResult,
   PreviewVocabularyImportServiceInput,
 } from "./admin-mutation-service";
+export type { CurriculumImportsPage } from "./curriculum-import-types";
 export type { ConfirmCurriculumImportResult } from "./curriculum-import-service";
 export type {
   CurriculumImportRecord,
