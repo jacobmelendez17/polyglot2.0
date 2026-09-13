@@ -26,11 +26,13 @@ export type SpriteManifest = {
 
 type Phase = "loading" | "playing" | "done" | "error";
 
+export const HANDWRITING_DEFAULT_HEIGHT_EM = 1.05;
+
 export function HandwritingWord({
   manifest,
   msPerFrame,
   word,
-  heightEm = 1.05,
+  heightEm = HANDWRITING_DEFAULT_HEIGHT_EM,
 }: {
   /** The sprite sheet + grid layout produced by `npm run sprites:build`. Frame `frameCount` draws first, frame 1 is complete. */
   manifest: SpriteManifest;

@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from "react";
 
-import { HandwritingWord, type SpriteManifest } from "@/components/marketing/handwriting-word";
+import {
+  HANDWRITING_DEFAULT_HEIGHT_EM,
+  HandwritingWord,
+  type SpriteManifest,
+} from "@/components/marketing/handwriting-word";
 
 export type HandwritingVariant = {
   manifest: SpriteManifest;
@@ -13,6 +17,14 @@ export type HandwritingVariant = {
   heightEm?: number;
 };
 
+function heightEmOf(variant: HandwritingVariant) {
+  return variant.heightEm ?? HANDWRITING_DEFAULT_HEIGHT_EM;
+}
+
+function widthEmOf(variant: HandwritingVariant) {
+  return heightEmOf(variant) * (variant.manifest.frameWidth / variant.manifest.frameHeight);
+}
+
 /**
  * Cycles a `HandwritingWord` through several language variants of the same word — e.g. the
  * hero's "here" alternating between its Japanese and Korean spellings. Always starts on
@@ -20,6 +32,12 @@ export type HandwritingVariant = {
  * `key` swap on `word` remounts `HandwritingWord` so each turn replays its draw-in animation
  * rather than jump-cutting to the new glyph. Each variant sets its own `msPerFrame` since
  * different frame counts need different per-frame speeds to feel similarly paced.
+ *
+ * Variants may also differ in `heightEm` (e.g. a taller Korean glyph next to a smaller
+ * Japanese one). If each variant sized only itself, switching would resize the inline
+ * element and reflow the whole headline — and everything below it — every few seconds.
+ * Instead this renders a fixed-size box, sized once to the *largest* variant, and centers
+ * whichever variant is currently showing inside it, so the box itself never changes size.
  */
 export function AlternatingHandwritingWord({
   variants,
@@ -40,14 +58,21 @@ export function AlternatingHandwritingWord({
   }, [variants.length, intervalMs]);
 
   const current = variants[index];
+  const boxHeightEm = Math.max(...variants.map(heightEmOf));
+  const boxWidthEm = Math.max(...variants.map(widthEmOf));
 
   return (
-    <HandwritingWord
-      key={current.word}
-      manifest={current.manifest}
-      msPerFrame={current.msPerFrame}
-      word={current.word}
-      heightEm={current.heightEm}
-    />
+    <span
+      className="relative inline-flex items-center justify-center align-[-0.12em]"
+      style={{ height: `${boxHeightEm}em`, width: `${boxWidthEm}em` }}
+    >
+      <HandwritingWord
+        key={current.word}
+        manifest={current.manifest}
+        msPerFrame={current.msPerFrame}
+        word={current.word}
+        heightEm={current.heightEm}
+      />
+    </span>
   );
 }
