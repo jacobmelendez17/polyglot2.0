@@ -9,6 +9,8 @@ export type HandwritingVariant = {
   word: string;
   /** Milliseconds each frame stays on screen — lower draws faster. Total draw time = frameCount * msPerFrame. */
   msPerFrame: number;
+  /** Rendered height, in `em`. Defaults to `HandwritingWord`'s own default (1.05) when omitted. */
+  heightEm?: number;
 };
 
 /**
@@ -45,6 +47,7 @@ export function AlternatingHandwritingWord({
       manifest={current.manifest}
       msPerFrame={current.msPerFrame}
       word={current.word}
+      heightEm={current.heightEm}
     />
   );
 }

@@ -5,11 +5,12 @@ import heroHereJapSprite from "@/public/sprites/hero-here-jap.json";
 import heroHereKorSprite from "@/public/sprites/hero-here-kor.json";
 
 // "Here" drawn in Japanese and Korean, taking turns in the hero headline.
-// msPerFrame = milliseconds each frame is held; lower plays faster. Tune these two numbers
-// directly to test speeds — save and the dev server hot-reloads the change.
+// msPerFrame = milliseconds each frame is held; lower plays faster.
+// heightEm = rendered height in em (defaults to 1.05 if omitted); width follows the sprite's
+// aspect ratio automatically. Tune these directly to test — save and the dev server hot-reloads.
 const HERE_VARIANTS: readonly HandwritingVariant[] = [
-  { manifest: heroHereJapSprite, word: "ここ", msPerFrame: 35 },
-  { manifest: heroHereKorSprite, word: "여기", msPerFrame: 18 },
+  { manifest: heroHereJapSprite, word: "ここ", msPerFrame: 30 },
+  { manifest: heroHereKorSprite, word: "여기", msPerFrame: 17, heightEm: 1.2 },
 ];
 // How long each variant stays visible (draw-in + hold) before switching, in milliseconds.
 const HERE_INTERVAL_MS = 4000;

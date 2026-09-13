@@ -30,12 +30,15 @@ export function HandwritingWord({
   manifest,
   msPerFrame,
   word,
+  heightEm = 1.05,
 }: {
   /** The sprite sheet + grid layout produced by `npm run sprites:build`. Frame `frameCount` draws first, frame 1 is complete. */
   manifest: SpriteManifest;
   msPerFrame: number;
   /** The literal word, for the always-present accessible text and the load-failure fallback. */
   word: string;
+  /** Rendered height, in `em` (scales with surrounding text size). Width follows from the manifest's aspect ratio. */
+  heightEm?: number;
 }) {
   const [prefersReducedMotion] = useState(resolveInitialReducedMotion);
   const [phase, setPhase] = useState<Phase>("loading");
@@ -108,8 +111,8 @@ export function HandwritingWord({
 
   return (
     <span
-      className="relative inline-block h-[1.05em] align-[-0.12em]"
-      style={{ aspectRatio: `${manifest.frameWidth} / ${manifest.frameHeight}` }}
+      className="relative inline-block align-[-0.12em]"
+      style={{ height: `${heightEm}em`, aspectRatio: `${manifest.frameWidth} / ${manifest.frameHeight}` }}
     >
       <span className="sr-only">{word}</span>
       {(phase === "playing" || phase === "done") && (

@@ -59,6 +59,7 @@ export function PasswordField() {
   }
 
   async function handleSave() {
+    if (!user) return;
     if (newPassword !== confirmPassword) {
       setError("New password and confirmation don't match.");
       return;

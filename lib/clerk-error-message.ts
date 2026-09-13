@@ -1,4 +1,4 @@
-import { isClerkAPIResponseError } from "@clerk/nextjs";
+import { isClerkAPIResponseError } from "@clerk/nextjs/errors";
 
 /**
  * Extracts a safe, user-facing message from a Clerk client-SDK error (spec

@@ -162,8 +162,10 @@ every boundary before considering these done)*
 24. Delete Account — request → email-verified confirmation → 7-day pending
     window → cancel → the Vercel Cron finalize job from decision 1.
 
-**Units 1, 2, and 3 are done — see their Completed entries below.** Unit 4
-(Account — Email & Password, Beta placeholder, Tours) is next. **Process decision (2026-09-13, user):** the established
+**Units 1-4 are done — see their Completed entries below. The entire
+Account section is complete.** Unit 5 (General — Timezone) is next: a
+Settings UI over the already-existing `users.timezone` column, no
+migration needed. **Process decision (2026-09-13, user):** the established
 real-browser verification recipe (`npx playwright` + `@clerk/testing`,
 Environment Notes) is blocked by Auto Mode's command classifier in this
 session — confirmed blocked on two independent attempts, including trying
@@ -1181,6 +1183,73 @@ writing to real `user_item_progress` rows.
 ## Completed
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
+
+- **Spec 20 unit 4 — Account: Email, Password, Beta, Tours** (2026-09-13).
+  Completes the Account section.
+
+  **Email and Password are custom flows on Clerk's client SDK**
+  (`components/settings/account/email-field.tsx`,
+  `.../password-field.tsx`), not a second Polyglot-owned identity
+  implementation — Clerk remains authoritative for both, exactly as spec 20
+  requires. Email: `user.createEmailAddress` →
+  `emailAddress.prepareVerification({ strategy: "email_code" })` →
+  `emailAddress.attemptVerification({ code })` → `user.update({
+  primaryEmailAddressId })` + `user.reload()`; the new address only becomes
+  primary after verification succeeds. Password: a Dialog (Polyglot owns the
+  modal UX) calling `user.updatePassword(...)`; `user.passwordEnabled`
+  decides whether an "Old Password" field renders *and* whether
+  `currentPassword` is even included in the request, so an account with no
+  existing password credential never sees an impossible old-password
+  requirement. Neither ever touches Neon. A shared `getClerkErrorMessage`
+  helper (`lib/clerk-error-message.ts`) extracts a safe message from a
+  `ClerkAPIResponseError` (imported from **`@clerk/nextjs/errors`**, not
+  `@clerk/nextjs` itself — the top-level package doesn't re-export it, and
+  `@clerk/react` isn't a declared direct dependency, so this subpath is the
+  correct stable source, confirmed by reading `@clerk/nextjs`'s own
+  `package.json` exports map rather than guessing).
+
+  **Beta** renders "Coming Soon" only — no toggle, no backend field for it,
+  per spec's explicit prohibition.
+
+  **Tours reuses the existing onboarding slideshow rather than a second
+  implementation**, exactly as spec 20 requires — but doing so required a
+  real, deliberate access-control change: `/onboarding?replay=1` was
+  previously gated to `canAccessAdminArea(user)` (admin/developer only,
+  spec 15's Sandbox-only "Replay Onboarding"). Spec 20 puts the same replay
+  control in every learner's own Settings, so that gate is now open to any
+  authenticated user — safe to widen because replay was already
+  side-effect-free by construction (`OnboardingFlow`'s `isReplay` skips the
+  completion write entirely, and the completion Server Action independently
+  refuses sandbox writes regardless of caller), so opening *who* may request
+  a preview widens no authoritative behavior. `OnboardingFlow` gained a
+  `returnTo` prop (default `/admin/sandbox`, preserving the Sandbox's
+  existing caller unchanged) instead of its previous hardcoded
+  Sandbox-return and "Sandbox preview" banner text — Settings passes
+  `returnTo=settings` → `/settings/account`. `returnTo` is deliberately a
+  closed two-value set resolved server-side in the page component, never an
+  arbitrary client-supplied path, to avoid turning a preview link into an
+  open-redirect primitive for zero real benefit.
+
+  `onboarding-flow.tsx` had no test file at all before this unit despite
+  being real, shipped logic — added one alongside this change (4 tests)
+  specifically because the change touched production behavior (finish
+  destination, banner copy), not just because coverage was nice to have.
+
+  Verified: `tsc`, `eslint`, the full `npm run test` (792 tests, no
+  regressions — 16 new component tests for Email/Password covering the
+  loading state, the full verify round-trip, `passwordEnabled` branching,
+  mismatched-confirmation refusal, and Clerk-error surfacing, plus the 4 new
+  onboarding-flow tests), and `npm run build`. **No live-browser pass** —
+  see Current Goal / Next Up #26. This is the unit where that gap matters
+  most so far: the Email/Password flows call real Clerk client APIs that
+  are only exercised here through mocks, never against a live Clerk
+  session, so real-provider edge cases (rate limiting, CAPTCHA, actual
+  verification-email delivery) remain unverified until that real-browser
+  pass happens.
+
+  **Spec 20 Account section is now fully implemented** (Name, Username,
+  Email, Password, Beta, Tours) — units 1-4 complete. Unit 5 (General —
+  Timezone) is next.
 
 - **Spec 20 unit 3 — Account: Username** (2026-09-13). `users.username`
   is a genuinely new column (`db/migrations/0021_colossal_longshot.sql`,
