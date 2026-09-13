@@ -30,5 +30,5 @@ export function getCurriculumImportStorage(): CurriculumImportStorage {
   return cachedStorage;
 }
 
-export { curriculumImportObjectKey } from "./curriculum-import-object-key";
+export { curriculumImportObjectKey, parseCurriculumImportObjectKey } from "./curriculum-import-object-key";
 export type { CreatePresignedUploadInput, CurriculumImportStorage, PresignedUpload } from "./types";

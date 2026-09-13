@@ -24,4 +24,6 @@ export interface CurriculumImportStorage {
   createPresignedUploadUrl(input: CreatePresignedUploadInput): Promise<PresignedUpload>;
   /** Permanent-deletion support (spec 19 §26) — removes the source object if it still exists; never throws for an already-expired/missing object. */
   deleteObject(key: string): Promise<void>;
+  /** Reads a source artifact's full text content (spec 19 §7 — the preview job retrieves the source file from S3 rather than trusting anything embedded in the job message). */
+  getObjectText(key: string): Promise<string>;
 }

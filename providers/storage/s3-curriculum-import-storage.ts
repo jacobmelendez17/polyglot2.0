@@ -1,4 +1,4 @@
-import { DeleteObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 import type { CreatePresignedUploadInput, CurriculumImportStorage, PresignedUpload } from "./types";
@@ -41,5 +41,14 @@ export class S3CurriculumImportStorage implements CurriculumImportStorage {
   // uploaded), so no existence check is needed first.
   async deleteObject(key: string): Promise<void> {
     await this.client.send(new DeleteObjectCommand({ Bucket: this.bucketName, Key: key }));
+  }
+
+  async getObjectText(key: string): Promise<string> {
+    const result = await this.client.send(new GetObjectCommand({ Bucket: this.bucketName, Key: key }));
+    const text = await result.Body?.transformToString("utf-8");
+    if (text === undefined) {
+      throw new Error(`Object "${key}" in bucket "${this.bucketName}" has no body.`);
+    }
+    return text;
   }
 }

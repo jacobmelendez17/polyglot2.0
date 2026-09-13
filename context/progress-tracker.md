@@ -265,12 +265,97 @@ OIDC federation. Not a blocker — no production environment exists yet
 (§48 step 23) — but worth deciding deliberately when it does, rather than
 reusing the broad Terraform-applying credentials for the running app.
 
-**Next unit: §48 steps 8-10 — the Lambda-safe Neon binding, the thin Lambda
-handler, and the preview job.** This is where `aws/lambda/curriculum-import/`
-application code starts, calling `bulk-import-service.ts`'s existing
-resolver and `domains/admin/curriculum-import-service.ts` (unit 3) — the
-Terraform `aws_lambda_function` resource that deploys it, and connecting
-S3→SQS→Lambda (step 11), come after the handler code exists to deploy.
+**Units 8-10 (§48 — Lambda-safe Neon binding, thin handler, preview job) are
+done, 2026-09-12.** `aws/lambda/curriculum-import/` now has real application
+code, no AWS deployment yet — that's step 11, once this code exists to
+deploy (matching the spec's own step ordering). No `terraform apply` this
+unit; pure application code, verified the normal way.
+
+- **`db.ts`** — the Lambda-safe Neon binding spec 19 §31 calls for: its own
+  `Pool`/`drizzle` client from `DATABASE_URL` (a plain env var, §42), never
+  `db/client.ts` — that module's `import "server-only"` throws
+  unconditionally outside a real webpack `react-server` bundle, which a
+  Lambda Node runtime never has, exactly the same reason
+  `scripts/curriculum-import.ts` builds its own client. Confirmed
+  `bulk-import-service.ts`'s whole dependency chain (duplicate detection,
+  `curriculum-mutation-repository`, `idempotency`, `audit-repository`) is
+  free of the guard too, by grepping rather than assuming, before writing
+  code that depends on that being true.
+- **`job-schema.ts`** — the one place recognizing every shape this queue's
+  messages can take: a native S3 `ObjectCreated` notification (no envelope —
+  it triggers a preview job by its own shape) and the custom
+  `{version, jobType: "COMMIT_IMPORT", importId, actorUserId}` envelope
+  Next.js will send on confirmation (§48 step 14, not built yet — typed now
+  so there's never a second parser later). Decodes S3's own key encoding
+  (`+` as space, percent-encoding) before the key ever reaches
+  `parseCurriculumImportObjectKey`.
+- **`handler.ts`** — deliberately thin, exactly per §30's diagram: parse →
+  route by `message.kind` → call the job. A `commit` message throws "not yet
+  implemented" rather than silently dropping it, since nothing produces one
+  yet (§48 step 14) and the DLQ is the correct place for a message nothing
+  can handle, not an unlogged early return.
+- **`preview-job.ts`** — calls `previewVocabularyImport` from
+  `bulk-import-service.ts` unchanged, then `recordCurriculumImportPreview`
+  (unit 3) to persist the result. `ImportRowPreview.placement` (a move's
+  from/to level+group) is folded into the existing `changedFields`
+  `{field, from, to}` array as synthetic `"level"`/`"group"` entries rather
+  than adding dedicated columns — reuses unit 1's schema as-is, no
+  migration. Wraps the whole flow in a try/catch that calls
+  `markCurriculumImportFailed` with a structured code (`IMPORT_PARSE_FAILED`
+  for a bad CSV, `IMPORT_PREVIEW_FAILED` as the fallback) before rethrowing,
+  so SQS's normal retry/DLQ behavior (§22) still applies — a caught-and-swallowed
+  error would silently strand the import in `previewing` forever instead.
+- **Reads S3 through the same `CurriculumImportStorage` interface** unit
+  4-5 built for presigned uploads — added `getObjectText(key)` to that
+  interface/implementation rather than writing Lambda-specific S3 code, so
+  there's one storage boundary, not two. The Lambda constructs its own
+  `S3CurriculumImportStorage` instance per message (bucket name comes from
+  the S3 event itself, not an env var), importing it directly from
+  `s3-curriculum-import-storage.ts` rather than `providers/storage/index.ts`
+  — the barrel's `"server-only"` guard would throw in the Lambda runtime for
+  the identical reason `db/client.ts` would.
+
+**Testing tier split deliberately, matching spec 19 §46's own tiers:**
+`job-schema.test.ts` and the object-key parser's tests are pure unit tests
+(no DB, no AWS). `preview-job.integration.test.ts` (5 tests: clean create,
+needs-review on a bad group, parse-failure → `failed`, missing-S3-object →
+`failed`, and a duplicate-delivery replay) uses a real database
+(`withTestTransaction`) but a **fake in-memory `CurriculumImportStorage`**
+rather than real S3 — this is the "does the state machine + resolver behave
+correctly" tier, deliberately separate from `s3-curriculum-import-storage.integration.test.ts`'s
+"does the real AWS call work" tier, so this suite runs (and this unit was
+verified) without needing AWS credentials at all.
+
+Verified: `tsc --noEmit`, `eslint`, `npm run test` (736/736 — 7 new pure
+tests), `npm run test:integration`'s new file (5/5, real DB), the full
+integration suite re-run to check for regressions, and `npm run build`.
+
+**Known simplification, flagged rather than silently dropped:** two pieces
+of `ImportRowPreview` aren't persisted to `curriculum_import_rows` yet —
+`duplicateOfEarlierRow` (an FYI note when two rows in the same file share a
+term) and `existingDuplicates` (homonym candidates for a `create` row).
+Neither blocks confirmation or changes what gets imported; they're purely
+informational context spec 19 §8 wants surfaced in the review UI. Add them
+to `reviewReason` (or a new column) when the Admin review UI (§48 step 13)
+actually needs to show them — no sense designing that shape before the UI
+that consumes it exists.
+
+**Also flagged:** `createCurriculumImport`'s repository function always lets
+Postgres generate the row's `id` (`defaultRandom()`). The real "create
+import" flow will need the *opposite* order — generate the id client-side
+first (so the S3 key and the presigned URL can be computed before the row
+exists), then insert with that explicit id. Small, contained change
+(`.values({ id: input.id ?? undefined, ... })`-shaped); belongs with §48
+steps 12-13's real Server Action, not this unit, since nothing calls this
+function outside tests yet.
+
+**Next unit: §48 step 11 — connect S3 → SQS → Lambda for real.** This is
+where `aws_lambda_function` finally gets a Terraform resource (packaging
+`aws/lambda/curriculum-import/` — esbuild or similar, TBD — into a
+deployable zip), the SQS event-source mapping, and the S3 bucket
+notification wiring the two Terraform-only unit 4-7 resources to the
+application code this unit just wrote. First real `terraform apply` that
+deploys compute, not just storage/queues/IAM.
 
 **Spec 18 (Item Detail & Lesson Item Layout) is in progress — unit 1 shipped
 2026-09-09.** The spec (`context/feature-specs/18-item-page.md`) redesigns
@@ -1591,12 +1676,14 @@ Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real
 ## In Progress
 
 **Spec 19 (Asynchronous Curriculum Imports with AWS Lambda)** — §48 steps
-1-7 shipped 2026-09-12 (import-history schema; confirmed the existing
+1-10 shipped 2026-09-12 (import-history schema; confirmed the existing
 importer is already Lambda-shaped; the import state-machine domain layer;
 S3 upload orchestration + its Terraform; SQS + DLQ + the Lambda's IAM
-execution role — all applied to real AWS with the user's explicit sign-off
-each time). See Current Goal for the full design and what each unit did.
-Next: steps 8-10, the actual Lambda application code.
+execution role, applied to real AWS with sign-off each time; and now the
+Lambda's actual application code — DB binding, thin handler, preview job —
+verified without needing AWS credentials via a fake storage double). See
+Current Goal for the full design. Next: step 11, deploying it for real
+(Terraform `aws_lambda_function` + wiring S3→SQS→Lambda).
 
 **Spec 18 (Item Detail & Lesson Item Layout)** — units 1, 2, and 5 shipped
 2026-09-09 (data model + shared read model; the shared UI shell and the
