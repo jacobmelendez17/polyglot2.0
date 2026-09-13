@@ -7,6 +7,8 @@
  * "use client" component.
  */
 export { hasRole, requireRole } from "./role-helpers";
+export { DEFAULT_CONTENT_PREFERENCES } from "./content-preferences";
+export type { ContentPreferences } from "./content-preferences";
 export { isOnboardingRequired } from "./onboarding";
 export {
   CURRICULUM_MODES,

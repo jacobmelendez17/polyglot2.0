@@ -6,6 +6,7 @@ import { getRateLimiter } from "@/providers/rate-limit";
 import { SANDBOX_SESSION_COOKIE, verifySandboxGrant } from "@/domains/sandbox/sandbox-session-token";
 import { AppError } from "@/lib/errors/app-error";
 
+import type { ContentPreferences } from "./content-preferences";
 import type { CurriculumMode, LanguageSettings } from "./curriculum-preference";
 import {
   completeOnboarding as completeOnboardingInDb,
@@ -13,9 +14,12 @@ import {
   findUserByClerkUserId,
   findUserById,
   findUsersByIds,
+  getContentPreferences as getContentPreferencesFromDb,
   provisionUser,
+  saveContentPreferences,
   saveCurriculumPreference,
   updateDisplayName,
+  updateTimezone as updateTimezoneInDb,
   updateUsername as updateUsernameInDb,
 } from "./user-repository";
 import { splitDisplayNameForClerk } from "./clerk-name-sync";
@@ -174,4 +178,48 @@ export async function updateUsername(input: { userId: string; username: string }
   }
 
   return updateUsernameInDb(db, input.userId, input.username);
+}
+
+/**
+ * Spec 20 General — Timezone. Ordinary "account-settings" rate limit — this
+ * is presentation/scheduling-anchor data (architecture.md: "changing
+ * timezone does not make a review become due early"), not the sensitive
+ * category Settings Security calls out for a tighter limit.
+ */
+export async function updateTimezone(input: { userId: string; timezone: string }): Promise<PolyglotUser> {
+  const decision = await getRateLimiter().check({ policy: "account-settings", subject: input.userId });
+  if (!decision.allowed) {
+    throw new AppError("RATE_LIMITED", `Please slow down and try again in ${decision.retryAfterSeconds}s.`);
+  }
+
+  return updateTimezoneInDb(db, input.userId, input.timezone);
+}
+
+/**
+ * Spec 20 General — effective content preferences. The one place
+ * `domains/curriculum`'s real-database lesson-selection binding resolves a
+ * learner's NSFW preference from — architecture.md's "Server-Side Settings
+ * Reads" names exactly this pairing ("Curriculum reads → authoritative
+ * NSFW preference").
+ */
+export async function getEffectiveContentPreferences(userId: string): Promise<ContentPreferences> {
+  return getContentPreferencesFromDb(db, userId);
+}
+
+/**
+ * Spec 20's `updateContentPreferences`. `input` carries only the field(s)
+ * the calling toggle changed — Hide English and NSFW Content save
+ * independently, per "prefer narrow mutations" rather than one shared
+ * request that could race between two tabs.
+ */
+export async function updateContentPreferences(
+  userId: string,
+  input: Partial<ContentPreferences>,
+): Promise<ContentPreferences> {
+  const decision = await getRateLimiter().check({ policy: "account-settings", subject: userId });
+  if (!decision.allowed) {
+    throw new AppError("RATE_LIMITED", `Please slow down and try again in ${decision.retryAfterSeconds}s.`);
+  }
+
+  return saveContentPreferences(db, userId, input);
 }

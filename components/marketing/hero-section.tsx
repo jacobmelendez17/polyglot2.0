@@ -51,9 +51,7 @@ export function HeroSection() {
           <AlternatingHandwritingWord variants={HERE_VARIANTS} intervalMs={HERE_INTERVAL_MS} />
         </h1>
         <p className="max-w-xl text-balance text-base text-muted-foreground sm:text-lg">
-          Polyglot teaches Spanish through a structured curriculum where vocabulary and grammar are
-          equally important study items. Every word and grammar point you learn is scheduled for
-          review by a spaced-repetition system, so what you learn actually sticks.
+          Languages catered to you! Learn, practice, and immerse yourself in personalized study material. Try today for free.
         </p>
         <LandingCta />
       </Reveal>

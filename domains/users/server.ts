@@ -9,12 +9,15 @@
  */
 export {
   completeOnboarding,
+  getEffectiveContentPreferences,
   getLanguageSettings,
   getUsersByIds,
   resolveCurrentUser,
   requireUser,
   setCurriculumPreference,
+  updateContentPreferences,
   updateName,
+  updateTimezone,
   updateUsername,
 } from "./user-service";
 export { resolveUserNow } from "./user-clock";

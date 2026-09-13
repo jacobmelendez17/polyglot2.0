@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { check, foreignKey, index, pgEnum, pgTable, primaryKey, uuid } from "drizzle-orm/pg-core";
+import { boolean, check, foreignKey, index, pgEnum, pgTable, primaryKey, uuid } from "drizzle-orm/pg-core";
 
 import { timestamps } from "./columns";
 import { vocabularyGroups } from "./curriculum";
@@ -81,3 +81,19 @@ export const userLanguageSettings = pgTable(
     index("user_language_settings_selected_group_idx").on(t.selectedVocabularyGroupId),
   ],
 );
+
+/**
+ * Account-wide General settings (spec 20). One row per user, created only
+ * once the learner changes something — the "Effective Defaults" pattern the
+ * spec asks for explicitly: `stored preference ?? Polyglot default`, so no
+ * account needs a fully populated row. Both defaults here are `false`,
+ * matching spec 20's stated defaults for these two toggles exactly.
+ */
+export const userPreferences = pgTable("user_preferences", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  hideEnglishReviews: boolean("hide_english_reviews").notNull().default(false),
+  showNsfwContent: boolean("show_nsfw_content").notNull().default(false),
+  ...timestamps(),
+});

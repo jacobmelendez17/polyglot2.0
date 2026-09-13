@@ -155,6 +155,13 @@
       "when": 1789334732093,
       "tag": "0021_colossal_longshot",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1789337328288,
+      "tag": "0022_chilly_skaar",
+      "breakpoints": true
     }
   ]
 }

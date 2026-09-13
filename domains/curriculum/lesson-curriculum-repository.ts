@@ -36,6 +36,7 @@ import type { CurriculumExample, GrammarItem, LearningItem, VocabularyItem } fro
 
 /** Only published curriculum is ever teachable. A draft or archived item must never enter a lesson batch. */
 const PUBLISHED = "published" as const;
+const SAFE = "safe" as const;
 
 type AcceptedAnswerRow = { learningItemId: string; side: "term" | "meaning"; value: string };
 
@@ -207,6 +208,12 @@ export async function getEligibleLessonItems(
   db: DbClient,
   userId: string,
   languageId: string,
+  // Spec 20 General — NSFW Content: "NSFW lesson items are not selected."
+  // Defaults `false` — safe by default, same as every other visibility gate
+  // in this codebase. The real caller (`curriculum-db-service.ts`'s
+  // `databaseCurriculumReader`) resolves the learner's actual stored
+  // preference and passes it in; this function never reads it itself.
+  { includeNsfw = false }: { includeNsfw?: boolean } = {},
 ): Promise<LearningItem[]> {
   const enrolled = db
     .select({ learningItemId: userItemProgress.learningItemId })
@@ -227,6 +234,7 @@ export async function getEligibleLessonItems(
         eq(learningItems.languageId, languageId),
         eq(learningItems.status, PUBLISHED),
         eq(levels.status, PUBLISHED),
+        includeNsfw ? undefined : eq(learningItems.contentClassification, SAFE),
         inArray(learningItems.levelId, unlockedLevels),
         notInArray(learningItems.id, enrolled),
       ),

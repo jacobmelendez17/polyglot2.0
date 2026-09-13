@@ -162,10 +162,9 @@ every boundary before considering these done)*
 24. Delete Account — request → email-verified confirmation → 7-day pending
     window → cancel → the Vercel Cron finalize job from decision 1.
 
-**Units 1-4 are done — see their Completed entries below. The entire
-Account section is complete.** Unit 5 (General — Timezone) is next: a
-Settings UI over the already-existing `users.timezone` column, no
-migration needed. **Process decision (2026-09-13, user):** the established
+**Units 1-5 are done — see their Completed entries below. The entire
+Account section is complete; General has Timezone.** Unit 6 (General —
+Content preferences: Hide English during Reviews + NSFW plumbing) is next. **Process decision (2026-09-13, user):** the established
 real-browser verification recipe (`npx playwright` + `@clerk/testing`,
 Environment Notes) is blocked by Auto Mode's command classifier in this
 session — confirmed blocked on two independent attempts, including trying
@@ -1183,6 +1182,49 @@ writing to real `user_item_progress` rows.
 ## Completed
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
+
+- **Spec 20 unit 5 — General: Timezone** (2026-09-13). A Settings UI over
+  the already-existing `users.timezone` column — no migration. New
+  `lib/time/timezones.ts` (`getSupportedTimezones`/`isSupportedTimezone`)
+  is the one list both the picker and the Server Action's Zod validation
+  read, sourced from the runtime's own `Intl.supportedValuesOf("timeZone")`
+  rather than a bundled/maintained list or a new dependency.
+  `TimezoneSelect` (`components/settings/general/`) is a `Popover` + a
+  plain filtered array — ~400 flat options need nothing more, so no
+  combobox/`cmdk` dependency was added.
+
+  **A real bug caught by the test, not a test-authoring mistake**:
+  `Intl.supportedValuesOf("timeZone")` does **not** include `"UTC"` in this
+  runtime (confirmed directly at the Node REPL, not assumed) — even though
+  `new Intl.DateTimeFormat(undefined, { timeZone: "UTC" })` accepts it
+  without error. ICU's enumerable list is canonical IANA zone names only;
+  `"UTC"` is a separately-specified alias every engine still has to accept
+  for formatting. Since `users.timezone` defaults to exactly `"UTC"` for
+  every account (spec 08), the original version of `getSupportedTimezones`
+  would have made the picker unable to find or re-select the value nearly
+  every account starts with, and would have rejected `"UTC"` at the Zod
+  validation boundary. Fixed by explicitly including `"UTC"` in both the
+  returned list and the validity set. Worth remembering for any future code
+  that treats `Intl.supportedValuesOf("timeZone")` as a complete timezone
+  list — it isn't, by design.
+
+  **A real accessibility bug was also caught and fixed before shipping**:
+  the field's visual label was a `<label htmlFor={triggerId}>` pointing at
+  the trigger button. A `<label for>` associated with a button overrides
+  the button's *own text* as its accessible name — so a screen reader would
+  always announce just "Timezone", never the currently selected value.
+  Fixed by using a plain (non-`for`) `<span>` for the visual label and an
+  explicit `aria-label={"Timezone, " + value}` on the trigger, so the
+  announced name always includes the current selection. Worth remembering
+  as a general pattern: never `<label for>` a custom trigger whose own
+  visible text is supposed to remain part of its accessible name.
+
+  Verified: `tsc`, `eslint`, the full `npm run test` (801 tests, no
+  regressions — 19 new: 3 for the timezone list/validity helper, 16 for the
+  `TimezoneSelect` component covering search filtering, the no-match state,
+  save/error round-trips, and the accessible-name fix), and `npm run
+  build`. No schema change, so no migration/drift check needed. **No
+  live-browser pass** — see Current Goal / Next Up #26.
 
 - **Spec 20 unit 4 — Account: Email, Password, Beta, Tours** (2026-09-13).
   Completes the Account section.

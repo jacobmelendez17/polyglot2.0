@@ -257,6 +257,19 @@ describe("curriculum repository", () => {
     });
   });
 
+  it("excludes an NSFW item from getLevelItems unless includeNsfw is true (spec 20 General)", async () => {
+    await withTestTransaction(async (tx) => {
+      const { level1Id, gatoId } = await seedTestFixtures(tx);
+      await tx.update(learningItems).set({ contentClassification: "nsfw" }).where(eq(learningItems.id, gatoId));
+
+      const safeOnly = await getLevelItems(tx, level1Id);
+      expect(safeOnly.map((item) => item.id)).not.toContain(gatoId);
+
+      const withNsfw = await getLevelItems(tx, level1Id, { includeNsfw: true });
+      expect(withNsfw.map((item) => item.id)).toContain(gatoId);
+    });
+  });
+
   it("resolves a supporting sentence relationship for a learning item", async () => {
     await withTestTransaction(async (tx) => {
       const { gatoId } = await seedTestFixtures(tx);

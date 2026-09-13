@@ -2,9 +2,11 @@ import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import type { DbClient } from "@/db/client";
 import { isUniqueViolation } from "@/db/postgres-errors";
-import { languages, levels, userLanguageSettings, users, userLevelProgress } from "@/db/schema";
+import { languages, levels, userLanguageSettings, userPreferences, users, userLevelProgress } from "@/db/schema";
 import { AppError } from "@/lib/errors/app-error";
 
+import type { ContentPreferences } from "./content-preferences";
+import { DEFAULT_CONTENT_PREFERENCES } from "./content-preferences";
 import type { CurriculumMode, LanguageSettings } from "./curriculum-preference";
 import { getDefaultLanguageCode } from "./provisioning-config";
 import type { PolyglotUser } from "./user-types";
@@ -131,6 +133,42 @@ export async function saveCurriculumPreference(
 }
 
 /**
+ * This learner's account-wide content preferences (spec 20 General), or the
+ * centralized defaults when they have never changed either — "a user should
+ * not require a fully populated row containing every possible setting."
+ */
+export async function getContentPreferences(db: DbClient, userId: string): Promise<ContentPreferences> {
+  const [row] = await db.select().from(userPreferences).where(eq(userPreferences.userId, userId)).limit(1);
+  return row
+    ? { hideEnglishReviews: row.hideEnglishReviews, showNsfwContent: row.showNsfwContent }
+    : DEFAULT_CONTENT_PREFERENCES;
+}
+
+/**
+ * Persists one or both content-preference fields (spec 20's
+ * `updateContentPreferences`). `input` only ever carries the field(s) the
+ * calling toggle actually changed — the `ON CONFLICT` branch updates only
+ * those columns, and the plain-insert branch relies on `user_preferences`'
+ * own column defaults for the field(s) left unset, so a first-time save of
+ * one toggle can never silently invent a value for the other.
+ */
+export async function saveContentPreferences(
+  db: DbClient,
+  userId: string,
+  input: Partial<ContentPreferences>,
+): Promise<ContentPreferences> {
+  const [row] = await db
+    .insert(userPreferences)
+    .values({ userId, ...input })
+    .onConflictDoUpdate({
+      target: userPreferences.userId,
+      set: { ...input, updatedAt: new Date() },
+    })
+    .returning();
+  return { hideEnglishReviews: row.hideEnglishReviews, showNsfwContent: row.showNsfwContent };
+}
+
+/**
  * Persists the Polyglot-side half of a Name change (spec 20 Account — Name).
  * The Clerk-side sync happens in `user-service.ts`'s `updateName`, which
  * calls this after; this function does not know Clerk exists.
@@ -164,6 +202,15 @@ export async function updateUsername(db: DbClient, userId: string, username: str
     }
     throw error;
   }
+}
+
+/** Spec 20 General — Timezone. `users.timezone` already exists (spec 08); this just gives it a Settings write path. */
+export async function updateTimezone(db: DbClient, userId: string, timezone: string): Promise<PolyglotUser> {
+  const [row] = await db.update(users).set({ timezone, updatedAt: new Date() }).where(eq(users.id, userId)).returning();
+  if (!row) {
+    throw new AppError("ITEM_NOT_FOUND", "That account could not be found.");
+  }
+  return toPolyglotUser(row);
 }
 
 export async function findUsersByIds(db: DbClient, ids: string[]): Promise<PolyglotUser[]> {

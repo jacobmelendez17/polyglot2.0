@@ -20,6 +20,17 @@ export const curriculumStatusEnum = pgEnum("curriculum_status", ["draft", "pendi
 export const learningItemTypeEnum = pgEnum("learning_item_type", ["vocabulary", "grammar"]);
 
 /**
+ * Spec 20 General — NSFW Content. A property of the content itself, not of
+ * any one learner's preference (that lives on `user_preferences`). Defaults
+ * `safe` on every existing and new row — nothing in the current curriculum
+ * needs classifying as `nsfw` yet, and no Admin authoring UI to set it
+ * exists (a deliberate scope decision, recorded in progress-tracker.md);
+ * this is the plumbing the learner-facing preference and its filtering
+ * checks against, ready for whenever that authoring UI does exist.
+ */
+export const contentClassificationEnum = pgEnum("content_classification", ["safe", "nsfw"]);
+
+/**
  * Spec 11 (rewrite) — Accepted-Answer Side. Same two values and meaning as
  * `learner-content.ts`'s `synonym_side` (a synonym/answer accepted for
  * `gato → cat` isn't necessarily acceptable for `cat → gato`), but declared
@@ -163,6 +174,8 @@ export const learningItems = pgTable(
     // already-published item (spec 11 §27/§28), which always sets status
     // explicitly rather than relying on this default.
     status: curriculumStatusEnum("status").notNull().default("pending"),
+    // Spec 20 General — NSFW Content. See `contentClassificationEnum`.
+    contentClassification: contentClassificationEnum("content_classification").notNull().default("safe"),
     position: integer("position").notNull(),
     lessonPriority: integer("lesson_priority").notNull(),
     // Spec 11 (rewrite) — optimistic-concurrency version, bumped on every
@@ -306,6 +319,8 @@ export const sentences = pgTable("sentences", {
   targetText: text("target_text").notNull(),
   translation: text("translation").notNull(),
   status: curriculumStatusEnum("status").notNull().default("draft"),
+  // Spec 20 General — NSFW Content. See `contentClassificationEnum`.
+  contentClassification: contentClassificationEnum("content_classification").notNull().default("safe"),
   ...timestamps(),
 });
 

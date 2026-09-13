@@ -1,5 +1,6 @@
 import { db } from "@/db/client";
 import { getConfirmedDictionaryDataForItems } from "@/domains/lexicon/server";
+import { getEffectiveContentPreferences } from "@/domains/users/server";
 
 import * as adminRepository from "./curriculum-admin-repository";
 import {
@@ -138,9 +139,21 @@ async function withConfirmedDictionaryData(items: LearningItem[]): Promise<Learn
  * `domains/lessons` receives this object; the fixture equivalent in
  * `curriculum-service.ts` is what its unit tests receive instead. Both
  * satisfy the same port, so the orchestration code is identical either way.
+ *
+ * `getEligibleLearningItems` resolves the learner's real NSFW preference
+ * here, at the real-implementation binding, rather than widening the
+ * `LessonCurriculumReader` port itself (spec 20 General — NSFW Content):
+ * the port's fixture-backed test double has no reason to know Settings
+ * exists, and every one of `lesson-service.ts`'s several call sites already
+ * receives only `(userId, languageId)`.
  */
 export const databaseCurriculumReader = {
-  getEligibleLearningItems: async (userId: string, languageId: string) => withConfirmedDictionaryData(await getEligibleLessonItems(db, userId, languageId)),
+  getEligibleLearningItems: async (userId: string, languageId: string) => {
+    const { showNsfwContent } = await getEffectiveContentPreferences(userId);
+    return withConfirmedDictionaryData(
+      await getEligibleLessonItems(db, userId, languageId, { includeNsfw: showNsfwContent }),
+    );
+  },
   getLearningItemsByIds: async (ids: string[]) => withConfirmedDictionaryData(await getLessonItemsByIds(db, ids)),
 };
 

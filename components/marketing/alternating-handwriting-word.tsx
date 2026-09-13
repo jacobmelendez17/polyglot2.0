@@ -36,8 +36,15 @@ function widthEmOf(variant: HandwritingVariant) {
  * Variants may also differ in `heightEm` (e.g. a taller Korean glyph next to a smaller
  * Japanese one). If each variant sized only itself, switching would resize the inline
  * element and reflow the whole headline — and everything below it — every few seconds.
- * Instead this renders a fixed-size box, sized once to the *largest* variant, and centers
- * whichever variant is currently showing inside it, so the box itself never changes size.
+ * This renders a fixed-size box, sized once to the *largest* variant.
+ *
+ * The centered `HandwritingWord` is `position: absolute` inside that box rather than a
+ * flex child. An `inline-flex` box looked fixed-size (confirmed via measurement: its own
+ * border box never changed), but a flex container still synthesizes its *inline baseline*
+ * from its content, not its explicit height — so the parent `<h1>`'s line box kept growing
+ * and shrinking by exactly the child's height delta even though the box itself didn't
+ * move. Taking the child out of flow entirely removes any path for its size to reach the
+ * line box.
  */
 export function AlternatingHandwritingWord({
   variants,
@@ -63,16 +70,18 @@ export function AlternatingHandwritingWord({
 
   return (
     <span
-      className="relative inline-flex items-center justify-center align-[-0.12em]"
+      className="relative inline-block align-[-0.12em]"
       style={{ height: `${boxHeightEm}em`, width: `${boxWidthEm}em` }}
     >
-      <HandwritingWord
-        key={current.word}
-        manifest={current.manifest}
-        msPerFrame={current.msPerFrame}
-        word={current.word}
-        heightEm={current.heightEm}
-      />
+      <span className="absolute inset-0 flex items-center justify-center">
+        <HandwritingWord
+          key={current.word}
+          manifest={current.manifest}
+          msPerFrame={current.msPerFrame}
+          word={current.word}
+          heightEm={current.heightEm}
+        />
+      </span>
     </span>
   );
 }

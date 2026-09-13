@@ -13,7 +13,9 @@ import {
   findUserById,
   findUserByClerkUserId,
   findUsersByIds,
+  getContentPreferences,
   provisionUser,
+  saveContentPreferences,
   updateDisplayName,
   updateUsername,
 } from "./user-repository";
@@ -419,4 +421,41 @@ describe("updateUsername", () => {
     },
     15_000,
   );
+});
+
+describe("content preferences (spec 20 General)", () => {
+  it("returns the centralized defaults when no row exists yet", async () => {
+    await withTestTransaction(async (tx) => {
+      await seedDefaultLanguageAndLevel1(tx);
+      const user = await provisionUser(tx, "clerk-content-prefs-default");
+
+      const preferences = await getContentPreferences(tx, user.id);
+      expect(preferences).toEqual({ hideEnglishReviews: false, showNsfwContent: false });
+    });
+  });
+
+  it("persists only the field that changed, leaving the other at its default", async () => {
+    await withTestTransaction(async (tx) => {
+      await seedDefaultLanguageAndLevel1(tx);
+      const user = await provisionUser(tx, "clerk-content-prefs-partial");
+
+      const afterFirstSave = await saveContentPreferences(tx, user.id, { showNsfwContent: true });
+      expect(afterFirstSave).toEqual({ hideEnglishReviews: false, showNsfwContent: true });
+
+      const stored = await getContentPreferences(tx, user.id);
+      expect(stored).toEqual({ hideEnglishReviews: false, showNsfwContent: true });
+    });
+  });
+
+  it("a second save updates only its own field, without clobbering the first", async () => {
+    await withTestTransaction(async (tx) => {
+      await seedDefaultLanguageAndLevel1(tx);
+      const user = await provisionUser(tx, "clerk-content-prefs-second-save");
+
+      await saveContentPreferences(tx, user.id, { showNsfwContent: true });
+      const afterSecondSave = await saveContentPreferences(tx, user.id, { hideEnglishReviews: true });
+
+      expect(afterSecondSave).toEqual({ hideEnglishReviews: true, showNsfwContent: true });
+    });
+  });
 });

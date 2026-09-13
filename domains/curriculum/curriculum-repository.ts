@@ -174,10 +174,19 @@ export async function getLevelsByLanguage(db: DbClient, languageId: string): Pro
  *
  * Administrative surfaces and the developer sandbox pass
  * `{ includeUnpublished: true }`.
+ *
+ * `includeNsfw` is the equivalent gate for spec 20's NSFW Content
+ * preference (default `false` — safe by default, same reasoning as
+ * `includeUnpublished`). A caller resolves the learner's actual stored
+ * preference (`domains/users`' `getEffectiveContentPreferences`) and passes
+ * it through explicitly; this repository never reads that preference
+ * itself, matching every other cross-domain read in this file (progress
+ * enrollment, level unlocks) being passed in rather than looked up here.
  */
-export type CurriculumVisibility = { includeUnpublished?: boolean };
+export type CurriculumVisibility = { includeUnpublished?: boolean; includeNsfw?: boolean };
 
 const PUBLISHED = "published" as const;
+const SAFE = "safe" as const;
 
 export async function getLevelByLanguageAndNumber(
   db: DbClient,
@@ -232,12 +241,18 @@ export async function getLearningItem(db: DbClient, id: string): Promise<Curricu
 export async function getLevelItems(
   db: DbClient,
   levelId: string,
-  { includeUnpublished = false }: CurriculumVisibility = {},
+  { includeUnpublished = false, includeNsfw = false }: CurriculumVisibility = {},
 ): Promise<CurriculumLearningItem[]> {
   const rows = await db
     .select({ id: learningItems.id })
     .from(learningItems)
-    .where(and(eq(learningItems.levelId, levelId), includeUnpublished ? undefined : eq(learningItems.status, PUBLISHED)))
+    .where(
+      and(
+        eq(learningItems.levelId, levelId),
+        includeUnpublished ? undefined : eq(learningItems.status, PUBLISHED),
+        includeNsfw ? undefined : eq(learningItems.contentClassification, SAFE),
+      ),
+    )
     .orderBy(asc(learningItems.position));
   return getLearningItemsByIds(db, rows.map((row) => row.id));
 }
