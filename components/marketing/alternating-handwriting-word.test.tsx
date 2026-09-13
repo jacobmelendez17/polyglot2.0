@@ -35,8 +35,8 @@ function manifest(overrides: Partial<SpriteManifest> = {}): SpriteManifest {
 }
 
 const VARIANTS: readonly HandwritingVariant[] = [
-  { manifest: manifest({ image: "/sprites/jap.png" }), word: "ここ" },
-  { manifest: manifest({ image: "/sprites/kor.png" }), word: "여기" },
+  { manifest: manifest({ image: "/sprites/jap.png" }), word: "ここ", msPerFrame: 25 },
+  { manifest: manifest({ image: "/sprites/kor.png" }), word: "여기", msPerFrame: 25 },
 ];
 
 describe("AlternatingHandwritingWord", () => {
@@ -52,13 +52,13 @@ describe("AlternatingHandwritingWord", () => {
   });
 
   it("starts on the first variant so initial render is deterministic", () => {
-    render(<AlternatingHandwritingWord variants={VARIANTS} msPerFrame={25} intervalMs={4000} />);
+    render(<AlternatingHandwritingWord variants={VARIANTS} intervalMs={4000} />);
 
     expect(screen.getByText("ここ")).toBeInTheDocument();
   });
 
   it("advances to the next variant once intervalMs elapses, looping back at the end", async () => {
-    render(<AlternatingHandwritingWord variants={VARIANTS} msPerFrame={25} intervalMs={4000} />);
+    render(<AlternatingHandwritingWord variants={VARIANTS} intervalMs={4000} />);
 
     await act(async () => {
       vi.advanceTimersByTime(4000);
@@ -72,9 +72,7 @@ describe("AlternatingHandwritingWord", () => {
   });
 
   it("never advances when only a single variant is given", async () => {
-    render(
-      <AlternatingHandwritingWord variants={[VARIANTS[0]]} msPerFrame={25} intervalMs={4000} />,
-    );
+    render(<AlternatingHandwritingWord variants={[VARIANTS[0]]} intervalMs={4000} />);
 
     await act(async () => {
       vi.advanceTimersByTime(20000);

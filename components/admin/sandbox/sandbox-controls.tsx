@@ -83,9 +83,12 @@ function SuccessBadge({ show }: { show: boolean }) {
  *
  * "Replay Onboarding" (spec 15) is a plain link rather than an action,
  * because a replay writes nothing at all: `/onboarding?replay=1` renders the
- * same production components in preview mode, and the route re-checks Admin
- * access itself — the query parameter requests a replay, it does not grant
- * one.
+ * same production components in preview mode. This page still reaches it
+ * only because `/admin/sandbox` itself is Admin-gated — the route no longer
+ * re-checks Admin access on the query parameter alone, since spec 20 opened
+ * the same preview to every learner from their own Settings ("Onboarding
+ * Tour"). Not omitting `returnTo` is what sends this specific launch point
+ * back to `/admin/sandbox` when finished, rather than Settings' default.
  */
 export function SandboxControls({ languageId, levels, items, timeOffsetSeconds }: SandboxControlsProps) {
   const router = useRouter();

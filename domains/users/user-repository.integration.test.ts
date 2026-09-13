@@ -362,17 +362,26 @@ describe("updateUsername", () => {
     });
   });
 
-  it("rejects a case-insensitive duplicate within the same transaction with USERNAME_TAKEN, not a raw database error", async () => {
-    await withTestTransaction(async (tx) => {
-      await seedDefaultLanguageAndLevel1(tx);
-      const userA = await provisionUser(tx, "clerk-username-a");
-      const userB = await provisionUser(tx, "clerk-username-b");
+  it("rejects a case-insensitive duplicate with USERNAME_TAKEN, not a raw database error", async () => {
+    // A failed statement aborts the rest of a Postgres transaction (SQLSTATE
+    // `25P02` on any further query) until it's rolled back — so this only
+    // issues one write per transaction rather than reusing `tx` after the
+    // expected failure. The real concurrent-claim test below covers the
+    // cross-transaction case, which is what this codebase actually does in
+    // production (each request is its own implicit transaction).
+    const clerkUserIdA = `clerk-username-dup-a-${randomUUID()}`;
+    const clerkUserIdB = `clerk-username-dup-b-${randomUUID()}`;
 
-      await updateUsername(tx, userA.id, "JacobM");
+    try {
+      const userA = await provisionUser(testDb, clerkUserIdA);
+      const userB = await provisionUser(testDb, clerkUserIdB);
 
-      await expect(updateUsername(tx, userB.id, "jacobm")).rejects.toThrow(AppError);
-      await expect(updateUsername(tx, userB.id, "JACOBM")).rejects.toMatchObject({ code: "USERNAME_TAKEN" });
-    });
+      await updateUsername(testDb, userA.id, "JacobM");
+
+      await expect(updateUsername(testDb, userB.id, "jacobm")).rejects.toMatchObject({ code: "USERNAME_TAKEN" });
+    } finally {
+      await testDb.delete(users).where(inArray(users.clerkUserId, [clerkUserIdA, clerkUserIdB]));
+    }
   });
 
   it(

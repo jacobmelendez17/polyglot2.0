@@ -21,6 +21,21 @@
  *
  * A component reading the manifest must trust its columns/rows rather than
  * recomputing them, so the layout can only ever be defined in one place.
+ *
+ * Frames are downscaled before packing, if needed, to keep the whole sheet
+ * under MAX_SHEET_DIMENSION per side (see below). These animations render
+ * inline at roughly text-glyph size, so source art exported at ~1100px is
+ * far higher resolution than ever gets displayed — but the full sheet is
+ * still what the browser decodes and repaints on every frame change
+ * (background-position isn't compositor-only, unlike transform). A frame
+ * count high enough to produce a large grid (e.g. 77 frames -> 9x9) turns
+ * that into a sheet tens of thousands of pixels wide, which can exceed a
+ * GPU's max texture size and force slow software rasterization for the
+ * whole page, not just the animated element. The cap is on the *sheet's*
+ * dimensions rather than a fixed per-frame size so it stays safe regardless
+ * of how many frames a future animation has. Source files under
+ * public/animations/<name>/ are never modified — only the packed copy is
+ * resized.
  */
 
 import { createHash } from "node:crypto";
@@ -35,6 +50,11 @@ const repoRoot = path.resolve(__dirname, "..");
 
 const FRAME_NAME_PATTERN = /^(.+)-(\d+)\.png$/;
 
+// Comfortable margin under the lowest common GPU max-texture-size (4096px
+// per side on many mobile/older GPUs) so a packed sheet never risks the
+// software-rasterization fallback that causes page-wide jank.
+const MAX_SHEET_DIMENSION = 3600;
+
 async function main() {
   const name = process.argv[2];
   if (!name) {
@@ -47,15 +67,24 @@ async function main() {
   const inputDir = path.join(repoRoot, "public", "animations", name);
   const outputDir = path.join(repoRoot, "public", "sprites");
 
-  const frames = await loadFrameSequence(inputDir);
-  console.log(`Found ${frames.length} frames in public/animations/${name}/`);
+  const sourceFrames = await loadFrameSequence(inputDir);
+  console.log(`Found ${sourceFrames.length} frames in public/animations/${name}/`);
 
-  const { width: frameWidth, height: frameHeight } = await validateUniformSize(frames);
-  console.log(`Frame size: ${frameWidth}x${frameHeight}`);
+  const sourceSize = await validateUniformSize(sourceFrames);
+  console.log(`Source frame size: ${sourceSize.width}x${sourceSize.height}`);
 
-  const columns = Math.ceil(Math.sqrt(frames.length));
-  const rows = Math.ceil(frames.length / columns);
+  const columns = Math.ceil(Math.sqrt(sourceFrames.length));
+  const rows = Math.ceil(sourceFrames.length / columns);
   console.log(`Grid: ${columns} columns x ${rows} rows`);
+
+  const { frames, frameWidth, frameHeight } = await downscaleFrames(
+    sourceFrames,
+    sourceSize,
+    { columns, rows, maxSheetDimension: MAX_SHEET_DIMENSION },
+  );
+  if (frameWidth !== sourceSize.width) {
+    console.log(`Downscaled to ${frameWidth}x${frameHeight} for packing (source frames untouched)`);
+  }
 
   const spritePng = await compositeSprite(frames, { frameWidth, frameHeight, columns, rows });
   const hash = createHash("sha256").update(spritePng).digest("hex").slice(0, 8);
@@ -132,6 +161,31 @@ async function validateUniformSize(frames) {
   }
 
   return { width, height };
+}
+
+/**
+ * Shrinks every frame (preserving aspect ratio) just enough that the packed
+ * sheet — `columns * frameWidth` by `rows * frameHeight` — fits within
+ * `maxSheetDimension` on both sides. Never upscales: a source already small
+ * enough (few frames, or already-small art) passes through untouched.
+ */
+async function downscaleFrames(frames, { width, height }, { columns, rows, maxSheetDimension }) {
+  const scale = Math.min(1, maxSheetDimension / (columns * width), maxSheetDimension / (rows * height));
+  if (scale >= 1) {
+    return { frames, frameWidth: width, frameHeight: height };
+  }
+
+  const frameWidth = Math.round(width * scale);
+  const frameHeight = Math.round(height * scale);
+
+  const scaledFrames = await Promise.all(
+    frames.map(async ({ frameNumber, buffer }) => ({
+      frameNumber,
+      buffer: await sharp(buffer).resize(frameWidth, frameHeight).png().toBuffer(),
+    })),
+  );
+
+  return { frames: scaledFrames, frameWidth, frameHeight };
 }
 
 async function compositeSprite(frames, { frameWidth, frameHeight, columns, rows }) {

@@ -1,7 +1,7 @@
 {
-  "image": "/sprites/hero-here-kor.87132cea.png",
-  "frameWidth": 1124,
-  "frameHeight": 600,
+  "image": "/sprites/hero-here-kor.daf57605.png",
+  "frameWidth": 400,
+  "frameHeight": 214,
   "columns": 9,
   "rows": 9,
   "frameCount": 77

@@ -162,10 +162,8 @@ every boundary before considering these done)*
 24. Delete Account — request → email-verified confirmation → 7-day pending
     window → cancel → the Vercel Cron finalize job from decision 1.
 
-**Units 1 and 2 are done — see their Completed entries below.** Unit 3
-(Account — Username) is next: a genuinely new `users.username` column
-(none exists today), case-insensitive uniqueness, and unique-violation
-handling per Settings Security's "never rely on check-then-insert." **Process decision (2026-09-13, user):** the established
+**Units 1, 2, and 3 are done — see their Completed entries below.** Unit 4
+(Account — Email & Password, Beta placeholder, Tours) is next. **Process decision (2026-09-13, user):** the established
 real-browser verification recipe (`npx playwright` + `@clerk/testing`,
 Environment Notes) is blocked by Auto Mode's command classifier in this
 session — confirmed blocked on two independent attempts, including trying
@@ -1183,6 +1181,83 @@ writing to real `user_item_progress` rows.
 ## Completed
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
+
+- **Spec 20 unit 3 — Account: Username** (2026-09-13). `users.username`
+  is a genuinely new column (`db/migrations/0021_colossal_longshot.sql`,
+  additive, nullable, no backfill needed) with a case-insensitive unique
+  index (`users_username_lower_key` on `lower(username)`, partial —
+  `WHERE username IS NOT NULL`, mirroring `users_clerk_user_id_key`'s
+  existing pattern) plus a `users_username_format` check constraint
+  (3-30 chars, letters/numbers/underscore) backstopping the same Zod
+  schema at the database level. The write path (`updateUsernameAction` →
+  `domains/users/server`'s `updateUsername`, under a new, *tighter*
+  `"username-change"` rate-limit policy — 5/60s, per Settings Security's
+  explicit call for stronger limits on this specific action — →
+  repository's `updateUsername`) never checks availability before writing;
+  it attempts the write and lets `users_username_lower_key` decide,
+  catching the resulting unique-violation and mapping it to a new
+  `USERNAME_TAKEN` `AppError` code. **The learner's chosen casing is
+  preserved** (`JacobM` stays `JacobM`) — only the *comparison* is
+  case-insensitive; nothing normalizes the stored value to lowercase.
+
+  **`InlineTextSettingField`** (`components/settings/`) is a new shared
+  component, extracted from unit 2's `NameField` the moment Username needed
+  the identical Add/Edit/Save/Cancel/Saved shape — two confirmed instances
+  of the same pattern, not a speculative abstraction. `NameField` and
+  `UsernameField` are now both thin wrappers supplying a label and an
+  `onSave` adapter around their own Server Action.
+
+  **Two real bugs were caught by the integration tests, not found in
+  review:**
+  1. `isUniqueViolation`'s first version checked only `error.code`, which
+     is correct for `node-postgres` but **not** for what Drizzle's Postgres
+     drivers actually throw — a real duplicate-username attempt against the
+     real test database proved the SQLSTATE lands on `error.cause.code`
+     inside a `DrizzleQueryError` wrapper instead. Fixed to check both;
+     `db/postgres-errors.test.ts` now asserts both shapes explicitly so this
+     can't silently regress. Worth remembering for any future unique-index
+     violation handling in this codebase — the wrapped shape, not the naive
+     one, is what Drizzle actually produces here.
+  2. A test attempted two failing writes inside one `withTestTransaction`
+     block; Postgres aborts an entire transaction after its first failed
+     statement (`SQLSTATE 25P02`) until rolled back, so the second call
+     failed with a generic abort error instead of the expected
+     `USERNAME_TAKEN`. Not a product bug — `updateUsername` is never called
+     twice inside one caller-managed transaction in real usage (each
+     Settings mutation is its own implicit transaction) — but a genuine
+     test-construction mistake, fixed by using plain `testDb` with manual
+     cleanup for that scenario, matching the existing `provisionUser`
+     concurrency test's own pattern for exactly this reason.
+
+  A third integration test proves the actual concurrency guarantee with two
+  really-concurrent, independently-committed writes (`Promise.allSettled`
+  against real `testDb`, not one rolled-back transaction): exactly one of
+  two simultaneous claims of the same username (one uppercase, one
+  lowercase) succeeds, the other fails with `USERNAME_TAKEN`, and the table
+  ends up with exactly one `username` set — the database decided the race,
+  nothing in application code did.
+
+  **A known architecture deviation, recorded rather than silently
+  shipped**: `architecture.md`'s "Index creation on a populated table uses
+  `CREATE INDEX CONCURRENTLY`, outside a transaction" was not followed for
+  `users_username_lower_key` — Drizzle's generator has no built-in option
+  for it, no migration in this codebase's 21-migration history has ever
+  used `CONCURRENTLY`, and it's unclear whether `drizzle-kit migrate`'s
+  transaction-per-file execution even supports a statement that must run
+  outside a transaction without a runner change of its own. Given the
+  `users` table's actual size at this stage of the beta, a brief lock during
+  this specific index build carries negligible real risk — but the rule is
+  real and unaddressed, not just here. Recorded as Next Up #27 rather than
+  improvising a migration-runner change inside a Settings unit.
+
+  Verified: `tsc`, `eslint`, the full `npm run test` (778 tests, no
+  regressions), `npm run test:integration` for
+  `user-repository.integration.test.ts` (20 tests, including the three new
+  `updateUsername` cases — success, single-collision, and the real
+  concurrent-claim race — and `db/postgres-errors.test.ts`'s 6 cases),
+  `npm run db:verify` (no drift), and `npm run build`. Migration applied to
+  the dev database. **No live-browser pass** — see Current Goal / Next Up
+  #26; every spec-20 unit skips this for now.
 
 - **Spec 20 unit 2 — Account: Name** (2026-09-13). `NameField`
   (`components/settings/account/name-field.tsx`) renders spec 20's exact
@@ -2442,6 +2517,11 @@ Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real
   - 3 new tests in `alternating-handwriting-word.test.tsx` (fake timers: starts on variant 0, advances/loops on `intervalMs`, never advances with a single variant); existing `hero-section.test.tsx` and `handwriting-word.test.tsx` needed no changes and still pass. Verified `tsc`, lint, `npm run test` (767/767), `npm run build`, and a running-dev-server check (`curl` against `/` and both sprite PNG URLs, 200s) confirming the new hashed sprite paths are actually served — not a full scratch-Playwright pass (no interaction/keyboard/reduced-motion behavior changed from the already-covered `HandwritingWord`, only which manifest/word feeds it and when).
   - **Incident during verification**: an errant `pkill -f "next dev"` while checking the rendered page killed a dev server that was already running (PID 13083, port 3001) before this unit touched anything — not one this unit started. Restarted a replacement (`npm run dev`, now on port 3002 since 3000/3001 were otherwise occupied) and left it running. Lesson for any future browser verification: never broadly pattern-kill `next dev`; target the specific PID you started, or ask first if an existing server's PID isn't known to be yours.
 
+- **Follow-up fix: the Korean hero animation was making the whole page janky** (2026-09-13) — user-reported after the unit above shipped; the Japanese variant played smoothly but Korean didn't. Root cause was the sprite sheet's *total decoded pixel area*, not frame count on its own: `build-sprites.mjs` packs frames at source resolution into a roughly-square grid, and Korean's 77 frames at ~1124×600 packed into a 9×9 grid produced a 10,116×5,400px sheet (~55M px, ~208MB once decoded to an uncompressed bitmap) versus Japanese's 6,570×3,600px (~24M px, ~90MB). 10,116px in one dimension is past the max texture size on many GPUs (commonly 4096, sometimes 8192px per side) — past that limit the browser falls back to slow software rasterization for the whole layer, and because `HandwritingWord` animates via `background-position` (not `transform`, which is compositor-only), every one of the 77 frame changes forced a real repaint of that huge bitmap, stalling the whole page rather than just the animated element.
+  - **Fix, in `scripts/build-sprites.mjs` itself** (general-purpose, not a one-off patch to the Korean asset): a new `downscaleFrames` step shrinks frames — preserving aspect ratio, never upscaling — just enough that `columns * frameWidth` and `rows * frameHeight` both stay under `MAX_SHEET_DIMENSION` (3600px, comfortable margin under the 4096px floor). The cap is on the *sheet's* dimensions rather than a fixed per-frame width, so it self-adjusts for any future frame count instead of needing a size guess per animation. Source frames under `public/animations/<name>/` are untouched — only the packed copy sharp-resizes into memory before compositing.
+  - Regenerated both: Japanese sheet now 480×263/frame → 2,880×1,578 total (was 6,570×3,600); Korean now 400×214/frame → 3,600×1,926 total (was 10,116×5,400, a ~5.4x reduction in decoded bytes). Displayed size is unaffected — `HandwritingWord`'s positioning math is percentage-based against `manifest.frameWidth`/`frameHeight`, so it's resolution-agnostic; only visual sharpness at extreme zoom could theoretically change, and 400-600px source for a ~150px inline glyph still has ample headroom even at 3x device pixel ratio.
+  - Verified `tsc`, lint, `npm run test` (778/778), `npm run build`, and confirmed via the running dev server (Turbopack hot-reload picked up the new hashed sprite filenames without a restart) that both new sprite PNGs serve correctly. Did not re-run a full scratch-Playwright pass — no interaction/timing logic changed, only the packed image resolution referenced by the same already-tested components.
+
 ## In Progress
 
 **Spec 19 (Asynchronous Curriculum Imports with AWS Lambda)** — §48 steps
@@ -2563,6 +2643,7 @@ file) does not shift.
 24. **`usage-contexts.integration.test.ts`'s "refuses a grammar item" test is stale, not flaky** (found 2026-09-12, during spec 19 unit 3's integration verification). It asserts `mutateUsageContext` rejects a grammar item with `AdminError`, but spec 18 later widened usage contexts to grammar (`architecture.md`'s Architecture Decisions entry, 2026-09-09) — `mutateUsageContext` was updated for that, and this one test in `publication-service.ts`'s own spec-17 coverage was not. Reproduces deterministically in isolation, unrelated to spec 19. Fix is to replace the test with one asserting the current (correct) behavior — a grammar item's usage context is created successfully — not to weaken or delete it.
 25. **`components/admin/logs/audit-log-filters.test.tsx` flaked twice under the full `npm run test` suite** (found 2026-09-12/13, during spec 19 units 12-13's final verification) — one `userEvent`-driven test failed on one full-suite run, a different one in the same file failed on the next, while the whole file passed cleanly (5/5) both times it was run in isolation. Unrelated to spec 19 — this file wasn't touched this session, and both failures point at timing sensitivity in `userEvent` simulated interaction under jsdom, most likely aggravated by this session's unusually heavy concurrent load (Terraform applies, a real Lambda's worth of AWS SDK calls, and a Playwright browser all running alongside the suite). Worth a dedicated look at whether the test needs explicit `await waitFor(...)` around its assertions rather than relying on `userEvent`'s own timing, but not chased further here per code-standards.md's rule against papering over flakiness with retries.
 26. **Real-browser pass needed for every spec 20 (Settings) unit**, starting with unit 1 (2026-09-13) — same gap as #21/#23, but for a different reason: Auto Mode's command classifier blocked the `npx playwright` + `@clerk/testing` verification flow this session (confirmed on two independent attempts, including trying to self-configure a permission rule), and the user chose to skip live-browser checks for the rest of this spec rather than keep retrying — see Current Goal. Each spec-20 unit is verified by `tsc`/`eslint`/`npm run test`/`npm run build` only. Worth a real-browser pass across all of Settings once this session's classifier restriction is lifted (a permission rule added outside the session, or a future session without the restriction) — desktop sidebar + mobile sheet navigation, every section's rendered state, and eventually every interactive control as each unit ships one.
+27. **`architecture.md`'s "index creation on a populated table uses `CREATE INDEX CONCURRENTLY`" was not followed for `users_username_lower_key`** (2026-09-13, spec 20 unit 3) — Drizzle's `db:generate` has no built-in option for it, and a search of this codebase's 21-migration history found zero prior uses of `CONCURRENTLY` anywhere, so there's no established pattern to follow, and it's unverified whether `drizzle-kit migrate`'s transaction-per-file execution can even run a statement that must execute outside a transaction without a runner change. Shipped as an ordinary (locking) index creation instead, on the reasoning that the `users` table's actual row count at this stage of the beta makes the real lock risk negligible — but the underlying gap (no concurrent-index capability exists in this project's migration tooling at all) is real and will recur for every future index added to a populated table, not just this one. Worth a dedicated infrastructure unit: confirm whether `drizzle-kit migrate` supports a non-transactional statement, and if not, decide the mechanism (hand-written migration outside the generator, a split migration step, etc.) before a genuinely large table needs a new index.
 
 ## Infrastructure Status
 

@@ -13,12 +13,20 @@ import { cn } from "@/lib/utils";
 
 type OnboardingFlowProps = {
   /**
-   * Sandbox replay (spec 15). Completion is previewed in full but never
-   * written, and finishing returns to the Sandbox instead of the app. The
-   * server action refuses to write in this mode too — this flag decides
-   * presentation, not authorization.
+   * Replay mode (spec 15, extended by spec 20's Settings "Onboarding
+   * Tour"). Completion is previewed in full but never written, and
+   * finishing returns to `returnTo` instead of the app. The server action
+   * refuses to write in this mode too — this flag decides presentation, not
+   * authorization.
    */
   isReplay: boolean;
+  /**
+   * Where a replay preview returns to when finished. Only meaningful when
+   * `isReplay` is true. Defaults to the Sandbox's own launch point so the
+   * original spec 15 caller (`sandbox-controls.tsx`) needs no change; spec
+   * 20's Settings "Replay" passes `/settings/account` instead.
+   */
+  returnTo?: string;
 };
 
 /** How far a slide travels on entry/exit. Small on purpose: spec 15 asks for smooth transitions that never delay navigation. */
@@ -40,7 +48,7 @@ const SLIDE_OFFSET = 48;
  * the next slide mount immediately, so a learner pressing Next repeatedly
  * moves at their own speed rather than the animation's.
  */
-export function OnboardingFlow({ isReplay }: OnboardingFlowProps) {
+export function OnboardingFlow({ isReplay, returnTo = "/admin/sandbox" }: OnboardingFlowProps) {
   const router = useRouter();
   const [index, setIndex] = useState(0);
   const [direction, setDirection] = useState<1 | -1>(1);
@@ -67,7 +75,7 @@ export function OnboardingFlow({ isReplay }: OnboardingFlowProps) {
     if (isReplay) {
       // Nothing is persisted for a replay — the preview ends by returning to
       // where it was launched from.
-      router.replace("/admin/sandbox");
+      router.replace(returnTo);
       return;
     }
 
@@ -82,7 +90,7 @@ export function OnboardingFlow({ isReplay }: OnboardingFlowProps) {
       // first lesson exists.
       router.replace("/onboarding/curriculum");
     });
-  }, [isReplay, router]);
+  }, [isReplay, returnTo, router]);
 
   // Arrow-key navigation, on top of the natively focusable Back/Next buttons.
   // Registered once and removed on unmount, so nothing outlives the flow.
@@ -106,7 +114,7 @@ export function OnboardingFlow({ isReplay }: OnboardingFlowProps) {
     >
       {isReplay ? (
         <p className="bg-foreground/85 px-4 py-1.5 text-center text-xs font-medium text-background">
-          Sandbox preview — finishing here will not change your onboarding status.
+          Preview — finishing here will not change your onboarding status.
         </p>
       ) : null}
 
