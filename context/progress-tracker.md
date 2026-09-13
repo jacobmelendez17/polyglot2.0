@@ -211,9 +211,66 @@ forbids. That wiring belongs with §48 steps 12-13 (replacing the
 synchronous preview with the async UI), once enough of the pipeline exists
 for "create an import" to do something.
 
-**Next unit: §48 steps 6-7 — SQS queue + dead-letter queue**, added to the
-same Terraform module, plus the S3→SQS `ObjectCreated` notification (§41)
-connecting the bucket built this unit to the queue the next one builds.
+**Units 6-7 (§48 — SQS + DLQ + the Lambda's IAM execution role) are done,
+2026-09-12.** Added to the same `modules/curriculum-import` Terraform
+module, applied with the user's sign-off after a clean `terraform plan` (5
+added, 0 changed/destroyed) exactly as units 4-5 were:
+
+- **`aws_sqs_queue.curriculum_import_queue`** — Standard (not FIFO; spec 19
+  §37 says to use Standard "unless a concrete ordering requirement later
+  proves FIFO necessary", and nothing here has one).
+  `visibility_timeout_seconds = 1800` (6× a new `lambda_timeout_seconds`
+  variable, default 300s — AWS's own recommended multiplier for §37's
+  "must safely exceed the Lambda execution timeout" requirement, chosen
+  generously since the Lambda doesn't exist yet to measure against). A
+  `redrive_policy` sends a message to the DLQ after `max_receive_count`
+  (default 3, matching §22/§37) failed deliveries.
+- **`aws_sqs_queue.curriculum_import_dlq`** — 14-day retention (SQS's
+  maximum), so a poisoned message stays inspectable rather than expiring
+  before anyone looks at it (§23).
+- **`aws_sqs_queue_policy`** — lets only this specific S3 bucket
+  (`aws:SourceArn`/`aws:SourceAccount`-scoped) publish into this specific
+  queue. The bucket-side `aws_s3_bucket_notification` resource itself is
+  still §48 step 11, deliberately deferred until the Lambda consumer exists
+  — enabling the producer before anything drains the queue would just
+  accumulate unprocessed messages toward the DLQ for no reason.
+- **`aws_iam_role.curriculum_import_lambda`** + one inline policy — created
+  now, ahead of the Lambda function itself (steps 8-10), so the permission
+  shape is its own reviewable change. Grants exactly spec 19 §33's minimum
+  subset: `sqs:ReceiveMessage`/`DeleteMessage`/`GetQueueAttributes`/
+  `ChangeMessageVisibility` scoped to the one queue ARN, and `s3:GetObject`
+  scoped to `{bucket_arn}/imports/*` — no `s3:DeleteObject` (nothing in the
+  worker's own behavior as scoped needs it; permanent deletion is an Admin
+  action through Next.js, never something the Lambda does itself) and no
+  `Resource: "*"` anywhere. **No AWS managed policy is attached** —
+  deliberately not `AWSLambdaBasicExecutionRole`, which would grant
+  `logs:CreateLogGroup`/`CreateLogStream`/`PutLogEvents` that spec 19 §34's
+  zero-cost logging policy explicitly withholds until enabled as its own
+  decision.
+
+Verified: `terraform fmt`/`validate`/`plan`/`apply` (5 added, 0 changed/destroyed),
+and confirmed live via `aws sqs get-queue-attributes` (redrive policy and
+1800s visibility timeout match exactly what was planned). No application
+code changed in this unit — Terraform only.
+
+**Open question worth flagging, not yet blocking:** the Next.js app itself
+(presigned-upload creation today; permanent-delete's S3 cleanup once that's
+wired) needs its *own* AWS credentials distinct from the Lambda's execution
+role — spec 19 §42's "credentials supplied through the Lambda execution
+role, never environment variables" is about the Lambda specifically.
+Locally this works via the broad `polyglot-terraform-dev` IAM user already
+configured; production (Vercel, no native AWS IAM role assumption) will
+need its own least-privilege IAM user/access keys as Vercel env vars, or
+OIDC federation. Not a blocker — no production environment exists yet
+(§48 step 23) — but worth deciding deliberately when it does, rather than
+reusing the broad Terraform-applying credentials for the running app.
+
+**Next unit: §48 steps 8-10 — the Lambda-safe Neon binding, the thin Lambda
+handler, and the preview job.** This is where `aws/lambda/curriculum-import/`
+application code starts, calling `bulk-import-service.ts`'s existing
+resolver and `domains/admin/curriculum-import-service.ts` (unit 3) — the
+Terraform `aws_lambda_function` resource that deploys it, and connecting
+S3→SQS→Lambda (step 11), come after the handler code exists to deploy.
 
 **Spec 18 (Item Detail & Lesson Item Layout) is in progress — unit 1 shipped
 2026-09-09.** The spec (`context/feature-specs/18-item-page.md`) redesigns
@@ -1534,11 +1591,12 @@ Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real
 ## In Progress
 
 **Spec 19 (Asynchronous Curriculum Imports with AWS Lambda)** — §48 steps
-1-5 shipped 2026-09-12 (import-history schema; confirmed the existing
+1-7 shipped 2026-09-12 (import-history schema; confirmed the existing
 importer is already Lambda-shaped; the import state-machine domain layer;
-S3 upload orchestration + its Terraform, applied to a real dev bucket with
-the user's explicit sign-off). See Current Goal for the full design and
-what each unit did. Next: steps 6-7 (SQS + DLQ, same Terraform module).
+S3 upload orchestration + its Terraform; SQS + DLQ + the Lambda's IAM
+execution role — all applied to real AWS with the user's explicit sign-off
+each time). See Current Goal for the full design and what each unit did.
+Next: steps 8-10, the actual Lambda application code.
 
 **Spec 18 (Item Detail & Lesson Item Layout)** — units 1, 2, and 5 shipped
 2026-09-09 (data model + shared read model; the shared UI shell and the

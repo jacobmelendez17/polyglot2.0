@@ -18,3 +18,16 @@ variable "allowed_upload_origins" {
   description = "Origins allowed to PUT directly to the bucket via a presigned URL (the Admin app's own origin(s) — e.g. http://localhost:3000 for local dev, the Vercel preview/production URL otherwise)."
   type        = list(string)
 }
+
+variable "lambda_timeout_seconds" {
+  description = "The curriculum-import Lambda's own timeout (spec 19 §36's cost guardrails don't state one explicitly; chosen generously for a 5,000-row/5MB file processed at 512MB memory). Also drives the SQS visibility timeout below, so the two can never drift out of sync with each other."
+  type        = number
+  default     = 300
+}
+
+variable "max_receive_count" {
+  description = "Spec 19 §22/§37 — after this many failed deliveries, SQS routes the message to the dead-letter queue instead of retrying forever."
+  type        = number
+  default     = 3
+}
+
