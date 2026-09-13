@@ -24,6 +24,26 @@ import { parseCurriculumImportObjectKey } from "@/providers/storage/curriculum-i
 
 const errorCode = (message: string) => (message.length > 200 ? `${message.slice(0, 197)}...` : message);
 
+/**
+ * Flattens an error's `.cause` chain into one readable string. Spec 19 §34's
+ * "observability through Polyglot's own persisted state, not paid log
+ * ingestion" only actually works if the persisted summary carries the real
+ * underlying reason — a wrapped driver/query error's top-level `.message`
+ * alone (e.g. drizzle's "Failed query: select ...") is nearly useless
+ * without the `.cause` underneath it, and this Lambda has no CloudWatch
+ * Logs permission (§34) to fall back on for that detail.
+ */
+function describeErrorChain(error: unknown): string {
+  if (!(error instanceof Error)) return String(error);
+  const parts = [error.message];
+  let current: unknown = error.cause;
+  for (let depth = 0; current && depth < 5; depth++) {
+    parts.push(current instanceof Error ? current.message : String(current));
+    current = current instanceof Error ? current.cause : undefined;
+  }
+  return parts.join(" | caused by: ");
+}
+
 export class PreviewJobError extends Error {
   readonly code: string;
   constructor(code: string, message: string) {
@@ -84,12 +104,12 @@ export async function runPreviewJob(db: DbClient, storage: CurriculumImportStora
   }
   const { importId, fileExtension } = parsedKey;
 
-  const importRecord = await getCurriculumImportById(db, importId);
-  if (!importRecord) {
-    throw new Error(`No curriculum_imports row exists for id "${importId}".`);
-  }
-
   try {
+    const importRecord = await getCurriculumImportById(db, importId);
+    if (!importRecord) {
+      throw new Error(`No curriculum_imports row exists for id "${importId}".`);
+    }
+
     // Both idempotent no-ops when a duplicate S3/SQS delivery re-runs this
     // (spec 19 §7) and the import has already moved past these states.
     await markCurriculumImportUploaded(db, importId);
@@ -108,10 +128,16 @@ export async function runPreviewJob(db: DbClient, storage: CurriculumImportStora
     await recordCurriculumImportPreview(db, { importId, rows: previews.map(toRowPreviewInput) });
   } catch (error) {
     const code = error instanceof PreviewJobError ? error.code : "IMPORT_PREVIEW_FAILED";
-    const summary = errorCode(error instanceof Error ? error.message : "Unknown preview failure.");
+    const fullMessage = describeErrorChain(error);
+    const summary = errorCode(fullMessage);
     // Best-effort — if Neon itself is unreachable this write can fail too,
     // in which case SQS retry/DLQ remains the safety net (spec 19 §35).
     await markCurriculumImportFailed(db, { importId, errorCode: code, errorSummary: summary }).catch(() => {});
-    throw error; // rethrow so the SQS event-source mapping retries per §22
+    // Rethrown with the full cause chain folded into the message (not just
+    // the original error) — this Lambda has no CloudWatch Logs permission
+    // (§34), so a synchronous `aws lambda invoke` and the persisted
+    // `last_error_summary` above are the only two places this detail can
+    // ever surface.
+    throw new Error(fullMessage);
   }
 }

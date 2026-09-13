@@ -19,7 +19,7 @@ import { runPreviewJob } from "./preview-job";
  * about correctness depends on that assumption holding.
  */
 export const handler: SQSHandler = async (event: SQSEvent) => {
-  const db = createLambdaDb();
+  const db = await createLambdaDb();
 
   for (const record of event.Records) {
     const message = parseJobMessage(record.body);

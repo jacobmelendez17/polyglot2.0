@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generated Lambda bundle (spec 19 §48 step 11, scripts/build-lambda.mjs)
+    // — esbuild output, never hand-edited and never committed (.gitignore).
+    "dist/**",
   ]),
 ]);
 

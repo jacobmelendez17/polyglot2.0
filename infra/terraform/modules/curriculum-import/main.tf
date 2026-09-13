@@ -4,8 +4,14 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    archive = {
+      source  = "hashicorp/archive"
+      version = "~> 2.4"
+    }
   }
 }
+
+data "aws_region" "current" {}
 
 # Spec 19 §41 — Infrastructure as Code. This module currently defines only
 # the S3 side of the pipeline (spec 19 §48 step 5); SQS, the dead-letter
@@ -213,8 +219,10 @@ resource "aws_iam_role" "curriculum_import_lambda" {
 }
 
 # The minimum subset spec 19 §33 lists: consume this one queue, read objects
-# under this one bucket's imports/ prefix. No CloudWatch Logs, no `Resource:
-# "*"`, no access to any other bucket or queue.
+# under this one bucket's imports/ prefix, and (added alongside the Lambda
+# function itself, below) read/decrypt exactly one SSM parameter. No
+# CloudWatch Logs, no `Resource: "*"`, no access to any other bucket or
+# queue.
 data "aws_iam_policy_document" "curriculum_import_lambda_permissions" {
   statement {
     sid    = "ConsumeImportQueue"
@@ -234,10 +242,131 @@ data "aws_iam_policy_document" "curriculum_import_lambda_permissions" {
     actions   = ["s3:GetObject"]
     resources = ["${aws_s3_bucket.curriculum_imports.arn}/imports/*"]
   }
+
+  statement {
+    sid       = "ReadDatabaseUrlParameter"
+    effect    = "Allow"
+    actions   = ["ssm:GetParameter"]
+    resources = [aws_ssm_parameter.database_url.arn]
+  }
+
+  statement {
+    sid       = "DecryptDatabaseUrlParameter"
+    effect    = "Allow"
+    actions   = ["kms:Decrypt"]
+    resources = ["arn:aws:kms:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:alias/aws/ssm"]
+  }
 }
 
 resource "aws_iam_role_policy" "curriculum_import_lambda_permissions" {
   name   = "curriculum-import-permissions"
   role   = aws_iam_role.curriculum_import_lambda.id
   policy = data.aws_iam_policy_document.curriculum_import_lambda_permissions.json
+}
+
+# ---------------------------------------------------------------------------
+# DATABASE_URL, held in SSM Parameter Store rather than a plain Lambda
+# environment variable (spec 19 §48 step 11, user decision 2026-09-12). This
+# project's terraform.tfstate is deliberately committed to git (single-operator
+# sandbox, no remote-state backend) — a Lambda environment variable's value
+# is stored in state as plain text, so the real Neon connection string
+# (password included) would end up in git history. `ignore_changes` means
+# Terraform creates this parameter once with a placeholder and then never
+# touches its value again; the real value is set exactly once, out-of-band,
+# via `aws ssm put-parameter --overwrite` — never written to any file this
+# repository tracks. `aws/lambda/curriculum-import/db.ts` fetches it at cold
+# start using the parameter *name* (not secret), which Terraform does pass
+# through as a normal environment variable below.
+# ---------------------------------------------------------------------------
+
+resource "aws_ssm_parameter" "database_url" {
+  name        = "/polyglot/${var.environment}/curriculum-import/database-url"
+  type        = "SecureString"
+  value       = "REPLACE_ME_VIA_AWS_CLI"
+  description = "Neon DATABASE_URL for the curriculum-import Lambda. Set out-of-band via `aws ssm put-parameter --overwrite` — Terraform never manages this value after creation."
+
+  lifecycle {
+    ignore_changes = [value]
+  }
+
+  tags = {
+    Project     = "polyglot"
+    Component   = "curriculum-import"
+    Environment = var.environment
+  }
+}
+
+# ---------------------------------------------------------------------------
+# The Lambda function itself (spec 19 §48 step 11) — `scripts/build-lambda.mjs`
+# must run before `terraform apply` so the bundle this zips actually exists;
+# `source_code_hash` is what makes `terraform plan` detect a rebuilt bundle
+# and redeploy it.
+# ---------------------------------------------------------------------------
+
+data "archive_file" "lambda_package" {
+  type        = "zip"
+  source_file = "${path.module}/../../../../dist/lambda/curriculum-import/index.js"
+  output_path = "${path.module}/../../../../dist/lambda/curriculum-import.zip"
+}
+
+resource "aws_lambda_function" "curriculum_import" {
+  function_name = "polyglot-${var.environment == "production" ? "prod" : "dev"}-curriculum-import"
+  role          = aws_iam_role.curriculum_import_lambda.arn
+  handler       = "index.handler"
+  runtime       = "nodejs20.x"
+
+  # Spec 19 §36's cost guardrails. `reserved_concurrent_executions` (the
+  # spec's suggested value: 1) is deliberately omitted — this AWS account's
+  # total concurrency limit is currently 10 (a new-account default; see
+  # progress-tracker.md), and AWS refuses to let any function reserve
+  # concurrency that would drop the account's shared unreserved pool below
+  # that floor. Not a correctness requirement either way: the "never two
+  # imports processing at once" guarantee that matters is already enforced
+  # by the state-machine's own row-lock guards (`domains/admin/curriculum-import-service.ts`),
+  # not by this setting. Revisit if the account's quota is ever raised.
+  memory_size = 512
+  timeout     = var.lambda_timeout_seconds
+
+  filename         = data.archive_file.lambda_package.output_path
+  source_code_hash = data.archive_file.lambda_package.output_base64sha256
+
+  environment {
+    variables = {
+      POLYGLOT_ENV                = var.environment
+      DATABASE_URL_PARAMETER_NAME = aws_ssm_parameter.database_url.name
+      # AWS_REGION is a Lambda-reserved environment variable the runtime sets
+      # automatically — it cannot be (and is not) set here.
+    }
+  }
+
+  tags = {
+    Project     = "polyglot"
+    Component   = "curriculum-import"
+    Environment = var.environment
+  }
+}
+
+# Batch size 1 (spec 19 §37) — one SQS message drives exactly one invocation.
+resource "aws_lambda_event_source_mapping" "curriculum_import_queue" {
+  event_source_arn = aws_sqs_queue.curriculum_import_queue.arn
+  function_name    = aws_lambda_function.curriculum_import.arn
+  batch_size       = 1
+}
+
+# S3 → SQS (spec 19 §1's diagram, §48 step 11) — deferred until now
+# deliberately: enabling this before a Lambda consumed the queue would have
+# let uploads accumulate unprocessed messages toward the DLQ for nothing.
+# Depends explicitly on the queue policy (§33) that lets this bucket publish
+# into this queue — S3 validates that permission exists at notification-config
+# time, so this must not race ahead of it.
+resource "aws_s3_bucket_notification" "curriculum_imports" {
+  bucket = aws_s3_bucket.curriculum_imports.id
+
+  queue {
+    queue_arn     = aws_sqs_queue.curriculum_import_queue.arn
+    events        = ["s3:ObjectCreated:*"]
+    filter_prefix = "imports/"
+  }
+
+  depends_on = [aws_sqs_queue_policy.curriculum_import_queue_allows_s3]
 }

@@ -327,8 +327,12 @@ correctly" tier, deliberately separate from `s3-curriculum-import-storage.integr
 verified) without needing AWS credentials at all.
 
 Verified: `tsc --noEmit`, `eslint`, `npm run test` (736/736 — 7 new pure
-tests), `npm run test:integration`'s new file (5/5, real DB), the full
-integration suite re-run to check for regressions, and `npm run build`.
+tests), `npm run test:integration`'s new file (5/5, real DB), and
+`npm run build`. Full integration suite re-run to confirm no regression:
+335/341 passed (up from 328/334 by exactly the 7 new tests), the same 6
+failures across the same 4 files as before (`audit-repository` ×3,
+`with-idempotency` ×1, `curriculum-repository` ×1, `usage-contexts` ×1) —
+zero new failures.
 
 **Known simplification, flagged rather than silently dropped:** two pieces
 of `ImportRowPreview` aren't persisted to `curriculum_import_rows` yet —
@@ -349,13 +353,117 @@ exists), then insert with that explicit id. Small, contained change
 steps 12-13's real Server Action, not this unit, since nothing calls this
 function outside tests yet.
 
-**Next unit: §48 step 11 — connect S3 → SQS → Lambda for real.** This is
-where `aws_lambda_function` finally gets a Terraform resource (packaging
-`aws/lambda/curriculum-import/` — esbuild or similar, TBD — into a
-deployable zip), the SQS event-source mapping, and the S3 bucket
-notification wiring the two Terraform-only unit 4-7 resources to the
-application code this unit just wrote. First real `terraform apply` that
-deploys compute, not just storage/queues/IAM.
+**Unit 11 (§48 step 11 — connect S3 → SQS → Lambda for real) is done,
+2026-09-12 — spec 19 unit 1 through this one is now a real, verified,
+end-to-end asynchronous pipeline.** First unit that deploys actual compute,
+and the first one that hit real problems only production infrastructure
+could reveal. In order:
+
+- **`scripts/build-lambda.mjs`** (new `esbuild` devDependency, formalizing
+  what was already an indirect dependency via `drizzle-kit`) bundles
+  `aws/lambda/curriculum-import/handler.ts` and everything it imports —
+  `domains/admin`, `db/schema`, `zod`, `csv-parse`, `drizzle-orm`,
+  `@neondatabase/serverless` — into one `dist/lambda/curriculum-import/index.js`
+  (~3MB, nowhere near Lambda's zip limits). `npm run lambda:build`. Terraform's
+  own `data "archive_file"` zips it from there (`hashicorp/archive` provider,
+  new) — no reason to zip in two places, and this way `terraform plan`
+  naturally detects a changed bundle via `source_code_hash` and redeploys.
+  `dist/` is gitignored, never committed.
+- **A real secret-handling decision, put to the user before writing any
+  Terraform for it:** spec 19 §42 lists `DATABASE_URL` as a plain Lambda
+  environment variable, but this project's `terraform.tfstate` is
+  deliberately committed to git — a Lambda env var's value is stored in
+  Terraform state as plain text, which would put the real Neon password in
+  git history. **User decision: SSM Parameter Store.** Terraform creates
+  `aws_ssm_parameter.database_url` (`SecureString`) with a placeholder value
+  and `lifecycle { ignore_changes = [value] }`, so Terraform records that
+  placeholder once and never touches the value again. The real value was
+  set exactly once via `aws ssm put-parameter --overwrite --value file://...`
+  (never written to any file this repo tracks, and the temp file used to
+  stage it was deleted immediately after). The Lambda receives
+  `DATABASE_URL_PARAMETER_NAME` (a name, not a secret) as its actual env var
+  and `aws/lambda/curriculum-import/db.ts` fetches + caches the real value
+  from SSM at cold start (`@aws-sdk/client-ssm`, new dependency). IAM grants
+  exactly `ssm:GetParameter` on that one parameter ARN plus `kms:Decrypt` on
+  `alias/aws/ssm` — no broader SSM/KMS access.
+- **`reserved_concurrent_executions` (spec 19 §36's suggested value: 1) was
+  dropped, user decision.** This AWS account's total Lambda concurrency
+  limit is 10 (new-account default, confirmed via `aws lambda get-account-settings`) —
+  AWS refuses to let any function reserve concurrency that would drop the
+  account's shared unreserved pool below that floor, so reserving even 1
+  errored. Explained to the user in plain terms (what a concurrency limit is,
+  why 1 was wanted, why it's not a correctness requirement — the "never two
+  imports processing at once" guarantee that actually matters is already
+  enforced by the state machine's own row-lock guards) before dropping it.
+  Left uncommented-on in Terraform for future revisit if the account's quota
+  is ever raised.
+- **A real bug, found only by testing against real AWS — every real
+  invocation failed** with a wrapped drizzle error
+  ("Failed query: select ... from curriculum_imports") that hid the actual
+  cause. Diagnosed via a *synchronous* `aws lambda invoke` with a synthetic
+  SQS test event (returns the error inline — no CloudWatch Logs permission
+  needed, matching §34's zero-cost logging policy) after confirming the
+  identical bundle worked perfectly when run locally under plain `node`
+  (both via a direct `DATABASE_URL` env var and via the real SSM fetch path)
+  — which is what proved the bug was Lambda-environment-specific, not in the
+  bundle or the SSM plumbing. The real cause, once unwrapped: **the Neon
+  serverless driver only auto-detects a *global* `WebSocket`, which
+  `next dev`/Vitest provide but AWS Lambda's `nodejs20.x` runtime does
+  not** — every query failed with "All attempts to open a WebSocket to
+  connect to the database failed... TypeError: fetch failed". Fixed in
+  `db.ts` per Neon's own documented Node.js configuration: `neonConfig.webSocketConstructor = ws`
+  (new `ws` + `@types/ws` dependencies).
+- **Added permanently, not just for this debugging session:**
+  `preview-job.ts`'s `describeErrorChain` flattens an error's full `.cause`
+  chain into the persisted `last_error_summary` and the rethrown error's
+  message. A wrapped driver/query error's top-level `.message` alone is
+  nearly useless without what's underneath it, and this Lambda has no
+  CloudWatch Logs to fall back on for that detail — this is what makes
+  spec 19 §34's "observability through Polyglot's own persisted state, not
+  paid log ingestion" actually true in practice rather than aspirational.
+  Also moved `getCurriculumImportById`'s call inside the `try` block (it
+  was the actual failure site and was previously unguarded, before any
+  state transition — meaning the row could get stuck at `uploading`
+  forever with the failure invisible anywhere).
+- **`eslint.config.mjs` now ignores `dist/**`** — the generated Lambda
+  bundle was getting linted as source, producing ~750 errors/warnings of
+  bundler-transformed noise the moment it existed on disk.
+
+**Real end-to-end verification, exactly per spec 19 §46's "AWS integration
+tests" tier** (S3 upload → SQS event → Lambda → Neon), run twice against the
+real dev infrastructure — first via a synchronous manual invoke to confirm
+the fix, then via a **fully automatic** run (create a real `curriculum_imports`
+row, upload via a real presigned URL, poll Neon with **no manual
+invoke at all**) to prove the real trigger chain works unassisted. Both used
+a deliberately nonexistent level number (`999999`) so the verification could
+never touch real curriculum data no matter what happened. The second run
+completed in under 3 seconds: `uploading` → `queued_for_preview` →
+`previewing` → `needs_review`, with the one row correctly classified
+`blocked`/`INVALID_ROW`/`"Level 999999 doesn't exist yet."` — the exact same
+resolver output the synchronous Admin dialog would have produced. Test rows
+and S3 objects were deleted afterward; the two SQS messages from the
+pre-fix failed attempts will resolve themselves automatically (their
+target rows no longer exist, so they'll fail once more and land in the DLQ
+— the designed behavior, not an intervention needed).
+
+Verified: `tsc --noEmit`, `eslint` (after the `dist/` ignore fix),
+`npm run test` (unaffected — no test file changes in this unit),
+`terraform validate`/`plan`/`apply` (twice: once for the initial deploy
+including the concurrency-limit failure and fix, once for the `ws`-fix
+redeploy), and the real end-to-end verification above. Did not re-run the
+full integration suite this unit — no application logic changed in a way
+integration tests exercise (the `ws` fix and error-chain change are Lambda
+network/observability concerns, already covered by the real AWS
+verification, which is a stronger check for exactly this bug than a fake
+storage double could ever have been).
+
+**Next unit: §48 steps 12-13 — replace the synchronous preview with the
+async UI, and Admin review persistence.** This is where a real "create
+import" Server Action finally binds `curriculum-import-service.ts` to the
+app's `db` for the first time (see the unit 8-10 entry's flagged follow-up:
+`createCurriculumImport` needs to accept a client-generated id first), and
+where an Admin actually sees and resolves a real async import instead of
+this session's manual verification script.
 
 **Spec 18 (Item Detail & Lesson Item Layout) is in progress — unit 1 shipped
 2026-09-09.** The spec (`context/feature-specs/18-item-page.md`) redesigns
@@ -1676,14 +1784,15 @@ Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real
 ## In Progress
 
 **Spec 19 (Asynchronous Curriculum Imports with AWS Lambda)** — §48 steps
-1-10 shipped 2026-09-12 (import-history schema; confirmed the existing
-importer is already Lambda-shaped; the import state-machine domain layer;
-S3 upload orchestration + its Terraform; SQS + DLQ + the Lambda's IAM
-execution role, applied to real AWS with sign-off each time; and now the
-Lambda's actual application code — DB binding, thin handler, preview job —
-verified without needing AWS credentials via a fake storage double). See
-Current Goal for the full design. Next: step 11, deploying it for real
-(Terraform `aws_lambda_function` + wiring S3→SQS→Lambda).
+1-11 shipped 2026-09-12. The pipeline is now real and verified end-to-end:
+a real CSV upload triggers a real S3 event, a real SQS message, a real
+Lambda invocation, and a real Neon write, entirely unassisted. Along the
+way: a genuine account-level AWS concurrency-limit constraint (resolved by
+dropping a nice-to-have setting, not a hack) and a genuine bug only real
+infrastructure could have revealed (Neon's serverless driver needs an
+explicit WebSocket implementation in Lambda's Node runtime) — both found
+and fixed this session. See Current Goal for the full design. Next: steps
+12-13, the real "create import" Server Action and Admin review UI.
 
 **Spec 18 (Item Detail & Lesson Item Layout)** — units 1, 2, and 5 shipped
 2026-09-09 (data model + shared read model; the shared UI shell and the
