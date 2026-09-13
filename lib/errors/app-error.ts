@@ -17,6 +17,7 @@ export const APP_ERROR_CODES = [
   "PROVISIONING_FAILED",
   "IDEMPOTENCY_KEY_PAYLOAD_MISMATCH",
   "IDEMPOTENCY_OPERATION_IN_PROGRESS",
+  "USERNAME_TAKEN",
 ] as const;
 
 export type AppErrorCode = (typeof APP_ERROR_CODES)[number];
@@ -30,6 +31,7 @@ const DEFAULT_MESSAGES: Record<AppErrorCode, string> = {
   PROVISIONING_FAILED: "Your account could not be set up. Please try again.",
   IDEMPOTENCY_KEY_PAYLOAD_MISMATCH: "This request has already been made with different data.",
   IDEMPOTENCY_OPERATION_IN_PROGRESS: "This request is already being processed.",
+  USERNAME_TAKEN: "That username is already taken.",
 };
 
 /**

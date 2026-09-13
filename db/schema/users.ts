@@ -44,6 +44,17 @@ export const users = pgTable(
     clerkUserId: text("clerk_user_id"),
     role: userRoleEnum("role").notNull().default("user"),
     displayName: text("display_name"),
+    /**
+     * Spec 20 Account — Username. A Polyglot identifier, deliberately
+     * separate from anything Clerk manages — `NULL` until the learner sets
+     * one (there is no default and no requirement to have one). Uniqueness
+     * is case-insensitive (`JacobM`/`jacobm`/`JACOBM` conflict), enforced by
+     * `users_username_lower_key` below on `lower(username)` rather than in
+     * application code — "do not rely on a client-side availability check as
+     * the final uniqueness guarantee" means the database has to be the one
+     * that actually decides a race between two concurrent claims.
+     */
+    username: text("username"),
     timezone: text("timezone").notNull().default("UTC"),
     activeLanguageId: uuid("active_language_id")
       .notNull()
@@ -84,7 +95,14 @@ export const users = pgTable(
   },
   (t) => [
     uniqueIndex("users_clerk_user_id_key").on(t.clerkUserId).where(sql`${t.clerkUserId} IS NOT NULL`),
+    uniqueIndex("users_username_lower_key")
+      .on(sql`lower(${t.username})`)
+      .where(sql`${t.username} IS NOT NULL`),
     index("users_sandbox_owner_user_id_idx").on(t.sandboxOwnerUserId),
+    // Recommended shape from spec 20: 3-30 characters, letters, numbers,
+    // underscore. Backstops the same Zod schema at the database level
+    // (code-standards.md) rather than trusting the application layer alone.
+    check("users_username_format", sql`${t.username} IS NULL OR ${t.username} ~ '^[A-Za-z0-9_]{3,30}$'`),
     check(
       "users_sandbox_time_offset_consistency",
       sql`${t.sandboxTimeOffsetSeconds} IS NULL OR ${t.isSandbox} = true`,

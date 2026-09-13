@@ -1,7 +1,14 @@
 import { Reveal } from "@/components/shared/reveal";
-import { HandwritingWord } from "@/components/marketing/handwriting-word";
+import { AlternatingHandwritingWord, type HandwritingVariant } from "@/components/marketing/alternating-handwriting-word";
 import { LandingCta } from "@/components/marketing/landing-cta";
-import heroHereSprite from "@/public/sprites/hero-here.json";
+import heroHereJapSprite from "@/public/sprites/hero-here-jap.json";
+import heroHereKorSprite from "@/public/sprites/hero-here-kor.json";
+
+// "Here" drawn in Japanese and Korean, taking turns in the hero headline.
+const HERE_VARIANTS: readonly HandwritingVariant[] = [
+  { manifest: heroHereJapSprite, word: "ここ" },
+  { manifest: heroHereKorSprite, word: "여기" },
+];
 
 // Decorative only (ui-context.md: "Multilingual words around the hero... Languages
 // saying forms of hello") — not a product claim, so it doesn't need to trace to
@@ -36,7 +43,7 @@ export function HeroSection() {
       <Reveal className="relative z-10 mx-auto flex max-w-3xl flex-col items-center gap-6">
         <h1 className="text-balance text-4xl leading-tight font-semibold text-foreground sm:text-5xl md:text-6xl lg:text-7xl">
           Fluency begins{" "}
-          <HandwritingWord manifest={heroHereSprite} msPerFrame={25} word="ここ" />
+          <AlternatingHandwritingWord variants={HERE_VARIANTS} msPerFrame={25} intervalMs={4000} />
         </h1>
         <p className="max-w-xl text-balance text-base text-muted-foreground sm:text-lg">
           Polyglot teaches Spanish through a structured curriculum where vocabulary and grammar are

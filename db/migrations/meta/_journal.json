@@ -148,6 +148,13 @@
       "when": 1789267263086,
       "tag": "0020_wealthy_blindfold",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1789334732093,
+      "tag": "0021_colossal_longshot",
+      "breakpoints": true
     }
   ]
 }

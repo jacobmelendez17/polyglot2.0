@@ -98,6 +98,7 @@ describe("InMemoryRateLimiter", () => {
         "onboarding-complete": { windowSeconds: 60, maxRequests: 5, failOpen: true },
         "curriculum-preference": { windowSeconds: 60, maxRequests: 5, failOpen: true },
         "account-settings": { windowSeconds: 60, maxRequests: 5, failOpen: true },
+        "username-change": { windowSeconds: 60, maxRequests: 5, failOpen: true },
       },
     });
 

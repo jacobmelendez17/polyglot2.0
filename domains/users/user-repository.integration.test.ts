@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 
 import { languages, levels, userLevelProgress, users } from "@/db/schema";
@@ -9,7 +9,14 @@ import { withTestTransaction, type TestTx } from "@/db/test/with-test-transactio
 import { AppError } from "@/lib/errors/app-error";
 
 import { getDefaultLanguageCode } from "./provisioning-config";
-import { findUserById, findUserByClerkUserId, findUsersByIds, provisionUser, updateDisplayName } from "./user-repository";
+import {
+  findUserById,
+  findUserByClerkUserId,
+  findUsersByIds,
+  provisionUser,
+  updateDisplayName,
+  updateUsername,
+} from "./user-repository";
 
 /**
  * Seeds the minimal §38 prerequisite (the configured default language and
@@ -336,4 +343,71 @@ describe("updateDisplayName", () => {
       await expect(updateDisplayName(tx, randomUUID(), "Nobody")).rejects.toThrow(AppError);
     });
   });
+});
+
+describe("updateUsername", () => {
+  it("persists the new username, preserving the learner's chosen casing", async () => {
+    await withTestTransaction(async (tx) => {
+      await seedDefaultLanguageAndLevel1(tx);
+      const user = await provisionUser(tx, "clerk-update-username");
+
+      const updated = await updateUsername(tx, user.id, "JacobM");
+      expect(updated.username).toBe("JacobM");
+    });
+  });
+
+  it("throws ITEM_NOT_FOUND for a user id that doesn't exist", async () => {
+    await withTestTransaction(async (tx) => {
+      await expect(updateUsername(tx, randomUUID(), "nobody")).rejects.toThrow(AppError);
+    });
+  });
+
+  it("rejects a case-insensitive duplicate within the same transaction with USERNAME_TAKEN, not a raw database error", async () => {
+    await withTestTransaction(async (tx) => {
+      await seedDefaultLanguageAndLevel1(tx);
+      const userA = await provisionUser(tx, "clerk-username-a");
+      const userB = await provisionUser(tx, "clerk-username-b");
+
+      await updateUsername(tx, userA.id, "JacobM");
+
+      await expect(updateUsername(tx, userB.id, "jacobm")).rejects.toThrow(AppError);
+      await expect(updateUsername(tx, userB.id, "JACOBM")).rejects.toMatchObject({ code: "USERNAME_TAKEN" });
+    });
+  });
+
+  it(
+    "a real concurrent claim of the same username (case-insensitively) lets exactly one caller win — the database decides, not a check-then-insert race",
+    async () => {
+      const suffix = randomUUID().slice(0, 8);
+      const clerkUserIdA = `clerk-username-race-a-${suffix}`;
+      const clerkUserIdB = `clerk-username-race-b-${suffix}`;
+      const contestedUsername = `raceuser_${suffix}`;
+
+      try {
+        const userA = await provisionUser(testDb, clerkUserIdA);
+        const userB = await provisionUser(testDb, clerkUserIdB);
+
+        const results = await Promise.allSettled([
+          updateUsername(testDb, userA.id, contestedUsername),
+          updateUsername(testDb, userB.id, contestedUsername.toUpperCase()),
+        ]);
+
+        const fulfilled = results.filter((r) => r.status === "fulfilled");
+        const rejected = results.filter((r) => r.status === "rejected");
+        expect(fulfilled).toHaveLength(1);
+        expect(rejected).toHaveLength(1);
+        expect((rejected[0] as PromiseRejectedResult).reason).toMatchObject({ code: "USERNAME_TAKEN" });
+
+        const rows = await testDb
+          .select()
+          .from(users)
+          .where(inArray(users.clerkUserId, [clerkUserIdA, clerkUserIdB]));
+        const withUsername = rows.filter((row) => row.username !== null);
+        expect(withUsername).toHaveLength(1);
+      } finally {
+        await testDb.delete(users).where(inArray(users.clerkUserId, [clerkUserIdA, clerkUserIdB]));
+      }
+    },
+    15_000,
+  );
 });

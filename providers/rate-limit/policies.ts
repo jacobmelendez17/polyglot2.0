@@ -98,4 +98,13 @@ export const RATE_LIMIT_POLICIES: Record<RateLimitPolicyName, RateLimitPolicy> =
     maxRequests: 20,
     failOpen: false,
   },
+  // Settings Security explicitly calls out username change for a *stronger*
+  // limit than ordinary settings ("sensitive/destructive settings require
+  // stronger rate limits"), since a tight loop of claim attempts is exactly
+  // how a compromised session would probe for available names.
+  "username-change": {
+    windowSeconds: 60,
+    maxRequests: 5,
+    failOpen: false,
+  },
 };

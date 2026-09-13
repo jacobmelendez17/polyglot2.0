@@ -16,6 +16,7 @@ import {
   provisionUser,
   saveCurriculumPreference,
   updateDisplayName,
+  updateUsername as updateUsernameInDb,
 } from "./user-repository";
 import { splitDisplayNameForClerk } from "./clerk-name-sync";
 import { canViewSandboxAs } from "./sandbox-view";
@@ -153,4 +154,24 @@ export async function updateName(input: {
   }
 
   return updateDisplayName(db, input.userId, input.displayName);
+}
+
+/**
+ * Spec 20 Account — Username. Unlike Name, there is nothing to sync to
+ * Clerk — Username is "a Polyglot identifier," deliberately separate from
+ * anything Clerk manages. The tighter `"username-change"` policy (not
+ * `"account-settings"`) reflects Settings Security's explicit call-out that
+ * username change needs a stronger limit than an ordinary field.
+ *
+ * Uniqueness is decided by `users_username_lower_key` inside
+ * `updateUsername`, not here — this function never reads the table for
+ * availability first.
+ */
+export async function updateUsername(input: { userId: string; username: string }): Promise<PolyglotUser> {
+  const decision = await getRateLimiter().check({ policy: "username-change", subject: input.userId });
+  if (!decision.allowed) {
+    throw new AppError("RATE_LIMITED", `Please slow down and try again in ${decision.retryAfterSeconds}s.`);
+  }
+
+  return updateUsernameInDb(db, input.userId, input.username);
 }

@@ -15,5 +15,6 @@ export {
   requireUser,
   setCurriculumPreference,
   updateName,
+  updateUsername,
 } from "./user-service";
 export { resolveUserNow } from "./user-clock";

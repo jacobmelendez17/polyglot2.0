@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { NameField } from "@/components/settings/account/name-field";
+import { UsernameField } from "@/components/settings/account/username-field";
 import { SettingsSectionPlaceholder } from "@/components/settings/settings-section-placeholder";
 import { requireUser } from "@/domains/users/server";
 
@@ -17,11 +18,12 @@ export default async function AccountSettingsPage() {
         <h2 className="font-heading text-lg font-semibold text-foreground">Personal Information</h2>
         <div className="mt-2">
           <NameField initialName={user.displayName} />
+          <UsernameField initialUsername={user.username} />
         </div>
       </div>
       <SettingsSectionPlaceholder
         title="More Account settings"
-        description="Username, email, password, Beta, and the onboarding tour replay."
+        description="Email, password, Beta, and the onboarding tour replay."
       />
     </div>
   );

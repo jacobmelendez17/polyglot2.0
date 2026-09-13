@@ -13,6 +13,8 @@ export interface PolyglotUser {
   clerkUserId: string | null;
   role: UserRole;
   displayName: string | null;
+  /** Spec 20 Account — Username. `null` until the learner sets one; unique case-insensitively at the database level. */
+  username: string | null;
   timezone: string;
   activeLanguageId: string;
   isSandbox: boolean;

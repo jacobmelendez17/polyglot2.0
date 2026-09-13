@@ -1,6 +1,7 @@
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import type { DbClient } from "@/db/client";
+import { isUniqueViolation } from "@/db/postgres-errors";
 import { languages, levels, userLanguageSettings, users, userLevelProgress } from "@/db/schema";
 import { AppError } from "@/lib/errors/app-error";
 
@@ -29,6 +30,7 @@ function toPolyglotUser(row: UserRow): PolyglotUser {
     clerkUserId: row.clerkUserId,
     role: row.role,
     displayName: row.displayName,
+    username: row.username,
     timezone: row.timezone,
     activeLanguageId: row.activeLanguageId,
     isSandbox: row.isSandbox,
@@ -139,6 +141,29 @@ export async function updateDisplayName(db: DbClient, userId: string, displayNam
     throw new AppError("ITEM_NOT_FOUND", "That account could not be found.");
   }
   return toPolyglotUser(row);
+}
+
+/**
+ * Persists a Username change (spec 20 Account — Username). Relies entirely
+ * on `users_username_lower_key` (a case-insensitive unique index) to decide
+ * a race between two concurrent claims of the same name — "do not rely on a
+ * client-side availability check as the final uniqueness guarantee" means
+ * this must be check-the-constraint-by-attempting-the-write, never
+ * check-then-insert, so nothing reads the table for availability first.
+ */
+export async function updateUsername(db: DbClient, userId: string, username: string): Promise<PolyglotUser> {
+  try {
+    const [row] = await db.update(users).set({ username, updatedAt: new Date() }).where(eq(users.id, userId)).returning();
+    if (!row) {
+      throw new AppError("ITEM_NOT_FOUND", "That account could not be found.");
+    }
+    return toPolyglotUser(row);
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      throw new AppError("USERNAME_TAKEN");
+    }
+    throw error;
+  }
 }
 
 export async function findUsersByIds(db: DbClient, ids: string[]): Promise<PolyglotUser[]> {
