@@ -2,16 +2,17 @@ import type { SQSEvent, SQSHandler } from "aws-lambda";
 
 import { S3CurriculumImportStorage } from "@/providers/storage/s3-curriculum-import-storage";
 
+import { runCommitJob } from "./commit-job";
 import { createLambdaDb } from "./db";
 import { parseJobMessage } from "./job-schema";
 import { runPreviewJob } from "./preview-job";
 
 /**
- * The curriculum-import Lambda's entry point (spec 19 §30, §48 step 9).
+ * The curriculum-import Lambda's entry point (spec 19 §30, §48 steps 9/15).
  * Deliberately thin: parse the message, decide the job type, hand off to
  * the application/domain service that does the real work. No curriculum,
- * import, or business logic lives here — see `preview-job.ts` (and, once
- * §48 step 15 ships, `commit-job.ts`) for that.
+ * import, or business logic lives here — see `preview-job.ts`/`commit-job.ts`
+ * for that.
  *
  * SQS batch size is configured as 1 (spec 19 §37/Terraform), so
  * `event.Records` normally holds exactly one message — but this loops over
@@ -20,20 +21,17 @@ import { runPreviewJob } from "./preview-job";
  */
 export const handler: SQSHandler = async (event: SQSEvent) => {
   const db = await createLambdaDb();
+  const region = process.env.AWS_REGION ?? "us-west-2";
 
   for (const record of event.Records) {
     const message = parseJobMessage(record.body);
 
     if (message.kind === "preview") {
-      const storage = new S3CurriculumImportStorage({ bucket: message.bucket, region: process.env.AWS_REGION ?? "us-west-2" });
+      const storage = new S3CurriculumImportStorage({ bucket: message.bucket, region });
       await runPreviewJob(db, storage, { bucket: message.bucket, key: message.key });
       continue;
     }
 
-    // message.kind === "commit" — not yet implemented (spec 19 §48 step 15).
-    // Nothing produces this message today (step 14), so this path is
-    // unreached in practice; it throws rather than silently dropping the
-    // message so SQS's normal retry/DLQ behavior applies if it ever is.
-    throw new Error(`Job type "${message.kind}" is not yet implemented.`);
+    await runCommitJob(db, (bucket) => new S3CurriculumImportStorage({ bucket, region }), { importId: message.importId, actorUserId: message.actorUserId });
   }
 };

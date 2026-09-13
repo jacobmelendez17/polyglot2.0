@@ -576,14 +576,142 @@ the same unrelated file (`audit-log-filters.test.tsx`, a different
 see Next Up #25. Every other file was 100% consistent across all three
 runs; nothing this unit touched was ever implicated.
 
-**Next unit: §48 steps 14-15 — confirmation → SQS, and the Lambda commit
-job.** This is what makes `queued_for_import` actually move: Next.js sends
-the small `{version, jobType: "COMMIT_IMPORT", importId, actorUserId}`
-envelope (already typed in `job-schema.ts` since unit 8-10, unused until
-now) to the same SQS queue on confirm, and a `commit-job.ts` alongside
-`preview-job.ts` handles it — re-resolving against current DB state (§12's
-mandatory revalidation) before atomically applying the approved rows via
-`bulk-import-service.ts`'s existing transaction.
+**Units 14-15 (§48 — confirmation → SQS, and the Lambda commit job) are
+done, 2026-09-13 — spec 19's pipeline is now complete end to end, verified
+against real AWS on the very first real run.** `queued_for_import` finally
+moves: confirming sends the `{version, jobType: "COMMIT_IMPORT", importId,
+actorUserId}` envelope `job-schema.ts` has typed since units 8-10, and a new
+`commit-job.ts` consumes it, reusing `bulk-import-service.ts`'s existing
+`bulkImportVocabulary` for the actual write — never a second implementation
+of curriculum-import rules.
+
+- **`providers/queue/`** — a new `CurriculumImportQueue` boundary
+  (`@aws-sdk/client-sqs`, new dependency) matching `providers/storage/`'s
+  exact shape: an interface, one real SQS-backed implementation with no
+  `"server-only"` guard on the class itself (same reasoning as
+  `S3CurriculumImportStorage` — keeps it directly constructible from a
+  test), and an `index.ts` factory reading `IMPORT_QUEUE_URL` directly
+  (optional, feature-specific, kept out of `lib/env.ts` for the same reason
+  `IMPORT_BUCKET` is). `admin-mutation-service.ts`'s `confirmCurriculumImport`
+  now persists the state transition *then* sends the message — commit
+  first, send second, so a mid-flight failure leaves a recoverable
+  `queued_for_import` import with no message in flight, never a message
+  racing ahead of state it depends on.
+- **`aws/lambda/curriculum-import/import-resolution.ts`** — extracted from
+  `preview-job.ts` (which now just calls it) so `commit-job.ts` can reuse
+  the exact same "read from S3, parse, resolve against current DB" pipeline
+  for its own revalidation. Spec 19 §12 depends on preview and commit
+  producing byte-identical resolutions for anything to be comparable; two
+  separate implementations that could quietly drift apart would have
+  quietly broken that guarantee.
+- **`material-change.ts`** — a pure, directly unit-tested (13 tests)
+  comparator implementing spec 19 §13's list (classification, matched item,
+  destination level/group, item type, changed fields) — deliberately not
+  comparing duplicate/homonym status, since `curriculum_import_rows` never
+  persisted that dimension (a unit 8-10 simplification, still standing).
+  "A mere timestamp change does not invalidate the import" (§13) holds by
+  construction: nothing in the comparator ever looks at one.
+- **`commit-job.ts`** — loads the current import + every one of its rows,
+  runs a fresh resolution, and only *then* decides: if
+  `detectMaterialChange` finds anything, abort via a new
+  `revertCurriculumImportForRevalidation` (§12's "Abort commit → No
+  curriculum writes → Generate refreshed preview → NEEDS_REVIEW", deliberately
+  with no observable detour through `previewing` — this isn't the visible
+  async preview flow re-running, it's a confirmed decision quietly no
+  longer holding); otherwise, build `ImportRowDecision[]` from the fresh
+  resolution (excluding rows the admin explicitly skipped) and hand them to
+  `bulkImportVocabulary` under one idempotency key (`importId` itself —
+  already a stable UUID unique to this logical operation, reused across
+  every retry of the same commit).
+- **A real state-machine gap found while writing this, not by reading spec
+  prose**: `markCurriculumImportStarted`'s original guard only accepted
+  `queued_for_import`, which would have made SQS's own automatic redelivery
+  of a failed commit message (§22 — up to `max_receive_count` attempts
+  before the DLQ) silently no-op on every retry, since the first failure
+  already flips status to `failed`. Fixed by also accepting `failed` as a
+  valid starting point for both `markCurriculumImportStarted` and
+  `revertCurriculumImportForRevalidation` — a directly-tested integration
+  case ("a retried commit after a transient failure is allowed to proceed")
+  catches a regression here.
+- **`changedSincePreview` never actually worked before this unit** — found
+  while writing a test for it. `recordCurriculumImportPreview` (built in
+  unit 3, used by `preview-job.ts` since units 8-10) never passed
+  `previousRows` to the repository, so the flag was always `false` even on
+  a genuine re-preview. Fixed with a new
+  `getCurrentRowClassifications` repository read, fetched before every
+  overwrite in both `recordCurriculumImportPreview` and the new
+  `revertCurriculumImportForRevalidation` — a latent bug in already-shipped
+  code, fixed in passing because this unit's own test needed it to work.
+- **`skippedCount` also never got persisted anywhere** (schema column
+  existed since unit 1, nothing ever set it) — `markCurriculumImportCompleted`
+  now accepts it, and `commit-job.ts` computes it from the rows it excluded.
+
+**Real end-to-end verification, twice — a full commit succeeding for the
+first time ever:**
+
+1. A scratch script created a real import at real Level 1/Group 1 (not a
+   deliberately-invalid level this time, since a real commit needs a row
+   that actually resolves to `create`), uploaded via presigned URL, waited
+   for `ready_to_import`, called `confirmCurriculumImport` directly, sent
+   the real SQS message, and polled to `completed` — all on the first
+   attempt, no bugs found this time. Verified the vocabulary item was
+   really created (`status: "pending"`, correctly not auto-published per
+   §16), then deleted it and the import row immediately afterward via the
+   existing `deleteItem` domain function — a fresh Pending item with zero
+   learner progress or references, safe to hard-delete, unlike any
+   real/published curriculum content.
+2. A real browser pass (same ad hoc Playwright/`@clerk/testing` recipe,
+   `--no-save`, cleaned up afterward) through the actual UI: upload → wait
+   for `ready_to_import` → click **Confirm Import** → wait for **Import
+   Complete** to render. This is the first time that panel has ever
+   rendered against a real completion rather than being dead-ended at
+   `queued_for_import` (units 12-13's own limit at the time).
+
+**A real gap found by reflecting on cleanup, not by a test**: the first
+real end-to-end run's cleanup step prompted checking whether the created
+item picked up a dictionary mapping — it hadn't, because `commit-job.ts`
+never called `matchImportedVocabularyItems`, unlike the synchronous path's
+`bulkImportVocabularyAction` (spec 19 §17 explicitly requires this). Fixed:
+`commit-job.ts` now matches every created/updated vocabulary item after a
+successful `bulkImportVocabulary` call, deliberately wrapped in its own
+`.catch(() => {})` rather than the outer failure path — the curriculum
+write has already committed by that point, so a matching failure must never
+retroactively mark the import `failed` (which would also send a doomed SQS
+retry: the retry's fresh resolution would see the row as `unchanged`
+instead of `create` and trip `detectMaterialChange` for no real reason).
+Added a direct assertion for this (a `vocabulary_dictionary_mappings` row
+exists after commit) to the happy-path integration test. Required a Lambda
+rebuild + redeploy after already having verified once — the AWS
+verification below is the *second* real run, after this fix.
+
+**A dependency-tracking mistake, caught and fixed within the same session**:
+a cleanup step (`cp` restoring `package.json` from an unrelated backup made
+during unit 12-13's own scratch-tooling cleanup) accidentally reverted this
+unit's real `@aws-sdk/client-sqs` addition. Caught immediately by `git
+status` showing no dependency changes when there clearly should have been
+one — re-installed properly (saved this time, not `--no-save`) and
+re-verified typecheck/lint/tests before continuing. Worth remembering: a
+backup taken for one cleanup purpose can silently go stale the moment a
+*real* change lands in the same file afterward.
+
+Verified: `tsc --noEmit`, `eslint`, `npm run test` (749/749 — 13 new pure
+`material-change` tests, no flakes this run), `npm run build`, a full
+integration-suite run (340/346 — up from the 335/341 baseline by exactly
+the 5 new `commit-job` tests, identical 6 pre-existing failures across the
+same 4 files, zero new ones), `terraform plan`/`apply` for the Lambda
+redeploy (in-place, code-only, applied twice — once per real-AWS-verified
+fix), and both real verifications above.
+
+**Next unit: §48 steps 16-17 — this unit already covers most of §16's
+revalidation and §17's retry-allows-progress ground (both directly tested),
+so what's left is mostly UI: exposing `[Retry Import]` for a `failed`
+import (the domain `retryCurriculumImport` function has existed since unit
+3 but nothing calls it, and it still doesn't itself re-send the SQS message —
+only a real "click Retry" action does both together), and showing the
+"Import changed since preview" / "CHANGED SINCE PREVIEW" banner spec 19
+§12 asks for once `changedSincePreview` actually works (it does now).
+Steps 18-19 (import history page, archive/permanent-delete UI) remain
+fully unbuilt — the domain layer for both has existed since unit 3.
 
 **Spec 18 (Item Detail & Lesson Item Layout) is in progress — unit 1 shipped
 2026-09-09.** The spec (`context/feature-specs/18-item-page.md`) redesigns

@@ -7,6 +7,7 @@ import {
   countUnresolvedRows,
   createCurriculumImport as repoCreateCurriculumImport,
   deleteCurriculumImport,
+  getCurrentRowClassifications,
   incrementAttemptCount,
   lockCurriculumImportForUpdate,
   recordPreviewResult as repoRecordPreviewResult,
@@ -48,8 +49,17 @@ export async function markCurriculumImportUploaded(db: DbClient, importId: strin
 export async function markCurriculumImportPreviewStarted(db: DbClient, importId: string): Promise<void> {
   const current = await lockCurriculumImportForUpdate(db, importId);
   if (!current) throw new AdminError("CURRICULUM_ITEM_NOT_FOUND", "This import no longer exists.");
-  if (current.status !== "queued_for_preview" && current.status !== "needs_review" && current.status !== "ready_to_import") {
-    // Allow re-entry from needs_review/ready_to_import too — §12's commit-time revalidation re-runs preview from those states.
+  if (
+    current.status !== "queued_for_preview" &&
+    current.status !== "needs_review" &&
+    current.status !== "ready_to_import" &&
+    current.status !== "queued_for_import"
+  ) {
+    // needs_review/ready_to_import: an admin can re-trigger preview on an
+    // already-previewed import (not currently exposed, but the guard has
+    // always allowed it). queued_for_import: §12's mandatory commit-time
+    // revalidation — commit-job.ts re-runs the same preview pipeline before
+    // ever trusting the confirmed one, from exactly this status.
     throw new AdminError("CURRICULUM_VALIDATION_FAILED", `Cannot start preview from status "${current.status}".`);
   }
   await setStatus(db, importId, "previewing", { previewStartedAt: new Date() });
@@ -71,7 +81,36 @@ export async function recordCurriculumImportPreview(
   if (current.status !== "previewing") {
     throw new AdminError("CURRICULUM_VALIDATION_FAILED", `Cannot record a preview from status "${current.status}".`);
   }
-  await repoRecordPreviewResult(db, { importId, rows, sourceSha256 });
+  // Fetched before the overwrite below replaces them — this is what lets a
+  // re-preview mark `changedSincePreview` (spec 19 §12/§13's "CHANGED SINCE
+  // PREVIEW" indicator) instead of every re-preview looking identical to a
+  // first one.
+  const previousRows = await getCurrentRowClassifications(db, importId);
+  await repoRecordPreviewResult(db, { importId, rows, sourceSha256, previousRows });
+}
+
+/**
+ * Spec 19 §12/§13 — aborts a commit whose confirmed decision no longer
+ * matches current curriculum state, moving `queued_for_import` directly to
+ * `needs_review`/`ready_to_import` with the freshly recomputed rows. No
+ * observable detour through `previewing`: this isn't the visible async
+ * preview flow re-running, it's `commit-job.ts` discovering mid-commit that
+ * an already-confirmed decision no longer holds, and the row must show a
+ * clean, understandable jump from "confirmed" to "needs another look."
+ */
+export async function revertCurriculumImportForRevalidation(
+  db: DbClient,
+  { importId, rows, sourceSha256 }: { importId: string; rows: CurriculumImportRowPreviewInput[]; sourceSha256?: string },
+): Promise<void> {
+  const current = await lockCurriculumImportForUpdate(db, importId);
+  if (!current) throw new AdminError("CURRICULUM_ITEM_NOT_FOUND", "This import no longer exists.");
+  // `failed`: a retried commit (see markCurriculumImportStarted) can also
+  // discover a material change on its retry, not just on the first attempt.
+  if (current.status !== "queued_for_import" && current.status !== "failed") {
+    throw new AdminError("CURRICULUM_VALIDATION_FAILED", `Cannot revert to review from status "${current.status}".`);
+  }
+  const previousRows = await getCurrentRowClassifications(db, importId);
+  await repoRecordPreviewResult(db, { importId, rows, sourceSha256, previousRows });
 }
 
 export type ConfirmCurriculumImportResult = { confirmedPreviewVersion: number };
@@ -113,15 +152,21 @@ export async function resolveCurriculumImportRow(db: DbClient, { rowId }: { rowI
 export async function markCurriculumImportStarted(db: DbClient, importId: string): Promise<void> {
   const current = await lockCurriculumImportForUpdate(db, importId);
   if (!current) throw new AdminError("CURRICULUM_ITEM_NOT_FOUND", "This import no longer exists.");
-  if (current.status !== "queued_for_import") {
+  if (current.status !== "queued_for_import" && current.status !== "failed") {
+    // `failed`: SQS's own automatic redelivery of the same COMMIT_IMPORT
+    // message (spec 19 §22 — up to `max_receive_count` attempts before the
+    // DLQ) must be able to retry a commit whose *previous* attempt failed,
+    // not silently no-op it — `commit-job.ts` sets `failed` on every caught
+    // error, but SQS doesn't know or care about that status and will
+    // redeliver the identical message regardless.
     throw new AdminError("CURRICULUM_VALIDATION_FAILED", `Cannot start committing from status "${current.status}".`);
   }
   await incrementAttemptCount(db, importId);
   await setStatus(db, importId, "importing", { importStartedAt: new Date() });
 }
 
-export async function markCurriculumImportCompleted(db: DbClient, importId: string): Promise<void> {
-  await setStatus(db, importId, "completed", { completedAt: new Date() });
+export async function markCurriculumImportCompleted(db: DbClient, importId: string, extra: { skippedCount?: number } = {}): Promise<void> {
+  await setStatus(db, importId, "completed", { completedAt: new Date(), ...(extra.skippedCount !== undefined ? { skippedCount: extra.skippedCount } : {}) });
 }
 
 export async function markCurriculumImportFailed(db: DbClient, { importId, errorCode, errorSummary }: { importId: string; errorCode: string; errorSummary: string }): Promise<void> {

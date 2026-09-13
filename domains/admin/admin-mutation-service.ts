@@ -4,6 +4,7 @@ import { db } from "@/db/client";
 import type { ValidatedImportRow } from "@/domains/curriculum/vocabulary-import-parsing";
 import { env } from "@/lib/env";
 import { curriculumImportObjectKey, getCurriculumImportStorage } from "@/providers/storage";
+import { getCurriculumImportQueue } from "@/providers/queue";
 import { getRateLimiter } from "@/providers/rate-limit";
 import { AdminError } from "@/lib/errors/admin-errors";
 
@@ -240,7 +241,20 @@ export async function resolveCurriculumImportRow(input: { rowId: string; actorUs
   return curriculumImport.resolveCurriculumImportRow(db, { rowId: input.rowId });
 }
 
+/**
+ * Confirming persists the state-machine transition first (spec 19 §9's gate
+ * — refuses if any row still needs a disposition), then enqueues the
+ * COMMIT_IMPORT message (§11) only once that's durably committed. Enqueuing
+ * before the DB write landed would risk a Lambda racing to read a status
+ * the confirm transaction hadn't actually saved yet; the reverse order —
+ * commit first, send second — means the worst case of a mid-flight failure
+ * is a `queued_for_import` import with no message in flight yet, which
+ * spec 19 §22's retry path (and a future manual "resend" action) can always
+ * recover, rather than a message racing ahead of the state it depends on.
+ */
 export async function confirmCurriculumImport(input: { importId: string; actorUserId: string }) {
   await checkRateLimit("admin-mutation", input.actorUserId);
-  return curriculumImport.confirmCurriculumImport(db, input);
+  const result = await curriculumImport.confirmCurriculumImport(db, input);
+  await getCurriculumImportQueue().sendCommitJob({ importId: input.importId, actorUserId: input.actorUserId });
+  return result;
 }

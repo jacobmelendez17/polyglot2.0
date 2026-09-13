@@ -231,6 +231,15 @@ export async function countUnresolvedRows(db: DbClient, importId: string): Promi
   return row?.count ?? 0;
 }
 
+/** Every current row's classification, by row number — what a re-preview needs to compute `changedSincePreview` (spec 19 §12/§13) without paginating through full row records for a comparison that only needs one enum column. Bounded by the 5,000-row import cap (spec 19 §4), so one unpaginated query is fine. */
+export async function getCurrentRowClassifications(db: DbClient, importId: string): Promise<Map<number, CurriculumImportRowClassification>> {
+  const rows = await db
+    .select({ rowNumber: curriculumImportRows.rowNumber, classification: curriculumImportRows.classification })
+    .from(curriculumImportRows)
+    .where(eq(curriculumImportRows.importId, importId));
+  return new Map(rows.map((row) => [row.rowNumber, row.classification]));
+}
+
 export async function setStatus(
   db: DbClient,
   importId: string,
@@ -245,6 +254,7 @@ export async function setStatus(
     completedAt: Date;
     lastErrorCode: string | null;
     lastErrorSummary: string | null;
+    skippedCount: number;
   }> = {},
 ): Promise<void> {
   await db
