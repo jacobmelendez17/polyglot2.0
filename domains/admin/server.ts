@@ -16,10 +16,14 @@ export {
   bulkImportVocabulary,
   bulkMoveItems,
   bulkPublishPendingItems,
+  confirmCurriculumImport,
+  createCurriculumImportUpload,
   createItem,
   createLevel,
   createVocabularyGroup,
   deleteItem,
+  getCurriculumImportStatus,
+  listCurriculumImportRowsForReview,
   moveItem,
   mutateGrammarContentBlock,
   mutateItemExample,
@@ -31,11 +35,25 @@ export {
   reorderVocabularyGroups,
   resetDictionaryFieldOverride,
   resetOwnAccountProgress,
+  resolveCurriculumImportRow,
   updateItem,
   updateLevel,
   updateVocabularyGroup,
 } from "./admin-mutation-service";
-export type { PreviewVocabularyImportServiceInput } from "./admin-mutation-service";
+export type {
+  CreateCurriculumImportUploadInput,
+  CreateCurriculumImportUploadResult,
+  PreviewVocabularyImportServiceInput,
+} from "./admin-mutation-service";
+export type { ConfirmCurriculumImportResult } from "./curriculum-import-service";
+export type {
+  CurriculumImportRecord,
+  CurriculumImportRowClassification,
+  CurriculumImportRowDisposition,
+  CurriculumImportRowRecord,
+  CurriculumImportRowsPage,
+  CurriculumImportStatus,
+} from "./curriculum-import-types";
 export type { ResetOwnAccountProgressServiceInput } from "./account-reset-service";
 export type {
   BulkImportVocabularyResult,

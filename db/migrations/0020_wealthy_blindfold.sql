@@ -1,0 +1,1 @@
+ALTER TABLE "curriculum_imports" ALTER COLUMN "source_sha256" DROP NOT NULL;

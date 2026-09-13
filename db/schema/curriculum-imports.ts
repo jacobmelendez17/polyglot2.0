@@ -75,7 +75,11 @@ export const curriculumImports = pgTable(
     fileExtension: text("file_extension").notNull(),
     s3Bucket: text("s3_bucket").notNull(),
     s3Key: text("s3_key").notNull(),
-    sourceSha256: text("source_sha256").notNull(),
+    // Nullable: the create-import Server Action knows the id and S3 key
+    // before any bytes exist (spec 19 §6 — the browser uploads directly to
+    // S3, never through Next.js), so the checksum genuinely isn't known
+    // until the preview job actually reads the file. Filled in then.
+    sourceSha256: text("source_sha256"),
 
     uploadedByUserId: uuid("uploaded_by_user_id")
       .notNull()

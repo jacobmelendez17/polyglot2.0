@@ -21,7 +21,8 @@ export type CurriculumImportRecord = {
   fileExtension: string;
   s3Bucket: string;
   s3Key: string;
-  sourceSha256: string;
+  /** Unknown until the preview job actually reads the file (spec 19 §6/§21) — set by `recordCurriculumImportPreview`. */
+  sourceSha256: string | null;
   uploadedByUserId: string;
   status: CurriculumImportStatus;
   totalRows: number;
@@ -70,6 +71,8 @@ export type CurriculumImportRowRecord = {
 };
 
 export type CreateCurriculumImportInput = {
+  /** Client-generated (spec 19 §6 — the S3 key is derived from this id and must be known before the row exists, so the caller mints it rather than reading it back after an insert). */
+  id: string;
   languageId: string;
   environment: string;
   uploadedByUserId: string;
@@ -77,7 +80,6 @@ export type CreateCurriculumImportInput = {
   fileExtension: string;
   s3Bucket: string;
   s3Key: string;
-  sourceSha256: string;
   sourceImportId?: string | null;
 };
 

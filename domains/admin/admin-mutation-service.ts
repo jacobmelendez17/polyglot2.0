@@ -1,5 +1,9 @@
+import { randomUUID } from "node:crypto";
+
 import { db } from "@/db/client";
 import type { ValidatedImportRow } from "@/domains/curriculum/vocabulary-import-parsing";
+import { env } from "@/lib/env";
+import { curriculumImportObjectKey, getCurriculumImportStorage } from "@/providers/storage";
 import { getRateLimiter } from "@/providers/rate-limit";
 import { AdminError } from "@/lib/errors/admin-errors";
 
@@ -7,6 +11,8 @@ import * as accountReset from "./account-reset-service";
 import type { ResetOwnAccountProgressServiceInput } from "./account-reset-service";
 import * as bulkImport from "./bulk-import-service";
 import type { BulkImportVocabularyServiceInput } from "./bulk-import-service";
+import * as curriculumImport from "./curriculum-import-service";
+import { getCurriculumImportById, listCurriculumImportRows } from "./curriculum-import-repository";
 import * as publication from "./publication-service";
 import type {
   ApplyDictionaryFieldsServiceInput,
@@ -176,4 +182,65 @@ export async function bulkImportVocabulary(input: BulkImportVocabularyServiceInp
 export async function resetOwnAccountProgress(input: ResetOwnAccountProgressServiceInput) {
   await checkRateLimit("admin-mutation", input.userId);
   return accountReset.resetOwnAccountProgress(db, input);
+}
+
+/**
+ * Spec 19 §48 steps 12-13 — binds the real `db`/storage/rate limiter to
+ * `curriculum-import-service.ts`'s injectable functions, the same pattern
+ * as `bulkImportVocabulary` above. `createCurriculumImportUpload` is the
+ * one function that needs more than just `db`: it mints the id (the S3 key
+ * is derived from it before the row exists, §6) and asks the storage
+ * provider for both the bucket name and a presigned upload URL.
+ */
+
+export type CreateCurriculumImportUploadInput = {
+  languageId: string;
+  actorUserId: string;
+  originalFilename: string;
+  fileExtension: "csv" | "tsv";
+};
+
+export type CreateCurriculumImportUploadResult = { importId: string; uploadUrl: string };
+
+export async function createCurriculumImportUpload(input: CreateCurriculumImportUploadInput): Promise<CreateCurriculumImportUploadResult> {
+  await checkRateLimit("admin-mutation", input.actorUserId);
+  const id = randomUUID();
+  const storage = getCurriculumImportStorage();
+  const key = curriculumImportObjectKey(id, input.fileExtension);
+
+  const record = await curriculumImport.createCurriculumImport(db, {
+    id,
+    languageId: input.languageId,
+    environment: env.APP_ENV,
+    uploadedByUserId: input.actorUserId,
+    originalFilename: input.originalFilename,
+    fileExtension: input.fileExtension,
+    s3Bucket: storage.bucketName,
+    s3Key: key,
+  });
+
+  const presigned = await storage.createPresignedUploadUrl({
+    key,
+    contentType: input.fileExtension === "csv" ? "text/csv" : "text/tab-separated-values",
+  });
+
+  return { importId: record.id, uploadUrl: presigned.url };
+}
+
+export async function getCurriculumImportStatus(importId: string) {
+  return getCurriculumImportById(db, importId);
+}
+
+export async function listCurriculumImportRowsForReview(input: { importId: string; cursor?: string | null; limit: number }) {
+  return listCurriculumImportRows(db, input);
+}
+
+export async function resolveCurriculumImportRow(input: { rowId: string; actorUserId: string }) {
+  await checkRateLimit("admin-mutation", input.actorUserId);
+  return curriculumImport.resolveCurriculumImportRow(db, { rowId: input.rowId });
+}
+
+export async function confirmCurriculumImport(input: { importId: string; actorUserId: string }) {
+  await checkRateLimit("admin-mutation", input.actorUserId);
+  return curriculumImport.confirmCurriculumImport(db, input);
 }

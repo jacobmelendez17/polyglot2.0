@@ -64,14 +64,14 @@ export async function markCurriculumImportPreviewStarted(db: DbClient, importId:
  */
 export async function recordCurriculumImportPreview(
   db: DbClient,
-  { importId, rows }: { importId: string; rows: CurriculumImportRowPreviewInput[] },
+  { importId, rows, sourceSha256 }: { importId: string; rows: CurriculumImportRowPreviewInput[]; sourceSha256?: string },
 ): Promise<void> {
   const current = await lockCurriculumImportForUpdate(db, importId);
   if (!current) throw new AdminError("CURRICULUM_ITEM_NOT_FOUND", "This import no longer exists.");
   if (current.status !== "previewing") {
     throw new AdminError("CURRICULUM_VALIDATION_FAILED", `Cannot record a preview from status "${current.status}".`);
   }
-  await repoRecordPreviewResult(db, { importId, rows });
+  await repoRecordPreviewResult(db, { importId, rows, sourceSha256 });
 }
 
 export type ConfirmCurriculumImportResult = { confirmedPreviewVersion: number };

@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import type { DbClient } from "@/db/client";
 import { previewVocabularyImport } from "@/domains/admin/bulk-import-service";
 import type { ImportRowPreview } from "@/domains/admin/bulk-import-service";
@@ -116,6 +118,11 @@ export async function runPreviewJob(db: DbClient, storage: CurriculumImportStora
     await markCurriculumImportPreviewStarted(db, importId);
 
     const fileContent = await storage.getObjectText(key);
+    // Spec 19 §21 — computed here rather than by the browser: the create-
+    // import action knows the id/key before any bytes exist (§6), so the
+    // checksum is only ever knowable once something has actually read the
+    // file, which is here.
+    const sourceSha256 = createHash("sha256").update(fileContent, "utf8").digest("hex");
     const delimiter = fileExtension === "tsv" ? "\t" : ",";
     const parsed = parseVocabularyImportFile(fileContent, delimiter);
     if (!parsed.ok) {
@@ -125,7 +132,7 @@ export async function runPreviewJob(db: DbClient, storage: CurriculumImportStora
     const validatedRows = parsed.rows.map((row, index) => validateVocabularyImportRow(row, index));
     const previews = await previewVocabularyImport(db, { languageId: importRecord.languageId, validatedRows });
 
-    await recordCurriculumImportPreview(db, { importId, rows: previews.map(toRowPreviewInput) });
+    await recordCurriculumImportPreview(db, { importId, rows: previews.map(toRowPreviewInput), sourceSha256 });
   } catch (error) {
     const code = error instanceof PreviewJobError ? error.code : "IMPORT_PREVIEW_FAILED";
     const fullMessage = describeErrorChain(error);

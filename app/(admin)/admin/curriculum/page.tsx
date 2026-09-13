@@ -127,6 +127,9 @@ export default async function AdminCurriculumPage({
         <AdminPageHeader title="Curriculum" description="Search, filter, create, edit, and publish official curriculum." />
         <div className="flex flex-wrap gap-2">
           <ImportVocabularyDialog languageId={languageId} />
+          <Button asChild variant="outline">
+            <Link href={`/admin/curriculum/imports/new?language=${languageId}`}>Import (async, beta)</Link>
+          </Button>
           <Button asChild>
             <Link href={`/admin/curriculum/items/new?language=${languageId}`}>Add item</Link>
           </Button>

@@ -457,13 +457,133 @@ network/observability concerns, already covered by the real AWS
 verification, which is a stronger check for exactly this bug than a fake
 storage double could ever have been).
 
-**Next unit: §48 steps 12-13 — replace the synchronous preview with the
-async UI, and Admin review persistence.** This is where a real "create
-import" Server Action finally binds `curriculum-import-service.ts` to the
-app's `db` for the first time (see the unit 8-10 entry's flagged follow-up:
-`createCurriculumImport` needs to accept a client-generated id first), and
-where an Admin actually sees and resolves a real async import instead of
-this session's manual verification script.
+**Units 12-13 (§48 — async preview UI + Admin review persistence) are
+done, 2026-09-12/13.** The real "create import" Server Action finally binds
+`curriculum-import-service.ts` to the app's `db`, and an Admin can now
+create, watch, review, and confirm a real asynchronous import through the
+UI instead of a manual verification script.
+
+- **Schema follow-through on the flagged gap**: `source_sha256` is now
+  nullable (migration `0020`, additive/safe) — the create-import action
+  knows the id/S3 key before any bytes exist (§6), so the checksum
+  genuinely can't be known until something reads the file. `preview-job.ts`
+  computes it (`createHash("sha256")` over the file content) and
+  `recordCurriculumImportPreview`/`recordPreviewResult` persist it
+  alongside the preview result — one place, not duplicated. `CreateCurriculumImportInput`
+  now requires the caller to mint `id` itself (`randomUUID()`), matching
+  the real order of operations: id → S3 key → presigned URL → DB row, all
+  before any upload happens.
+- **`domains/admin/admin-mutation-service.ts`** gained the real-`db`-bound
+  layer this feature never had before (`createCurriculumImportUpload`,
+  `getCurriculumImportStatus`, `listCurriculumImportRowsForReview`,
+  `resolveCurriculumImportRow`, `confirmCurriculumImport`), exported
+  through `domains/admin/server.ts` — the same binding pattern
+  `bulkImportVocabulary` already established. `createCurriculumImportUpload`
+  is the one function doing more than forwarding to `db`: it mints the id,
+  asks `providers/storage` for the bucket name and a presigned PUT URL, and
+  creates the row in one call.
+- **`app/(admin)/admin/curriculum/async-import-actions.ts`** — a new,
+  separate Server Actions file (mirroring why `import-actions.ts` is its
+  own file): `createAsyncCurriculumImportAction`, `getCurriculumImportStatusAction`
+  (polling target), `listCurriculumImportRowsAction`, `resolveCurriculumImportRowAction`,
+  `confirmAsyncCurriculumImportAction`. Same `ActionResult<T>`/re-auth/re-authorize
+  wrapper shape as every other admin action file in this codebase.
+- **UI**: `/admin/curriculum/imports/new` (upload — `CreateAsyncImportForm`)
+  and `/admin/curriculum/imports/[importId]` (status/review —
+  `AsyncImportStatus`), linked from `/admin/curriculum` as "Import (async,
+  beta)" beside the existing sync dialog (not replacing it yet — §44's
+  removal is a later step). The upload form PUTs the file directly to S3
+  from the browser and never sends its contents through a Server Action
+  (§6). The status component is this codebase's **first polling
+  component** (confirmed via grep — no `setInterval`/`setTimeout` precedent
+  existed before this): polls every 3s per §38, stops on the four
+  terminal/user-action states, fetches the row list once there's something
+  to review, and lets the admin Skip a blocked row or Confirm once nothing
+  is unresolved. Visual structure reuses `ImportVocabularyDialog`'s
+  established patterns (the `[contain:paint]`-wrapped scrollable table,
+  `text-state-*` classification coloring) rather than inventing new ones.
+- **Confirming currently dead-ends at `queued_for_import` — deliberately,
+  not a bug.** Spec 19 §48 splits "Admin review persistence" (13, this
+  unit) from "confirmation → SQS" (14, next unit) as two separate steps for
+  exactly this reason: confirming here correctly transitions the state
+  machine and gates on every row having a disposition, but nothing yet
+  enqueues the SQS commit message that would let a (not-yet-built) commit
+  Lambda actually pick it up. The status page will just keep polling
+  "Importing…" forever for now — expected until steps 14-15 exist.
+
+**Real browser verification** (code-standards.md's requirement for UI work,
+not skipped): no project-specific run skill exists yet for this repo (per
+existing progress-tracker Environment Notes), so this used the same ad hoc
+Playwright + `@clerk/testing/playwright` recipe prior specs established —
+installed with `--no-save` (never touched the committed lockfile) against
+the developer's own already-running `next dev` server, signing in as the
+real admin account (`nerdalert46@gmail.com`) via `clerk.signIn({page,
+emailAddress})`. Verified the full flow: sign in → `/admin/curriculum` →
+"Import (async, beta)" → `/admin/curriculum/imports/new` → select a CSV →
+real S3 upload → redirect to `/admin/curriculum/imports/[importId]` →
+polling reaches `needs_review` → skip the flagged row → Confirm Import
+enabled → click it. Used a deliberately invalid level number in the test
+CSV (matching the AWS-verification safety approach), so this real run could
+never touch real curriculum data. Verification files
+(`verify-async-import.mjs`, screenshots, the ad hoc `playwright`/`@clerk/testing`
+install) are scratch, not committed.
+
+**Two real bugs found and fixed by this browser pass, neither visible from
+reading the code alone:**
+
+1. The upload failed outright with "The upload failed. Please check your
+   connection and try again." — the dev S3 bucket's CORS policy (unit 4-5's
+   Terraform) only allowed `http://localhost:3000`, but this environment's
+   `next dev` was actually running on port 3001 (3000 was already taken by
+   something else — exactly the scenario the existing Environment Notes
+   already warn about). Fixed by widening `allowed_upload_origins`'s
+   default to `3000`/`3001`/`3002` and re-applying (a CORS-only,
+   non-destructive, dev-bucket-only Terraform change).
+2. **After that fix, "Confirm Import" briefly rendered as clickable before
+   it should have been**, and clicking it in that window produced a real
+   (if server-safely-rejected) error: "1 row(s) still need a decision
+   before this import can be confirmed." Root cause: `unresolvedCount` is
+   computed by filtering the `rows` array, and an empty, not-yet-fetched
+   array filters to zero just as validly as a fully-resolved one does — the
+   UI couldn't tell "nothing left to resolve" apart from "haven't checked
+   yet." Fixed in `async-import-status.tsx` by also gating the button (and
+   its own copy) on `rowsLoaded`, not `unresolvedCount` alone. No data was
+   ever at risk — `confirmCurriculumImport`'s server-side `countUnresolvedRows`
+   check (unit 3) is what actually rejected the premature click — but the
+   UI was misleading about what it hadn't checked yet, and a screenshot of
+   the actual rendered state is what surfaced it, not a code review.
+
+Re-verified after the second fix with a full real run: upload → redirect →
+`needs_review` (1 row, correctly shown in the table with its `reviewReason`)
+→ Skip → Confirm becomes enabled only now → click → status moves to
+`queued_for_import` ("Importing… Applying the approved curriculum rows.") —
+no console errors, no failed requests (aside from a benign Chromium
+network-panel artifact: every successful presigned PUT also logs a
+`net::ERR_ABORTED` `requestfailed` event immediately after its real `200`
+response, consistently, and harmlessly — the app never inspects the
+response body, only `.ok`). All scratch test rows/S3 objects created during
+verification (5 of each, across every attempt) were deleted from the real
+dev database/bucket afterward.
+
+Verified: `tsc --noEmit`, `eslint`, `npm run build` (both new routes
+appear), the full integration suite re-run (335/341 — identical to before
+this unit's schema change, same 6 pre-existing failures, zero new ones),
+`terraform plan`/`apply` for the CORS fix, and the real-browser pass above.
+`npm run test` needed three runs to characterize rather than one clean
+pass: 736/736, then two separate full-suite runs each with one failure in
+the same unrelated file (`audit-log-filters.test.tsx`, a different
+`userEvent` test each time), which passed 5/5 in isolation both times —
+see Next Up #25. Every other file was 100% consistent across all three
+runs; nothing this unit touched was ever implicated.
+
+**Next unit: §48 steps 14-15 — confirmation → SQS, and the Lambda commit
+job.** This is what makes `queued_for_import` actually move: Next.js sends
+the small `{version, jobType: "COMMIT_IMPORT", importId, actorUserId}`
+envelope (already typed in `job-schema.ts` since unit 8-10, unused until
+now) to the same SQS queue on confirm, and a `commit-job.ts` alongside
+`preview-job.ts` handles it — re-resolving against current DB state (§12's
+mandatory revalidation) before atomically applying the approved rows via
+`bulk-import-service.ts`'s existing transaction.
 
 **Spec 18 (Item Detail & Lesson Item Layout) is in progress — unit 1 shipped
 2026-09-09.** The spec (`context/feature-specs/18-item-page.md`) redesigns
@@ -1900,6 +2020,7 @@ file) does not shift.
 22. **`curriculum-admin-repository.integration.test.ts` fails on shared-dev-branch drift** (observed 2026-09-08, during spec 14's verification — unrelated to decks). "lists every item for a language, ordered by level then curriculum position" asserts the seeded group `30000000-…-0001` is named "Home & Basics"; the dev branch actually has it as "Numbers" (confirmed by direct query). `seedTestFixtures` uses `onConflictDoNothing`, so it never corrects a renamed committed row. Fix it the way spec 11 fixed the equivalent level-targets breakage: have the test create the group it asserts on rather than depending on a shared row. Brings the known-failing integration baseline to 5.
 23. **Real-browser pass for spec 15 (Onboarding)** — same gap as #21. Fastest route in is Admin → Sandbox → **Replay Onboarding**, which needs no throwaway account and can be repeated freely. Worth covering: transition direction differing between Back and Next, the `Start Now!` inflate/shrink emphasis (it replays whenever slide 5 becomes active again after going Back — that is spec 15's "once when Slide 5 becomes active", not a bug), mobile layout with the sticky controls, and `prefers-reduced-motion` actually stilling every loop.
 24. **`usage-contexts.integration.test.ts`'s "refuses a grammar item" test is stale, not flaky** (found 2026-09-12, during spec 19 unit 3's integration verification). It asserts `mutateUsageContext` rejects a grammar item with `AdminError`, but spec 18 later widened usage contexts to grammar (`architecture.md`'s Architecture Decisions entry, 2026-09-09) — `mutateUsageContext` was updated for that, and this one test in `publication-service.ts`'s own spec-17 coverage was not. Reproduces deterministically in isolation, unrelated to spec 19. Fix is to replace the test with one asserting the current (correct) behavior — a grammar item's usage context is created successfully — not to weaken or delete it.
+25. **`components/admin/logs/audit-log-filters.test.tsx` flaked twice under the full `npm run test` suite** (found 2026-09-12/13, during spec 19 units 12-13's final verification) — one `userEvent`-driven test failed on one full-suite run, a different one in the same file failed on the next, while the whole file passed cleanly (5/5) both times it was run in isolation. Unrelated to spec 19 — this file wasn't touched this session, and both failures point at timing sensitivity in `userEvent` simulated interaction under jsdom, most likely aggravated by this session's unusually heavy concurrent load (Terraform applies, a real Lambda's worth of AWS SDK calls, and a Playwright browser all running alongside the suite). Worth a dedicated look at whether the test needs explicit `await waitFor(...)` around its assertions rather than relying on `userEvent`'s own timing, but not chased further here per code-standards.md's rule against papering over flakiness with retries.
 
 ## Infrastructure Status
 

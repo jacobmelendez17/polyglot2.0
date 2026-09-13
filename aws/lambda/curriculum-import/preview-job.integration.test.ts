@@ -32,22 +32,29 @@ class FakeCurriculumImportStorage implements CurriculumImportStorage {
 const LEVEL_NUMBER = FIXTURE_LEVEL_NUMBER;
 const GROUP_NUMBER = 1;
 
+/** The real create-import flow generates the id first (so the S3 key is known before the row exists, spec 19 §6) — mirrored here rather than relying on a database default. */
+async function createTestImport(tx: Parameters<typeof createCurriculumImport>[0], languageId: string, originalFilename: string) {
+  const id = crypto.randomUUID();
+  const key = curriculumImportObjectKey(id, "csv");
+  const record = await createCurriculumImport(tx, {
+    id,
+    languageId,
+    environment: "development",
+    uploadedByUserId: DEVELOPER_ID,
+    originalFilename,
+    fileExtension: "csv",
+    s3Bucket: "fake-bucket",
+    s3Key: key,
+  });
+  return { record, key };
+}
+
 describe("runPreviewJob (spec 19 §7/§10)", () => {
   it("a clean CSV moves the import to ready_to_import with a create row recorded", async () => {
     await withTestTransaction(async (tx) => {
       const { languageId } = await seedTestFixtures(tx);
-      const record = await createCurriculumImport(tx, {
-        languageId,
-        environment: "development",
-        uploadedByUserId: DEVELOPER_ID,
-        originalFilename: "level-2.csv",
-        fileExtension: "csv",
-        s3Bucket: "fake-bucket",
-        s3Key: "placeholder", // the real key (derived from record.id) isn't known until after creation
-        sourceSha256: "sha",
-      });
+      const { record, key } = await createTestImport(tx, languageId, "level-2.csv");
 
-      const key = curriculumImportObjectKey(record.id, "csv");
       const objects = new Map([[key, `word,translation,level,group\ncomer,to eat,${LEVEL_NUMBER},${GROUP_NUMBER}\n`]]);
       const storage = new FakeCurriculumImportStorage(objects);
 
@@ -59,6 +66,8 @@ describe("runPreviewJob (spec 19 §7/§10)", () => {
       expect(after?.previewVersion).toBe(1);
       expect(after?.uploadedAt).not.toBeNull();
       expect(after?.previewStartedAt).not.toBeNull();
+      // Computed once the file is actually read (spec 19 §21) — unknown at creation time.
+      expect(after?.sourceSha256).toMatch(/^[0-9a-f]{64}$/);
 
       const rows = await listCurriculumImportRows(tx, { importId: record.id, limit: 10 });
       expect(rows.items).toHaveLength(1);
@@ -69,18 +78,8 @@ describe("runPreviewJob (spec 19 §7/§10)", () => {
   it("a row referencing a nonexistent group moves the import to needs_review", async () => {
     await withTestTransaction(async (tx) => {
       const { languageId } = await seedTestFixtures(tx);
-      const record = await createCurriculumImport(tx, {
-        languageId,
-        environment: "development",
-        uploadedByUserId: DEVELOPER_ID,
-        originalFilename: "level-2.csv",
-        fileExtension: "csv",
-        s3Bucket: "fake-bucket",
-        s3Key: "placeholder",
-        sourceSha256: "sha",
-      });
+      const { record, key } = await createTestImport(tx, languageId, "level-2.csv");
 
-      const key = curriculumImportObjectKey(record.id, "csv");
       const objects = new Map([[key, `word,translation,level,group\nbanco,bank,${LEVEL_NUMBER},99\n`]]);
       const storage = new FakeCurriculumImportStorage(objects);
 
@@ -98,18 +97,8 @@ describe("runPreviewJob (spec 19 §7/§10)", () => {
   it("a CSV missing required columns marks the import failed with IMPORT_PARSE_FAILED", async () => {
     await withTestTransaction(async (tx) => {
       const { languageId } = await seedTestFixtures(tx);
-      const record = await createCurriculumImport(tx, {
-        languageId,
-        environment: "development",
-        uploadedByUserId: DEVELOPER_ID,
-        originalFilename: "broken.csv",
-        fileExtension: "csv",
-        s3Bucket: "fake-bucket",
-        s3Key: "placeholder",
-        sourceSha256: "sha",
-      });
+      const { record, key } = await createTestImport(tx, languageId, "broken.csv");
 
-      const key = curriculumImportObjectKey(record.id, "csv");
       const objects = new Map([[key, "word,translation\ncomer,to eat\n"]]);
       const storage = new FakeCurriculumImportStorage(objects);
 
@@ -124,18 +113,8 @@ describe("runPreviewJob (spec 19 §7/§10)", () => {
   it("a missing S3 object marks the import failed and rethrows", async () => {
     await withTestTransaction(async (tx) => {
       const { languageId } = await seedTestFixtures(tx);
-      const record = await createCurriculumImport(tx, {
-        languageId,
-        environment: "development",
-        uploadedByUserId: DEVELOPER_ID,
-        originalFilename: "gone.csv",
-        fileExtension: "csv",
-        s3Bucket: "fake-bucket",
-        s3Key: "placeholder",
-        sourceSha256: "sha",
-      });
+      const { record, key } = await createTestImport(tx, languageId, "gone.csv");
 
-      const key = curriculumImportObjectKey(record.id, "csv");
       const storage = new FakeCurriculumImportStorage(new Map()); // no object uploaded
 
       await expect(runPreviewJob(tx, storage, { bucket: "fake-bucket", key })).rejects.toThrow(/NoSuchKey/);
@@ -148,18 +127,8 @@ describe("runPreviewJob (spec 19 §7/§10)", () => {
   it("a duplicate delivery of the same preview job is harmless (spec 19 §7)", async () => {
     await withTestTransaction(async (tx) => {
       const { languageId } = await seedTestFixtures(tx);
-      const record = await createCurriculumImport(tx, {
-        languageId,
-        environment: "development",
-        uploadedByUserId: DEVELOPER_ID,
-        originalFilename: "level-2.csv",
-        fileExtension: "csv",
-        s3Bucket: "fake-bucket",
-        s3Key: "placeholder",
-        sourceSha256: "sha",
-      });
+      const { record, key } = await createTestImport(tx, languageId, "level-2.csv");
 
-      const key = curriculumImportObjectKey(record.id, "csv");
       const objects = new Map([[key, `word,translation,level,group\ncomer,to eat,${LEVEL_NUMBER},${GROUP_NUMBER}\n`]]);
       const storage = new FakeCurriculumImportStorage(objects);
 

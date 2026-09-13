@@ -93,13 +93,13 @@ export async function createCurriculumImport(db: DbClient, input: CreateCurricul
   const [row] = await db
     .insert(curriculumImports)
     .values({
+      id: input.id,
       environment: input.environment,
       languageId: input.languageId,
       originalFilename: input.originalFilename,
       fileExtension: input.fileExtension,
       s3Bucket: input.s3Bucket,
       s3Key: input.s3Key,
-      sourceSha256: input.sourceSha256,
       uploadedByUserId: input.uploadedByUserId,
       sourceImportId: input.sourceImportId ?? null,
       status: "uploading",
@@ -291,7 +291,12 @@ function countsFromRows(rows: CurriculumImportRowPreviewInput[]): PreviewCounts 
  */
 export async function recordPreviewResult(
   db: DbClient,
-  { importId, rows, previousRows }: { importId: string; rows: CurriculumImportRowPreviewInput[]; previousRows?: Map<number, CurriculumImportRowClassification> },
+  {
+    importId,
+    rows,
+    previousRows,
+    sourceSha256,
+  }: { importId: string; rows: CurriculumImportRowPreviewInput[]; previousRows?: Map<number, CurriculumImportRowClassification>; sourceSha256?: string },
 ): Promise<PreviewCounts> {
   await db.delete(curriculumImportRows).where(eq(curriculumImportRows.importId, importId));
 
@@ -332,6 +337,7 @@ export async function recordPreviewResult(
       moveCount: counts.moveCount,
       unchangedCount: counts.unchangedCount,
       reviewCount: counts.reviewCount,
+      ...(sourceSha256 ? { sourceSha256 } : {}),
     })
     .where(eq(curriculumImports.id, importId));
 

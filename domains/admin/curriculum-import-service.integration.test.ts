@@ -22,15 +22,16 @@ import { getCurriculumImportById, listArchivedCurriculumImports, listCurriculumI
 import type { CurriculumImportRowPreviewInput } from "./curriculum-import-types";
 
 async function createImport(db: Parameters<typeof createCurriculumImport>[0], languageId: string) {
+  const id = crypto.randomUUID();
   return createCurriculumImport(db, {
+    id,
     languageId,
     environment: "development",
     uploadedByUserId: DEVELOPER_ID,
     originalFilename: "spanish-level-2.csv",
     fileExtension: "csv",
     s3Bucket: "polyglot-dev-imports",
-    s3Key: "imports/00000000-0000-0000-0000-000000000000/source.csv",
-    sourceSha256: "abc123",
+    s3Key: `imports/${id}/source.csv`,
   });
 }
 
@@ -226,7 +227,7 @@ describe("curriculum import service (spec 19)", () => {
 
       const events = await getAuditEvents(tx, { resourceId: record.id, action: "CURRICULUM_IMPORT_DELETED", limit: 10 });
       expect(events.items).toHaveLength(1);
-      expect(events.items[0]?.afterData).toEqual({ sourceSha256: "abc123", finalStatus: "uploading" });
+      expect(events.items[0]?.afterData).toEqual({ sourceSha256: null, finalStatus: "uploading" });
     });
   });
 
