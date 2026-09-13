@@ -6,9 +6,10 @@ import { describe, expect, it } from "vitest";
 import { languages, levels, userLevelProgress, users } from "@/db/schema";
 import { testDb } from "@/db/test/test-client";
 import { withTestTransaction, type TestTx } from "@/db/test/with-test-transaction";
+import { AppError } from "@/lib/errors/app-error";
 
 import { getDefaultLanguageCode } from "./provisioning-config";
-import { findUserById, findUserByClerkUserId, findUsersByIds, provisionUser } from "./user-repository";
+import { findUserById, findUserByClerkUserId, findUsersByIds, provisionUser, updateDisplayName } from "./user-repository";
 
 /**
  * Seeds the minimal §38 prerequisite (the configured default language and
@@ -314,4 +315,25 @@ describe("provisionUser concurrency (real, independently-committed transactions)
     },
     15_000,
   );
+});
+
+describe("updateDisplayName", () => {
+  it("persists the new display name and returns the updated row", async () => {
+    await withTestTransaction(async (tx) => {
+      await seedDefaultLanguageAndLevel1(tx);
+      const user = await provisionUser(tx, "clerk-update-name");
+
+      const updated = await updateDisplayName(tx, user.id, "Jacob Melendez");
+      expect(updated.displayName).toBe("Jacob Melendez");
+
+      const [row] = await tx.select().from(users).where(eq(users.id, user.id));
+      expect(row.displayName).toBe("Jacob Melendez");
+    });
+  });
+
+  it("throws ITEM_NOT_FOUND for a user id that doesn't exist", async () => {
+    await withTestTransaction(async (tx) => {
+      await expect(updateDisplayName(tx, randomUUID(), "Nobody")).rejects.toThrow(AppError);
+    });
+  });
 });

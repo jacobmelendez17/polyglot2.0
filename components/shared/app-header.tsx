@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { UserButton } from "@clerk/nextjs";
+import { Settings } from "lucide-react";
 
 import { LevelsDropdown } from "@/components/shared/levels-dropdown";
 
@@ -36,7 +37,12 @@ export function AppHeader() {
             ))}
           </nav>
 
-          <UserButton />
+          <UserButton>
+            {/* Spec 20 "Routes": Settings is added to the existing account menu rather than a new top-level nav link. */}
+            <UserButton.MenuItems>
+              <UserButton.Link label="Settings" href="/settings" labelIcon={<Settings className="h-4 w-4" aria-hidden="true" />} />
+            </UserButton.MenuItems>
+          </UserButton>
         </div>
       </div>
     </header>

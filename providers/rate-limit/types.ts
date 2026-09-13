@@ -7,7 +7,8 @@ export type RateLimitPolicyName =
   | "deck-mutation"
   | "deck-practice-answer"
   | "onboarding-complete"
-  | "curriculum-preference";
+  | "curriculum-preference"
+  | "account-settings";
 
 export type RateLimitPolicy = {
   windowSeconds: number;

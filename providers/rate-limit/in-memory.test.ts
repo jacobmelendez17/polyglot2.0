@@ -97,6 +97,7 @@ describe("InMemoryRateLimiter", () => {
         "deck-practice-answer": { windowSeconds: 60, maxRequests: 5, failOpen: true },
         "onboarding-complete": { windowSeconds: 60, maxRequests: 5, failOpen: true },
         "curriculum-preference": { windowSeconds: 60, maxRequests: 5, failOpen: true },
+        "account-settings": { windowSeconds: 60, maxRequests: 5, failOpen: true },
       },
     });
 

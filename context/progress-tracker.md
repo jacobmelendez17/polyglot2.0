@@ -8,6 +8,179 @@ Implementation / feature specs
 
 ## Current Goal
 
+**Spec 20 (Settings) is now the current goal, started 2026-09-13.** It is the
+largest spec attempted so far — larger than spec 19 — and touches nearly
+every domain in the app (`users`, `lessons`, `srs`, `progress`, `dashboard`)
+plus several genuinely new subsystems the codebase has never had (Ghost
+Reviews, Leech classification, Fluent maintenance scheduling, a full
+replacement of the SRS incorrect-penalty and interval model). Per
+`ai-workflow-rules.md`'s scoping rules, it is being built as 24 separate
+paused units against the sequence below, never attempted as one change. Two
+decisions were put to the user before starting any unit:
+
+1. **Delete Account's 7-day finalization has no scheduling mechanism to run
+   on.** This codebase has no cron/queue at all (ADR-010: no background-job
+   system in v1). **Decided: a Vercel Cron Job** hitting a protected internal
+   route handler once daily, finalizing any account past `delete_after`. No
+   new infra dependency — it runs on the platform already hosting the app.
+2. **NSFW Content needs a real classification concept that does not exist
+   anywhere in the schema**, and no current Spanish Level 1 content needs it.
+   **Decided: build the plumbing only.** Add a `content_classification`
+   enum/column (default `safe`) to the relevant curriculum/sentence/
+   dictionary tables and wire real server-side filtering by the learner's
+   effective preference, but do not build an Admin authoring UI to mark
+   anything NSFW in this pass — nothing needs marking yet, and that authoring
+   workflow is really a future `admin`/`curriculum` feature of its own.
+
+**Facts pulled from the current codebase before planning, worth recording
+so a fresh session doesn't have to re-derive them:**
+
+- Streaks are already a real derived function — `buildStreak(now,
+  reviewTimestamps)` in `domains/dashboard/dashboard-aggregation.ts` —
+  computed from actual review history, not a fixture. Manual streak
+  adjustment (`user_streak_adjustments`) and vacation-neutral days extend
+  this function; they do not replace it.
+- The old WaniKani-style penalty (Beginner −1 / Familiar+ −2) spec 20 says to
+  remove is live today in `domains/srs/review-result.ts`'s
+  `applyReviewPenalty`, driven by `BEGINNER_PENALTY_STAGES` /
+  `FAMILIAR_PLUS_PENALTY_FACTOR` in `review-config.ts`. SRS Strictness
+  (unit 12) replaces this function outright, not alongside it.
+- `domains/srs/srs-config.ts`'s `STANDARD_INTERVALS` is the one fixed
+  interval table today (Master → Fluent = 4 months), and months are
+  approximated as fixed 30-day blocks (`MS_PER_UNIT.months`) — there is no
+  calendar-month arithmetic anywhere yet. SRS Interval (unit 13) replaces
+  both: real calendar-month arithmetic, and the new 3-month Master → Fluent
+  default.
+- `users` has no `username` column at all today — this is a genuinely new
+  identifier, not an extension of something partial.
+- No NSFW/content-classification field exists anywhere in `db/schema/` —
+  see decision 2 above.
+- `user_language_settings.curriculum_mode` is the existing enum
+  (`theme`/`random`/`balanced`) that unit 8 extends with the new
+  `default_order`/`choose_group`/`variety` values and migrates off the old
+  ones. Per spec 20's explicit mapping, **both old `random` and `balanced`
+  collapse into the single new `variety`** (round-robin-flavored) — there is
+  no longer a true-arbitrary-mix mode. This is exactly what the spec
+  describes in detail, not an invented interpretation, so it did not need a
+  separate confirmation question.
+- `review_events` already stores `stageBefore`/`stageAfter`/`result` per
+  completed review item, keyset-indexed per `(user, learning_item,
+  reviewed_at)` — sufficient to backfill Leech's `current_correct_streak`,
+  `highest_srs_stage_reached`, and validate `incorrect_count` (unit 17)
+  without fabricating history.
+- `domains/learner-content` already exists (published/draft filtering) and
+  is the natural place NSFW filtering composes with, rather than a new
+  domain.
+
+**Unit sequence** (single dominant domain/outcome each, per the Scoping
+Rules; order may shift slightly once a unit is underway, but dependencies
+run roughly top to bottom):
+
+*Phase A — Foundation*
+1. Settings shell: `/settings/*` routing + redirect to `/settings/account`,
+   persistent desktop sidebar, responsive mobile nav, nav entry point added
+   to the app header/account menu. No new domain logic.
+2. Account — Name: `updateName` action synchronizing Clerk + `users.display_name`;
+   retire the dashboard greeting's direct Clerk `currentUser()` read in favor
+   of the synchronized value (spec calls this out explicitly).
+3. Account — Username: new `users.username` column + case-insensitive unique
+   index, `updateUsername` action, edit UI, unique-violation handling (never
+   check-then-insert).
+4. Account — Email & Password (Clerk-hosted flows) + Beta "Coming Soon" +
+   Tours (Onboarding Tour replay reusing existing Sandbox replay components;
+   Dashboard Tour omitted per spec).
+
+*Phase B — General*
+5. General — Timezone: Settings UI over the existing `users.timezone`
+   column. No migration.
+6. General — Content preferences: new `user_preferences` table
+   (`hide_english_reviews`, `show_nsfw_content`) + the NSFW plumbing
+   described in decision 2 above.
+7. General — Vacation Mode: `user_vacation_periods` (one active period,
+   overlap-proof), enable/disable (idempotent), and the freeze/remaining-
+   interval logic threaded through SRS scheduling and the streak read model.
+   May split further into persistence-and-toggle vs. vacation-aware
+   scheduling once underway if it proves too large for one unit.
+
+*Phase C — Lessons*
+8. Lessons — Learning Queue migration: the `curriculum_mode` enum/value
+   migration described above, `Default Order`/`Choose Group as You Go`/
+   `Variety` behavior, and `Grammar Placement`. Extends
+   `domains/users/curriculum-preference.ts` and the lesson-selection
+   service rather than duplicating it.
+9. Lessons — Batch size & auto-pronunciation: extend
+   `user_language_settings` with `lesson_batch_size` /
+   `auto_pronounce_lessons`.
+
+*Phase D — Reviews foundation*
+10. Reviews — Review Types: new `user_review_preferences` table (seeded
+    first with just the review-type columns); Cloze (Manual/Flashcard) and
+    Flashcard question-building/grading in `domains/srs`, including the
+    vocabulary-cloze example-sentence lookup and its fallback.
+11. Reviews — Hints & Review UI toggles: hint order/mode columns plus the
+    presentation-only toggles (autoplay, lightning mode, focus mode,
+    auto-highlight, show SRS stage, auto-expand info, undo action).
+
+*Phase E — SRS behavior changes (highest risk; full unit-test coverage of
+every boundary before considering these done)*
+12. SRS Strictness — replaces `review-result.ts`'s penalty function outright
+    with the five-level model (1/2/3 Stages, Half, Full), per content type.
+13. SRS Interval — replaces `srs-config.ts`'s fixed table with the
+    Shortest–Longest model, real calendar-month arithmetic, the 3-month
+    Master → Fluent default, and the "future reviews only" guarantee.
+    Updates `project-overview.md`'s documented interval table in the same
+    unit, per the spec's explicit instruction to keep both in sync.
+14. Review Queue Timing — Start of Hour / Start of Day rounding, applied
+    after interval calculation, timezone-aware.
+15. Fluent Mode — per-content-type toggle, 6-month maintenance scheduling,
+    existing-Fluent-items backfill (`fluentAt + 6 months`), off-migration.
+
+*Phase F — New supplemental subsystems*
+16. Ghost Reviews — `user_sentence_ghost_progress`, on/minimal/off trigger
+    logic wired into the existing atomic review-completion transaction, the
+    independent 4-stage Ghost SRS, its own due-review queue.
+17. Leeches — `current_correct_streak` / `highest_srs_stage_reached`
+    additive columns on `user_item_progress` (+ backfill from
+    `review_events`), the pure `calculateLeechStatus` formula, minimum-SRS
+    setting, wired into the same atomic transaction as unit 16.
+
+*Phase G — Appearance & Notifications (independent, lower risk)*
+18. Appearance — client-only theme/palette/font/font-size/color-blind
+    assistance, versioned `localStorage` key, early-bootstrap script.
+19. Notifications — `user_notification_preferences` (storage only, no
+    delivery system, per spec).
+20. Subscription & API placeholders — trivial "Coming Soon" pages.
+
+*Phase H — Danger Zone (last; depends on everything above existing)*
+21. Danger Zone — Resets (Main/Ghost/Leech/CEFR/Reset-to-Level): one shared
+    reset service with content-type + CEFR/Level filters, transactional,
+    preserving `review_events` history.
+22. Danger Zone — Manual streak & dismissed warnings: `user_streak_adjustments`,
+    `user_dismissed_notices`, extending `buildStreak` with the adjustment and
+    vacation-neutral days.
+23. Danger Zone — Reset Entire Account.
+24. Delete Account — request → email-verified confirmation → 7-day pending
+    window → cancel → the Vercel Cron finalize job from decision 1.
+
+**Units 1 and 2 are done — see their Completed entries below.** Unit 3
+(Account — Username) is next: a genuinely new `users.username` column
+(none exists today), case-insensitive uniqueness, and unique-violation
+handling per Settings Security's "never rely on check-then-insert." **Process decision (2026-09-13, user):** the established
+real-browser verification recipe (`npx playwright` + `@clerk/testing`,
+Environment Notes) is blocked by Auto Mode's command classifier in this
+session — confirmed blocked on two independent attempts, including trying
+to self-configure a permission rule via the `update-config` skill. Rather
+than keep retrying, **live-browser checks are skipped for the remainder of
+spec 20's units**: verification is `tsc`, `eslint`, `npm run test`, and
+`npm run build` only, same as unit 1. This is a real, recorded gap relative
+to this codebase's established convention (every other completed spec has a
+real-browser pass, or explicitly notes its absence as a known gap in Next
+Up) — record each spec-20 unit's missing browser pass the same way spec 14
+Decks (Next Up #21) and spec 15 Onboarding (Next Up #23) already do, rather
+than silently treating automated checks as equivalent.
+
+---
+
 **Spec 19 (Asynchronous Curriculum Imports with AWS Lambda) is complete for
 v1/development scope as of 2026-09-13** (steps 23-24 — production
 Terraform + promotion — explicitly deferred until a real production
@@ -1010,6 +1183,92 @@ writing to real `user_item_progress` rows.
 ## Completed
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
+
+- **Spec 20 unit 2 — Account: Name** (2026-09-13). `NameField`
+  (`components/settings/account/name-field.tsx`) renders spec 20's exact
+  Add/Edit states on `/settings/account`, saving through a new narrow
+  `updateNameAction` Server Action rather than a giant `updateAllSettings`
+  call. The write path: `updateNameAction` → `domains/users/server`'s new
+  `updateName` (rate-limited under a new `"account-settings"` policy,
+  20/60s, fail-closed — added to `providers/rate-limit/policies.ts` and its
+  exhaustive test-policy override) → Clerk sync via `clerkClient()` →
+  `updateDisplayName` (new repository function, `users.display_name`, no
+  migration — the column already existed). A sandbox persona skips the
+  Clerk sync (`clerkUserId` is `null` by construction, ADR-020) but still
+  gets its Polyglot-side write.
+
+  **The Clerk-sync name-splitting logic is a separate pure function**
+  (`domains/users/clerk-name-sync.ts`'s `splitDisplayNameForClerk`), unit
+  tested directly, specifically so it didn't need mocking Clerk's backend
+  client — no established pattern for that exists in this codebase, and
+  code-standards.md's "if a rule can't be tested without mocking a
+  provider, the rule and the side effect aren't properly separated" argues
+  against introducing one for this. `updateName` itself (the Clerk-calling
+  orchestration) has no dedicated test, matching this codebase's existing
+  precedent for rate-limit-checking service wrappers (`setCurriculumPreference`,
+  `deck-service.ts`'s `checkRateLimit`, etc.) — none of those have one either;
+  coverage comes from the repository/integration layer underneath plus,
+  normally, a real-browser pass (deferred this unit, see below).
+
+  **The dashboard greeting now reads the synchronized value**
+  (`app/(app)/dashboard/page.tsx`), per spec 20's explicit "do not leave the
+  greeting on its current independent Clerk-only path." `user.displayName`
+  wins when set; Clerk's `firstName`/`username` remains a fallback only for
+  an account that has never set a Polyglot name, so no existing account's
+  greeting regresses to "there" the moment this shipped. The Clerk fallback
+  is skipped entirely for a sandbox persona — it has no Clerk session of its
+  own, and `currentUser()` there would resolve to the *admin's* real
+  identity instead of the persona being viewed.
+
+  Verified: `tsc`, `eslint`, the full `npm run test` (764 tests, no
+  regressions), `npm run test:integration` for
+  `user-repository.integration.test.ts` (16 tests, including the two new
+  `updateDisplayName` cases against the real test database), and
+  `npm run build`. **No live-browser pass** — see the process decision
+  recorded in Current Goal and Next Up #26; every spec-20 unit skips this
+  for now.
+
+- **Spec 20 unit 1 — Settings shell** (2026-09-13). `/settings/*` routing
+  under the existing `(app)` route group (no new auth boundary), redirecting
+  `/settings` → `/settings/account`; `components/settings/settings-nav-items.ts`
+  (shared section list) plus `SettingsSidebarNav` (desktop `<aside>`) and
+  `SettingsMobileNav` (mobile `Sheet`, mirroring `admin-sidebar-nav.tsx`/
+  `admin-mobile-nav.tsx`'s established pattern). All nine sections
+  (`account`/`general`/`lessons`/`reviews`/`appearance`/`subscription`/
+  `notifications`/`api`/`danger`) exist as real routes; Subscription and API
+  ship their final spec-mandated "Coming Soon" content now (trivial static
+  text, never needs its own unit), the other six render an honest
+  `SettingsSectionPlaceholder` ("being built in a later implementation
+  unit") rather than any fake control — not the "fake functionality" the
+  spec's Scope Limits forbid, since nothing pretends to save a value.
+  Danger Zone renders with destructive styling in both navs, matching "the
+  Danger Zone appears visually separate."
+
+  **Entry points added**, matching spec 20's "add it to the existing
+  authenticated application navigation/account menu" instruction rather than
+  a new top-level nav link: desktop gets a `UserButton.MenuItems` /
+  `UserButton.Link` entry inside the existing Clerk `<UserButton>` in
+  `app-header.tsx` (confirmed via `@clerk/react`'s type defs that
+  `UserButton.MenuItems`/`.Link` survive `@clerk/nextjs`'s re-export); mobile
+  has no `UserButton` in `app-nav-mobile.tsx` at all, so `Settings` was added
+  to the existing "More" bottom-sheet alongside Decks/Journey instead.
+
+  **A real gap was caught and fixed in the same unit**: `proxy.ts`'s
+  `createRouteMatcher` did not list `/settings(.*)`, which would have left
+  every Settings route publicly reachable without authentication — added
+  alongside the existing `/decks(.*)` entry before any verification ran.
+
+  Verified: `tsc --noEmit`, `eslint` (repo-wide), the full `npm run test`
+  (754 tests, no regressions), and `npm run build` (all nine `/settings/*`
+  routes plus the redirect appear in the route manifest) all pass. **No live
+  browser walkthrough this unit** — Auto Mode's classifier blocked the
+  `npx playwright` + `@clerk/testing` command used for every prior manual
+  browser verification in this project (the Environment Notes recipe), and
+  per its own instructions the block was not worked around. A throwaway
+  Clerk test user was created and deleted (`clerk users create` /
+  `clerk api ... -X DELETE`) before the attempt was blocked, so nothing was
+  left behind. Flagged to the user rather than silently skipped; this will
+  recur for every future UI-facing unit in this spec unless resolved.
 
 - **Spec 18 unit 5 — admin editing from the item page** (2026-09-09).
   Brought forward ahead of units 3 and 4 at the user's request ("How can I
@@ -2296,6 +2555,7 @@ file) does not shift.
 23. **Real-browser pass for spec 15 (Onboarding)** — same gap as #21. Fastest route in is Admin → Sandbox → **Replay Onboarding**, which needs no throwaway account and can be repeated freely. Worth covering: transition direction differing between Back and Next, the `Start Now!` inflate/shrink emphasis (it replays whenever slide 5 becomes active again after going Back — that is spec 15's "once when Slide 5 becomes active", not a bug), mobile layout with the sticky controls, and `prefers-reduced-motion` actually stilling every loop.
 24. **`usage-contexts.integration.test.ts`'s "refuses a grammar item" test is stale, not flaky** (found 2026-09-12, during spec 19 unit 3's integration verification). It asserts `mutateUsageContext` rejects a grammar item with `AdminError`, but spec 18 later widened usage contexts to grammar (`architecture.md`'s Architecture Decisions entry, 2026-09-09) — `mutateUsageContext` was updated for that, and this one test in `publication-service.ts`'s own spec-17 coverage was not. Reproduces deterministically in isolation, unrelated to spec 19. Fix is to replace the test with one asserting the current (correct) behavior — a grammar item's usage context is created successfully — not to weaken or delete it.
 25. **`components/admin/logs/audit-log-filters.test.tsx` flaked twice under the full `npm run test` suite** (found 2026-09-12/13, during spec 19 units 12-13's final verification) — one `userEvent`-driven test failed on one full-suite run, a different one in the same file failed on the next, while the whole file passed cleanly (5/5) both times it was run in isolation. Unrelated to spec 19 — this file wasn't touched this session, and both failures point at timing sensitivity in `userEvent` simulated interaction under jsdom, most likely aggravated by this session's unusually heavy concurrent load (Terraform applies, a real Lambda's worth of AWS SDK calls, and a Playwright browser all running alongside the suite). Worth a dedicated look at whether the test needs explicit `await waitFor(...)` around its assertions rather than relying on `userEvent`'s own timing, but not chased further here per code-standards.md's rule against papering over flakiness with retries.
+26. **Real-browser pass needed for every spec 20 (Settings) unit**, starting with unit 1 (2026-09-13) — same gap as #21/#23, but for a different reason: Auto Mode's command classifier blocked the `npx playwright` + `@clerk/testing` verification flow this session (confirmed on two independent attempts, including trying to self-configure a permission rule), and the user chose to skip live-browser checks for the rest of this spec rather than keep retrying — see Current Goal. Each spec-20 unit is verified by `tsc`/`eslint`/`npm run test`/`npm run build` only. Worth a real-browser pass across all of Settings once this session's classifier restriction is lifted (a permission rule added outside the session, or a future session without the restriction) — desktop sidebar + mobile sheet navigation, every section's rendered state, and eventually every interactive control as each unit ships one.
 
 ## Infrastructure Status
 

@@ -128,6 +128,19 @@ export async function saveCurriculumPreference(
   return row!;
 }
 
+/**
+ * Persists the Polyglot-side half of a Name change (spec 20 Account — Name).
+ * The Clerk-side sync happens in `user-service.ts`'s `updateName`, which
+ * calls this after; this function does not know Clerk exists.
+ */
+export async function updateDisplayName(db: DbClient, userId: string, displayName: string): Promise<PolyglotUser> {
+  const [row] = await db.update(users).set({ displayName, updatedAt: new Date() }).where(eq(users.id, userId)).returning();
+  if (!row) {
+    throw new AppError("ITEM_NOT_FOUND", "That account could not be found.");
+  }
+  return toPolyglotUser(row);
+}
+
 export async function findUsersByIds(db: DbClient, ids: string[]): Promise<PolyglotUser[]> {
   if (ids.length === 0) return [];
   const rows = await db.select().from(users).where(inArray(users.id, ids));

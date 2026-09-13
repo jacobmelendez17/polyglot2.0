@@ -11,6 +11,7 @@ const isProtectedRoute = createRouteMatcher([
   "/levels(.*)",
   "/items(.*)",
   "/decks(.*)",
+  "/settings(.*)",
   "/onboarding(.*)",
   "/admin(.*)",
 ]);

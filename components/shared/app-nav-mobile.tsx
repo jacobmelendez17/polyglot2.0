@@ -26,6 +26,10 @@ const PRIMARY_TABS = [
 const MORE_LINKS = [
   { label: "Decks", href: "/decks" },
   { label: "Journey", href: "/journey" },
+  // Spec 20 "Routes": mobile has no UserButton in this nav, so Settings'
+  // account-menu entry point needs a mobile equivalent — the same "More"
+  // sheet Decks/Journey already use for secondary destinations.
+  { label: "Settings", href: "/settings" },
 ] as const;
 
 function getCurrentLevelFromPathname(pathname: string): number | null {

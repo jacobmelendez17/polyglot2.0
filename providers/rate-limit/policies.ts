@@ -85,4 +85,17 @@ export const RATE_LIMIT_POLICIES: Record<RateLimitPolicyName, RateLimitPolicy> =
     maxRequests: 20,
     failOpen: false,
   },
+  // Spec 20 — ordinary Settings field saves (Name, and further Account/
+  // General fields as later units add them). Not progress-affecting, but
+  // still bounded on the same "blast-radius containment" reasoning as
+  // "curriculum-preference", and fails closed for the same reason: a
+  // refused save costs the learner a retry, nothing else. Settings Security
+  // calls for *stronger* limits on genuinely sensitive/destructive actions
+  // (username change, password change, resets, account deletion) — those
+  // get their own tighter policy as each ships, rather than sharing this one.
+  "account-settings": {
+    windowSeconds: 60,
+    maxRequests: 20,
+    failOpen: false,
+  },
 };

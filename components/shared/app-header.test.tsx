@@ -1,12 +1,24 @@
+import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { AppHeader } from "@/components/shared/app-header";
 
-vi.mock("@clerk/nextjs", () => ({
-  UserButton: () => <div data-testid="user-button" />,
-}));
+vi.mock("@clerk/nextjs", () => {
+  function UserButton({ children }: { children?: ReactNode }) {
+    return <div data-testid="user-button">{children}</div>;
+  }
+  function MenuItems({ children }: { children?: ReactNode }) {
+    return <>{children}</>;
+  }
+  function MenuLink({ label, href }: { label: string; href: string }) {
+    return <a href={href}>{label}</a>;
+  }
+  UserButton.MenuItems = MenuItems;
+  UserButton.Link = MenuLink;
+  return { UserButton };
+});
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/dashboard",
@@ -23,6 +35,12 @@ describe("AppHeader", () => {
     expect(screen.getByRole("link", { name: "Practice" })).toHaveAttribute("href", "/practice");
     expect(screen.getByRole("link", { name: "Journey" })).toHaveAttribute("href", "/journey");
     expect(screen.getByTestId("user-button")).toBeInTheDocument();
+  });
+
+  it("adds Settings to the account menu (spec 20 Routes) rather than a new top-level nav link", () => {
+    render(<AppHeader />);
+
+    expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/settings");
   });
 
   it("orders Lessons immediately to the left of Reviews", () => {

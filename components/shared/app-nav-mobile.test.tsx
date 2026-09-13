@@ -32,7 +32,7 @@ describe("AppNavMobile", () => {
     expect(screen.getByRole("link", { name: "50" })).toHaveAttribute("href", "/levels/50");
   });
 
-  it("reveals Decks and Journey under More", async () => {
+  it("reveals Decks, Journey, and Settings under More", async () => {
     const user = userEvent.setup();
     render(<AppNavMobile />);
 
@@ -40,5 +40,6 @@ describe("AppNavMobile", () => {
 
     expect(screen.getByRole("link", { name: "Decks" })).toHaveAttribute("href", "/decks");
     expect(screen.getByRole("link", { name: "Journey" })).toHaveAttribute("href", "/journey");
+    expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/settings");
   });
 });

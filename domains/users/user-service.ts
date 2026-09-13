@@ -1,4 +1,4 @@
-import { auth } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import { cookies } from "next/headers";
 
 import { db } from "@/db/client";
@@ -15,7 +15,9 @@ import {
   findUsersByIds,
   provisionUser,
   saveCurriculumPreference,
+  updateDisplayName,
 } from "./user-repository";
+import { splitDisplayNameForClerk } from "./clerk-name-sync";
 import { canViewSandboxAs } from "./sandbox-view";
 import type { PolyglotUser } from "./user-types";
 
@@ -118,4 +120,37 @@ export async function setCurriculumPreference(input: {
     throw new AppError("RATE_LIMITED", `Please slow down and try again in ${decision.retryAfterSeconds}s.`);
   }
   return saveCurriculumPreference(db, input);
+}
+
+/**
+ * Spec 20 Account — Name. Polyglot's `display_name` is the one column the
+ * rest of the app reads (the dashboard greeting included, as of this unit),
+ * but the Clerk identity is kept in sync too — "Name must synchronize with
+ * the authenticated Clerk identity and Polyglot's internal user
+ * representation." Clerk splits first/last name; Polyglot stores one
+ * free-text field, so the sync splits on the first space rather than
+ * inventing a first/last split in Polyglot's own schema for a value nothing
+ * else needs split.
+ *
+ * A sandbox persona has no Clerk identity (`clerkUserId` is `null` by
+ * construction — ADR-020), so the Clerk sync is skipped rather than erroring;
+ * the Polyglot-side write still happens, since Sandbox display names are a
+ * real (if isolated) testing convenience.
+ */
+export async function updateName(input: {
+  userId: string;
+  clerkUserId: string | null;
+  displayName: string;
+}): Promise<PolyglotUser> {
+  const decision = await getRateLimiter().check({ policy: "account-settings", subject: input.userId });
+  if (!decision.allowed) {
+    throw new AppError("RATE_LIMITED", `Please slow down and try again in ${decision.retryAfterSeconds}s.`);
+  }
+
+  if (input.clerkUserId) {
+    const client = await clerkClient();
+    await client.users.updateUser(input.clerkUserId, splitDisplayNameForClerk(input.displayName));
+  }
+
+  return updateDisplayName(db, input.userId, input.displayName);
 }
