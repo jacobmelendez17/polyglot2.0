@@ -244,6 +244,23 @@ A correct answer advances one Ghost stage on the schedule above; once Ghost 4 is
 
 Due Ghost reviews appear in the learner's review experience alongside normal reviews and must be visually identifiable as supplemental. Vacation Mode freezes Ghost scheduling the same way it freezes normal reviews — remaining interval preserved, not simply pushed by the vacation's full duration.
 
+### Leeches
+
+A Leech is *derived*, never a stored flag — always recomputed from the same authoritative counters, never reimplemented client-side:
+
+```
+effectiveCorrectStreak = max(currentCorrectStreak, 1)
+leechScore = incorrectCount / (effectiveCorrectStreak ^ 1.5)
+```
+
+An item is a Leech when `leechScore > 1` **and** it has satisfied its configured Minimum SRS for Leech (Grammar and Vocabulary, independently — every normal SRS stage is a valid choice, `familiar_1` the default).
+
+- `incorrectCount` — lifetime incorrect normal-SRS outcomes. Ghost Reviews never contribute.
+- `currentCorrectStreak` — consecutive normal-SRS correct results; resets to 0 on any incorrect one, increments on a correct one.
+- The minimum-SRS check uses `highestSrsStageReached` — the highest normal SRS stage the item has *ever* reached — never its current stage. An item that reached Master and later fell to Beginner 4 still satisfies a Familiar-1 minimum.
+
+Both `currentCorrectStreak` and `highestSrsStageReached` are maintained inside the same atomic review-completion transaction as every other normal-SRS counter — never computed asynchronously after the fact.
+
 ## Practice
 
 Practice activities unlock according to curriculum level and learned content.

@@ -18,6 +18,7 @@
     "db:cleanup-idempotency": "tsx db/seed/cleanup-idempotency.ts",
     "curriculum:import": "tsx scripts/curriculum-import.ts",
     "curriculum:reset": "tsx scripts/curriculum-reset.ts",
+    "leech:backfill": "tsx scripts/backfill-leech-counters.ts",
     "lexicon:import": "tsx scripts/lexicon-import.ts",
     "lexicon:import-rla": "tsx scripts/lexicon-import-rla.ts",
     "lambda:build": "node scripts/build-lambda.mjs"

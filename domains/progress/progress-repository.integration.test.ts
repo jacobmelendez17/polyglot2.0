@@ -15,6 +15,7 @@ import {
 import { seedTestFixtures } from "@/db/seed/test-fixtures";
 import { testDb } from "@/db/test/test-client";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
+import { getStageIndex } from "@/domains/srs";
 
 import {
   applyItemProgressUpdate,
@@ -352,6 +353,9 @@ describe("progress repository — review-completion mutations (spec 09 unit 4)",
       expect(updated?.reviewCount).toBe(before!.reviewCount + 1);
       expect(updated?.lastReviewedAt).toEqual(now);
       expect(updated?.version).toBe(before!.version + 1);
+      // Spec 20 Leeches — maintained transactionally with everything else here.
+      expect(updated?.currentCorrectStreak).toBe(before!.currentCorrectStreak + 1);
+      expect(getStageIndex(updated!.highestSrsStageReached)).toBe(Math.max(getStageIndex(before!.highestSrsStageReached), getStageIndex("beginner_3")));
 
       // The same (now stale) expectedVersion no longer matches.
       const staleAttempt = await applyItemProgressUpdate(tx, {
@@ -386,6 +390,42 @@ describe("progress repository — review-completion mutations (spec 09 unit 4)",
 
       expect(updated?.correctCount).toBe(before!.correctCount);
       expect(updated?.incorrectCount).toBe(before!.incorrectCount + 1);
+      // Spec 20 Leeches — a penalized result always resets the correct streak, regardless of what it was.
+      expect(updated?.currentCorrectStreak).toBe(0);
+    });
+  });
+
+  it("applyItemProgressUpdate's highestSrsStageReached only ever moves forward, even through a later demotion (spec 20 Leeches)", async () => {
+    await withTestTransaction(async (tx) => {
+      const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
+      const before = await lockItemProgressForReview(tx, { userId: learnerId, learningItemId: gatoId, languageId });
+
+      const reachedMaster = await applyItemProgressUpdate(tx, {
+        userId: learnerId,
+        learningItemId: gatoId,
+        expectedVersion: before!.version,
+        srsStage: "master",
+        nextReviewAt: new Date("2026-03-01T00:00:00Z"),
+        fluentAt: null,
+        result: "advanced",
+        now: new Date("2026-02-01T00:00:00Z"),
+      });
+      expect(reachedMaster?.highestSrsStageReached).toBe("master");
+
+      const laterDemoted = await applyItemProgressUpdate(tx, {
+        userId: learnerId,
+        learningItemId: gatoId,
+        expectedVersion: reachedMaster!.version,
+        srsStage: "beginner_4",
+        nextReviewAt: new Date("2026-02-03T00:00:00Z"),
+        fluentAt: null,
+        result: "penalized",
+        now: new Date("2026-02-02T00:00:00Z"),
+      });
+
+      expect(laterDemoted?.srsStage).toBe("beginner_4");
+      // The spec's own example: reached Master, later fell to Beginner 4 — highestSrsStageReached still reflects Master.
+      expect(laterDemoted?.highestSrsStageReached).toBe("master");
     });
   });
 

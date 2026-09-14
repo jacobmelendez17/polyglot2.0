@@ -12,7 +12,7 @@ import {
   vocabularyGroups,
   vocabularyItems,
 } from "@/db/schema";
-import { FIXTURE_NEXT_LEVEL_NUMBER, seedTestFixtures } from "@/db/seed/test-fixtures";
+import { FIXTURE_NEXT_LEVEL_NUMBER, SENTENCE_GATO_ID, SENTENCE_Y_ID, seedTestFixtures } from "@/db/seed/test-fixtures";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
 import { getDefaultLanguageCode } from "@/domains/users";
 
@@ -370,8 +370,8 @@ describe("curriculum repository", () => {
       // Confirms `learning_item_sentences` is genuinely generic (not
       // vocabulary-specific): a grammar item gets its own example the same
       // way, matching `lesson-curriculum-repository.ts`'s existing usage.
-      expect(await getLearningItemExamples(tx, gatoId)).toEqual([{ targetText: "El gato duerme.", translation: "The cat sleeps." }]);
-      expect(await getLearningItemExamples(tx, grammarYId)).toEqual([{ targetText: "gato y perro", translation: "cat and dog" }]);
+      expect(await getLearningItemExamples(tx, gatoId)).toEqual([{ id: SENTENCE_GATO_ID, targetText: "El gato duerme.", translation: "The cat sleeps." }]);
+      expect(await getLearningItemExamples(tx, grammarYId)).toEqual([{ id: SENTENCE_Y_ID, targetText: "gato y perro", translation: "cat and dog" }]);
     });
   });
 
@@ -386,7 +386,7 @@ describe("curriculum repository", () => {
       await tx.insert(learningItemSentences).values({ learningItemId: gatoId, sentenceId: draftSentence.id, position: 2 });
 
       const examples = await getLearningItemExamples(tx, gatoId);
-      expect(examples).toEqual([{ targetText: "El gato duerme.", translation: "The cat sleeps." }]);
+      expect(examples).toEqual([{ id: SENTENCE_GATO_ID, targetText: "El gato duerme.", translation: "The cat sleeps." }]);
     });
   });
 

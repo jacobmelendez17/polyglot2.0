@@ -81,6 +81,8 @@ export type ReviewUiPreferences = Omit<
   | "vocabularyFluentMode"
   | "grammarGhostMode"
   | "vocabularyGhostMode"
+  | "grammarMinimumLeechStage"
+  | "vocabularyMinimumLeechStage"
 >;
 
 export type ReviewAnswerFeedback =

@@ -5,13 +5,13 @@ import { GhostModeSelect } from "@/components/settings/reviews/ghost-mode-select
 import { GrammarReviewTypeSelect } from "@/components/settings/reviews/grammar-review-type-select";
 import { HintModeSelect } from "@/components/settings/reviews/hint-mode-select";
 import { HintOrderSelect } from "@/components/settings/reviews/hint-order-select";
+import { MinimumLeechStageSelect } from "@/components/settings/reviews/minimum-leech-stage-select";
 import { ReviewQueueTimingSelect } from "@/components/settings/reviews/review-queue-timing-select";
 import { ReviewUiToggle } from "@/components/settings/reviews/review-ui-toggle";
 import { SrsIntervalModeSelect } from "@/components/settings/reviews/srs-interval-mode-select";
 import { SrsStrictnessSelect } from "@/components/settings/reviews/srs-strictness-select";
 import { UndoActionSelect } from "@/components/settings/reviews/undo-action-select";
 import { VocabularyReviewTypeSelect } from "@/components/settings/reviews/vocabulary-review-type-select";
-import { SettingsSectionPlaceholder } from "@/components/settings/settings-section-placeholder";
 import { getReviewPreferences } from "@/domains/srs/server";
 import { requireUser } from "@/domains/users/server";
 
@@ -168,7 +168,19 @@ export default async function ReviewSettingsPage() {
         </div>
       </div>
 
-      <SettingsSectionPlaceholder title="More Review settings" description="Leeches." />
+      <div className="rounded-xl border border-border bg-card p-6">
+        <h2 className="font-heading text-lg font-semibold text-foreground">Leeches</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          A Leech is an item with a history of repeated difficulty, calculated from your normal review performance — Ghost Reviews
+          never count toward it.
+        </p>
+        <div className="mt-4">
+          <MinimumLeechStageSelect contentType="grammar" initialValue={preferences.grammarMinimumLeechStage} />
+        </div>
+        <div className="mt-2">
+          <MinimumLeechStageSelect contentType="vocabulary" initialValue={preferences.vocabularyMinimumLeechStage} />
+        </div>
+      </div>
     </div>
   );
 }

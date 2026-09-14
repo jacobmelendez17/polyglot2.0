@@ -162,17 +162,21 @@ every boundary before considering these done)*
 24. Delete Account — request → email-verified confirmation → 7-day pending
     window → cancel → the Vercel Cron finalize job from decision 1.
 
-**Units 1-16 are done — see their Completed entries below.** Account,
-General, and Lessons are fully complete; Reviews has Review Types, Review
-Hints, Review UI, SRS Strictness, SRS Interval, Review Queue Timing, Fluent
-Mode, and now Ghost Reviews — `user_review_preferences` now has 24 columns,
-plus a genuinely new table (`user_sentence_ghost_progress`). Unit 17
-(Leeches) is next, continuing Phase E — it composes directly with Ghost
-Reviews (Leech's own spec section states Ghost answers never touch Leech's
-`incorrectCount`/`currentCorrectStreak` counters) and should land on the
-same `user_review_preferences` row (`grammar_minimum_leech_stage`/
-`vocabulary_minimum_leech_stage`, already named in spec 20's own data
-model).
+**Units 1-17 are done — see their Completed entries below — and that
+completes the entire Reviews section of Settings.** Account, General,
+Lessons, and Reviews are all fully built now. `user_review_preferences` has
+26 columns; `user_item_progress` gained two Leech-tracking columns; one
+genuinely new table (`user_sentence_ghost_progress`) backs Ghost Reviews.
+Unit 18 (Appearance) is next, starting **Phase F — the remaining, mostly
+independent Settings sections** (Appearance, Notifications, Subscription/API
+placeholders, then Danger Zone). Per the 2026-09-14 user decision, these are
+being implemented back-to-back without pausing for the ~12-minute full
+`npm run test:integration` suite after every single one — fast checks
+(`tsc`, `eslint`, unit tests) still run continuously after each unit, with
+one full integration-suite pass at natural checkpoints and again at the end
+— **except** the two data-destroying Danger Zone units (Reset Entire
+Account, Delete Account), which still get full individual verification
+before moving on, given what a mistake there would cost.
 
 **Migration-tooling note for every future unit touching a Postgres enum**:
 `drizzle-kit migrate`'s CLI proved unreliable in this session's environment
@@ -1202,6 +1206,75 @@ writing to real `user_item_progress` rows.
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
 
+- **Spec 20 unit 17 — Leeches** (2026-09-14). Completes Reviews. Two new
+  `user_item_progress` columns — `current_correct_streak` (resets to 0 on a
+  penalized result, increments on an advanced one) and
+  `highest_srs_stage_reached` (only ever moves forward, even through a
+  later demotion — spec's own worked example: reached Master, later fell to
+  Beginner 4, still satisfies a Familiar-1 minimum) — both maintained inside
+  the same `applyItemProgressUpdate` statement as `correctCount`/
+  `incorrectCount`/`reviewCount` already were, never computed
+  asynchronously ("Do not run asynchronous leech calculations after the
+  review transaction"). `domains/srs/leech-status.ts`'s pure
+  `calculateLeechStatus` is the one formula
+  (`incorrectCount / max(currentCorrectStreak, 1)^1.5 > 1`, gated by
+  `highestSrsStageReached` against the learner's configured Minimum SRS for
+  Leech) — nowhere else may reimplement it, per the spec's own "Do not
+  reimplement the formula in React."
+
+  **`GREATEST` on the `srs_stage` Postgres enum, not a per-stage SQL
+  `CASE`** — confirmed directly against the real database (not assumed)
+  that enum comparison operators respect declaration order, and this
+  enum's declared order (`db/schema/progress.ts`) is deliberately kept
+  identical to `domains/srs`'s canonical `SRS_STAGE_ORDER`. `highest_srs_
+  stage_reached = GREATEST(highest_srs_stage_reached, stage_after)` is then
+  correct in both the advanced and penalized branches uniformly — no
+  separate demotion-safe logic needed, since a demoted stage can never
+  exceed what was already reached.
+
+  **A real backfill was needed and run, not just noted as unnecessary this
+  time** — unlike unit 15/16's "queried the dev DB, found nothing to
+  backfill" precedent, this dev database actually had 3 progress rows with
+  real review activity and 2 `review_events` rows. Wrote
+  `scripts/backfill-leech-counters.ts` (`npm run leech:backfill`) — walks
+  each item's `review_events` chronologically, computing
+  `highestSrsStageReached` as the highest stage ever seen (current stage
+  included, in case history is incomplete) and `currentCorrectStreak` as
+  the run of "advanced" results trailing the most recent "penalized" one —
+  and ran it against the real dev database (per spec's own "Current durable
+  review history may be used to initialize... Do not fabricate review
+  history"). Idempotent by construction: every row is fully recomputed from
+  durable history each run, never incremented relative to its prior value.
+
+  **Minimum SRS for Leech reuses `SrsStage` directly** (all nine stages
+  valid, `familiar_1` the spec's stated default) rather than a narrower
+  enum — a plain narrow-mutation setting with no cascading effect on
+  toggle, since Leech status is always recomputed at read time and changing
+  the threshold never needs to touch any existing `user_item_progress` row
+  (unlike Fluent Mode's toggle).
+
+  Settings UI: new `MinimumLeechStageSelect` (grammar/vocabulary, populated
+  from `SRS_STAGE_ORDER`/`SRS_STAGE_LABELS` — the same canonical stage list
+  and labels every other stage-aware Settings control already uses), wired
+  into `/settings/reviews`'s new "Leeches" section — the last section on
+  that page; the whole Reviews settings area (units 10-17) is now complete.
+  `project-overview.md` gained a "Leeches" subsection and `architecture.md`
+  a "Leeches" section describing the derived-status/atomic-counter/
+  `GREATEST` architecture, plus two stale "Parameters That Must Remain
+  Configurable" entries brought current (`Leech thresholds` already existed
+  as a placeholder from before implementation; added the missing `Ghost SRS
+  intervals` entry unit 16 should have added).
+
+  Verified: `tsc`/`eslint` clean, 1006 unit tests (8 new: `leech-status.
+  test.ts`), `npm run build` clean, `drizzle-kit check` clean (two plain
+  additive columns reusing the existing `srs_stage` enum — no new enum
+  values, no transaction risk), new/extended `progress-repository.
+  integration.test.ts` coverage (31 tests) directly proving the counter
+  maintenance and the demotion-safe `GREATEST` behavior against a real
+  database. Full integration suite deferred to a later checkpoint per this
+  session's batching decision (see "Current Goal" above) rather than run
+  standalone for this unit.
+
 - **Spec 20 unit 16 — Ghost Reviews** (2026-09-14). By far the largest unit
   in this spec so far — a genuinely new, second SRS system, not another
   Reviews toggle. Grammar/Vocabulary Ghost Reviews (On/Minimal/Off, `on`
@@ -1312,11 +1385,24 @@ Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real
   and orchestration-level (`ghost-orchestration.integration.test.ts`, 7
   tests covering miss-tracking, the Cloze-only gate, Minimal's two-miss
   activation, queue surfacing on an otherwise-empty session, and Ghost
-  grading including ownership rejection) integration tests all passing,
-  full `npm run test:integration` run with failures matching the
-  established pre-existing baseline (3 unscoped audit-log queries, 1
-  idempotency cleanup-count flake, 2 item-`y` fixture-drift symptoms) — no
-  new regressions.
+  grading including ownership rejection) integration tests all passing.
+
+  **A real regression, caught only by the full integration run, not by any
+  targeted test file** — widening `getLearningItemExamples`'s return shape
+  (adding `id`) broke two pre-existing `curriculum-repository.integration.
+  test.ts` tests asserting strict `.toEqual({targetText, translation})`
+  equality; the extra field made the deep-equality check fail even though
+  every real caller (structural typing, extra fields ignored) was fine. Only
+  surfaced once the *first* full `npm run test:integration` run came back
+  with 2 more failures than the established baseline — every targeted file
+  I'd run up to that point happened not to exercise those two specific
+  assertions. Fixed by updating both tests' expectations to include the
+  `sentences.id` fixture constant; confirmed clean on a second full run
+  (failures back down to exactly the established pre-existing baseline: 3
+  unscoped audit-log queries, 1 idempotency cleanup-count flake, 2 item-`y`
+  fixture-drift symptoms) — a direct, concrete instance of why this
+  workflow's per-unit full-integration-suite gate exists, not a
+  process step to shortcut even under time pressure.
 
 - **Spec 20 unit 15 — Fluent Mode** (2026-09-14). Continues Phase E: a
   `grammarFluentMode`/`vocabularyFluentMode` toggle pair (both boolean, ON

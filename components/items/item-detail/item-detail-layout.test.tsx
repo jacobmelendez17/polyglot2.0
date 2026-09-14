@@ -76,6 +76,8 @@ function progress(overrides: Partial<ItemProgress> = {}): ItemProgress {
     incorrectCount: 1,
     reviewCount: 4,
     lastReviewedAt: new Date("2026-09-09T00:00:00Z"),
+    currentCorrectStreak: 3,
+    highestSrsStageReached: "beginner_2",
     version: 1,
     ...overrides,
   };

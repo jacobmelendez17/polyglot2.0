@@ -17,6 +17,10 @@ export interface ItemProgress {
   incorrectCount: number;
   reviewCount: number;
   lastReviewedAt: Date | null;
+  /** Spec 20 Leeches — consecutive normal-SRS correct results for this item, reset by any incorrect one. */
+  currentCorrectStreak: number;
+  /** Spec 20 Leeches — the highest normal SRS stage this item has ever reached; only ever moves forward, even through a later demotion. */
+  highestSrsStageReached: SrsStage;
   version: number;
 }
 

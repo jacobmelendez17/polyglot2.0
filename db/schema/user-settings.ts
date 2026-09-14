@@ -4,6 +4,7 @@ import { boolean, check, foreignKey, index, integer, pgEnum, pgTable, primaryKey
 import { timestamps } from "./columns";
 import { vocabularyGroups } from "./curriculum";
 import { languages } from "./languages";
+import { srsStageEnum } from "./progress";
 import { users } from "./users";
 
 /**
@@ -259,14 +260,13 @@ export const reviewQueueTimingModeEnum = pgEnum("review_queue_timing_mode", ["st
 export const ghostModeEnum = pgEnum("ghost_mode", ["on", "minimal", "off"]);
 
 /**
- * Per-learner, per-language review preferences (spec 20 Reviews) — what the
- * spec's own Settings Data Model describes as a much larger table (Leech
- * minimums still land on this same row in a later unit). Unit 10 seeded the
- * two review-type columns; unit 11 added Review Hints (four columns) and
- * Review UI (seven columns); unit 12 added SRS Strictness (two columns);
- * unit 13 added SRS Interval (two columns); unit 14 added Review Queue
- * Timing (one column); unit 15 added Fluent Mode (two columns); unit 16
- * adds Ghost Reviews (two columns) — see progress-tracker.md.
+ * Per-learner, per-language review preferences (spec 20 Reviews). Unit 10
+ * seeded the two review-type columns; unit 11 added Review Hints (four
+ * columns) and Review UI (seven columns); unit 12 added SRS Strictness (two
+ * columns); unit 13 added SRS Interval (two columns); unit 14 added Review
+ * Queue Timing (one column); unit 15 added Fluent Mode (two columns); unit
+ * 16 added Ghost Reviews (two columns); unit 17 adds Leeches' Minimum SRS
+ * (two columns) — see progress-tracker.md.
  *
  * Language-scoped like `userLanguageSettings`, for the same reason: a
  * learner studying two languages makes independent choices for each.
@@ -325,6 +325,16 @@ export const userReviewPreferences = pgTable(
      */
     grammarFluentMode: boolean("grammar_fluent_mode").notNull().default(true),
     vocabularyFluentMode: boolean("vocabulary_fluent_mode").notNull().default(true),
+    /**
+     * Spec 20 Leeches — Minimum SRS for Leech. `familiar_1` is the spec's
+     * own stated default. "The item cannot be classified as a Leech until
+     * it has reached at least that selected stage at least once" — checked
+     * against `user_item_progress.highest_srs_stage_reached`, never the
+     * item's current stage (spec's own example: an item that reached Master
+     * and later fell to Beginner 4 still satisfies this).
+     */
+    grammarMinimumLeechStage: srsStageEnum("grammar_minimum_leech_stage").notNull().default("familiar_1"),
+    vocabularyMinimumLeechStage: srsStageEnum("vocabulary_minimum_leech_stage").notNull().default("familiar_1"),
     ...timestamps(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.languageId] })],

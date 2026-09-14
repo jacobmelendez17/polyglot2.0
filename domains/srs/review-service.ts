@@ -23,6 +23,7 @@ import type {
   SrsStrictness,
   UndoAction,
 } from "./review-preference";
+import type { SrsStage } from "./srs-types";
 
 /**
  * Every Settings mutation in `domains/srs` shares the same "account-settings"
@@ -221,4 +222,14 @@ export async function updateGrammarGhostMode(input: { userId: string; languageId
 /** Spec 20 Ghost Reviews — Vocabulary Ghost Reviews. See `updateGrammarGhostMode`. */
 export async function updateVocabularyGhostMode(input: { userId: string; languageId: string; ghostMode: GhostMode }) {
   return withAccountSettingsRateLimit(input.userId, () => preferenceRepository.saveVocabularyGhostMode(db, input));
+}
+
+/** Spec 20 Leeches — Grammar Minimum SRS for Leech. A plain narrow save — Leech status is always derived at read time, so changing this never needs to touch any existing item-progress row. */
+export async function updateGrammarMinimumLeechStage(input: { userId: string; languageId: string; minimumLeechStage: SrsStage }) {
+  return withAccountSettingsRateLimit(input.userId, () => preferenceRepository.saveGrammarMinimumLeechStage(db, input));
+}
+
+/** Spec 20 Leeches — Vocabulary Minimum SRS for Leech. See `updateGrammarMinimumLeechStage`. */
+export async function updateVocabularyMinimumLeechStage(input: { userId: string; languageId: string; minimumLeechStage: SrsStage }) {
+  return withAccountSettingsRateLimit(input.userId, () => preferenceRepository.saveVocabularyMinimumLeechStage(db, input));
 }

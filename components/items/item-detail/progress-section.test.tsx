@@ -20,6 +20,8 @@ function progress(overrides: Partial<ItemProgress> = {}): ItemProgress {
     incorrectCount: 2,
     reviewCount: 10,
     lastReviewedAt: new Date("2026-09-08T00:00:00Z"),
+    currentCorrectStreak: 8,
+    highestSrsStageReached: "familiar_1",
     version: 3,
     ...overrides,
   };

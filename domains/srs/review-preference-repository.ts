@@ -16,6 +16,7 @@ import type {
   SrsStrictness,
   UndoAction,
 } from "./review-preference";
+import type { SrsStage } from "./srs-types";
 
 /**
  * Takes an injected `DbClient` rather than the app's `db` singleton — same
@@ -54,6 +55,8 @@ function toReviewPreferences(row: ReviewPreferencesRow): ReviewPreferences {
     vocabularyFluentMode: row.vocabularyFluentMode,
     grammarGhostMode: row.grammarGhostMode,
     vocabularyGhostMode: row.vocabularyGhostMode,
+    grammarMinimumLeechStage: row.grammarMinimumLeechStage,
+    vocabularyMinimumLeechStage: row.vocabularyMinimumLeechStage,
   };
 }
 
@@ -191,4 +194,14 @@ export function saveGrammarGhostMode(db: DbClient, input: { userId: string; lang
 /** Spec 20 Ghost Reviews — Vocabulary Ghost Reviews. */
 export function saveVocabularyGhostMode(db: DbClient, input: { userId: string; languageId: string; ghostMode: GhostMode }) {
   return savePreferenceField(db, "vocabularyGhostMode", { ...input, value: input.ghostMode });
+}
+
+/** Spec 20 Leeches — Grammar Minimum SRS for Leech. */
+export function saveGrammarMinimumLeechStage(db: DbClient, input: { userId: string; languageId: string; minimumLeechStage: SrsStage }) {
+  return savePreferenceField(db, "grammarMinimumLeechStage", { ...input, value: input.minimumLeechStage });
+}
+
+/** Spec 20 Leeches — Vocabulary Minimum SRS for Leech. */
+export function saveVocabularyMinimumLeechStage(db: DbClient, input: { userId: string; languageId: string; minimumLeechStage: SrsStage }) {
+  return savePreferenceField(db, "vocabularyMinimumLeechStage", { ...input, value: input.minimumLeechStage });
 }

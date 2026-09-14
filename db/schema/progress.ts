@@ -47,6 +47,20 @@ export const userItemProgress = pgTable(
     incorrectCount: integer("incorrect_count").notNull().default(0),
     reviewCount: integer("review_count").notNull().default(0),
     lastReviewedAt: timestamp("last_reviewed_at", { withTimezone: true }),
+    /**
+     * Spec 20 Leeches — "Leech Progress Data." `currentCorrectStreak` resets
+     * to 0 on a normal incorrect result and increments on a normal correct
+     * result; `highestSrsStageReached` only ever moves forward (spec's own
+     * example: an item that reached Master and later fell to Beginner 4
+     * still satisfies a Familiar-1 minimum). Both default to a freshly
+     * enrolled item's real starting state — 0 correct streak, `beginner_1`
+     * (`domains/srs`'s `MINIMUM_REVIEW_STAGE`) as the only stage reached so
+     * far — and are maintained inside the same atomic review-completion
+     * transaction as every other counter here, never computed after the
+     * fact (spec: "Do not run asynchronous leech calculations").
+     */
+    currentCorrectStreak: integer("current_correct_streak").notNull().default(0),
+    highestSrsStageReached: srsStageEnum("highest_srs_stage_reached").notNull().default("beginner_1"),
     // Optimistic-concurrency guard for future review mutations (spec 08 §26) — not consumed yet.
     version: integer("version").notNull().default(0),
     ...timestamps(),

@@ -929,6 +929,17 @@ Two independent write paths, both server-authoritative:
 
 Vacation Mode freezes Ghost scheduling the same "remaining interval preserved" way it freezes normal reviews (`domains/srs/ghost-repository.ts`'s `applyGhostVacationSchedulingAdjustment`, called from `domains/users/vacation-service.ts`'s `disableVacationMode` in the same transaction as the normal-item adjustment).
 
+## Leeches
+
+Leech status is always derived (`domains/srs/leech-status.ts`'s `calculateLeechStatus`), never a stored boolean — the one place the formula is implemented; nothing else, including any future UI, may reimplement it. Two counters on `user_item_progress` back it, both maintained inside the same atomic `applyItemProgressUpdate` statement as every other normal-SRS counter (`domains/progress/repository.ts`) — never computed asynchronously after the review transaction commits:
+
+- `current_correct_streak` — resets to 0 on a penalized result, increments on an advanced one.
+- `highest_srs_stage_reached` — only ever moves forward. Computed via Postgres `GREATEST` directly on the `srs_stage` enum, which compares correctly by declared order because that enum's declaration order is kept identical to `domains/srs`'s canonical `SRS_STAGE_ORDER` (confirmed directly against the database, not assumed) — not a per-stage `CASE` expression.
+
+`grammar_minimum_leech_stage`/`vocabulary_minimum_leech_stage` (on `user_review_preferences`, default `familiar_1`) are plain narrow-mutation settings with no cascading effect on toggle — Leech status is recomputed at read time, so changing the threshold never needs to touch existing `user_item_progress` rows.
+
+A one-time backfill (`npm run leech:backfill`, `scripts/backfill-leech-counters.ts`) initializes both counters for progress rows that predate this unit, from durable `review_events` history — never fabricated. Safe to re-run: every row is recomputed fully from history each time, not incremented relative to its prior value.
+
 ## Review Direction Rules
 
 For bidirectional vocabulary/grammar reviews:
@@ -2287,6 +2298,7 @@ The following values must not be silently invented or duplicated in code:
 - Test unlock requirements
 - XP awards
 - Rank thresholds
+- Ghost SRS intervals (spec 20)
 - Leech thresholds
 - Access-tier rules
 - Rate limit thresholds and windows per surface

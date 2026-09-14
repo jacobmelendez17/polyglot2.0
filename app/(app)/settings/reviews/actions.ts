@@ -12,6 +12,7 @@ import {
   REVIEW_UI_TOGGLE_FIELDS,
   SRS_INTERVAL_MODES,
   SRS_STRICTNESSES,
+  srsStageSchema,
   UNDO_ACTIONS,
 } from "@/domains/srs";
 import { requireUser } from "@/domains/users/server";
@@ -20,6 +21,7 @@ import {
   updateGrammarGhostMode,
   updateGrammarHintMode,
   updateGrammarHintOrder,
+  updateGrammarMinimumLeechStage,
   updateGrammarReviewType,
   updateGrammarSrsIntervalMode,
   updateGrammarSrsStrictness,
@@ -30,6 +32,7 @@ import {
   updateVocabularyGhostMode,
   updateVocabularyHintMode,
   updateVocabularyHintOrder,
+  updateVocabularyMinimumLeechStage,
   updateVocabularyReviewType,
   updateVocabularySrsIntervalMode,
   updateVocabularySrsStrictness,
@@ -295,5 +298,33 @@ export async function updateVocabularyGhostModeAction(
     const updated = await updateVocabularyGhostMode({ userId: user.id, languageId: user.activeLanguageId, ghostMode });
     revalidatePath("/settings/reviews");
     return { ghostMode: updated.vocabularyGhostMode };
+  });
+}
+
+const minimumLeechStageInputSchema = z.object({ minimumLeechStage: srsStageSchema });
+
+/** Spec 20 Leeches — Minimum Grammar SRS for Leech. */
+export async function updateGrammarMinimumLeechStageAction(
+  input: z.infer<typeof minimumLeechStageInputSchema>,
+): Promise<ActionResult<{ minimumLeechStage: string }>> {
+  return runSettingsAction(async () => {
+    const { minimumLeechStage } = minimumLeechStageInputSchema.parse(input);
+    const user = await requireUser();
+    const updated = await updateGrammarMinimumLeechStage({ userId: user.id, languageId: user.activeLanguageId, minimumLeechStage });
+    revalidatePath("/settings/reviews");
+    return { minimumLeechStage: updated.grammarMinimumLeechStage };
+  });
+}
+
+/** Spec 20 Leeches — Minimum Vocabulary SRS for Leech. */
+export async function updateVocabularyMinimumLeechStageAction(
+  input: z.infer<typeof minimumLeechStageInputSchema>,
+): Promise<ActionResult<{ minimumLeechStage: string }>> {
+  return runSettingsAction(async () => {
+    const { minimumLeechStage } = minimumLeechStageInputSchema.parse(input);
+    const user = await requireUser();
+    const updated = await updateVocabularyMinimumLeechStage({ userId: user.id, languageId: user.activeLanguageId, minimumLeechStage });
+    revalidatePath("/settings/reviews");
+    return { minimumLeechStage: updated.vocabularyMinimumLeechStage };
   });
 }

@@ -18,6 +18,8 @@ export {
   VOCABULARY_REQUIRED_DIRECTIONS,
 } from "./review-config";
 export { calculateReviewStageResult } from "./review-result";
+export { calculateLeechStatus } from "./leech-status";
+export type { CalculateLeechStatusInput } from "./leech-status";
 export type {
   CalculateReviewStageResultInput,
   ReviewResultCategory,
@@ -39,6 +41,7 @@ export {
   DEFAULT_GHOST_MODE,
   DEFAULT_HINT_MODE,
   DEFAULT_HINT_ORDER,
+  DEFAULT_MINIMUM_LEECH_STAGE,
   DEFAULT_REVIEW_PREFERENCES,
   DEFAULT_REVIEW_QUEUE_TIMING_MODE,
   DEFAULT_REVIEW_TYPE,

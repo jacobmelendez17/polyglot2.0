@@ -1,3 +1,5 @@
+import type { SrsStage } from "./srs-types";
+
 /**
  * The learner's Review Type/Hint/Review UI preferences, as pure values and
  * rules (spec 20 Reviews). Database-free on purpose, matching
@@ -119,6 +121,16 @@ export function isReviewQueueTimingMode(value: unknown): value is ReviewQueueTim
 export const DEFAULT_FLUENT_MODE = true;
 
 /**
+ * Spec 20 Leeches — Minimum SRS for Leech. "The item cannot be classified
+ * as a Leech until it has reached at least that selected stage at least
+ * once" — checked against `highestSrsStageReached`, never the item's
+ * current stage. `familiar_1` is the spec's own stated default. The
+ * dropdown includes every normal SRS stage, so this reuses `SrsStage`
+ * directly rather than its own narrower union.
+ */
+export const DEFAULT_MINIMUM_LEECH_STAGE: SrsStage = "familiar_1";
+
+/**
  * Spec 20 Review UI — the seven independent boolean toggle field names.
  * Database-free so the Settings UI (a client component) can reference the
  * field-name union without importing `review-preference-repository.ts`
@@ -168,6 +180,8 @@ export type ReviewPreferences = {
   vocabularyFluentMode: boolean;
   grammarGhostMode: GhostMode;
   vocabularyGhostMode: GhostMode;
+  grammarMinimumLeechStage: SrsStage;
+  vocabularyMinimumLeechStage: SrsStage;
 };
 
 export const DEFAULT_REVIEW_PREFERENCES: Omit<ReviewPreferences, "userId" | "languageId"> = {
@@ -193,4 +207,6 @@ export const DEFAULT_REVIEW_PREFERENCES: Omit<ReviewPreferences, "userId" | "lan
   vocabularyFluentMode: DEFAULT_FLUENT_MODE,
   grammarGhostMode: DEFAULT_GHOST_MODE,
   vocabularyGhostMode: DEFAULT_GHOST_MODE,
+  grammarMinimumLeechStage: DEFAULT_MINIMUM_LEECH_STAGE,
+  vocabularyMinimumLeechStage: DEFAULT_MINIMUM_LEECH_STAGE,
 };

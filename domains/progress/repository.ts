@@ -36,6 +36,8 @@ function toItemProgress(row: ItemProgressRow): ItemProgress {
     incorrectCount: row.incorrectCount,
     reviewCount: row.reviewCount,
     lastReviewedAt: row.lastReviewedAt,
+    currentCorrectStreak: row.currentCorrectStreak,
+    highestSrsStageReached: row.highestSrsStageReached,
     version: row.version,
   };
 }
@@ -295,6 +297,19 @@ export async function applyItemProgressUpdate(
         : { incorrectCount: sql`${userItemProgress.incorrectCount} + 1` }),
       reviewCount: sql`${userItemProgress.reviewCount} + 1`,
       lastReviewedAt: input.now,
+      // Spec 20 Leeches — "Leech Progress Data," maintained transactionally
+      // with everything else here, never computed after the fact.
+      // `currentCorrectStreak` resets to 0 on a penalized result and
+      // increments on an advanced one, mirroring `correctCount`/
+      // `incorrectCount`'s own branching exactly.
+      currentCorrectStreak: input.result === "advanced" ? sql`${userItemProgress.currentCorrectStreak} + 1` : 0,
+      // `GREATEST` on a Postgres enum compares by declared order, which
+      // `srsStageEnum` (`db/schema/progress.ts`) is always declared to match
+      // `SRS_STAGE_ORDER` exactly — confirmed directly against this
+      // database, not assumed. Only ever moves forward: a penalized
+      // (demoted) `srsStage` can never exceed what was already reached, so
+      // this needs no `advanced`/`penalized` branch of its own.
+      highestSrsStageReached: sql`GREATEST(${userItemProgress.highestSrsStageReached}, ${input.srsStage})`,
       version: sql`${userItemProgress.version} + 1`,
     })
     .where(
@@ -445,6 +460,9 @@ export async function enrollLearningItems(
         srsStage: item.srsStage,
         learnedAt: item.learnedAt,
         nextReviewAt: item.nextReviewAt,
+        // Spec 20 Leeches — a freshly enrolled item's real starting state, set explicitly rather than left to the column default.
+        currentCorrectStreak: 0,
+        highestSrsStageReached: item.srsStage,
       })),
     )
     .returning();
