@@ -162,17 +162,17 @@ every boundary before considering these done)*
 24. Delete Account — request → email-verified confirmation → 7-day pending
     window → cancel → the Vercel Cron finalize job from decision 1.
 
-**Units 1-11 are done — see their Completed entries below.** Account,
-General, and Lessons are fully complete; Reviews has Review Types (Cloze
-(Manual)/Cloze (Flashcard)/Flashcard), Review Hints (Hint Order/Hint Mode),
-and Review UI (Autoplay Audio, Lightning Mode, Focus Mode, Auto Highlight
-Errors, Show SRS Stage, Auto-Expand Info, Undo Action) —
-`user_review_preferences` now has 15 columns. Unit 12 (SRS Strictness) is
-next, starting Phase E — the highest-risk phase in the spec (full unit-test
-coverage of every boundary expected before considering a unit in this phase
-done): SRS Strictness replaces `review-result.ts`'s existing WaniKani-style
-penalty function outright with the five-level model (1/2/3 Stages, Half,
-Full), configurable independently per content type.
+**Units 1-12 are done — see their Completed entries below.** Account,
+General, and Lessons are fully complete; Reviews has Review Types, Review
+Hints, Review UI, and now SRS Strictness (the old WaniKani-inspired
+Beginner/Familiar+ penalty is fully retired) —
+`user_review_preferences` now has 17 columns. Unit 13 (SRS Interval) is
+next, continuing Phase E: replaces `srs-config.ts`'s fixed `STANDARD_INTERVALS`
+table with the spec's Shortest–Longest model, real calendar-month
+arithmetic (there is none today — months are approximated as fixed 30-day
+blocks), and the new 3-month Master → Fluent default (down from 4).
+`project-overview.md`'s documented interval table must be updated in the
+same unit, per the spec's explicit instruction to keep both in sync.
 
 **Migration-tooling note for every future unit touching a Postgres enum**:
 `drizzle-kit migrate`'s CLI proved unreliable in this session's environment
@@ -1201,6 +1201,87 @@ writing to real `user_item_progress` rows.
 ## Completed
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
+
+- **Spec 20 unit 12 — SRS Strictness** (2026-09-14). Opens Phase E (highest
+  risk in the plan — full unit-test coverage of every boundary expected
+  before considering a unit here done) with the first unit that changes
+  what an incorrect review actually *does* to an item's SRS stage, not just
+  how it's presented or graded.
+
+  **The old WaniKani-inspired penalty is gone outright, not layered
+  alongside the new model** — exactly per the spec's explicit instruction
+  ("must no longer exist as the default... do not leave the old 2-stage
+  Familiar+ logic reachable through another code path"). `review-result.ts`
+  was rewritten from a Beginner/Familiar+ tier check to a flat five-level
+  switch (`domains/srs/review-preference.ts`'s new `SrsStrictness`: `one_stage`
+  / `two_stages` / `three_stages` / `half` / `full`) with no tier logic
+  anywhere — every stage is treated identically, and which rule applies is
+  entirely the learner's own choice, defaulting to `one_stage` (the spec's
+  own stated default, and the new Polyglot-wide default). `BEGINNER_PENALTY_STAGES`,
+  `FAMILIAR_PLUS_PENALTY_FACTOR`, `isBeginnerTier`, and
+  `MAX_INCORRECT_ADJUSTMENT_COUNT_PER_ITEM` were deleted from
+  `review-config.ts` entirely rather than left unreferenced — confirmed via
+  a repo-wide grep that nothing else touched them.
+
+  **Half's formula matches the spec's own two worked examples exactly**
+  (Master → Beginner 4, Familiar 1 → Beginner 2), derived from the spec's
+  1-indexed "stage position" language (`floor(position / 2)`, converted
+  back to this codebase's 0-indexed `SRS_STAGE_ORDER`) — verified by hand
+  against both examples before writing the implementation, then again via
+  an exhaustive `it.each` table across every stage for all five levels
+  (42 cases total in `review-result.test.ts`). **Caught by that exhaustive
+  table, not guessed right the first time**: three of my own hand-computed
+  expected values in the initial test draft (Half's `intermediate`/`fluent`
+  cases, 2 Stages' and 3 Stages' `fluent` case) were arithmetic slips —
+  running the suite surfaced the mismatches immediately, hand-rechecked
+  the formula against each, and fixed the test expectations, not the
+  (correct) implementation.
+
+  **Threading**: `srsStrictness` resolved by content type
+  (`state.reviewPreferences.vocabularySrsStrictness`/`grammarSrsStrictness`,
+  by `item.type`, the same split every other per-content-type setting in
+  `review-orchestration.ts` already uses) and passed into
+  `applyReviewCompletion`'s new required `srsStrictness` field — resolved
+  once at session start and signed into `ReviewState` alongside Review Type
+  and Review Hints (unit 10/11's established pattern: "the active review
+  keeps its original settings... the next review session uses the new
+  settings"), confirmed with two dedicated integration tests: one proving a
+  non-default strictness set *before* a session starts is what actually
+  applies, and one proving a strictness change made *after* a session
+  starts has no effect on that already-open session.
+
+  **A real, unrelated dead-code cleanup, forced by this change rather than
+  sought out**: `calculateReviewStageResult`'s signature change would have
+  left `review-completion-preview.ts` (spec 09 unit 3's pre-unit-4 stand-in,
+  confirmed via grep to have no real call site — unit 4 replaced it long
+  ago, only its own test and the barrel export still referenced it) broken
+  for no reason; deleted the file and its test outright rather than patch a
+  proven-dead code path to accept a parameter it would never use.
+
+  **Existing integration tests updated to reflect the real new default**:
+  three assertions from earlier units asserted the *old* Familiar+ 2-stage
+  result (`familiar_1` + incorrect → `beginner_3`); the new 1-stage default
+  makes the correct result `beginner_4` — updated, not worked around.
+
+  **Settings UI**: `/settings/reviews` gained a Grammar/Vocabulary SRS
+  Strictness section, reusing `InlineSelectSettingField` (its fourth use)
+  and the established generic-action-helper pattern from unit 11.
+
+  Verified: `tsc`, `eslint .`, full `npm run test` (962 tests, no
+  regressions — 42 exhaustive boundary-case tests for
+  `calculateReviewStageResult` across all five strictness levels, new
+  `isSrsStrictness`/`DEFAULT_SRS_STRICTNESS` coverage, and new repository
+  tests for independent per-content-type saves), `npm run build`, `npm run
+  db:verify` (clean — a single plain migration, one brand-new enum, no ADD
+  VALUE, no repeat of unit 8's incident). `npm run test:integration`:
+  **376/382 passing** on a full, isolated run (including both new
+  session-pinning tests). The 6 failures are exactly the already-documented
+  pre-existing shared-dev-branch conditions from Next Up #9/#10/#29 (3
+  unscoped audit-log queries, 1 idempotency cleanup-count flake, both
+  symptoms of the item-`y` fixture-drift family) — same identity as units
+  10 and 11's baseline, confirming none of them are new.
+
+  **No live-browser pass** — see Current Goal / Next Up #26.
 
 - **Spec 20 unit 11 — Reviews: Hints & Review UI** (2026-09-13). Larger than
   planned once underway: nearly every one of the eleven new settings

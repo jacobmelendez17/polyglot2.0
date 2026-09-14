@@ -4,6 +4,7 @@ import { GrammarReviewTypeSelect } from "@/components/settings/reviews/grammar-r
 import { HintModeSelect } from "@/components/settings/reviews/hint-mode-select";
 import { HintOrderSelect } from "@/components/settings/reviews/hint-order-select";
 import { ReviewUiToggle } from "@/components/settings/reviews/review-ui-toggle";
+import { SrsStrictnessSelect } from "@/components/settings/reviews/srs-strictness-select";
 import { UndoActionSelect } from "@/components/settings/reviews/undo-action-select";
 import { VocabularyReviewTypeSelect } from "@/components/settings/reviews/vocabulary-review-type-select";
 import { SettingsSectionPlaceholder } from "@/components/settings/settings-section-placeholder";
@@ -98,9 +99,22 @@ export default async function ReviewSettingsPage() {
         </div>
       </div>
 
+      <div className="rounded-xl border border-border bg-card p-6">
+        <h2 className="font-heading text-lg font-semibold text-foreground">SRS Strictness</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          How far an incorrect review sets an item back. Correct reviews always advance normally, regardless of this setting.
+        </p>
+        <div className="mt-4">
+          <SrsStrictnessSelect contentType="grammar" initialValue={preferences.grammarSrsStrictness} />
+        </div>
+        <div className="mt-2">
+          <SrsStrictnessSelect contentType="vocabulary" initialValue={preferences.vocabularySrsStrictness} />
+        </div>
+      </div>
+
       <SettingsSectionPlaceholder
         title="More Review settings"
-        description="Ghost Reviews, Leeches, SRS Strictness, SRS Interval, Review Queue Timing, and Fluent Mode."
+        description="Ghost Reviews, Leeches, SRS Interval, Review Queue Timing, and Fluent Mode."
       />
     </div>
   );

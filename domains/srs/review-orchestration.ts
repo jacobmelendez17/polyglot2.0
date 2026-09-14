@@ -222,6 +222,8 @@ export async function startReviewSession(
       vocabularyHintOrder: reviewPreferences.vocabularyHintOrder,
       grammarHintMode: reviewPreferences.grammarHintMode,
       vocabularyHintMode: reviewPreferences.vocabularyHintMode,
+      grammarSrsStrictness: reviewPreferences.grammarSrsStrictness,
+      vocabularySrsStrictness: reviewPreferences.vocabularySrsStrictness,
     },
     stats,
     issuedAt: now,
@@ -392,6 +394,11 @@ export async function submitReviewAnswer(
       if (!snapshot) throw new ReviewError("INVALID_REVIEW_STATE");
 
       const hadIncorrectRequiredAnswer = requiredIds.some((id) => nextState.failedQuestionIds.includes(id));
+      // Spec 20 SRS Strictness — resolved by content type, from the
+      // session's signed-in preferences, the same split every other
+      // per-content-type setting in this file already uses.
+      const srsStrictness =
+        item.type === "vocabulary" ? state.reviewPreferences.vocabularySrsStrictness : state.reviewPreferences.grammarSrsStrictness;
       try {
         completedItem = await applyReviewCompletion(db, {
           userId,
@@ -400,6 +407,7 @@ export async function submitReviewAnswer(
           expectedVersion: snapshot.version,
           requiredQuestionCount: requiredIds.length,
           hadIncorrectRequiredAnswer,
+          srsStrictness,
           now: new Date(now),
           idempotencyKey,
           sessionId: state.sessionId,

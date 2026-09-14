@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-import { HINT_MODES, HINT_ORDERS, REVIEW_TYPES } from "./review-preference";
-import type { HintMode, HintOrder, ReviewType } from "./review-preference";
+import { HINT_MODES, HINT_ORDERS, REVIEW_TYPES, SRS_STRICTNESSES } from "./review-preference";
+import type { HintMode, HintOrder, ReviewType, SrsStrictness } from "./review-preference";
 import { SRS_STAGE_ORDER } from "./srs-config";
 import type { SrsStage } from "./srs-types";
 
@@ -55,6 +55,7 @@ export const reviewSessionStatsSchema = z.object({
 const reviewTypeSchema = z.enum(REVIEW_TYPES as unknown as readonly [ReviewType, ...ReviewType[]]);
 const hintOrderSchema = z.enum(HINT_ORDERS as unknown as readonly [HintOrder, ...HintOrder[]]);
 const hintModeSchema = z.enum(HINT_MODES as unknown as readonly [HintMode, ...HintMode[]]);
+const srsStrictnessSchema = z.enum(SRS_STRICTNESSES as unknown as readonly [SrsStrictness, ...SrsStrictness[]]);
 
 /**
  * Spec 20 Reviews' "Review Session Settings": resolved once at session
@@ -64,11 +65,13 @@ const hintModeSchema = z.enum(HINT_MODES as unknown as readonly [HintMode, ...Hi
  * mid-session. Re-fetching this per submit instead of trusting the signed
  * copy would violate that directly.
  *
- * Only Review Type and Review Hints live here — both affect what
- * `buildQuestionView` computes server-side per question. The seven Review
- * UI toggles (Autoplay Audio, Lightning Mode, Focus Mode, Auto Highlight
- * Errors, Show SRS Stage, Auto-Expand Info, Undo Action) are pure client
- * presentation with no effect on grading or SRS, so they ride once in
+ * Review Type, Review Hints, and SRS Strictness all live here — each
+ * affects either what `buildQuestionView` computes server-side per
+ * question, or (SRS Strictness) the authoritative stage transition itself
+ * at completion time (`review-completion.ts`). The seven Review UI toggles
+ * (Autoplay Audio, Lightning Mode, Focus Mode, Auto Highlight Errors, Show
+ * SRS Stage, Auto-Expand Info, Undo Action) are pure client presentation
+ * with no effect on grading or SRS, so they ride once in
  * `ReviewSessionResult` instead (see `review-types.ts`) rather than being
  * signed into every request.
  */
@@ -79,6 +82,8 @@ export const reviewPreferencesSchema = z.object({
   vocabularyHintOrder: hintOrderSchema,
   grammarHintMode: hintModeSchema,
   vocabularyHintMode: hintModeSchema,
+  grammarSrsStrictness: srsStrictnessSchema,
+  vocabularySrsStrictness: srsStrictnessSchema,
 });
 
 export const reviewStateSchema = z.object({

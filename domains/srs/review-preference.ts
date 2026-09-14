@@ -48,6 +48,20 @@ export function isUndoAction(value: unknown): value is UndoAction {
 }
 
 /**
+ * Spec 20 SRS Strictness — which demotion rule applies to an incorrect
+ * normal SRS result. `one_stage` is the spec's own stated default, and the
+ * new Polyglot-wide default replacing the old WaniKani-inspired Beginner/
+ * Familiar+ split outright (see `domains/srs/review-result.ts`).
+ */
+export const SRS_STRICTNESSES = ["one_stage", "two_stages", "three_stages", "half", "full"] as const;
+export type SrsStrictness = (typeof SRS_STRICTNESSES)[number];
+export const DEFAULT_SRS_STRICTNESS: SrsStrictness = "one_stage";
+
+export function isSrsStrictness(value: unknown): value is SrsStrictness {
+  return typeof value === "string" && (SRS_STRICTNESSES as readonly string[]).includes(value);
+}
+
+/**
  * Spec 20 Review UI — the seven independent boolean toggle field names.
  * Database-free so the Settings UI (a client component) can reference the
  * field-name union without importing `review-preference-repository.ts`
@@ -88,6 +102,8 @@ export type ReviewPreferences = {
   showSrsStage: boolean;
   autoExpandInfo: boolean;
   undoAction: UndoAction;
+  grammarSrsStrictness: SrsStrictness;
+  vocabularySrsStrictness: SrsStrictness;
 };
 
 export const DEFAULT_REVIEW_PREFERENCES: Omit<ReviewPreferences, "userId" | "languageId"> = {
@@ -104,4 +120,6 @@ export const DEFAULT_REVIEW_PREFERENCES: Omit<ReviewPreferences, "userId" | "lan
   showSrsStage: true,
   autoExpandInfo: false,
   undoAction: DEFAULT_UNDO_ACTION,
+  grammarSrsStrictness: DEFAULT_SRS_STRICTNESS,
+  vocabularySrsStrictness: DEFAULT_SRS_STRICTNESS,
 };

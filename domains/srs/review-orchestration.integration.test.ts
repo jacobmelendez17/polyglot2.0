@@ -9,7 +9,7 @@ import { withTestTransaction } from "@/db/test/with-test-transaction";
 
 import { applyReviewCompletion } from "./review-completion";
 import { startReviewSession, submitReviewAnswer } from "./review-orchestration";
-import type { ReviewType } from "./review-preference";
+import type { ReviewType, SrsStrictness } from "./review-preference";
 import { verifyReviewState } from "./review-token";
 import type { ReviewSessionResult } from "./review-types";
 import type { SrsStage } from "./srs-types";
@@ -89,6 +89,17 @@ async function setVocabularyReviewType(tx: DbClient, userId: string, languageId:
 /** Removes `gatoId`'s seeded example sentence link for one test, forcing Cloze (Manual)'s "no compatible sentence" fallback deterministically rather than depending on the fixture never gaining one. */
 async function removeExampleSentence(tx: DbClient, learningItemId: string) {
   await tx.delete(learningItemSentences).where(eq(learningItemSentences.learningItemId, learningItemId));
+}
+
+/** Spec 20 SRS Strictness — sets the vocabulary strictness a fresh session should resolve at `startReviewSession` time. */
+async function setVocabularySrsStrictness(tx: DbClient, userId: string, languageId: string, srsStrictness: SrsStrictness) {
+  await tx
+    .insert(userReviewPreferences)
+    .values({ userId, languageId, vocabularySrsStrictness: srsStrictness })
+    .onConflictDoUpdate({
+      target: [userReviewPreferences.userId, userReviewPreferences.languageId],
+      set: { vocabularySrsStrictness: srsStrictness },
+    });
 }
 
 type CommonSubmitFields = { token: string; userId: string; languageId: string; questionId: string; idempotencyKey: string; now?: number };
@@ -380,8 +391,8 @@ describe("submitReviewAnswer — Flashcard (self-graded, both directions — com
         idempotencyKey: crypto.randomUUID(),
       });
       expect(retry.feedback).toEqual({ kind: "correct" });
-      // Familiar 1 + any incorrect required answer -> factor-2 penalty, floored, per the confirmed decision.
-      expect(retry.completedItem).toMatchObject({ stageBefore: "familiar_1", stageAfter: "beginner_3", result: "penalized" });
+      // Spec 20 SRS Strictness default (1 Stage): any incorrect required answer drops exactly one stage, regardless of tier.
+      expect(retry.completedItem).toMatchObject({ stageBefore: "familiar_1", stageAfter: "beginner_4", result: "penalized" });
     });
   });
 
@@ -428,7 +439,7 @@ describe("submitReviewAnswer — Flashcard (self-graded, both directions — com
         idempotencyKey: crypto.randomUUID(),
       });
 
-      expect(response.completedItem).toMatchObject({ stageBefore: "familiar_1", stageAfter: "beginner_3", result: "penalized" });
+      expect(response.completedItem).toMatchObject({ stageBefore: "familiar_1", stageAfter: "beginner_4", result: "penalized" });
     });
   });
 
@@ -483,6 +494,86 @@ describe("submitReviewAnswer — Flashcard (self-graded, both directions — com
       });
 
       expect(response.completedItem).toMatchObject({ stageAfter: "fluent", reachedFluent: true, nextReviewAt: null });
+    });
+  });
+});
+
+describe("submitReviewAnswer — SRS Strictness (spec 20)", () => {
+  /**
+   * Both required directions must eventually be answered correctly for an
+   * item to complete at all (an incorrect answer reschedules its question
+   * rather than satisfying it) — `hadIncorrectRequiredAnswer` still ends up
+   * true, which is what triggers the penalty. Mirrors "an incorrect
+   * required question returns later..." above: wrong once, then correct on
+   * the other direction, then correct on the retry of the first.
+   */
+  async function completeWithOneEarlierIncorrectAnswer(tx: DbClient, token: string, firstQuestionId: string, userId: string, languageId: string) {
+    const wrong = await submitKnows(tx, { token, userId, languageId, questionId: firstQuestionId, knowsAnswer: false, idempotencyKey: crypto.randomUUID() });
+    const other = await submitKnows(tx, {
+      token: wrong.token,
+      userId,
+      languageId,
+      questionId: wrong.currentQuestion!.questionId,
+      knowsAnswer: true,
+      idempotencyKey: crypto.randomUUID(),
+    });
+    return submitKnows(tx, {
+      token: other.token,
+      userId,
+      languageId,
+      questionId: firstQuestionId,
+      knowsAnswer: true,
+      idempotencyKey: crypto.randomUUID(),
+    });
+  }
+
+  it("a non-default strictness resolved at session start is what actually applies at completion", async () => {
+    await withTestTransaction(async (tx) => {
+      const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
+      await markDue(tx, learnerId, gatoId, languageId, { srsStage: "master" });
+      await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
+      await setVocabularySrsStrictness(tx, learnerId, languageId, "full");
+
+      const started = await startReviewSession(tx, { userId: learnerId, languageId });
+      if (started.kind !== "session") throw new Error("expected a session");
+
+      const response = await completeWithOneEarlierIncorrectAnswer(
+        tx,
+        started.token,
+        started.currentQuestion!.questionId,
+        learnerId,
+        languageId,
+      );
+
+      // "Full" resets straight to Beginner 1 regardless of starting stage —
+      // the old model (or "1 Stage") would have left this at Intermediate/Master.
+      expect(response.completedItem).toMatchObject({ stageBefore: "master", stageAfter: "beginner_1", result: "penalized" });
+    });
+  });
+
+  it("a strictness change made after a session starts does not affect that already-open session (spec 20's 'active review keeps its original settings')", async () => {
+    await withTestTransaction(async (tx) => {
+      const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
+      await markDue(tx, learnerId, gatoId, languageId, { srsStage: "familiar_1" });
+      await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
+      // Default (1 Stage) in effect when this session starts.
+
+      const started = await startReviewSession(tx, { userId: learnerId, languageId });
+      if (started.kind !== "session") throw new Error("expected a session");
+
+      // The learner changes their setting to "Full" in another tab while this session is still open.
+      await setVocabularySrsStrictness(tx, learnerId, languageId, "full");
+
+      const response = await completeWithOneEarlierIncorrectAnswer(
+        tx,
+        started.token,
+        started.currentQuestion!.questionId,
+        learnerId,
+        languageId,
+      );
+
+      // Still the 1-Stage result this session started with (Beginner 4), not Full's Beginner 1.
+      expect(response.completedItem).toMatchObject({ stageBefore: "familiar_1", stageAfter: "beginner_4", result: "penalized" });
     });
   });
 });
@@ -614,6 +705,7 @@ describe("atomic review completion (spec 09 unit 4)", () => {
           expectedVersion: 0, // stale — the real row is now at version 5
           requiredQuestionCount: 2,
           hadIncorrectRequiredAnswer: false,
+          srsStrictness: "one_stage",
           now: new Date(),
           idempotencyKey: crypto.randomUUID(),
           sessionId: "session-stale-test",
@@ -649,6 +741,7 @@ describe("atomic review completion (spec 09 unit 4)", () => {
           expectedVersion: 0,
           requiredQuestionCount: 2,
           hadIncorrectRequiredAnswer: false,
+          srsStrictness: "one_stage",
           now: new Date(),
           idempotencyKey: crypto.randomUUID(),
           sessionId: "session-not-due-test",
@@ -723,6 +816,7 @@ describe("atomic review completion (spec 09 unit 4)", () => {
         expectedVersion: 0,
         requiredQuestionCount: 2,
         hadIncorrectRequiredAnswer: false,
+        srsStrictness: "one_stage" as const,
         now: new Date(),
         idempotencyKey: key,
         sessionId: "session-replay-test",
@@ -759,6 +853,7 @@ describe("atomic review completion (spec 09 unit 4)", () => {
         expectedVersion: 0,
         requiredQuestionCount: 2,
         hadIncorrectRequiredAnswer: false,
+        srsStrictness: "one_stage",
         now: new Date(),
         idempotencyKey: key,
         sessionId: "session-conflict-test",
@@ -772,6 +867,7 @@ describe("atomic review completion (spec 09 unit 4)", () => {
           expectedVersion: 0,
           requiredQuestionCount: 1,
           hadIncorrectRequiredAnswer: false,
+          srsStrictness: "one_stage",
           now: new Date(),
           idempotencyKey: key,
           sessionId: "session-conflict-test",
@@ -878,7 +974,7 @@ describe("atomic review completion (spec 09 unit 4)", () => {
         knowsAnswer: true,
         idempotencyKey: crypto.randomUUID(),
       });
-      expect(response.completedItem).toMatchObject({ stageBefore: "familiar_1", stageAfter: "beginner_3", result: "penalized" });
+      expect(response.completedItem).toMatchObject({ stageBefore: "familiar_1", stageAfter: "beginner_4", result: "penalized" });
 
       const [unlock] = await tx
         .select()
@@ -911,6 +1007,7 @@ describe("atomic review completion (spec 09 unit 4)", () => {
           expectedVersion: original.version,
           requiredQuestionCount: 2,
           hadIncorrectRequiredAnswer: false,
+          srsStrictness: "one_stage",
           now: new Date(),
           idempotencyKey: crypto.randomUUID(), // different keys — this proves the row lock/version guard itself, independent of idempotency
           sessionId: "session-concurrent-a",

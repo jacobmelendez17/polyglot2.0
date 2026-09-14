@@ -8,11 +8,13 @@ import {
   saveGrammarHintMode,
   saveGrammarHintOrder,
   saveGrammarReviewType,
+  saveGrammarSrsStrictness,
   saveReviewUiToggle,
   saveUndoAction,
   saveVocabularyHintMode,
   saveVocabularyHintOrder,
   saveVocabularyReviewType,
+  saveVocabularySrsStrictness,
 } from "./review-preference-repository";
 
 const DEFAULTS = {
@@ -29,6 +31,8 @@ const DEFAULTS = {
   showSrsStage: true,
   autoExpandInfo: false,
   undoAction: "clear_last_character",
+  grammarSrsStrictness: "one_stage",
+  vocabularySrsStrictness: "one_stage",
 } as const;
 
 describe("findReviewPreferences", () => {
@@ -125,6 +129,26 @@ describe("Review UI saves", () => {
       const { learnerId, languageId } = await seedTestFixtures(tx);
       const result = await saveUndoAction(tx, { userId: learnerId, languageId, undoAction: "clear_all_characters" });
       expect(result).toEqual({ userId: learnerId, languageId, ...DEFAULTS, undoAction: "clear_all_characters" });
+    });
+  });
+});
+
+describe("SRS Strictness saves", () => {
+  it("saves grammar and vocabulary SRS Strictness independently of each other and of every other field", async () => {
+    await withTestTransaction(async (tx) => {
+      const { learnerId, languageId } = await seedTestFixtures(tx);
+
+      const afterGrammar = await saveGrammarSrsStrictness(tx, { userId: learnerId, languageId, srsStrictness: "full" });
+      expect(afterGrammar).toEqual({ userId: learnerId, languageId, ...DEFAULTS, grammarSrsStrictness: "full" });
+
+      const afterVocabulary = await saveVocabularySrsStrictness(tx, { userId: learnerId, languageId, srsStrictness: "half" });
+      expect(afterVocabulary).toEqual({
+        userId: learnerId,
+        languageId,
+        ...DEFAULTS,
+        grammarSrsStrictness: "full",
+        vocabularySrsStrictness: "half",
+      });
     });
   });
 });

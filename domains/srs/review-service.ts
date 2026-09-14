@@ -9,7 +9,7 @@ import * as preferenceRepository from "./review-preference-repository";
 import * as repository from "./review-repository";
 import type { GetReviewHistoryInput, InsertReviewEventInput } from "./review-history-types";
 import type { StartReviewSessionInput, SubmitReviewAnswerInput } from "./review-orchestration";
-import type { HintMode, HintOrder, ReviewType, ReviewUiToggleField, UndoAction } from "./review-preference";
+import type { HintMode, HintOrder, ReviewType, ReviewUiToggleField, SrsStrictness, UndoAction } from "./review-preference";
 
 /**
  * Every Settings mutation in `domains/srs` shares the same "account-settings"
@@ -117,4 +117,14 @@ export async function updateReviewUiToggle(input: { userId: string; languageId: 
 /** Spec 20 Review UI — Undo Action. */
 export async function updateUndoAction(input: { userId: string; languageId: string; undoAction: UndoAction }) {
   return withAccountSettingsRateLimit(input.userId, () => preferenceRepository.saveUndoAction(db, input));
+}
+
+/** Spec 20 SRS Strictness — Grammar SRS Strictness. */
+export async function updateGrammarSrsStrictness(input: { userId: string; languageId: string; srsStrictness: SrsStrictness }) {
+  return withAccountSettingsRateLimit(input.userId, () => preferenceRepository.saveGrammarSrsStrictness(db, input));
+}
+
+/** Spec 20 SRS Strictness — Vocabulary SRS Strictness. */
+export async function updateVocabularySrsStrictness(input: { userId: string; languageId: string; srsStrictness: SrsStrictness }) {
+  return withAccountSettingsRateLimit(input.userId, () => preferenceRepository.saveVocabularySrsStrictness(db, input));
 }

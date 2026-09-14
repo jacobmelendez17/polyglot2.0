@@ -11,6 +11,7 @@ import {
 import { ReviewError } from "@/lib/errors/review-errors";
 
 import { LEVEL_UNLOCK_MINIMUM_STAGE, LEVEL_UNLOCK_RATIO } from "./review-config";
+import type { SrsStrictness } from "./review-preference";
 import { insertReviewEvent } from "./review-repository";
 import { calculateReviewStageResult } from "./review-result";
 import { SRS_STAGE_ORDER } from "./srs-config";
@@ -43,6 +44,8 @@ export type ApplyReviewCompletionInput = {
   expectedVersion: number;
   requiredQuestionCount: number;
   hadIncorrectRequiredAnswer: boolean;
+  /** Spec 20 SRS Strictness — which demotion rule applies to this item if `hadIncorrectRequiredAnswer` is true. Resolved by the caller from the item's content type and the session's signed-in preferences. */
+  srsStrictness: SrsStrictness;
   now: Date;
   /** Client-generated UUID, stable for this item's completion across retries (spec 09 §12). */
   idempotencyKey: string;
@@ -87,6 +90,7 @@ export async function applyReviewCompletion(
       const { stage: stageAfter, result, reachedFluent } = calculateReviewStageResult({
         stage: locked.srsStage,
         hadIncorrectRequiredAnswer: input.hadIncorrectRequiredAnswer,
+        srsStrictness: input.srsStrictness,
       });
       const nextReviewAt = calculateNextReview({ stage: stageAfter, level: level.levelNumber, now: input.now });
       const fluentAt = reachedFluent ? input.now : locked.fluentAt;

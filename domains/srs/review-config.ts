@@ -2,32 +2,13 @@ import type { SrsStage } from "./srs-types";
 
 /**
  * Spec 09 §9. Carried forward from spec 08's SRS floor — no completed review
- * item may ever be penalized below this stage.
+ * item may ever be penalized below this stage. Still authoritative under
+ * spec 20 SRS Strictness's five-level model (unit 12) — every strictness
+ * level clamps here, "Full" resets straight to it, and the old WaniKani-
+ * inspired Beginner/Familiar+ split this constant used to help compute no
+ * longer exists in any form (see `review-result.ts`).
  */
 export const MINIMUM_REVIEW_STAGE: SrsStage = "beginner_1";
-
-/**
- * Beginner 1-4 use a flat penalty regardless of how many required
- * directions/types were wrong — spec 09 §9 is explicit that both vocabulary
- * directions incorrect still costs exactly one stage.
- */
-export const BEGINNER_PENALTY_STAGES = 1;
-const BEGINNER_TIER: readonly SrsStage[] = ["beginner_1", "beginner_2", "beginner_3", "beginner_4"];
-
-/**
- * Familiar 1 and above use `incorrect_adjustment_count * penalty_factor`.
- * Confirmed decision (2026-09-02, resolving spec 09 §9's "Open Question #1"):
- * `incorrect_adjustment_count` is capped at 1 per completed item, mirroring
- * the Beginner tier's flat rule — an item is never penalized more than
- * `FAMILIAR_PLUS_PENALTY_FACTOR` stages no matter how many distinct required
- * directions/types were wrong.
- */
-export const FAMILIAR_PLUS_PENALTY_FACTOR = 2;
-export const MAX_INCORRECT_ADJUSTMENT_COUNT_PER_ITEM = 1;
-
-export function isBeginnerTier(stage: SrsStage): boolean {
-  return BEGINNER_TIER.includes(stage);
-}
 
 /**
  * Review-session configuration (spec 09 §6, §8, §21). Centralized here so no

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { DEFAULT_HINT_MODE, DEFAULT_HINT_ORDER, DEFAULT_REVIEW_TYPE, DEFAULT_UNDO_ACTION, isClozeReviewType, isHintMode, isHintOrder, isReviewType, isUndoAction } from "./review-preference";
+import { DEFAULT_HINT_MODE, DEFAULT_HINT_ORDER, DEFAULT_REVIEW_TYPE, DEFAULT_SRS_STRICTNESS, DEFAULT_UNDO_ACTION, isClozeReviewType, isHintMode, isHintOrder, isReviewType, isSrsStrictness, isUndoAction } from "./review-preference";
 
 describe("isReviewType", () => {
   it("accepts the three real review types", () => {
@@ -72,6 +72,21 @@ describe("isUndoAction", () => {
   });
 });
 
+describe("isSrsStrictness", () => {
+  it("accepts the five real strictness levels", () => {
+    expect(isSrsStrictness("one_stage")).toBe(true);
+    expect(isSrsStrictness("two_stages")).toBe(true);
+    expect(isSrsStrictness("three_stages")).toBe(true);
+    expect(isSrsStrictness("half")).toBe(true);
+    expect(isSrsStrictness("full")).toBe(true);
+  });
+
+  it("rejects anything else", () => {
+    expect(isSrsStrictness("ONE_STAGE")).toBe(false);
+    expect(isSrsStrictness(undefined)).toBe(false);
+  });
+});
+
 describe("spec 20's stated defaults", () => {
   it("Hint Order defaults to Nuance First", () => {
     expect(DEFAULT_HINT_ORDER).toBe("nuance_first");
@@ -83,5 +98,9 @@ describe("spec 20's stated defaults", () => {
 
   it("Undo Action defaults to Clear Last Character", () => {
     expect(DEFAULT_UNDO_ACTION).toBe("clear_last_character");
+  });
+
+  it("SRS Strictness defaults to 1 Stage — the new Polyglot-wide default, replacing the old WaniKani-inspired split", () => {
+    expect(DEFAULT_SRS_STRICTNESS).toBe("one_stage");
   });
 });

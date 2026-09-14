@@ -42,7 +42,16 @@ export type ReviewQuestionView = {
 /** Spec 20 Review UI: the seven purely-presentational toggles, sent once (see `reviewPreferencesSchema`'s docstring for why these aren't signed into the session state). */
 export type ReviewUiPreferences = Omit<
   ReviewPreferences,
-  "userId" | "languageId" | "grammarReviewType" | "vocabularyReviewType" | "grammarHintOrder" | "vocabularyHintOrder" | "grammarHintMode" | "vocabularyHintMode"
+  | "userId"
+  | "languageId"
+  | "grammarReviewType"
+  | "vocabularyReviewType"
+  | "grammarHintOrder"
+  | "vocabularyHintOrder"
+  | "grammarHintMode"
+  | "vocabularyHintMode"
+  | "grammarSrsStrictness"
+  | "vocabularySrsStrictness"
 >;
 
 export type ReviewAnswerFeedback =

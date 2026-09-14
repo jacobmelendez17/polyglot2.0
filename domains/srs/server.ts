@@ -16,10 +16,12 @@ export {
   updateGrammarHintMode,
   updateGrammarHintOrder,
   updateGrammarReviewType,
+  updateGrammarSrsStrictness,
   updateReviewUiToggle,
   updateUndoAction,
   updateVocabularyHintMode,
   updateVocabularyHintOrder,
   updateVocabularyReviewType,
+  updateVocabularySrsStrictness,
 } from "./review-service";
 export type { ReviewAnswerSubmission, StartReviewSessionInput, SubmitReviewAnswerInput } from "./review-orchestration";

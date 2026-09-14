@@ -218,12 +218,23 @@ export const hintModeEnum = pgEnum("hint_mode", ["hide", "hint", "show", "more",
 export const undoActionEnum = pgEnum("undo_action", ["clear_last_character", "clear_all_characters"]);
 
 /**
+ * Spec 20 SRS Strictness. `one_stage` is the spec's own stated default —
+ * the new Polyglot-wide default incorrect rule ("any incorrect normal SRS
+ * result drops exactly 1 stage"), replacing the old WaniKani-inspired
+ * Beginner/Familiar+ split outright (spec: "must no longer exist as the
+ * default... do not leave the old 2-stage Familiar+ logic reachable through
+ * another code path" — see `domains/srs/review-result.ts`).
+ */
+export const srsStrictnessEnum = pgEnum("srs_strictness", ["one_stage", "two_stages", "three_stages", "half", "full"]);
+
+/**
  * Per-learner, per-language review preferences (spec 20 Reviews) — what the
  * spec's own Settings Data Model describes as a much larger table (Ghost
- * mode, Leech minimums, SRS Strictness/Interval, queue timing, Fluent Mode
- * all still land on this same row in later units). Unit 10 seeded the two
- * review-type columns; unit 11 adds Review Hints (four columns) and Review
- * UI (seven columns) — see progress-tracker.md.
+ * mode, Leech minimums, SRS Interval, queue timing, Fluent Mode all still
+ * land on this same row in later units). Unit 10 seeded the two review-type
+ * columns; unit 11 added Review Hints (four columns) and Review UI (seven
+ * columns); unit 12 adds SRS Strictness (two columns) — see
+ * progress-tracker.md.
  *
  * Language-scoped like `userLanguageSettings`, for the same reason: a
  * learner studying two languages makes independent choices for each.
@@ -264,6 +275,8 @@ export const userReviewPreferences = pgTable(
     showSrsStage: boolean("show_srs_stage").notNull().default(true),
     autoExpandInfo: boolean("auto_expand_info").notNull().default(false),
     undoAction: undoActionEnum("undo_action").notNull().default("clear_last_character"),
+    grammarSrsStrictness: srsStrictnessEnum("grammar_srs_strictness").notNull().default("one_stage"),
+    vocabularySrsStrictness: srsStrictnessEnum("vocabulary_srs_strictness").notNull().default("one_stage"),
     ...timestamps(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.languageId] })],

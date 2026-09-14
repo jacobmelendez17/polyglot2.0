@@ -3,17 +3,19 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { HINT_MODES, HINT_ORDERS, REVIEW_TYPES, REVIEW_UI_TOGGLE_FIELDS, UNDO_ACTIONS } from "@/domains/srs";
+import { HINT_MODES, HINT_ORDERS, REVIEW_TYPES, REVIEW_UI_TOGGLE_FIELDS, SRS_STRICTNESSES, UNDO_ACTIONS } from "@/domains/srs";
 import { requireUser } from "@/domains/users/server";
 import {
   updateGrammarHintMode,
   updateGrammarHintOrder,
   updateGrammarReviewType,
+  updateGrammarSrsStrictness,
   updateReviewUiToggle,
   updateUndoAction,
   updateVocabularyHintMode,
   updateVocabularyHintOrder,
   updateVocabularyReviewType,
+  updateVocabularySrsStrictness,
 } from "@/domains/srs/server";
 import { AppError } from "@/lib/errors/app-error";
 
@@ -149,5 +151,33 @@ export async function updateUndoActionAction(
     const updated = await updateUndoAction({ userId: user.id, languageId: user.activeLanguageId, undoAction });
     revalidatePath("/settings/reviews");
     return { undoAction: updated.undoAction };
+  });
+}
+
+const srsStrictnessInputSchema = z.object({ srsStrictness: z.enum(SRS_STRICTNESSES) });
+
+/** Spec 20 SRS Strictness — Grammar SRS Strictness. */
+export async function updateGrammarSrsStrictnessAction(
+  input: z.infer<typeof srsStrictnessInputSchema>,
+): Promise<ActionResult<{ srsStrictness: string }>> {
+  return runSettingsAction(async () => {
+    const { srsStrictness } = srsStrictnessInputSchema.parse(input);
+    const user = await requireUser();
+    const updated = await updateGrammarSrsStrictness({ userId: user.id, languageId: user.activeLanguageId, srsStrictness });
+    revalidatePath("/settings/reviews");
+    return { srsStrictness: updated.grammarSrsStrictness };
+  });
+}
+
+/** Spec 20 SRS Strictness — Vocabulary SRS Strictness. */
+export async function updateVocabularySrsStrictnessAction(
+  input: z.infer<typeof srsStrictnessInputSchema>,
+): Promise<ActionResult<{ srsStrictness: string }>> {
+  return runSettingsAction(async () => {
+    const { srsStrictness } = srsStrictnessInputSchema.parse(input);
+    const user = await requireUser();
+    const updated = await updateVocabularySrsStrictness({ userId: user.id, languageId: user.activeLanguageId, srsStrictness });
+    revalidatePath("/settings/reviews");
+    return { srsStrictness: updated.vocabularySrsStrictness };
   });
 }

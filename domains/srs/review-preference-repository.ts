@@ -4,7 +4,7 @@ import type { DbClient } from "@/db/client";
 import { userReviewPreferences } from "@/db/schema";
 
 import { DEFAULT_REVIEW_PREFERENCES } from "./review-preference";
-import type { HintMode, HintOrder, ReviewPreferences, ReviewType, ReviewUiToggleField, UndoAction } from "./review-preference";
+import type { HintMode, HintOrder, ReviewPreferences, ReviewType, ReviewUiToggleField, SrsStrictness, UndoAction } from "./review-preference";
 
 /**
  * Takes an injected `DbClient` rather than the app's `db` singleton — same
@@ -34,6 +34,8 @@ function toReviewPreferences(row: ReviewPreferencesRow): ReviewPreferences {
     showSrsStage: row.showSrsStage,
     autoExpandInfo: row.autoExpandInfo,
     undoAction: row.undoAction,
+    grammarSrsStrictness: row.grammarSrsStrictness,
+    vocabularySrsStrictness: row.vocabularySrsStrictness,
   };
 }
 
@@ -119,4 +121,14 @@ export function saveReviewUiToggle(
 /** Spec 20 Review UI — Undo Action. */
 export function saveUndoAction(db: DbClient, input: { userId: string; languageId: string; undoAction: UndoAction }) {
   return savePreferenceField(db, "undoAction", { ...input, value: input.undoAction });
+}
+
+/** Spec 20 SRS Strictness — Grammar SRS Strictness. */
+export function saveGrammarSrsStrictness(db: DbClient, input: { userId: string; languageId: string; srsStrictness: SrsStrictness }) {
+  return savePreferenceField(db, "grammarSrsStrictness", { ...input, value: input.srsStrictness });
+}
+
+/** Spec 20 SRS Strictness — Vocabulary SRS Strictness. */
+export function saveVocabularySrsStrictness(db: DbClient, input: { userId: string; languageId: string; srsStrictness: SrsStrictness }) {
+  return savePreferenceField(db, "vocabularySrsStrictness", { ...input, value: input.srsStrictness });
 }
