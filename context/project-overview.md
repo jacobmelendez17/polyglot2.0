@@ -221,6 +221,29 @@ For bidirectional SRS items:
 - Reaching Fluent completes the item's normal review cycle; whether it then enters a 6-month maintenance loop or terminates depends on Fluent Mode (see "Fluent Mode" above).
 - Normal review completion does not prevent users from using the item in supplemental practice.
 
+### Ghost Reviews
+
+Ghost Reviews and Leeches are related but distinct (spec 20): a Ghost is repeated supplemental review of one specific *missed sentence*; a Leech is an *item* with a calculated history of repeated difficulty. Ghost Reviews never participate in the Leech calculation.
+
+Spec 20's Ghost Reviews setting (Grammar and Vocabulary, independently) has three modes:
+
+- **On** (default): one incorrect normal review of a Cloze-presented sentence creates a Ghost for that sentence.
+- **Minimal**: the same sentence must be missed a second time before the Ghost activates (the first miss is only recorded).
+- **Off**: normal review mistakes create no new Ghosts. Existing active Ghosts stay available — turning this off never deletes Ghost state; only an explicit Danger Zone reset does.
+
+A Ghost only exists for a sentence a normal review actually showed the learner — in practice, a Cloze-presented question (Flashcard/typed questions show no sentence, so a missed one never creates a Ghost).
+
+Ghost Reviews have their own independent SRS, entirely separate from the item's normal SRS stage — a Ghost never applies (or removes) a normal SRS penalty, and a normal SRS stage change never touches Ghost state:
+
+- Ghost 1 → 4 hours
+- Ghost 2 → 12 hours
+- Ghost 3 → 24 hours
+- Ghost 4 → 48 hours
+
+A correct answer advances one Ghost stage on the schedule above; once Ghost 4 is answered correctly, the Ghost is gone. An incorrect Ghost answer resets it to Ghost 1, scheduled 4 hours out again, regardless of which stage it was on.
+
+Due Ghost reviews appear in the learner's review experience alongside normal reviews and must be visually identifiable as supplemental. Vacation Mode freezes Ghost scheduling the same way it freezes normal reviews — remaining interval preserved, not simply pushed by the vacation's full duration.
+
 ## Practice
 
 Practice activities unlock according to curriculum level and learned content.

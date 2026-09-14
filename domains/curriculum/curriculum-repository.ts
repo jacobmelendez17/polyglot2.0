@@ -331,11 +331,26 @@ export async function getLearningItemsByIds(db: DbClient, ids: string[]): Promis
  */
 export async function getLearningItemExamples(db: DbClient, learningItemId: string): Promise<CurriculumExampleSentence[]> {
   return db
-    .select({ targetText: sentences.targetText, translation: sentences.translation })
+    .select({ id: sentences.id, targetText: sentences.targetText, translation: sentences.translation })
     .from(learningItemSentences)
     .innerJoin(sentences, eq(sentences.id, learningItemSentences.sentenceId))
     .where(and(eq(learningItemSentences.learningItemId, learningItemId), eq(sentences.status, "published")))
     .orderBy(asc(learningItemSentences.position));
+}
+
+/**
+ * One sentence by its own id (spec 20 Ghost Reviews) — a due Ghost only
+ * ever stores `sentenceId`, not the sentence text itself, so rebuilding its
+ * Cloze presentation needs this direct lookup rather than re-searching a
+ * whole item's example list the way `findCompatibleClozeSentence` does.
+ */
+export async function getSentenceById(db: DbClient, sentenceId: string): Promise<CurriculumExampleSentence | null> {
+  const [row] = await db
+    .select({ id: sentences.id, targetText: sentences.targetText, translation: sentences.translation })
+    .from(sentences)
+    .where(eq(sentences.id, sentenceId))
+    .limit(1);
+  return row ?? null;
 }
 
 // --- Spec 18: grammar About blocks, resources, and hero navigation ---

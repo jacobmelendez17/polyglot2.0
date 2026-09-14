@@ -36,6 +36,7 @@ export { getReviewQuestionAnswerSpec } from "./review-answer-spec";
 export type { ReviewQuestionAnswerSpec } from "./review-answer-spec";
 export {
   DEFAULT_FLUENT_MODE,
+  DEFAULT_GHOST_MODE,
   DEFAULT_HINT_MODE,
   DEFAULT_HINT_ORDER,
   DEFAULT_REVIEW_PREFERENCES,
@@ -44,9 +45,11 @@ export {
   DEFAULT_SRS_INTERVAL_MODE,
   DEFAULT_SRS_STRICTNESS,
   DEFAULT_UNDO_ACTION,
+  GHOST_MODES,
   HINT_MODES,
   HINT_ORDERS,
   isClozeReviewType,
+  isGhostMode,
   isHintMode,
   isHintOrder,
   isReviewQueueTimingMode,
@@ -62,6 +65,7 @@ export {
   UNDO_ACTIONS,
 } from "./review-preference";
 export type {
+  GhostMode,
   HintMode,
   HintOrder,
   ReviewPreferences,
@@ -72,6 +76,8 @@ export type {
   SrsStrictness,
   UndoAction,
 } from "./review-preference";
+export { GHOST_STAGES, GHOST_INTERVAL_HOURS } from "./ghost-progress";
+export type { GhostStage } from "./ghost-progress";
 export { findCompatibleClozeSentence } from "./review-cloze";
 export type { ClozeSentence } from "./review-cloze";
 export { resolveReviewHint } from "./review-hint";
@@ -89,6 +95,7 @@ export {
   srsStageSchema,
 } from "./review-schemas";
 export type {
+  GhostReviewView,
   ReviewAnswerFeedback,
   ReviewItemSnapshot,
   ReviewItemType,

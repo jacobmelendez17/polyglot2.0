@@ -1,5 +1,6 @@
 import { db } from "@/db/client";
 import { applyVacationSchedulingAdjustment } from "@/domains/progress/repository";
+import { applyGhostVacationSchedulingAdjustment } from "@/domains/srs/ghost-repository";
 import { getRateLimiter } from "@/providers/rate-limit";
 import { AppError } from "@/lib/errors/app-error";
 
@@ -29,13 +30,15 @@ export async function enableVacationMode(userId: string, now: Date = new Date())
 /**
  * Idempotent disable, and the one place spec 20's Vacation Scheduling rule
  * actually gets applied to real progress rows. Closing the vacation period
- * and reconciling every affected `next_review_at` happen in one
- * transaction — "schedule adjustment at vacation end must happen exactly
- * once" requires both to commit together or not at all, not two
- * independent writes a crash between them could split.
+ * and reconciling every affected `next_review_at` — both normal items and,
+ * per spec 20's "Vacation and Ghosts" ("Apply equivalent freeze behavior to
+ * Ghost Review due dates"), due Ghost reviews — happen in one transaction:
+ * "schedule adjustment at vacation end must happen exactly once" requires
+ * all three to commit together or not at all, not writes a crash between
+ * them could split.
  *
  * Returns `null` when there was nothing active to close (already off);
- * the reconciliation step is skipped entirely in that case, which is what
+ * the reconciliation steps are skipped entirely in that case, which is what
  * makes a repeated disable produce zero additional schedule shift.
  */
 export async function disableVacationMode(userId: string, now: Date = new Date()): Promise<VacationPeriod | null> {
@@ -46,6 +49,7 @@ export async function disableVacationMode(userId: string, now: Date = new Date()
     if (!closed) return null;
 
     await applyVacationSchedulingAdjustment(tx, userId, closed.startedAt, now);
+    await applyGhostVacationSchedulingAdjustment(tx, userId, closed.startedAt, now);
     return closed;
   });
 }

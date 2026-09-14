@@ -162,11 +162,17 @@ every boundary before considering these done)*
 24. Delete Account — request → email-verified confirmation → 7-day pending
     window → cancel → the Vercel Cron finalize job from decision 1.
 
-**Units 1-15 are done — see their Completed entries below.** Account,
+**Units 1-16 are done — see their Completed entries below.** Account,
 General, and Lessons are fully complete; Reviews has Review Types, Review
-Hints, Review UI, SRS Strictness, SRS Interval, Review Queue Timing, and now
-Fluent Mode — `user_review_preferences` now has 22 columns. Unit 16 (Ghost
-Reviews) is next, continuing Phase E.
+Hints, Review UI, SRS Strictness, SRS Interval, Review Queue Timing, Fluent
+Mode, and now Ghost Reviews — `user_review_preferences` now has 24 columns,
+plus a genuinely new table (`user_sentence_ghost_progress`). Unit 17
+(Leeches) is next, continuing Phase E — it composes directly with Ghost
+Reviews (Leech's own spec section states Ghost answers never touch Leech's
+`incorrectCount`/`currentCorrectStreak` counters) and should land on the
+same `user_review_preferences` row (`grammar_minimum_leech_stage`/
+`vocabulary_minimum_leech_stage`, already named in spec 20's own data
+model).
 
 **Migration-tooling note for every future unit touching a Postgres enum**:
 `drizzle-kit migrate`'s CLI proved unreliable in this session's environment
@@ -1195,6 +1201,122 @@ writing to real `user_item_progress` rows.
 ## Completed
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
+
+- **Spec 20 unit 16 — Ghost Reviews** (2026-09-14). By far the largest unit
+  in this spec so far — a genuinely new, second SRS system, not another
+  Reviews toggle. Grammar/Vocabulary Ghost Reviews (On/Minimal/Off, `on`
+  default) controls whether missing a specific *sentence* in a normal
+  review spins up a short, independent supplemental review for that
+  sentence — 4h/12h/24h/48h fixed stages, "never touches the normal item's
+  SRS" in either direction (a Ghost's incorrect answer never penalizes the
+  normal stage; a normal stage change never touches the Ghost).
+
+  **A Ghost can only ever exist for a Cloze-presented question — derived
+  from the architecture, not asserted** — `review-presentation.ts`'s
+  `ReviewQuestionPresentation` only ever attaches a sentence
+  (`ClozeSentence`) to `cloze_typed`/`cloze_reveal`; Flashcard/typed
+  questions have none. So "one incorrect normal review using a specific
+  sentence creates a Ghost" (spec's own wording) gates naturally on
+  `clozeSentence !== null` in `submitReviewAnswer`'s incorrect branch — no
+  separate "is this eligible for a Ghost" check needed. This required
+  widening `CurriculumExampleSentence`/`ClozeSentence` to carry the
+  underlying `sentences.id` (previously dropped after presentation-building)
+  since Ghost identity is `(user, learning_item, sentence)`, not just
+  `(user, learning_item)`.
+
+  **Deliberately NOT threaded into the signed `ReviewState`/`queue`** — the
+  first real architecture fork this spec has needed. A normal question's
+  grading depends on ephemeral, replay-protected session state (which
+  presentation was resolved, which questions are still required); a Ghost
+  review's grading depends on nothing but the real `user_sentence_ghost_
+  progress` row itself — the sentence is re-derived fresh from
+  `ghostProgressId` on every submit, ownership-checked directly, the same
+  "never trust an echoed answer" discipline normal Cloze grading already
+  uses. Threading Ghosts into the discriminated-union queue schema would
+  have meant rewriting `buildReviewQuestions`/`interleaveReviewQuestions`/
+  `submitReviewAnswer`'s entire branching structure for no real benefit;
+  instead, Ghost Reviews got its own plain-authenticated orchestration
+  (`ghost-orchestration.ts`'s `submitGhostAnswer`, no token at all) and
+  `startReviewSession` just appends `ghostReviews: GhostReviewView[]` to its
+  result — present even on the "empty" (no normal reviews due) variant,
+  since a Ghost can be due on its own.
+
+  **Two different Ghost-repository write paths, each with its own
+  concurrency-safety story**: `recordSentenceMiss` (a normal miss) does a
+  locked read-then-write inside its own `db.transaction()`, delegating the
+  actual on/minimal/already-active branching to a pure, exhaustively tested
+  function (`ghost-progress.ts`'s `calculateGhostMissOutcome`) rather than
+  encoding that logic a second time as a raw SQL `CASE` — the session's own
+  established lesson (Fluent Mode's cross-implementation-drift risk)
+  applied proactively here instead of discovered by a failing test.
+  `applyGhostAnswer` (grading the Ghost itself) does the same locked-row
+  pattern for `calculateGhostAnswerResult`.
+
+  **A second instance of the `$onUpdate`-vs-domain-`now` bug class, caught
+  before it shipped this time** — `applyGhostVacationSchedulingAdjustment`
+  needs an anchor column for "when did this Ghost's current wait begin," and
+  the obvious choice (`updated_at`, bumped on every stage transition) is
+  wrong by default: Drizzle's `$onUpdate` fires with the *real* wall clock
+  at statement-execution time, not the domain's injected `now` — exactly
+  the divergence this codebase's "caller supplies now, never `new Date()`
+  internally" rule exists to prevent (spec 11's sandbox clock could
+  legitimately differ from real time). Fixed by setting `updatedAt:
+  input.now` explicitly on every `recordSentenceMiss`/`applyGhostAnswer`
+  write rather than relying on the automatic default — caught while writing
+  the vacation-adjustment integration test (the fixture's `now` was a
+  fictional 2026 date; the bug would have silently used today's real date
+  instead), not by a design review.
+
+  **Vacation + Ghost freeze reuses the exact "remaining interval preserved"
+  SQL formula** `applyVacationSchedulingAdjustment` already established for
+  normal items (`domains/srs/ghost-repository.ts`'s
+  `applyGhostVacationSchedulingAdjustment`), called from
+  `vacation-service.ts`'s `disableVacationMode` in the same transaction as
+  the normal-item adjustment — spec 20's own "Apply equivalent freeze
+  behavior to Ghost Review due dates." Pure duration math here (unlike
+  Fluent Mode's calendar-month arithmetic), so Postgres's own `interval`
+  computation carries no cross-implementation-drift risk, and a single bulk
+  `UPDATE ... CASE` is appropriate (account-wide, unbounded row count) where
+  `recordSentenceMiss`/`applyGhostAnswer` correctly are not (one sentence /
+  one Ghost at a time).
+
+  **No historical-migration backfill needed**, matching Unit 15's own
+  precedent and reasoning — Ghost Reviews are new outright, and spec 20's
+  own "Ghost Migration" section explicitly says not to retroactively
+  generate Ghosts from historical review events; Ghost creation legitimately
+  starts from zero the moment this unit ships.
+
+  Settings UI: new `GhostModeSelect` (grammar/vocabulary, three-way
+  On/Minimal/Off, mirroring `SrsStrictnessSelect`'s shape), wired into
+  `/settings/reviews`'s new "Ghost Reviews" section — a plain narrow save,
+  no cascading reconciliation on toggle (unlike Fluent Mode): "Off...
+  Existing active Ghosts should remain available unless explicitly reset
+  from Danger Zone" means Off only stops *new* Ghosts, so nothing needs
+  adjusting on the toggle itself. `project-overview.md` gained a new "Ghost
+  Reviews" subsection and `architecture.md` a new "Ghost Reviews" section
+  describing the two-write-path/no-signed-token architecture.
+
+  Danger Zone's "Ghost Reviews Reset" (per-content-type) is explicitly
+  spec'd as part of a *later* unit ("Danger Zone — Resets") and was not
+  built here — noted for that unit: it clears `ghost_stage`/`next_review_
+  at`/miss-tracking for the selected content type without touching normal
+  SRS, which the schema already supports directly (a scoped
+  `DELETE`/`UPDATE` on `user_sentence_ghost_progress` filtered by
+  `content_type`).
+
+  Verified: `tsc`/`eslint` clean, 998 unit tests (25 new: `ghost-progress.
+  test.ts`'s 15 pure-logic cases plus fixture updates elsewhere), `npm run
+  build` clean, `drizzle-kit check` clean (two brand-new enums —
+  `ghost_mode`, `ghost_stage` — and one brand-new table, no enum-transaction
+  risk), new repository (`ghost-repository.integration.test.ts`, 10 tests)
+  and orchestration-level (`ghost-orchestration.integration.test.ts`, 7
+  tests covering miss-tracking, the Cloze-only gate, Minimal's two-miss
+  activation, queue surfacing on an otherwise-empty session, and Ghost
+  grading including ownership rejection) integration tests all passing,
+  full `npm run test:integration` run with failures matching the
+  established pre-existing baseline (3 unscoped audit-log queries, 1
+  idempotency cleanup-count flake, 2 item-`y` fixture-drift symptoms) — no
+  new regressions.
 
 - **Spec 20 unit 15 — Fluent Mode** (2026-09-14). Continues Phase E: a
   `grammarFluentMode`/`vocabularyFluentMode` toggle pair (both boolean, ON

@@ -1,6 +1,8 @@
 import type { CurriculumExampleSentence } from "@/domains/curriculum";
 
 export type ClozeSentence = {
+  /** The underlying `sentences.id` — spec 20 Ghost Reviews needs to know exactly which sentence a missed question showed. */
+  sentenceId: string;
   /** The sentence's text before the blanked word, verbatim. */
   sentenceBefore: string;
   /** The sentence's text after the blanked word, verbatim. */
@@ -42,6 +44,7 @@ export function findCompatibleClozeSentence(
     const start = match.index;
     const end = start + match[1].length;
     return {
+      sentenceId: example.id,
       sentenceBefore: example.targetText.slice(0, start),
       sentenceAfter: example.targetText.slice(end),
       blankedWord: example.targetText.slice(start, end),

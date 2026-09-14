@@ -239,6 +239,13 @@
       "when": 1789416826218,
       "tag": "0033_chief_squadron_sinister",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1789419898319,
+      "tag": "0034_slim_spirit",
+      "breakpoints": true
     }
   ]
 }

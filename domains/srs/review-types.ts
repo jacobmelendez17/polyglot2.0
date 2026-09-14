@@ -1,5 +1,6 @@
 import type { z } from "zod";
 
+import type { GhostStage } from "./ghost-progress";
 import type { ReviewHintView } from "./review-hint";
 import type { ReviewPreferences } from "./review-preference";
 import type { ReviewQuestionPresentation } from "./review-presentation";
@@ -39,6 +40,27 @@ export type ReviewQuestionView = {
   pronunciationText: string;
 };
 
+/**
+ * Spec 20 Ghost Reviews — one due supplemental Ghost review, "visually
+ * identifiable as supplemental." Deliberately not part of the signed
+ * `ReviewState`/`queue` the way normal questions are — grading a Ghost
+ * answer needs no replay-protected session snapshot (nothing about it is
+ * client-supplied state to protect: the sentence is re-derived fresh from
+ * `ghostProgressId` server-side on submit, the same way normal Cloze
+ * grading never trusts an echoed accepted answer), so `submitGhostAnswer`
+ * takes a plain authenticated request instead of a token. Always
+ * Cloze-typed-shaped — Ghost's presentation is not affected by the
+ * learner's Review Type setting, which governs *normal* reviews only.
+ */
+export type GhostReviewView = {
+  ghostProgressId: string;
+  itemId: string;
+  itemType: ReviewItemType;
+  ghostStage: GhostStage;
+  sentenceBefore: string;
+  sentenceAfter: string;
+};
+
 /** Spec 20 Review UI: the seven purely-presentational toggles, sent once (see `reviewPreferencesSchema`'s docstring for why these aren't signed into the session state). */
 export type ReviewUiPreferences = Omit<
   ReviewPreferences,
@@ -57,6 +79,8 @@ export type ReviewUiPreferences = Omit<
   | "reviewQueueTiming"
   | "grammarFluentMode"
   | "vocabularyFluentMode"
+  | "grammarGhostMode"
+  | "vocabularyGhostMode"
 >;
 
 export type ReviewAnswerFeedback =
@@ -106,6 +130,15 @@ export type ReviewSessionResult = {
   languageCode?: string;
   /** Spec 20 Review UI. Only ever set by `startReviewSession`'s "session" result; see `languageCode`. */
   reviewUiPreferences?: ReviewUiPreferences;
+  /**
+   * Spec 20 Ghost Reviews — every due supplemental Ghost, "in addition to
+   * normal reviews." Only ever set by `startReviewSession`'s result (both
+   * the "empty" and "session" variants — a Ghost can be due even when no
+   * normal review is) — resolved fresh at session start, not maintained
+   * through later submits the way `queue` is, since answering one doesn't
+   * touch the signed normal-review state at all.
+   */
+  ghostReviews?: GhostReviewView[];
   stats: ReviewSessionStats;
   feedback?: ReviewAnswerFeedback;
   /** Present only on the submit that just completed this item — one-shot, not resurfaced on later responses. */
@@ -120,4 +153,6 @@ export type ReviewSessionResult = {
   staleItem?: { itemId: string };
 };
 
-export type ReviewStartResult = { kind: "empty"; nextReviewAt: Date | null } | ({ kind: "session" } & ReviewSessionResult);
+export type ReviewStartResult =
+  | { kind: "empty"; nextReviewAt: Date | null; ghostReviews: GhostReviewView[] }
+  | ({ kind: "session" } & ReviewSessionResult);

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { FluentModeToggle } from "@/components/settings/reviews/fluent-mode-toggle";
+import { GhostModeSelect } from "@/components/settings/reviews/ghost-mode-select";
 import { GrammarReviewTypeSelect } from "@/components/settings/reviews/grammar-review-type-select";
 import { HintModeSelect } from "@/components/settings/reviews/hint-mode-select";
 import { HintOrderSelect } from "@/components/settings/reviews/hint-order-select";
@@ -153,7 +154,21 @@ export default async function ReviewSettingsPage() {
         </div>
       </div>
 
-      <SettingsSectionPlaceholder title="More Review settings" description="Ghost Reviews and Leeches." />
+      <div className="rounded-xl border border-border bg-card p-6">
+        <h2 className="font-heading text-lg font-semibold text-foreground">Ghost Reviews</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          A missed sentence in a normal review can spin up a short, separate Ghost review to reinforce it — never affecting the
+          item&apos;s own normal SRS stage.
+        </p>
+        <div className="mt-4">
+          <GhostModeSelect contentType="grammar" initialValue={preferences.grammarGhostMode} />
+        </div>
+        <div className="mt-2">
+          <GhostModeSelect contentType="vocabulary" initialValue={preferences.vocabularyGhostMode} />
+        </div>
+      </div>
+
+      <SettingsSectionPlaceholder title="More Review settings" description="Leeches." />
     </div>
   );
 }

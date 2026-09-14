@@ -10,7 +10,7 @@ const ANSWER_SPEC: ReviewQuestionAnswerSpec = {
   articleRequirement: { article: "el", bareAnswers: ["gato"] },
 };
 
-const CLOZE_SENTENCE = { sentenceBefore: "El ", sentenceAfter: " duerme.", blankedWord: "gato" };
+const CLOZE_SENTENCE = { sentenceId: "s1", sentenceBefore: "El ", sentenceAfter: " duerme.", blankedWord: "gato" };
 
 describe("resolveReviewPresentation", () => {
   it("builds a cloze_typed presentation for Cloze (Manual) on englishToTarget with a compatible sentence", () => {

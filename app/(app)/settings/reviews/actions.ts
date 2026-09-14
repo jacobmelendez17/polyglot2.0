@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import {
+  GHOST_MODES,
   HINT_MODES,
   HINT_ORDERS,
   REVIEW_QUEUE_TIMING_MODES,
@@ -16,6 +17,7 @@ import {
 import { requireUser } from "@/domains/users/server";
 import {
   updateGrammarFluentMode,
+  updateGrammarGhostMode,
   updateGrammarHintMode,
   updateGrammarHintOrder,
   updateGrammarReviewType,
@@ -25,6 +27,7 @@ import {
   updateReviewUiToggle,
   updateUndoAction,
   updateVocabularyFluentMode,
+  updateVocabularyGhostMode,
   updateVocabularyHintMode,
   updateVocabularyHintOrder,
   updateVocabularyReviewType,
@@ -264,5 +267,33 @@ export async function updateVocabularyFluentModeAction(
     const updated = await updateVocabularyFluentMode({ userId: user.id, languageId: user.activeLanguageId, fluentMode });
     revalidatePath("/settings/reviews");
     return { fluentMode: updated.vocabularyFluentMode };
+  });
+}
+
+const ghostModeInputSchema = z.object({ ghostMode: z.enum(GHOST_MODES) });
+
+/** Spec 20 Ghost Reviews — Grammar Ghost Reviews. */
+export async function updateGrammarGhostModeAction(
+  input: z.infer<typeof ghostModeInputSchema>,
+): Promise<ActionResult<{ ghostMode: string }>> {
+  return runSettingsAction(async () => {
+    const { ghostMode } = ghostModeInputSchema.parse(input);
+    const user = await requireUser();
+    const updated = await updateGrammarGhostMode({ userId: user.id, languageId: user.activeLanguageId, ghostMode });
+    revalidatePath("/settings/reviews");
+    return { ghostMode: updated.grammarGhostMode };
+  });
+}
+
+/** Spec 20 Ghost Reviews — Vocabulary Ghost Reviews. */
+export async function updateVocabularyGhostModeAction(
+  input: z.infer<typeof ghostModeInputSchema>,
+): Promise<ActionResult<{ ghostMode: string }>> {
+  return runSettingsAction(async () => {
+    const { ghostMode } = ghostModeInputSchema.parse(input);
+    const user = await requireUser();
+    const updated = await updateVocabularyGhostMode({ userId: user.id, languageId: user.activeLanguageId, ghostMode });
+    revalidatePath("/settings/reviews");
+    return { ghostMode: updated.vocabularyGhostMode };
   });
 }

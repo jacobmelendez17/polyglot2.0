@@ -38,8 +38,9 @@ export interface CurriculumVocabularyGroup {
   status: CurriculumStatus;
 }
 
-/** Field names match `domains/lexicon`'s `VocabularyDetailCurriculum.examples` exactly, so a single example-list component can render either. */
+/** `targetText`/`translation` match `domains/lexicon`'s `VocabularyDetailCurriculum.examples` exactly, so a single example-list component can render either. `id` is the underlying `sentences.id` — spec 20 Ghost Reviews needs it to identify *which* sentence a missed Cloze question actually showed (`domains/srs/review-cloze.ts`'s `ClozeSentence`). */
 export interface CurriculumExampleSentence {
+  id: string;
   targetText: string;
   translation: string;
 }

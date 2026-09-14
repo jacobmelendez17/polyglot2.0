@@ -77,6 +77,21 @@ export function isSrsIntervalMode(value: unknown): value is SrsIntervalMode {
 }
 
 /**
+ * Spec 20 Ghost Reviews — how a missed sentence in a *normal* review turns
+ * into a supplemental Ghost review. `on` is the spec's own stated default
+ * (shown pre-selected in its mockup, listed first among the three options).
+ * See `domains/srs/ghost-progress.ts` for the actual creation/activation
+ * rules each mode drives.
+ */
+export const GHOST_MODES = ["on", "minimal", "off"] as const;
+export type GhostMode = (typeof GHOST_MODES)[number];
+export const DEFAULT_GHOST_MODE: GhostMode = "on";
+
+export function isGhostMode(value: unknown): value is GhostMode {
+  return typeof value === "string" && (GHOST_MODES as readonly string[]).includes(value);
+}
+
+/**
  * Spec 20 Review Queue Timing — the final rounding step applied to a freshly
  * computed due time. `start_of_hour` is the spec's own stated default. One
  * value per language, not split grammar/vocabulary, unlike every other
@@ -151,6 +166,8 @@ export type ReviewPreferences = {
   reviewQueueTiming: ReviewQueueTimingMode;
   grammarFluentMode: boolean;
   vocabularyFluentMode: boolean;
+  grammarGhostMode: GhostMode;
+  vocabularyGhostMode: GhostMode;
 };
 
 export const DEFAULT_REVIEW_PREFERENCES: Omit<ReviewPreferences, "userId" | "languageId"> = {
@@ -174,4 +191,6 @@ export const DEFAULT_REVIEW_PREFERENCES: Omit<ReviewPreferences, "userId" | "lan
   reviewQueueTiming: DEFAULT_REVIEW_QUEUE_TIMING_MODE,
   grammarFluentMode: DEFAULT_FLUENT_MODE,
   vocabularyFluentMode: DEFAULT_FLUENT_MODE,
+  grammarGhostMode: DEFAULT_GHOST_MODE,
+  vocabularyGhostMode: DEFAULT_GHOST_MODE,
 };

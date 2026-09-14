@@ -1,6 +1,7 @@
-import { foreignKey, index, integer, pgEnum, pgTable, timestamp, uuid } from "drizzle-orm/pg-core";
+import { foreignKey, index, integer, pgEnum, pgTable, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 
-import { learningItems } from "./curriculum";
+import { timestamps } from "./columns";
+import { learningItems, learningItemTypeEnum, sentences } from "./curriculum";
 import { languages } from "./languages";
 import { srsStageEnum } from "./progress";
 import { users } from "./users";
@@ -47,5 +48,73 @@ export const reviewEvents = pgTable(
     index("review_events_history_idx").on(t.userId, t.languageId, t.reviewedAt.desc(), t.id.desc()),
     // Future leech-window calculations: (user, learning item, reviewed_at desc).
     index("review_events_item_window_idx").on(t.userId, t.learningItemId, t.reviewedAt.desc()),
+  ],
+);
+
+/**
+ * Spec 20 Ghost Reviews — the four Ghost SRS stages, entirely independent
+ * of `srsStageEnum` ("Normal and Ghost SRS must remain separate... Never
+ * use one stage field to represent both"). Represents whichever Ghost
+ * review is next due, not the one just completed.
+ */
+export const ghostStageEnum = pgEnum("ghost_stage", ["ghost_1", "ghost_2", "ghost_3", "ghost_4"]);
+
+/**
+ * Spec 20 Ghost Reviews — one row per (learner, learning item, sentence)
+ * that has ever been missed in a normal review (spec's own
+ * `user_sentence_ghost_progress` sketch). A Ghost only ever exists for a
+ * *sentence* a normal review actually showed the learner — in practice this
+ * means a Cloze-presented question, the only presentation with an example
+ * sentence attached at all (`domains/srs/review-cloze.ts`); Flashcard/typed
+ * questions have no sentence to attach a Ghost to and can never create one.
+ *
+ * `ghostStage: null` is a real, distinct state — spec's own "Ghost Review —
+ * Minimal": a sentence missed exactly once under Minimal mode is recorded
+ * (`missCount: 1`) but not yet an active Ghost. `nextReviewAt: null` covers
+ * both that not-yet-activated state and a completed Ghost (`completedAt`
+ * set, "Ghost is gone" after Ghost 4 — the row is kept as a completion
+ * record, per this table's own `completedAt` column, but stops being due).
+ *
+ * `contentType` denormalizes `learningItems.type`, never independently
+ * decided — same reasoning as `userItemProgress.languageId`: the Ghost
+ * queue's due-read is scoped per learner+language+content-type (Grammar
+ * Ghost Reviews / Vocabulary Ghost Reviews are independent settings), and
+ * this avoids a join to `learning_items` just to filter by it.
+ */
+export const userSentenceGhostProgress = pgTable(
+  "user_sentence_ghost_progress",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    languageId: uuid("language_id")
+      .notNull()
+      .references(() => languages.id, { onDelete: "restrict" }),
+    learningItemId: uuid("learning_item_id").notNull(),
+    sentenceId: uuid("sentence_id")
+      .notNull()
+      .references(() => sentences.id, { onDelete: "restrict" }),
+    contentType: learningItemTypeEnum("content_type").notNull(),
+    missCount: integer("miss_count").notNull().default(0),
+    ghostStage: ghostStageEnum("ghost_stage"),
+    nextReviewAt: timestamp("next_review_at", { withTimezone: true }),
+    activatedAt: timestamp("activated_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    ...timestamps(),
+  },
+  (t) => [
+    // "A learner cannot have duplicate active Ghost state for the same
+    // user/language/learning item/sentence" — `learningItemId` alone already
+    // determines `languageId` via the compound FK below, so this triple is
+    // the real identity.
+    unique("user_sentence_ghost_progress_identity_key").on(t.userId, t.learningItemId, t.sentenceId),
+    foreignKey({
+      name: "user_sentence_ghost_progress_learning_item_language_fk",
+      columns: [t.learningItemId, t.languageId],
+      foreignColumns: [learningItems.id, learningItems.languageId],
+    }).onDelete("restrict"),
+    // The Ghost due-review path, mirroring `user_item_progress_due_review_idx`.
+    index("user_sentence_ghost_progress_due_review_idx").on(t.userId, t.languageId, t.nextReviewAt),
   ],
 );

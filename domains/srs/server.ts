@@ -12,8 +12,10 @@ export {
   getReviewTimestampsInWindow,
   insertReviewEvent,
   startReviewSession,
+  submitGhostAnswer,
   submitReviewAnswer,
   updateGrammarFluentMode,
+  updateGrammarGhostMode,
   updateGrammarHintMode,
   updateGrammarHintOrder,
   updateGrammarReviewType,
@@ -23,6 +25,7 @@ export {
   updateReviewUiToggle,
   updateUndoAction,
   updateVocabularyFluentMode,
+  updateVocabularyGhostMode,
   updateVocabularyHintMode,
   updateVocabularyHintOrder,
   updateVocabularyReviewType,
@@ -30,3 +33,4 @@ export {
   updateVocabularySrsStrictness,
 } from "./review-service";
 export type { ReviewAnswerSubmission, StartReviewSessionInput, SubmitReviewAnswerInput } from "./review-orchestration";
+export type { SubmitGhostAnswerInput } from "./ghost-orchestration";

@@ -5,12 +5,15 @@ import { getRateLimiter } from "@/providers/rate-limit";
 import { AppError } from "@/lib/errors/app-error";
 import { ReviewError } from "@/lib/errors/review-errors";
 
+import * as ghostOrchestration from "./ghost-orchestration";
 import * as orchestration from "./review-orchestration";
 import * as preferenceRepository from "./review-preference-repository";
 import * as repository from "./review-repository";
+import type { SubmitGhostAnswerInput } from "./ghost-orchestration";
 import type { GetReviewHistoryInput, InsertReviewEventInput } from "./review-history-types";
 import type { StartReviewSessionInput, SubmitReviewAnswerInput } from "./review-orchestration";
 import type {
+  GhostMode,
   HintMode,
   HintOrder,
   ReviewQueueTimingMode,
@@ -82,6 +85,16 @@ export async function submitReviewAnswer(input: SubmitReviewAnswerInput) {
   }
   const now = input.now ?? (await resolveUserNow(db, input.userId)).getTime();
   return orchestration.submitReviewAnswer(db, { ...input, now });
+}
+
+/** Spec 20 Ghost Reviews — grading a Ghost review, rate-limited the same way as a normal review submission (see `submitReviewAnswer`). */
+export async function submitGhostAnswer(input: SubmitGhostAnswerInput) {
+  const decision = await getRateLimiter().check({ policy: "review-submit", subject: input.userId });
+  if (!decision.allowed) {
+    throw new ReviewError("RATE_LIMITED", `Please slow down and try again in ${decision.retryAfterSeconds}s.`);
+  }
+  const now = input.now ?? (await resolveUserNow(db, input.userId)).getTime();
+  return ghostOrchestration.submitGhostAnswer(db, { ...input, now });
 }
 
 /** This learner's Review Type preferences for one language, or the centralized defaults (spec 20 Reviews). */
@@ -192,4 +205,20 @@ export async function updateVocabularyFluentMode(input: { userId: string; langua
       return updated;
     }),
   );
+}
+
+/**
+ * Spec 20 Ghost Reviews — Grammar Ghost Reviews. Unlike Fluent Mode, no
+ * cascading reconciliation on toggle: "Off... Existing active Ghosts should
+ * remain available unless explicitly reset from Danger Zone" — Off only
+ * stops new Ghosts from being created going forward, so this is a plain
+ * narrow single-column save like SRS Strictness/Interval.
+ */
+export async function updateGrammarGhostMode(input: { userId: string; languageId: string; ghostMode: GhostMode }) {
+  return withAccountSettingsRateLimit(input.userId, () => preferenceRepository.saveGrammarGhostMode(db, input));
+}
+
+/** Spec 20 Ghost Reviews — Vocabulary Ghost Reviews. See `updateGrammarGhostMode`. */
+export async function updateVocabularyGhostMode(input: { userId: string; languageId: string; ghostMode: GhostMode }) {
+  return withAccountSettingsRateLimit(input.userId, () => preferenceRepository.saveVocabularyGhostMode(db, input));
 }

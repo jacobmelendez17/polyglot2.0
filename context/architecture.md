@@ -916,6 +916,19 @@ SRS Strictness, SRS Interval mode, Review Queue Timing, and Fluent Mode are all 
 
 **Fluent Mode's maintenance schedule is anchored differently depending on which code path sets it** — this is a real, intentional distinction, not an inconsistency to "fix" into one formula: the live per-review scheduling loop (`review-completion.ts`) anchors to that review's own `now`, the same way every other stage's interval is computed from `now`; only the *toggle*-driven reconciliation for items that have been sitting terminal (`domains/progress/repository.ts`'s `reconcileFluentSchedules`, called from `domains/srs/review-service.ts`'s `updateGrammarFluentMode`/`updateVocabularyFluentMode` inside one transaction with the preference write) anchors to the item's own `fluent_at` — spec 20's own explicit rule for that specific case ("Use fluentAt + 6 calendar months. Do not use settingChangedAt + 6 months").
 
+## Ghost Reviews
+
+A second, entirely independent SRS system (spec 20) — never the same stage field as the normal item SRS ("Never use one stage field to represent both"). Persisted in its own table, `user_sentence_ghost_progress` (`db/schema/reviews.ts`), keyed by `(user, learning_item, sentence)`, not by item alone — a Ghost is about one specific missed *sentence*, and only a Cloze-presented question (the only presentation with a sentence attached at all) can ever create one.
+
+Two independent write paths, both server-authoritative:
+
+- **Miss-tracking** (`domains/srs/ghost-repository.ts`'s `recordSentenceMiss`): fires from inside `submitReviewAnswer`'s normal incorrect-answer branch, whenever that question was Cloze-presented. Gated by the Grammar/Vocabulary Ghost Reviews setting (On/Minimal/Off), itself resolved once per review session and signed into `ReviewState.reviewPreferences` alongside every other per-content-type Reviews setting.
+- **Ghost grading** (`domains/srs/ghost-orchestration.ts`'s `submitGhostAnswer`): a plain authenticated request, deliberately *not* part of the signed review-session token — grading a Ghost needs no replay-protected session snapshot, since nothing about it is client-supplied state to protect (the sentence is re-derived fresh from `ghostProgressId` server-side on every submit, ownership-checked directly against the row).
+
+`domains/srs/ghost-progress.ts` holds the pure Ghost-SRS rules (4h/12h/24h/48h fixed schedule, independent of SRS Interval mode); `startReviewSession` fetches due Ghosts and surfaces them as `ghostReviews` in the session result — present even when no normal review is due, and required to render as visually distinct/supplemental.
+
+Vacation Mode freezes Ghost scheduling the same "remaining interval preserved" way it freezes normal reviews (`domains/srs/ghost-repository.ts`'s `applyGhostVacationSchedulingAdjustment`, called from `domains/users/vacation-service.ts`'s `disableVacationMode` in the same transaction as the normal-item adjustment).
+
 ## Review Direction Rules
 
 For bidirectional vocabulary/grammar reviews:

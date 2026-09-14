@@ -251,14 +251,22 @@ export const srsIntervalModeEnum = pgEnum("srs_interval_mode", ["shortest", "sho
 export const reviewQueueTimingModeEnum = pgEnum("review_queue_timing_mode", ["start_of_hour", "start_of_day"]);
 
 /**
+ * Spec 20 Ghost Reviews. `on` is the spec's own stated default (shown
+ * pre-selected in its mockup, listed first among the three options) — see
+ * `db/schema/reviews.ts`'s `userSentenceGhostProgress` for the Ghost state
+ * this setting governs.
+ */
+export const ghostModeEnum = pgEnum("ghost_mode", ["on", "minimal", "off"]);
+
+/**
  * Per-learner, per-language review preferences (spec 20 Reviews) — what the
- * spec's own Settings Data Model describes as a much larger table (Ghost
- * mode, Leech minimums still land on this same row in later units). Unit 10
- * seeded the two review-type columns; unit 11 added Review Hints (four
- * columns) and Review UI (seven columns); unit 12 added SRS Strictness (two
- * columns); unit 13 added SRS Interval (two columns); unit 14 added Review
- * Queue Timing (one column); unit 15 adds Fluent Mode (two columns) — see
- * progress-tracker.md.
+ * spec's own Settings Data Model describes as a much larger table (Leech
+ * minimums still land on this same row in a later unit). Unit 10 seeded the
+ * two review-type columns; unit 11 added Review Hints (four columns) and
+ * Review UI (seven columns); unit 12 added SRS Strictness (two columns);
+ * unit 13 added SRS Interval (two columns); unit 14 added Review Queue
+ * Timing (one column); unit 15 added Fluent Mode (two columns); unit 16
+ * adds Ghost Reviews (two columns) — see progress-tracker.md.
  *
  * Language-scoped like `userLanguageSettings`, for the same reason: a
  * learner studying two languages makes independent choices for each.
@@ -299,6 +307,8 @@ export const userReviewPreferences = pgTable(
     showSrsStage: boolean("show_srs_stage").notNull().default(true),
     autoExpandInfo: boolean("auto_expand_info").notNull().default(false),
     undoAction: undoActionEnum("undo_action").notNull().default("clear_last_character"),
+    grammarGhostMode: ghostModeEnum("grammar_ghost_mode").notNull().default("on"),
+    vocabularyGhostMode: ghostModeEnum("vocabulary_ghost_mode").notNull().default("on"),
     grammarSrsStrictness: srsStrictnessEnum("grammar_srs_strictness").notNull().default("one_stage"),
     vocabularySrsStrictness: srsStrictnessEnum("vocabulary_srs_strictness").notNull().default("one_stage"),
     grammarSrsIntervalMode: srsIntervalModeEnum("grammar_srs_interval_mode").notNull().default("default"),

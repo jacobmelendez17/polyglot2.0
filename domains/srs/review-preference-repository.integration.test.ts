@@ -5,16 +5,18 @@ import { withTestTransaction } from "@/db/test/with-test-transaction";
 
 import {
   findReviewPreferences,
+  saveGrammarFluentMode,
+  saveGrammarGhostMode,
   saveGrammarHintMode,
   saveGrammarHintOrder,
   saveGrammarReviewType,
   saveGrammarSrsIntervalMode,
-  saveGrammarFluentMode,
   saveGrammarSrsStrictness,
   saveReviewQueueTiming,
   saveReviewUiToggle,
   saveUndoAction,
   saveVocabularyFluentMode,
+  saveVocabularyGhostMode,
   saveVocabularyHintMode,
   saveVocabularyHintOrder,
   saveVocabularyReviewType,
@@ -43,6 +45,8 @@ const DEFAULTS = {
   reviewQueueTiming: "start_of_hour",
   grammarFluentMode: true,
   vocabularyFluentMode: true,
+  grammarGhostMode: "on",
+  vocabularyGhostMode: "on",
 } as const;
 
 describe("findReviewPreferences", () => {
@@ -209,6 +213,26 @@ describe("Fluent Mode saves", () => {
         ...DEFAULTS,
         grammarFluentMode: false,
         vocabularyFluentMode: false,
+      });
+    });
+  });
+});
+
+describe("Ghost Reviews saves", () => {
+  it("saves grammar and vocabulary Ghost Reviews independently of each other and of every other field", async () => {
+    await withTestTransaction(async (tx) => {
+      const { learnerId, languageId } = await seedTestFixtures(tx);
+
+      const afterGrammar = await saveGrammarGhostMode(tx, { userId: learnerId, languageId, ghostMode: "off" });
+      expect(afterGrammar).toEqual({ userId: learnerId, languageId, ...DEFAULTS, grammarGhostMode: "off" });
+
+      const afterVocabulary = await saveVocabularyGhostMode(tx, { userId: learnerId, languageId, ghostMode: "minimal" });
+      expect(afterVocabulary).toEqual({
+        userId: learnerId,
+        languageId,
+        ...DEFAULTS,
+        grammarGhostMode: "off",
+        vocabularyGhostMode: "minimal",
       });
     });
   });

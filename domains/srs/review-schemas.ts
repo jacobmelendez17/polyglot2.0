@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-import { HINT_MODES, HINT_ORDERS, REVIEW_QUEUE_TIMING_MODES, REVIEW_TYPES, SRS_INTERVAL_MODES, SRS_STRICTNESSES } from "./review-preference";
-import type { HintMode, HintOrder, ReviewQueueTimingMode, ReviewType, SrsIntervalMode, SrsStrictness } from "./review-preference";
+import { GHOST_MODES, HINT_MODES, HINT_ORDERS, REVIEW_QUEUE_TIMING_MODES, REVIEW_TYPES, SRS_INTERVAL_MODES, SRS_STRICTNESSES } from "./review-preference";
+import type { GhostMode, HintMode, HintOrder, ReviewQueueTimingMode, ReviewType, SrsIntervalMode, SrsStrictness } from "./review-preference";
 import { SRS_STAGE_ORDER } from "./srs-config";
 import type { SrsStage } from "./srs-types";
 
@@ -58,6 +58,7 @@ const hintModeSchema = z.enum(HINT_MODES as unknown as readonly [HintMode, ...Hi
 const srsStrictnessSchema = z.enum(SRS_STRICTNESSES as unknown as readonly [SrsStrictness, ...SrsStrictness[]]);
 const srsIntervalModeSchema = z.enum(SRS_INTERVAL_MODES as unknown as readonly [SrsIntervalMode, ...SrsIntervalMode[]]);
 const reviewQueueTimingModeSchema = z.enum(REVIEW_QUEUE_TIMING_MODES as unknown as readonly [ReviewQueueTimingMode, ...ReviewQueueTimingMode[]]);
+const ghostModeSchema = z.enum(GHOST_MODES as unknown as readonly [GhostMode, ...GhostMode[]]);
 
 /**
  * Spec 20 Reviews' "Review Session Settings": resolved once at session
@@ -68,10 +69,12 @@ const reviewQueueTimingModeSchema = z.enum(REVIEW_QUEUE_TIMING_MODES as unknown 
  * copy would violate that directly.
  *
  * Review Type, Review Hints, SRS Strictness, SRS Interval, Review Queue
- * Timing, and Fluent Mode all live here — each affects either what
- * `buildQuestionView` computes server-side per question, or the
+ * Timing, Fluent Mode, and Ghost Reviews all live here — each affects
+ * either what `buildQuestionView` computes server-side per question, or the
  * authoritative stage/schedule transition itself at completion time
- * (`review-completion.ts`). The seven Review UI toggles
+ * (`review-completion.ts`; Ghost Mode specifically gates
+ * `domains/srs/ghost-repository.ts`'s `recordSentenceMiss`, called from
+ * `submitReviewAnswer`'s incorrect-answer branch). The seven Review UI toggles
  * (Autoplay Audio, Lightning Mode, Focus Mode, Auto Highlight Errors, Show
  * SRS Stage, Auto-Expand Info, Undo Action) are pure client presentation
  * with no effect on grading or SRS, so they ride once in
@@ -92,6 +95,8 @@ export const reviewPreferencesSchema = z.object({
   reviewQueueTiming: reviewQueueTimingModeSchema,
   grammarFluentMode: z.boolean(),
   vocabularyFluentMode: z.boolean(),
+  grammarGhostMode: ghostModeSchema,
+  vocabularyGhostMode: ghostModeSchema,
 });
 
 export const reviewStateSchema = z.object({

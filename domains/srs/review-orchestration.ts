@@ -1,5 +1,5 @@
 import type { DbClient } from "@/db/client";
-import { getLanguageById, getLearningItemExamples, getLearningItemsByIds, getLevelsByLanguage } from "@/domains/curriculum/curriculum-repository";
+import { getLanguageById, getLearningItemExamples, getLearningItemsByIds, getLevelsByLanguage, getSentenceById } from "@/domains/curriculum/curriculum-repository";
 import type { CurriculumLanguage, CurriculumLearningItem } from "@/domains/curriculum/curriculum-db-types";
 import { getSynonyms } from "@/domains/learner-content/repository";
 import { getDueReviewItems, getUserProgressForLanguage } from "@/domains/progress/repository";
@@ -14,6 +14,8 @@ import { applyReviewCompletion } from "./review-completion";
 import { getCharacterHelpers, getReviewRetrySpacingMinimum, getReviewStateTokenTtlSeconds } from "./review-config";
 import { findCompatibleClozeSentence } from "./review-cloze";
 import type { ClozeSentence } from "./review-cloze";
+import { getDueGhosts, recordSentenceMiss } from "./ghost-repository";
+import type { GhostProgress } from "./ghost-repository";
 import { resolveReviewHint } from "./review-hint";
 import type { ReviewHintView } from "./review-hint";
 import { isClozeReviewType } from "./review-preference";
@@ -24,6 +26,7 @@ import type { ReviewQuestionPresentation } from "./review-presentation";
 import { rescheduleReviewAfterIncorrect } from "./review-retry";
 import { signReviewState, verifyReviewState } from "./review-token";
 import type {
+  GhostReviewView,
   ReviewAnswerFeedback,
   ReviewItemSnapshot,
   ReviewQuestionDirection,
@@ -144,6 +147,46 @@ function requiredQuestionIdsForItem(state: ReviewState, itemId: string): string[
   return state.questions.filter((question) => question.itemId === itemId).map((question) => question.id);
 }
 
+/**
+ * Builds the client-facing view for every due Ghost (spec 20 Ghost Queue).
+ * Always re-derives the Cloze blank fresh from the item + sentence — never
+ * trusts anything stored beyond `sentenceId` — the same "never invent, only
+ * re-check" discipline `resolveQuestionPresentation` already uses for
+ * normal Cloze questions. A Ghost whose item/sentence can no longer be
+ * resolved (defensive — content removed after the Ghost was created) is
+ * silently skipped rather than failing the whole session.
+ */
+async function buildGhostReviewViews(db: DbClient, ghosts: GhostProgress[]): Promise<GhostReviewView[]> {
+  if (ghosts.length === 0) return [];
+
+  const itemIds = [...new Set(ghosts.map((ghost) => ghost.learningItemId))];
+  const items = await getLearningItemsByIds(db, itemIds);
+  const itemById = new Map(items.map((item) => [item.id, item]));
+
+  const views: GhostReviewView[] = [];
+  for (const ghost of ghosts) {
+    const item = itemById.get(ghost.learningItemId);
+    if (!item || !ghost.ghostStage) continue;
+
+    const sentence = await getSentenceById(db, ghost.sentenceId);
+    if (!sentence) continue;
+
+    const targetWord = item.type === "vocabulary" ? item.vocabulary.term : item.grammar.structure;
+    const cloze = findCompatibleClozeSentence([sentence], targetWord);
+    if (!cloze) continue;
+
+    views.push({
+      ghostProgressId: ghost.id,
+      itemId: ghost.learningItemId,
+      itemType: ghost.contentType,
+      ghostStage: ghost.ghostStage,
+      sentenceBefore: cloze.sentenceBefore,
+      sentenceAfter: cloze.sentenceAfter,
+    });
+  }
+  return views;
+}
+
 export type StartReviewSessionInput = { userId: string; languageId: string; now?: number };
 
 /** Spec 09 §5, §7 — server-authoritative due-review queue, signed initial state. */
@@ -152,7 +195,15 @@ export async function startReviewSession(
   { userId, languageId, now = Date.now() }: StartReviewSessionInput,
 ): Promise<ReviewStartResult> {
   const nowDate = new Date(now);
-  const dueItems = await getDueReviewItems(db, userId, languageId, nowDate);
+  const [dueItems, dueGhosts] = await Promise.all([
+    getDueReviewItems(db, userId, languageId, nowDate),
+    getDueGhosts(db, userId, languageId, nowDate),
+  ]);
+  // Spec 20 Ghost Queue — "Due Ghost Reviews appear in the learner's review
+  // experience in addition to normal reviews": resolved regardless of
+  // whether any normal review is due, so a learner can still be handed a
+  // due Ghost even on an otherwise-empty session.
+  const ghostReviews = await buildGhostReviewViews(db, dueGhosts);
 
   if (dueItems.length === 0) {
     const allProgress = await getUserProgressForLanguage(db, userId, languageId);
@@ -160,7 +211,7 @@ export async function startReviewSession(
       .map((progress: ItemProgress) => progress.nextReviewAt)
       .filter((date): date is Date => date !== null)
       .sort((a, b) => a.getTime() - b.getTime())[0];
-    return { kind: "empty", nextReviewAt: upcoming ?? null };
+    return { kind: "empty", nextReviewAt: upcoming ?? null, ghostReviews };
   }
 
   const itemIds = dueItems.map((progress) => progress.learningItemId);
@@ -238,6 +289,8 @@ export async function startReviewSession(
       reviewQueueTiming: reviewPreferences.reviewQueueTiming,
       grammarFluentMode: reviewPreferences.grammarFluentMode,
       vocabularyFluentMode: reviewPreferences.vocabularyFluentMode,
+      grammarGhostMode: reviewPreferences.grammarGhostMode,
+      vocabularyGhostMode: reviewPreferences.vocabularyGhostMode,
     },
     stats,
     issuedAt: now,
@@ -268,6 +321,7 @@ export async function startReviewSession(
       autoExpandInfo: reviewPreferences.autoExpandInfo,
       undoAction: reviewPreferences.undoAction,
     },
+    ghostReviews,
     stats,
   };
 }
@@ -394,6 +448,29 @@ export async function submitReviewAnswer(
         : [...state.failedQuestionIds, questionId],
       stats: { ...state.stats, questionsAttempted },
     };
+
+    // Spec 20 Ghost Reviews — "one incorrect normal review using a specific
+    // sentence creates a Ghost for that sentence." `clozeSentence` is
+    // non-null exactly when this question was actually Cloze-presented with
+    // a real sentence (the only presentation with one at all); Flashcard/
+    // typed questions have nothing to attach a Ghost to. Resolved by
+    // content type from the session's signed-in preferences, the same split
+    // every other per-content-type Reviews setting in this file already
+    // uses. This is its own small persisted write, independent of whether
+    // this item's completion ever fires this session — Ghost miss-tracking
+    // must survive across sessions (spec's own "Ghost Review — Minimal").
+    if (clozeSentence) {
+      const ghostMode = item.type === "vocabulary" ? state.reviewPreferences.vocabularyGhostMode : state.reviewPreferences.grammarGhostMode;
+      await recordSentenceMiss(db, {
+        userId,
+        languageId,
+        learningItemId: question.itemId,
+        sentenceId: clozeSentence.sentenceId,
+        contentType: item.type,
+        mode: ghostMode,
+        now: new Date(now),
+      });
+    }
   }
 
   // Item completion: every required question for this item is now satisfied, and it hasn't already fired.

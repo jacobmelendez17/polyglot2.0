@@ -5,6 +5,7 @@ import { userReviewPreferences } from "@/db/schema";
 
 import { DEFAULT_REVIEW_PREFERENCES } from "./review-preference";
 import type {
+  GhostMode,
   HintMode,
   HintOrder,
   ReviewPreferences,
@@ -51,6 +52,8 @@ function toReviewPreferences(row: ReviewPreferencesRow): ReviewPreferences {
     reviewQueueTiming: row.reviewQueueTiming,
     grammarFluentMode: row.grammarFluentMode,
     vocabularyFluentMode: row.vocabularyFluentMode,
+    grammarGhostMode: row.grammarGhostMode,
+    vocabularyGhostMode: row.vocabularyGhostMode,
   };
 }
 
@@ -178,4 +181,14 @@ export function saveGrammarFluentMode(db: DbClient, input: { userId: string; lan
 /** Spec 20 Fluent Mode — Vocabulary Fluent Mode. See `saveGrammarFluentMode`. */
 export function saveVocabularyFluentMode(db: DbClient, input: { userId: string; languageId: string; fluentMode: boolean }) {
   return savePreferenceField(db, "vocabularyFluentMode", { ...input, value: input.fluentMode });
+}
+
+/** Spec 20 Ghost Reviews — Grammar Ghost Reviews. */
+export function saveGrammarGhostMode(db: DbClient, input: { userId: string; languageId: string; ghostMode: GhostMode }) {
+  return savePreferenceField(db, "grammarGhostMode", { ...input, value: input.ghostMode });
+}
+
+/** Spec 20 Ghost Reviews — Vocabulary Ghost Reviews. */
+export function saveVocabularyGhostMode(db: DbClient, input: { userId: string; languageId: string; ghostMode: GhostMode }) {
+  return savePreferenceField(db, "vocabularyGhostMode", { ...input, value: input.ghostMode });
 }

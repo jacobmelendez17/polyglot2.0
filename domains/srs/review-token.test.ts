@@ -31,6 +31,8 @@ function makeState(overrides: Partial<ReviewState> = {}): ReviewState {
       reviewQueueTiming: "start_of_hour",
       grammarFluentMode: true,
       vocabularyFluentMode: true,
+      grammarGhostMode: "on",
+      vocabularyGhostMode: "on",
     },
     stats: { itemsTotal: 1, itemsCompleted: 0, questionsAttempted: 0, questionsCorrect: 0 },
     issuedAt: NOW,
