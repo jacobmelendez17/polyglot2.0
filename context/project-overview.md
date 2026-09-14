@@ -167,14 +167,18 @@ Fluent represents completion of the normal scheduled SRS review cycle.
 
 ### Standard Review Intervals
 
+Spec 20's SRS Interval setting (grammar and vocabulary, independently) selects one of five schedules — Shortest, Shorter, Default, Longer, Longest — for how far out a *correct* review is scheduled next. Beginner 1, 2, and 4 are fixed across every mode. The Default schedule:
+
 - Beginner 1 → Beginner 2: 4 hours
 - Beginner 2 → Beginner 3: 8 hours
-- Beginner 3 → Beginner 4: 1 day
+- Beginner 3 → Beginner 4: 24 hours
 - Beginner 4 → Familiar 1: 2 days
-- Familiar 1 → Familiar 2: 1 week
+- Familiar 1 → Familiar 2: 7 days
 - Familiar 2 → Intermediate: 2 weeks
-- Intermediate → Master: 1 month
-- Master → Fluent: 4 months
+- Intermediate → Master: 4 weeks
+- Master → Fluent: 3 calendar months
+
+Month-valued intervals (Master only) use real calendar-month arithmetic (e.g. September 12 + 3 months = December 12), not a fixed number of days. Changing the SRS Interval setting only affects reviews scheduled from that point forward — it never recalculates a review's existing due time.
 
 ### Accelerated Early-Level Intervals
 
@@ -193,11 +197,7 @@ For bidirectional SRS items:
 
 - The SRS stage increases only when both required directions are answered correctly.
 - The SRS stage decreases when either required direction is answered incorrectly.
-- Incorrect-answer penalties use the configured SRS penalty calculation:
-
-`new_srs_stage = current_srs_stage - (incorrect_adjustment_count * srs_penalty_factor)`
-
-The exact penalty factor and minimum-stage handling are architecture/domain rules and must be defined separately before implementation.
+- Incorrect-answer penalties use the SRS Strictness setting (spec 20, grammar and vocabulary independently): a flat demotion of 1 Stage, 2 Stages, 3 Stages, Half (of the current stage position), or Full (reset to the minimum review stage). The setting is chosen once at review-session start and does not change retroactively for a session already in progress.
 
 ### Review Behavior
 

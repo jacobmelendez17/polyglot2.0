@@ -2,7 +2,7 @@ import type { DbClient } from "@/db/client";
 import { getEnrolledItemIds } from "@/domains/curriculum/lesson-curriculum-repository";
 import { withIdempotency } from "@/domains/idempotency";
 import { enrollLearningItems } from "@/domains/progress/repository";
-import { calculateNextReview, MINIMUM_REVIEW_STAGE } from "@/domains/srs";
+import { calculateNextReview, DEFAULT_SRS_INTERVAL_MODE, MINIMUM_REVIEW_STAGE } from "@/domains/srs";
 import { LessonError } from "@/lib/errors/lesson-errors";
 
 import type { LessonCurriculumReader } from "./lesson-curriculum-reader";
@@ -127,7 +127,11 @@ export async function completeLesson(db: DbClient, input: CompleteLessonInput): 
           learnedAt: now,
           // §47/§48 — the SRS domain decides the first review time from the
           // stage, the curriculum level, and authoritative server time.
-          nextReviewAt: calculateNextReview({ stage: MINIMUM_REVIEW_STAGE, level: item.levelNumber, now }),
+          // `mode` is spec 20 SRS Interval's per-learner preference, but
+          // Beginner 1's interval is fixed (4 hours) under every mode — a
+          // freshly enrolled item has no review-session context to resolve
+          // a real preference from anyway, so this is never a live choice.
+          nextReviewAt: calculateNextReview({ stage: MINIMUM_REVIEW_STAGE, level: item.levelNumber, mode: DEFAULT_SRS_INTERVAL_MODE, now }),
         })),
       );
 

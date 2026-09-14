@@ -9,7 +9,7 @@ import * as preferenceRepository from "./review-preference-repository";
 import * as repository from "./review-repository";
 import type { GetReviewHistoryInput, InsertReviewEventInput } from "./review-history-types";
 import type { StartReviewSessionInput, SubmitReviewAnswerInput } from "./review-orchestration";
-import type { HintMode, HintOrder, ReviewType, ReviewUiToggleField, SrsStrictness, UndoAction } from "./review-preference";
+import type { HintMode, HintOrder, ReviewType, ReviewUiToggleField, SrsIntervalMode, SrsStrictness, UndoAction } from "./review-preference";
 
 /**
  * Every Settings mutation in `domains/srs` shares the same "account-settings"
@@ -127,4 +127,14 @@ export async function updateGrammarSrsStrictness(input: { userId: string; langua
 /** Spec 20 SRS Strictness — Vocabulary SRS Strictness. */
 export async function updateVocabularySrsStrictness(input: { userId: string; languageId: string; srsStrictness: SrsStrictness }) {
   return withAccountSettingsRateLimit(input.userId, () => preferenceRepository.saveVocabularySrsStrictness(db, input));
+}
+
+/** Spec 20 SRS Interval — Grammar SRS Interval. */
+export async function updateGrammarSrsIntervalMode(input: { userId: string; languageId: string; srsIntervalMode: SrsIntervalMode }) {
+  return withAccountSettingsRateLimit(input.userId, () => preferenceRepository.saveGrammarSrsIntervalMode(db, input));
+}
+
+/** Spec 20 SRS Interval — Vocabulary SRS Interval. */
+export async function updateVocabularySrsIntervalMode(input: { userId: string; languageId: string; srsIntervalMode: SrsIntervalMode }) {
+  return withAccountSettingsRateLimit(input.userId, () => preferenceRepository.saveVocabularySrsIntervalMode(db, input));
 }

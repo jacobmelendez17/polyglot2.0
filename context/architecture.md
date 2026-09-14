@@ -902,13 +902,15 @@ Configuration includes:
 
 - Stage definitions
 - Stage ordering
-- Standard intervals
-- Early-level accelerated intervals
-- Penalty factors
+- Standard intervals, one full table per SRS Interval mode (spec 20 — Shortest/Shorter/Default/Longer/Longest, grammar and vocabulary independently)
+- Early-level accelerated intervals (mode-invariant)
+- SRS Strictness demotion levels (spec 20 — flat 1/2/3-Stage, Half, Full; replaces the old tiered penalty-factor model)
 - Minimum-stage behavior
 - Level-unlock threshold stage
 
 Do not scatter interval literals throughout the application.
+
+Both SRS Strictness and SRS Interval mode are resolved once per review session and embedded in the signed session state (`domains/srs/review-schemas.ts`'s `reviewPreferencesSchema`) — a setting change never affects a review session already in progress, and SRS Interval changes never recalculate a review's existing due time (future-only).
 
 ## Review Direction Rules
 
@@ -2256,9 +2258,9 @@ isolation needs enforcing, not a guarantee that no code will ever forget to.
 
 The following values must not be silently invented or duplicated in code:
 
-- SRS penalty factor
+- SRS Strictness demotion levels (spec 20)
 - Minimum SRS stage after penalties
-- Review stage intervals
+- Review stage intervals per SRS Interval mode (spec 20)
 - Early-level accelerated SRS intervals
 - Level-unlock ratio
 - Level-unlock target stage

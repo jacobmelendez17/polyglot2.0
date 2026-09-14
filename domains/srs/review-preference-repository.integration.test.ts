@@ -8,12 +8,14 @@ import {
   saveGrammarHintMode,
   saveGrammarHintOrder,
   saveGrammarReviewType,
+  saveGrammarSrsIntervalMode,
   saveGrammarSrsStrictness,
   saveReviewUiToggle,
   saveUndoAction,
   saveVocabularyHintMode,
   saveVocabularyHintOrder,
   saveVocabularyReviewType,
+  saveVocabularySrsIntervalMode,
   saveVocabularySrsStrictness,
 } from "./review-preference-repository";
 
@@ -33,6 +35,8 @@ const DEFAULTS = {
   undoAction: "clear_last_character",
   grammarSrsStrictness: "one_stage",
   vocabularySrsStrictness: "one_stage",
+  grammarSrsIntervalMode: "default",
+  vocabularySrsIntervalMode: "default",
 } as const;
 
 describe("findReviewPreferences", () => {
@@ -148,6 +152,26 @@ describe("SRS Strictness saves", () => {
         ...DEFAULTS,
         grammarSrsStrictness: "full",
         vocabularySrsStrictness: "half",
+      });
+    });
+  });
+});
+
+describe("SRS Interval saves", () => {
+  it("saves grammar and vocabulary SRS Interval mode independently of each other and of every other field", async () => {
+    await withTestTransaction(async (tx) => {
+      const { learnerId, languageId } = await seedTestFixtures(tx);
+
+      const afterGrammar = await saveGrammarSrsIntervalMode(tx, { userId: learnerId, languageId, srsIntervalMode: "longest" });
+      expect(afterGrammar).toEqual({ userId: learnerId, languageId, ...DEFAULTS, grammarSrsIntervalMode: "longest" });
+
+      const afterVocabulary = await saveVocabularySrsIntervalMode(tx, { userId: learnerId, languageId, srsIntervalMode: "shortest" });
+      expect(afterVocabulary).toEqual({
+        userId: learnerId,
+        languageId,
+        ...DEFAULTS,
+        grammarSrsIntervalMode: "longest",
+        vocabularySrsIntervalMode: "shortest",
       });
     });
   });

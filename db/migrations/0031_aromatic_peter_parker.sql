@@ -1,0 +1,3 @@
+CREATE TYPE "public"."srs_interval_mode" AS ENUM('shortest', 'shorter', 'default', 'longer', 'longest');--> statement-breakpoint
+ALTER TABLE "user_review_preferences" ADD COLUMN "grammar_srs_interval_mode" "srs_interval_mode" DEFAULT 'default' NOT NULL;--> statement-breakpoint
+ALTER TABLE "user_review_preferences" ADD COLUMN "vocabulary_srs_interval_mode" "srs_interval_mode" DEFAULT 'default' NOT NULL;

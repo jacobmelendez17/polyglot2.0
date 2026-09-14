@@ -11,7 +11,7 @@ import {
 import { ReviewError } from "@/lib/errors/review-errors";
 
 import { LEVEL_UNLOCK_MINIMUM_STAGE, LEVEL_UNLOCK_RATIO } from "./review-config";
-import type { SrsStrictness } from "./review-preference";
+import type { SrsIntervalMode, SrsStrictness } from "./review-preference";
 import { insertReviewEvent } from "./review-repository";
 import { calculateReviewStageResult } from "./review-result";
 import { SRS_STAGE_ORDER } from "./srs-config";
@@ -46,6 +46,8 @@ export type ApplyReviewCompletionInput = {
   hadIncorrectRequiredAnswer: boolean;
   /** Spec 20 SRS Strictness — which demotion rule applies to this item if `hadIncorrectRequiredAnswer` is true. Resolved by the caller from the item's content type and the session's signed-in preferences. */
   srsStrictness: SrsStrictness;
+  /** Spec 20 SRS Interval — which schedule resolves the next review's due date on a correct/advancing result. Resolved by the caller the same way as `srsStrictness`. */
+  srsIntervalMode: SrsIntervalMode;
   now: Date;
   /** Client-generated UUID, stable for this item's completion across retries (spec 09 §12). */
   idempotencyKey: string;
@@ -92,7 +94,12 @@ export async function applyReviewCompletion(
         hadIncorrectRequiredAnswer: input.hadIncorrectRequiredAnswer,
         srsStrictness: input.srsStrictness,
       });
-      const nextReviewAt = calculateNextReview({ stage: stageAfter, level: level.levelNumber, now: input.now });
+      const nextReviewAt = calculateNextReview({
+        stage: stageAfter,
+        level: level.levelNumber,
+        mode: input.srsIntervalMode,
+        now: input.now,
+      });
       const fluentAt = reachedFluent ? input.now : locked.fluentAt;
 
       const updated = await applyItemProgressUpdate(tx, {

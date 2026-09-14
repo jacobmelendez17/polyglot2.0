@@ -25,6 +25,8 @@ function makeState(overrides: Partial<ReviewState> = {}): ReviewState {
       vocabularyHintMode: "hint",
       grammarSrsStrictness: "one_stage",
       vocabularySrsStrictness: "one_stage",
+      grammarSrsIntervalMode: "default",
+      vocabularySrsIntervalMode: "default",
     },
     stats: { itemsTotal: 1, itemsCompleted: 0, questionsAttempted: 0, questionsCorrect: 0 },
     issuedAt: NOW,

@@ -38,6 +38,7 @@ export {
   DEFAULT_HINT_ORDER,
   DEFAULT_REVIEW_PREFERENCES,
   DEFAULT_REVIEW_TYPE,
+  DEFAULT_SRS_INTERVAL_MODE,
   DEFAULT_SRS_STRICTNESS,
   DEFAULT_UNDO_ACTION,
   HINT_MODES,
@@ -46,14 +47,16 @@ export {
   isHintMode,
   isHintOrder,
   isReviewType,
+  isSrsIntervalMode,
   isSrsStrictness,
   isUndoAction,
   REVIEW_TYPES,
   REVIEW_UI_TOGGLE_FIELDS,
+  SRS_INTERVAL_MODES,
   SRS_STRICTNESSES,
   UNDO_ACTIONS,
 } from "./review-preference";
-export type { HintMode, HintOrder, ReviewPreferences, ReviewType, ReviewUiToggleField, SrsStrictness, UndoAction } from "./review-preference";
+export type { HintMode, HintOrder, ReviewPreferences, ReviewType, ReviewUiToggleField, SrsIntervalMode, SrsStrictness, UndoAction } from "./review-preference";
 export { findCompatibleClozeSentence } from "./review-cloze";
 export type { ClozeSentence } from "./review-cloze";
 export { resolveReviewHint } from "./review-hint";

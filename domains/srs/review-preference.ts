@@ -62,6 +62,21 @@ export function isSrsStrictness(value: unknown): value is SrsStrictness {
 }
 
 /**
+ * Spec 20 SRS Interval — how far out a *correct* review's next due date
+ * lands. `default` is the spec's own stated default. Unlike SRS Strictness,
+ * this never affects an already-scheduled review's due time (the spec's own
+ * "Important Future-Only Rule") — see `domains/srs/srs-config.ts`'s
+ * `getConfiguredInterval`.
+ */
+export const SRS_INTERVAL_MODES = ["shortest", "shorter", "default", "longer", "longest"] as const;
+export type SrsIntervalMode = (typeof SRS_INTERVAL_MODES)[number];
+export const DEFAULT_SRS_INTERVAL_MODE: SrsIntervalMode = "default";
+
+export function isSrsIntervalMode(value: unknown): value is SrsIntervalMode {
+  return typeof value === "string" && (SRS_INTERVAL_MODES as readonly string[]).includes(value);
+}
+
+/**
  * Spec 20 Review UI — the seven independent boolean toggle field names.
  * Database-free so the Settings UI (a client component) can reference the
  * field-name union without importing `review-preference-repository.ts`
@@ -104,6 +119,8 @@ export type ReviewPreferences = {
   undoAction: UndoAction;
   grammarSrsStrictness: SrsStrictness;
   vocabularySrsStrictness: SrsStrictness;
+  grammarSrsIntervalMode: SrsIntervalMode;
+  vocabularySrsIntervalMode: SrsIntervalMode;
 };
 
 export const DEFAULT_REVIEW_PREFERENCES: Omit<ReviewPreferences, "userId" | "languageId"> = {
@@ -122,4 +139,6 @@ export const DEFAULT_REVIEW_PREFERENCES: Omit<ReviewPreferences, "userId" | "lan
   undoAction: DEFAULT_UNDO_ACTION,
   grammarSrsStrictness: DEFAULT_SRS_STRICTNESS,
   vocabularySrsStrictness: DEFAULT_SRS_STRICTNESS,
+  grammarSrsIntervalMode: DEFAULT_SRS_INTERVAL_MODE,
+  vocabularySrsIntervalMode: DEFAULT_SRS_INTERVAL_MODE,
 };

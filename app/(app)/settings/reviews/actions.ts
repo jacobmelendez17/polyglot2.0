@@ -3,18 +3,20 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { HINT_MODES, HINT_ORDERS, REVIEW_TYPES, REVIEW_UI_TOGGLE_FIELDS, SRS_STRICTNESSES, UNDO_ACTIONS } from "@/domains/srs";
+import { HINT_MODES, HINT_ORDERS, REVIEW_TYPES, REVIEW_UI_TOGGLE_FIELDS, SRS_INTERVAL_MODES, SRS_STRICTNESSES, UNDO_ACTIONS } from "@/domains/srs";
 import { requireUser } from "@/domains/users/server";
 import {
   updateGrammarHintMode,
   updateGrammarHintOrder,
   updateGrammarReviewType,
+  updateGrammarSrsIntervalMode,
   updateGrammarSrsStrictness,
   updateReviewUiToggle,
   updateUndoAction,
   updateVocabularyHintMode,
   updateVocabularyHintOrder,
   updateVocabularyReviewType,
+  updateVocabularySrsIntervalMode,
   updateVocabularySrsStrictness,
 } from "@/domains/srs/server";
 import { AppError } from "@/lib/errors/app-error";
@@ -179,5 +181,33 @@ export async function updateVocabularySrsStrictnessAction(
     const updated = await updateVocabularySrsStrictness({ userId: user.id, languageId: user.activeLanguageId, srsStrictness });
     revalidatePath("/settings/reviews");
     return { srsStrictness: updated.vocabularySrsStrictness };
+  });
+}
+
+const srsIntervalModeInputSchema = z.object({ srsIntervalMode: z.enum(SRS_INTERVAL_MODES) });
+
+/** Spec 20 SRS Interval — Grammar SRS Interval. */
+export async function updateGrammarSrsIntervalModeAction(
+  input: z.infer<typeof srsIntervalModeInputSchema>,
+): Promise<ActionResult<{ srsIntervalMode: string }>> {
+  return runSettingsAction(async () => {
+    const { srsIntervalMode } = srsIntervalModeInputSchema.parse(input);
+    const user = await requireUser();
+    const updated = await updateGrammarSrsIntervalMode({ userId: user.id, languageId: user.activeLanguageId, srsIntervalMode });
+    revalidatePath("/settings/reviews");
+    return { srsIntervalMode: updated.grammarSrsIntervalMode };
+  });
+}
+
+/** Spec 20 SRS Interval — Vocabulary SRS Interval. */
+export async function updateVocabularySrsIntervalModeAction(
+  input: z.infer<typeof srsIntervalModeInputSchema>,
+): Promise<ActionResult<{ srsIntervalMode: string }>> {
+  return runSettingsAction(async () => {
+    const { srsIntervalMode } = srsIntervalModeInputSchema.parse(input);
+    const user = await requireUser();
+    const updated = await updateVocabularySrsIntervalMode({ userId: user.id, languageId: user.activeLanguageId, srsIntervalMode });
+    revalidatePath("/settings/reviews");
+    return { srsIntervalMode: updated.vocabularySrsIntervalMode };
   });
 }

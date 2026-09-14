@@ -162,17 +162,11 @@ every boundary before considering these done)*
 24. Delete Account — request → email-verified confirmation → 7-day pending
     window → cancel → the Vercel Cron finalize job from decision 1.
 
-**Units 1-12 are done — see their Completed entries below.** Account,
+**Units 1-13 are done — see their Completed entries below.** Account,
 General, and Lessons are fully complete; Reviews has Review Types, Review
-Hints, Review UI, and now SRS Strictness (the old WaniKani-inspired
-Beginner/Familiar+ penalty is fully retired) —
-`user_review_preferences` now has 17 columns. Unit 13 (SRS Interval) is
-next, continuing Phase E: replaces `srs-config.ts`'s fixed `STANDARD_INTERVALS`
-table with the spec's Shortest–Longest model, real calendar-month
-arithmetic (there is none today — months are approximated as fixed 30-day
-blocks), and the new 3-month Master → Fluent default (down from 4).
-`project-overview.md`'s documented interval table must be updated in the
-same unit, per the spec's explicit instruction to keep both in sync.
+Hints, Review UI, SRS Strictness, and now SRS Interval —
+`user_review_preferences` now has 19 columns. Unit 14 (Review Queue Timing)
+is next, continuing Phase E.
 
 **Migration-tooling note for every future unit touching a Postgres enum**:
 `drizzle-kit migrate`'s CLI proved unreliable in this session's environment
@@ -1201,6 +1195,72 @@ writing to real `user_item_progress` rows.
 ## Completed
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
+
+- **Spec 20 unit 13 — SRS Interval** (2026-09-14). Continues Phase E: replaces
+  the previous single fixed `STANDARD_INTERVALS` table (Master → Fluent
+  approximated as a fixed 30-day-per-month block) with a new
+  `SrsIntervalMode` setting (`shortest`/`shorter`/`default`/`longer`/`longest`,
+  grammar and vocabulary independently, default `default`) — each mode
+  is its own full table in `srs-config.ts`'s `STANDARD_INTERVALS_BY_MODE`,
+  transcribed directly from the spec's table rather than derived from a
+  base+delta formula so each cell can be checked against the spec by eye.
+  Beginner 1/2/4 and the Level 1-2 accelerated schedule are unchanged and
+  mode-invariant across every mode, per the spec's own "these remain fixed"
+  instruction.
+
+  **Real calendar-month arithmetic, not a fixed-day approximation** — the
+  only month-unit stage is Master (`default`'s Master → Fluent is now 3
+  calendar months, down from the old fixed 4-month/120-day figure, spec 20's
+  own deliberate change). `srs-rules.ts`'s `calculateNextReview` calls a new
+  `addCalendarMonths` helper (`Date#setUTCMonth`) for month intervals and
+  plain duration math (`intervalToMs`) for hours/days/weeks — verified with
+  a real month-end-rollover case (Jan 31 + 3 months → May 1, since April has
+  only 30 days) both in `srs-rules.test.ts` (hand-computed via `node -e`
+  before trusting any expected value, after catching one of my own
+  hand-arithmetic slips — 1.5 weeks miscalculated by a day — proactively
+  this time, before the test run rather than after) and at the orchestration
+  level in a new integration test that actually completes a Master-stage
+  review and asserts the real persisted `nextReviewAt`.
+
+  **Future-only, never retroactive** — `calculateNextReview` only ever
+  computes a *new* item's next due time from `now`; it is never called to
+  recalculate an already-scheduled `next_review_at`, so a setting change can
+  never move a review that already has a due time (spec 20's explicit
+  requirement, restated in the Settings UI copy: "Changing your SRS interval
+  only affects reviews scheduled from this point forward. Reviews that
+  already have a due time keep their existing due time.").
+
+  **Threading and session-pinning**: identical pattern to unit 12's SRS
+  Strictness — `srsIntervalMode` resolved by content type at session start,
+  signed into `ReviewState`, and passed into `applyReviewCompletion`'s new
+  required `srsIntervalMode` field. Two dedicated integration tests mirror
+  unit 12's: a non-default mode set *before* a session starts is what
+  actually applies at completion (Beginner 2 → Beginner 3 under Longest
+  schedules 36 hours out, not Default's 24), and a mode change made *after*
+  a session starts has no effect on that already-open session's scheduling.
+
+  **The same `ReviewUiPreferences` `Omit` mistake recurred from unit 12** —
+  forgetting to add the two new preference fields to `review-types.ts`'s
+  `Omit<ReviewPreferences, ...>` exclusion list caused the identical type
+  error at `review-orchestration.ts`'s `reviewUiPreferences` construction
+  site; fixed the same way (added the field names to the list). Worth
+  double-checking this list first on any future unit that adds a
+  `ReviewPreferences` field.
+
+  Settings UI: new `SrsIntervalModeSelect` component (grammar/vocabulary,
+  mirroring unit 12's `SrsStrictnessSelect`), wired into `/settings/reviews`'s
+  new "SRS Interval" section with the spec's required future-only copy.
+  `project-overview.md`'s Standard Review Intervals table and Review Scoring
+  section, and `architecture.md`'s stale "Penalty factors"/"SRS penalty
+  factor" mentions (both predating unit 12's actual rewrite), were updated
+  to match.
+
+  Verified: `tsc`/`eslint` clean, 971 unit tests, `npm run build` clean,
+  `drizzle-kit check` clean, new repository-save and orchestration-level
+  integration tests all passing, full `npm run test:integration` run with
+  failures matching the established pre-existing baseline (3 unscoped
+  audit-log queries, 1 idempotency cleanup-count flake, 2 item-`y`
+  fixture-drift symptoms) — no new regressions.
 
 - **Spec 20 unit 12 — SRS Strictness** (2026-09-14). Opens Phase E (highest
   risk in the plan — full unit-test coverage of every boundary expected

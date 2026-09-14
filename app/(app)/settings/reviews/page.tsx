@@ -4,6 +4,7 @@ import { GrammarReviewTypeSelect } from "@/components/settings/reviews/grammar-r
 import { HintModeSelect } from "@/components/settings/reviews/hint-mode-select";
 import { HintOrderSelect } from "@/components/settings/reviews/hint-order-select";
 import { ReviewUiToggle } from "@/components/settings/reviews/review-ui-toggle";
+import { SrsIntervalModeSelect } from "@/components/settings/reviews/srs-interval-mode-select";
 import { SrsStrictnessSelect } from "@/components/settings/reviews/srs-strictness-select";
 import { UndoActionSelect } from "@/components/settings/reviews/undo-action-select";
 import { VocabularyReviewTypeSelect } from "@/components/settings/reviews/vocabulary-review-type-select";
@@ -112,9 +113,23 @@ export default async function ReviewSettingsPage() {
         </div>
       </div>
 
+      <div className="rounded-xl border border-border bg-card p-6">
+        <h2 className="font-heading text-lg font-semibold text-foreground">SRS Interval</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          How far out a correct review is scheduled next. Changing your SRS interval only affects reviews scheduled from this point
+          forward — reviews that already have a due time keep their existing due time.
+        </p>
+        <div className="mt-4">
+          <SrsIntervalModeSelect contentType="grammar" initialValue={preferences.grammarSrsIntervalMode} />
+        </div>
+        <div className="mt-2">
+          <SrsIntervalModeSelect contentType="vocabulary" initialValue={preferences.vocabularySrsIntervalMode} />
+        </div>
+      </div>
+
       <SettingsSectionPlaceholder
         title="More Review settings"
-        description="Ghost Reviews, Leeches, SRS Interval, Review Queue Timing, and Fluent Mode."
+        description="Ghost Reviews, Leeches, Review Queue Timing, and Fluent Mode."
       />
     </div>
   );

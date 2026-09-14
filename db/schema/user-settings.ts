@@ -228,13 +228,24 @@ export const undoActionEnum = pgEnum("undo_action", ["clear_last_character", "cl
 export const srsStrictnessEnum = pgEnum("srs_strictness", ["one_stage", "two_stages", "three_stages", "half", "full"]);
 
 /**
+ * Spec 20 SRS Interval. `default` is the spec's own stated default (shown
+ * pre-selected in its mockup). Unlike SRS Strictness (which only changes
+ * incorrect-review demotion), this changes how far out a *correct* review's
+ * next due date lands — but never retroactively: an existing
+ * `next_review_at` keeps its value even after the learner changes this
+ * setting (spec's own "Important Future-Only Rule") — see
+ * `domains/srs/srs-config.ts`.
+ */
+export const srsIntervalModeEnum = pgEnum("srs_interval_mode", ["shortest", "shorter", "default", "longer", "longest"]);
+
+/**
  * Per-learner, per-language review preferences (spec 20 Reviews) — what the
  * spec's own Settings Data Model describes as a much larger table (Ghost
- * mode, Leech minimums, SRS Interval, queue timing, Fluent Mode all still
- * land on this same row in later units). Unit 10 seeded the two review-type
- * columns; unit 11 added Review Hints (four columns) and Review UI (seven
- * columns); unit 12 adds SRS Strictness (two columns) — see
- * progress-tracker.md.
+ * mode, Leech minimums, queue timing, Fluent Mode still land on this same
+ * row in later units). Unit 10 seeded the two review-type columns; unit 11
+ * added Review Hints (four columns) and Review UI (seven columns); unit 12
+ * added SRS Strictness (two columns); unit 13 adds SRS Interval (two
+ * columns) — see progress-tracker.md.
  *
  * Language-scoped like `userLanguageSettings`, for the same reason: a
  * learner studying two languages makes independent choices for each.
@@ -277,6 +288,8 @@ export const userReviewPreferences = pgTable(
     undoAction: undoActionEnum("undo_action").notNull().default("clear_last_character"),
     grammarSrsStrictness: srsStrictnessEnum("grammar_srs_strictness").notNull().default("one_stage"),
     vocabularySrsStrictness: srsStrictnessEnum("vocabulary_srs_strictness").notNull().default("one_stage"),
+    grammarSrsIntervalMode: srsIntervalModeEnum("grammar_srs_interval_mode").notNull().default("default"),
+    vocabularySrsIntervalMode: srsIntervalModeEnum("vocabulary_srs_interval_mode").notNull().default("default"),
     ...timestamps(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.languageId] })],

@@ -4,7 +4,7 @@ import type { DbClient } from "@/db/client";
 import { userReviewPreferences } from "@/db/schema";
 
 import { DEFAULT_REVIEW_PREFERENCES } from "./review-preference";
-import type { HintMode, HintOrder, ReviewPreferences, ReviewType, ReviewUiToggleField, SrsStrictness, UndoAction } from "./review-preference";
+import type { HintMode, HintOrder, ReviewPreferences, ReviewType, ReviewUiToggleField, SrsIntervalMode, SrsStrictness, UndoAction } from "./review-preference";
 
 /**
  * Takes an injected `DbClient` rather than the app's `db` singleton — same
@@ -36,6 +36,8 @@ function toReviewPreferences(row: ReviewPreferencesRow): ReviewPreferences {
     undoAction: row.undoAction,
     grammarSrsStrictness: row.grammarSrsStrictness,
     vocabularySrsStrictness: row.vocabularySrsStrictness,
+    grammarSrsIntervalMode: row.grammarSrsIntervalMode,
+    vocabularySrsIntervalMode: row.vocabularySrsIntervalMode,
   };
 }
 
@@ -131,4 +133,14 @@ export function saveGrammarSrsStrictness(db: DbClient, input: { userId: string; 
 /** Spec 20 SRS Strictness — Vocabulary SRS Strictness. */
 export function saveVocabularySrsStrictness(db: DbClient, input: { userId: string; languageId: string; srsStrictness: SrsStrictness }) {
   return savePreferenceField(db, "vocabularySrsStrictness", { ...input, value: input.srsStrictness });
+}
+
+/** Spec 20 SRS Interval — Grammar SRS Interval. */
+export function saveGrammarSrsIntervalMode(db: DbClient, input: { userId: string; languageId: string; srsIntervalMode: SrsIntervalMode }) {
+  return savePreferenceField(db, "grammarSrsIntervalMode", { ...input, value: input.srsIntervalMode });
+}
+
+/** Spec 20 SRS Interval — Vocabulary SRS Interval. */
+export function saveVocabularySrsIntervalMode(db: DbClient, input: { userId: string; languageId: string; srsIntervalMode: SrsIntervalMode }) {
+  return savePreferenceField(db, "vocabularySrsIntervalMode", { ...input, value: input.srsIntervalMode });
 }

@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-import { HINT_MODES, HINT_ORDERS, REVIEW_TYPES, SRS_STRICTNESSES } from "./review-preference";
-import type { HintMode, HintOrder, ReviewType, SrsStrictness } from "./review-preference";
+import { HINT_MODES, HINT_ORDERS, REVIEW_TYPES, SRS_INTERVAL_MODES, SRS_STRICTNESSES } from "./review-preference";
+import type { HintMode, HintOrder, ReviewType, SrsIntervalMode, SrsStrictness } from "./review-preference";
 import { SRS_STAGE_ORDER } from "./srs-config";
 import type { SrsStage } from "./srs-types";
 
@@ -56,6 +56,7 @@ const reviewTypeSchema = z.enum(REVIEW_TYPES as unknown as readonly [ReviewType,
 const hintOrderSchema = z.enum(HINT_ORDERS as unknown as readonly [HintOrder, ...HintOrder[]]);
 const hintModeSchema = z.enum(HINT_MODES as unknown as readonly [HintMode, ...HintMode[]]);
 const srsStrictnessSchema = z.enum(SRS_STRICTNESSES as unknown as readonly [SrsStrictness, ...SrsStrictness[]]);
+const srsIntervalModeSchema = z.enum(SRS_INTERVAL_MODES as unknown as readonly [SrsIntervalMode, ...SrsIntervalMode[]]);
 
 /**
  * Spec 20 Reviews' "Review Session Settings": resolved once at session
@@ -65,10 +66,10 @@ const srsStrictnessSchema = z.enum(SRS_STRICTNESSES as unknown as readonly [SrsS
  * mid-session. Re-fetching this per submit instead of trusting the signed
  * copy would violate that directly.
  *
- * Review Type, Review Hints, and SRS Strictness all live here — each
- * affects either what `buildQuestionView` computes server-side per
- * question, or (SRS Strictness) the authoritative stage transition itself
- * at completion time (`review-completion.ts`). The seven Review UI toggles
+ * Review Type, Review Hints, SRS Strictness, and SRS Interval all live
+ * here — each affects either what `buildQuestionView` computes server-side
+ * per question, or the authoritative stage/schedule transition itself at
+ * completion time (`review-completion.ts`). The seven Review UI toggles
  * (Autoplay Audio, Lightning Mode, Focus Mode, Auto Highlight Errors, Show
  * SRS Stage, Auto-Expand Info, Undo Action) are pure client presentation
  * with no effect on grading or SRS, so they ride once in
@@ -84,6 +85,8 @@ export const reviewPreferencesSchema = z.object({
   vocabularyHintMode: hintModeSchema,
   grammarSrsStrictness: srsStrictnessSchema,
   vocabularySrsStrictness: srsStrictnessSchema,
+  grammarSrsIntervalMode: srsIntervalModeSchema,
+  vocabularySrsIntervalMode: srsIntervalModeSchema,
 });
 
 export const reviewStateSchema = z.object({
