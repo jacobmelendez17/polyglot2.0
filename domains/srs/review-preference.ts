@@ -93,6 +93,17 @@ export function isReviewQueueTimingMode(value: unknown): value is ReviewQueueTim
 }
 
 /**
+ * Spec 20 Fluent Mode — whether an item that reaches Fluent gets a 6-
+ * calendar-month maintenance schedule (ON, the spec's own stated default
+ * for both content types) or terminates outright (OFF, `nextReviewAt =
+ * null`). Plain booleans, not a mode union — see `domains/srs/srs-rules.ts`'s
+ * `calculateFluentMaintenanceReview` for the scheduling itself and
+ * `domains/progress/repository.ts`'s `reconcileFluentSchedules` for what
+ * toggling this does to already-Fluent items.
+ */
+export const DEFAULT_FLUENT_MODE = true;
+
+/**
  * Spec 20 Review UI — the seven independent boolean toggle field names.
  * Database-free so the Settings UI (a client component) can reference the
  * field-name union without importing `review-preference-repository.ts`
@@ -138,6 +149,8 @@ export type ReviewPreferences = {
   grammarSrsIntervalMode: SrsIntervalMode;
   vocabularySrsIntervalMode: SrsIntervalMode;
   reviewQueueTiming: ReviewQueueTimingMode;
+  grammarFluentMode: boolean;
+  vocabularyFluentMode: boolean;
 };
 
 export const DEFAULT_REVIEW_PREFERENCES: Omit<ReviewPreferences, "userId" | "languageId"> = {
@@ -159,4 +172,6 @@ export const DEFAULT_REVIEW_PREFERENCES: Omit<ReviewPreferences, "userId" | "lan
   grammarSrsIntervalMode: DEFAULT_SRS_INTERVAL_MODE,
   vocabularySrsIntervalMode: DEFAULT_SRS_INTERVAL_MODE,
   reviewQueueTiming: DEFAULT_REVIEW_QUEUE_TIMING_MODE,
+  grammarFluentMode: DEFAULT_FLUENT_MODE,
+  vocabularyFluentMode: DEFAULT_FLUENT_MODE,
 };

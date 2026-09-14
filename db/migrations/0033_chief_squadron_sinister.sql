@@ -1,0 +1,2 @@
+ALTER TABLE "user_review_preferences" ADD COLUMN "grammar_fluent_mode" boolean DEFAULT true NOT NULL;--> statement-breakpoint
+ALTER TABLE "user_review_preferences" ADD COLUMN "vocabulary_fluent_mode" boolean DEFAULT true NOT NULL;

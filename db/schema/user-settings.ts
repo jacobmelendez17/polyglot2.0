@@ -253,11 +253,12 @@ export const reviewQueueTimingModeEnum = pgEnum("review_queue_timing_mode", ["st
 /**
  * Per-learner, per-language review preferences (spec 20 Reviews) — what the
  * spec's own Settings Data Model describes as a much larger table (Ghost
- * mode, Leech minimums, Fluent Mode still land on this same row in later
- * units). Unit 10 seeded the two review-type columns; unit 11 added Review
- * Hints (four columns) and Review UI (seven columns); unit 12 added SRS
- * Strictness (two columns); unit 13 added SRS Interval (two columns); unit
- * 14 adds Review Queue Timing (one column) — see progress-tracker.md.
+ * mode, Leech minimums still land on this same row in later units). Unit 10
+ * seeded the two review-type columns; unit 11 added Review Hints (four
+ * columns) and Review UI (seven columns); unit 12 added SRS Strictness (two
+ * columns); unit 13 added SRS Interval (two columns); unit 14 added Review
+ * Queue Timing (one column); unit 15 adds Fluent Mode (two columns) — see
+ * progress-tracker.md.
  *
  * Language-scoped like `userLanguageSettings`, for the same reason: a
  * learner studying two languages makes independent choices for each.
@@ -303,6 +304,17 @@ export const userReviewPreferences = pgTable(
     grammarSrsIntervalMode: srsIntervalModeEnum("grammar_srs_interval_mode").notNull().default("default"),
     vocabularySrsIntervalMode: srsIntervalModeEnum("vocabulary_srs_interval_mode").notNull().default("default"),
     reviewQueueTiming: reviewQueueTimingModeEnum("review_queue_timing").notNull().default("start_of_hour"),
+    /**
+     * Spec 20 Fluent Mode. `true` (ON) is the spec's own stated default for
+     * both content types. When ON, an item reaching Fluent gets a 6-calendar
+     * -month maintenance schedule instead of terminating — see
+     * `domains/srs/review-completion.ts` and `domains/progress/repository.ts`'s
+     * `reconcileFluentSchedules` (the toggle's own cascading effect on
+     * already-Fluent items, spec's "Turning Fluent Mode Off"/"Existing
+     * Fluent Items" sections).
+     */
+    grammarFluentMode: boolean("grammar_fluent_mode").notNull().default(true),
+    vocabularyFluentMode: boolean("vocabulary_fluent_mode").notNull().default(true),
     ...timestamps(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.languageId] })],

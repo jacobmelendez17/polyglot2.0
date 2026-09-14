@@ -131,6 +131,9 @@ const ACCELERATED_BEGINNER_INTERVALS: Partial<Record<SrsStage, SrsInterval>> = {
 
 const ACCELERATED_LEVELS = new Set([1, 2]);
 
+/** Spec 20 Fluent Mode — "next review in 6 calendar months," independent of SRS Interval mode. See `srs-rules.ts`'s `calculateFluentMaintenanceReview`. */
+export const FLUENT_MAINTENANCE_INTERVAL_MONTHS = 6;
+
 const MS_PER_UNIT: Record<Exclude<IntervalUnit, "months">, number> = {
   hours: 60 * 60 * 1000,
   days: 24 * 60 * 60 * 1000,

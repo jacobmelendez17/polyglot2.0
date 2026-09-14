@@ -232,6 +232,13 @@
       "when": 1789414301233,
       "tag": "0032_blushing_korvac",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1789416826218,
+      "tag": "0033_chief_squadron_sinister",
+      "breakpoints": true
     }
   ]
 }

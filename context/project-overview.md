@@ -163,7 +163,7 @@ The core progression is:
 - Master
 - Fluent
 
-Fluent represents completion of the normal scheduled SRS review cycle.
+Fluent represents completion of the normal scheduled SRS review cycle. What happens next depends on spec 20's **Fluent Mode** setting (Grammar and Vocabulary, independently, ON by default) — see "Fluent Mode" below.
 
 ### Standard Review Intervals
 
@@ -180,7 +180,16 @@ Spec 20's SRS Interval setting (grammar and vocabulary, independently) selects o
 
 Month-valued intervals (Master only) use real calendar-month arithmetic (e.g. September 12 + 3 months = December 12), not a fixed number of days. Changing the SRS Interval setting only affects reviews scheduled from that point forward — it never recalculates a review's existing due time.
 
-After the SRS Interval schedule produces this raw due time, spec 20's **Review Queue Timing** setting (one value per language, not split grammar/vocabulary) rounds it: **Start of Hour** (default) rounds forward to the next hour boundary; **Start of Day** aligns it to 12:00 AM on its own calendar date in the learner's configured timezone, using real timezone-safe date handling rather than server UTC midnight. Applied to every freshly-computed due time, whether the review just advanced or was penalized.
+After the SRS Interval schedule produces this raw due time, spec 20's **Review Queue Timing** setting (one value per language, not split grammar/vocabulary) rounds it: **Start of Hour** (default) rounds forward to the next hour boundary; **Start of Day** aligns it to 12:00 AM on its own calendar date in the learner's configured timezone, using real timezone-safe date handling rather than server UTC midnight. Applied to every freshly-computed due time, whether the review just advanced or was penalized — except a Fluent maintenance due time (see "Fluent Mode" below), which bypasses this rounding entirely.
+
+### Fluent Mode
+
+Spec 20's Fluent Mode setting (Grammar and Vocabulary, independently, ON by default) controls what happens once an item reaches Fluent:
+
+- **On** (default): the item gets a maintenance review every 6 calendar months, indefinitely. Each maintenance review answered correctly reschedules another 6 calendar months out, computed from that review's own completion time — not from when the item originally became Fluent. An incorrect Fluent review demotes using the learner's normal SRS Strictness (e.g. 1 Stage demotes Fluent to Master), and normal SRS Interval/Review Queue Timing scheduling resumes from there.
+- **Off**: reaching Fluent terminates the item outright (`nextReviewAt = null`) — the pre-spec-20 behavior.
+
+Toggling either setting reconciles every already-Fluent item of that content type: turning Fluent Mode on schedules a maintenance review for any item stuck terminal, anchored to when that item first became Fluent (`fluentAt + 6 calendar months` — never from when the setting was changed, and immediately due if that date has already passed); turning it off nulls out the schedule for every item whose only due date came from Fluent maintenance.
 
 ### Accelerated Early-Level Intervals
 
@@ -209,7 +218,7 @@ For bidirectional SRS items:
 - Repeatedly missed items may be identified as leeches.
 - Leech items receive dedicated leech-review support.
 - Individual item progress can be manually reset from the item's page.
-- Reaching Fluent completes the item's normal review cycle.
+- Reaching Fluent completes the item's normal review cycle; whether it then enters a 6-month maintenance loop or terminates depends on Fluent Mode (see "Fluent Mode" above).
 - Normal review completion does not prevent users from using the item in supplemental practice.
 
 ## Practice

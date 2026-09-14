@@ -1,7 +1,8 @@
-import { and, asc, count, eq, gt, inArray, isNotNull, lte, sql } from "drizzle-orm";
+import { and, asc, count, eq, gt, inArray, isNotNull, isNull, lte, sql } from "drizzle-orm";
 
 import type { DbClient } from "@/db/client";
 import { learningItems, levels, userItemProgress, userLevelProgress } from "@/db/schema";
+import { calculateFluentMaintenanceReview } from "@/domains/srs";
 import type { SrsStage } from "@/domains/srs";
 
 import type { ItemProgress, LevelProgress } from "./types";
@@ -448,4 +449,87 @@ export async function enrollLearningItems(
     )
     .returning();
   return rows.map(toItemProgress);
+}
+
+/**
+ * Spec 20 Fluent Mode's own cascading effect of toggling the setting —
+ * called from inside the same transaction as the preference write
+ * (`domains/srs/review-service.ts`'s `updateGrammarFluentMode`/
+ * `updateVocabularyFluentMode`), never independently, so the two commit
+ * together or not at all.
+ *
+ * **Enabling**: every Fluent-stage item of this content type stuck terminal
+ * (`next_review_at IS NULL`) — whether because it reached Fluent before
+ * Fluent Mode's maintenance loop existed, or because the learner had this
+ * off when it got there — receives a maintenance schedule anchored to its
+ * own `fluent_at`, never to `now` (spec's own explicit contrast: "Use
+ * fluentAt + 6 calendar months. Do not use settingChangedAt + 6 months" —
+ * if that date is already in the past, the item is simply due immediately,
+ * which needs no special-casing here since `isReviewDue` already treats any
+ * past `next_review_at` as due).
+ *
+ * **Disabling**: every Fluent-stage item with a live schedule goes back to
+ * terminal (`next_review_at = NULL`) — unambiguously "only scheduled
+ * because of Fluent maintenance," since no other path ever gives a
+ * Fluent-stage row a non-null `next_review_at` (`srs-config.ts`'s interval
+ * tables resolve every mode's `fluent` entry to `null`). A plain non-Fluent
+ * scheduled review is untouched by construction, since both branches filter
+ * to `srs_stage = 'fluent'`.
+ *
+ * Naturally idempotent — re-running either branch touches only rows
+ * matching its own `next_review_at IS NULL`/`IS NOT NULL` filter, so a
+ * repeated call (or the same toggle value saved twice) makes zero further
+ * changes.
+ *
+ * Fetch-then-update rather than one bulk `UPDATE ... CASE` — unlike
+ * `applyVacationSchedulingAdjustment`'s account-wide, potentially
+ * thousands-of-rows adjustment, this only ever touches one learner's
+ * Fluent-stage items in one content type of one language: a small, bounded
+ * set for a rare settings action, not a hot path "avoid N+1" applies to.
+ * Also lets the calendar-month math reuse `calculateFluentMaintenanceReview`
+ * directly, rather than duplicating it as a raw SQL `interval` expression —
+ * Postgres's own `timestamp + interval 'N months'` clamps at a short month's
+ * end (Jan 31 + 1 month = Feb 28) where this codebase's JS-based calendar
+ * arithmetic overflows into the next month instead (Jan 31 + 1 month = Mar
+ * 3), so mixing the two would silently disagree with every other Fluent/SRS
+ * Interval date in the app depending on which code path computed it.
+ */
+export async function reconcileFluentSchedules(
+  db: DbClient,
+  { userId, languageId, itemType, fluentModeEnabled }: { userId: string; languageId: string; itemType: "grammar" | "vocabulary"; fluentModeEnabled: boolean },
+): Promise<void> {
+  const rows = await db
+    .select({ learningItemId: userItemProgress.learningItemId, fluentAt: userItemProgress.fluentAt })
+    .from(userItemProgress)
+    .innerJoin(learningItems, eq(learningItems.id, userItemProgress.learningItemId))
+    .where(
+      and(
+        eq(userItemProgress.userId, userId),
+        eq(userItemProgress.languageId, languageId),
+        eq(learningItems.type, itemType),
+        eq(userItemProgress.srsStage, "fluent"),
+        fluentModeEnabled ? isNull(userItemProgress.nextReviewAt) : isNotNull(userItemProgress.nextReviewAt),
+      ),
+    );
+
+  if (rows.length === 0) return;
+
+  if (!fluentModeEnabled) {
+    await db
+      .update(userItemProgress)
+      .set({ nextReviewAt: null })
+      .where(and(eq(userItemProgress.userId, userId), inArray(userItemProgress.learningItemId, rows.map((row) => row.learningItemId))));
+    return;
+  }
+
+  for (const row of rows) {
+    // Defensive only — unreachable by construction: a row can only reach
+    // `srs_stage = 'fluent'` via `review-completion.ts`, which always sets
+    // `fluent_at` in the same update that first sets the stage to Fluent.
+    if (!row.fluentAt) continue;
+    await db
+      .update(userItemProgress)
+      .set({ nextReviewAt: calculateFluentMaintenanceReview(row.fluentAt) })
+      .where(and(eq(userItemProgress.userId, userId), eq(userItemProgress.learningItemId, row.learningItemId)));
+  }
 }

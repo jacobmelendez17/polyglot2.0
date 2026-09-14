@@ -1,4 +1,5 @@
 import { db } from "@/db/client";
+import { reconcileFluentSchedules } from "@/domains/progress/repository";
 import { resolveUserNow } from "@/domains/users/server";
 import { getRateLimiter } from "@/providers/rate-limit";
 import { AppError } from "@/lib/errors/app-error";
@@ -151,4 +152,44 @@ export async function updateVocabularySrsIntervalMode(input: { userId: string; l
 /** Spec 20 Review Queue Timing. */
 export async function updateReviewQueueTiming(input: { userId: string; languageId: string; reviewQueueTiming: ReviewQueueTimingMode }) {
   return withAccountSettingsRateLimit(input.userId, () => preferenceRepository.saveReviewQueueTiming(db, input));
+}
+
+/**
+ * Spec 20 Fluent Mode — Grammar Fluent Mode. Unlike every other narrow
+ * Settings mutation above, this has a real cascading effect on already-
+ * Fluent items (`reconcileFluentSchedules`'s docstring), so the preference
+ * write and the reconciliation share one transaction — both commit
+ * together or not at all, the same guarantee `vacation-service.ts`'s
+ * `disableVacationMode` already established for an equivalent
+ * toggle-with-cascading-schedule-effect case.
+ */
+export async function updateGrammarFluentMode(input: { userId: string; languageId: string; fluentMode: boolean }) {
+  return withAccountSettingsRateLimit(input.userId, () =>
+    db.transaction(async (tx) => {
+      const updated = await preferenceRepository.saveGrammarFluentMode(tx, input);
+      await reconcileFluentSchedules(tx, {
+        userId: input.userId,
+        languageId: input.languageId,
+        itemType: "grammar",
+        fluentModeEnabled: input.fluentMode,
+      });
+      return updated;
+    }),
+  );
+}
+
+/** Spec 20 Fluent Mode — Vocabulary Fluent Mode. See `updateGrammarFluentMode`. */
+export async function updateVocabularyFluentMode(input: { userId: string; languageId: string; fluentMode: boolean }) {
+  return withAccountSettingsRateLimit(input.userId, () =>
+    db.transaction(async (tx) => {
+      const updated = await preferenceRepository.saveVocabularyFluentMode(tx, input);
+      await reconcileFluentSchedules(tx, {
+        userId: input.userId,
+        languageId: input.languageId,
+        itemType: "vocabulary",
+        fluentModeEnabled: input.fluentMode,
+      });
+      return updated;
+    }),
+  );
 }

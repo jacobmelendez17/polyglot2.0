@@ -53,7 +53,13 @@ export function calculateReviewStageResult({
 }: CalculateReviewStageResultInput): ReviewStageResult {
   if (!hadIncorrectRequiredAnswer) {
     const nextStage = getNextStage(stage);
-    return { stage: nextStage, result: "advanced", reachedFluent: nextStage === "fluent" };
+    // "First brings the item to Fluent" — not still true on every later
+    // Fluent-maintenance correct review, which also resolves `nextStage` to
+    // "fluent" (`getNextStage` clamps at the end of `SRS_STAGE_ORDER`).
+    // Spec 20 Fluent Mode's own maintenance loop is what first makes this
+    // distinction observable in practice (Fluent was hard-terminal before
+    // it existed, so a correct review at Fluent could never occur).
+    return { stage: nextStage, result: "advanced", reachedFluent: nextStage === "fluent" && stage !== "fluent" };
   }
 
   return { stage: applyReviewPenalty(stage, srsStrictness), result: "penalized", reachedFluent: false };

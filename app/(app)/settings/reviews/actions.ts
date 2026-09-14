@@ -15,6 +15,7 @@ import {
 } from "@/domains/srs";
 import { requireUser } from "@/domains/users/server";
 import {
+  updateGrammarFluentMode,
   updateGrammarHintMode,
   updateGrammarHintOrder,
   updateGrammarReviewType,
@@ -23,6 +24,7 @@ import {
   updateReviewQueueTiming,
   updateReviewUiToggle,
   updateUndoAction,
+  updateVocabularyFluentMode,
   updateVocabularyHintMode,
   updateVocabularyHintOrder,
   updateVocabularyReviewType,
@@ -234,5 +236,33 @@ export async function updateReviewQueueTimingAction(
     const updated = await updateReviewQueueTiming({ userId: user.id, languageId: user.activeLanguageId, reviewQueueTiming });
     revalidatePath("/settings/reviews");
     return { reviewQueueTiming: updated.reviewQueueTiming };
+  });
+}
+
+const fluentModeInputSchema = z.object({ fluentMode: z.boolean() });
+
+/** Spec 20 Fluent Mode — Grammar Fluent Mode. */
+export async function updateGrammarFluentModeAction(
+  input: z.infer<typeof fluentModeInputSchema>,
+): Promise<ActionResult<{ fluentMode: boolean }>> {
+  return runSettingsAction(async () => {
+    const { fluentMode } = fluentModeInputSchema.parse(input);
+    const user = await requireUser();
+    const updated = await updateGrammarFluentMode({ userId: user.id, languageId: user.activeLanguageId, fluentMode });
+    revalidatePath("/settings/reviews");
+    return { fluentMode: updated.grammarFluentMode };
+  });
+}
+
+/** Spec 20 Fluent Mode — Vocabulary Fluent Mode. */
+export async function updateVocabularyFluentModeAction(
+  input: z.infer<typeof fluentModeInputSchema>,
+): Promise<ActionResult<{ fluentMode: boolean }>> {
+  return runSettingsAction(async () => {
+    const { fluentMode } = fluentModeInputSchema.parse(input);
+    const user = await requireUser();
+    const updated = await updateVocabularyFluentMode({ userId: user.id, languageId: user.activeLanguageId, fluentMode });
+    revalidatePath("/settings/reviews");
+    return { fluentMode: updated.vocabularyFluentMode };
   });
 }

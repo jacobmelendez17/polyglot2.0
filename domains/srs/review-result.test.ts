@@ -30,6 +30,16 @@ describe("calculateReviewStageResult — all-correct advancement (unaffected by 
     ).toBe(false);
   });
 
+  it("a correct Fluent-maintenance review (spec 20 Fluent Mode) stays at Fluent but does NOT report reachedFluent again", () => {
+    // `getNextStage("fluent")` clamps to "fluent" itself, so this is the one
+    // case that could look identical to genuinely first reaching Fluent
+    // without the explicit `stage !== "fluent"` check — regression coverage
+    // for that exact bug, only observable once Fluent Mode's maintenance
+    // loop lets a correct review happen again at Fluent at all.
+    const result = calculateReviewStageResult({ stage: "fluent", hadIncorrectRequiredAnswer: false, srsStrictness: STRICTNESS });
+    expect(result).toEqual({ stage: "fluent", result: "advanced", reachedFluent: false });
+  });
+
   it("correct advancement is identical no matter which strictness is configured", () => {
     const strictnesses: SrsStrictness[] = ["one_stage", "two_stages", "three_stages", "half", "full"];
     for (const srsStrictness of strictnesses) {

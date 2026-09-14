@@ -1,5 +1,6 @@
-export { SRS_STAGE_LABELS, SRS_STAGE_ORDER, getConfiguredInterval, intervalToMs } from "./srs-config";
+export { FLUENT_MAINTENANCE_INTERVAL_MONTHS, SRS_STAGE_LABELS, SRS_STAGE_ORDER, getConfiguredInterval, intervalToMs } from "./srs-config";
 export {
+  calculateFluentMaintenanceReview,
   calculateNextReview,
   getNextStage,
   getStageIndex,
@@ -34,6 +35,7 @@ export { rescheduleReviewAfterIncorrect } from "./review-retry";
 export { getReviewQuestionAnswerSpec } from "./review-answer-spec";
 export type { ReviewQuestionAnswerSpec } from "./review-answer-spec";
 export {
+  DEFAULT_FLUENT_MODE,
   DEFAULT_HINT_MODE,
   DEFAULT_HINT_ORDER,
   DEFAULT_REVIEW_PREFERENCES,

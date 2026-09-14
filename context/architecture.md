@@ -906,12 +906,15 @@ Configuration includes:
 - Early-level accelerated intervals (mode-invariant)
 - SRS Strictness demotion levels (spec 20 — flat 1/2/3-Stage, Half, Full; replaces the old tiered penalty-factor model)
 - Review Queue Timing rounding mode (spec 20 — Start of Hour/Start of Day, one value per language, applied after the SRS Interval schedule produces a raw due time)
+- Fluent Mode (spec 20 — grammar/vocabulary independently, ON by default: a 6-calendar-month maintenance loop instead of terminating at Fluent)
 - Minimum-stage behavior
 - Level-unlock threshold stage
 
 Do not scatter interval literals throughout the application.
 
-SRS Strictness, SRS Interval mode, and Review Queue Timing are all resolved once per review session and embedded in the signed session state (`domains/srs/review-schemas.ts`'s `reviewPreferencesSchema`, plus a top-level `timeZone` snapshot for Start of Day) — a setting change never affects a review session already in progress, and neither SRS Interval nor Review Queue Timing changes ever recalculate a review's existing due time (future-only). The scheduling pipeline is: stage transition → SRS Interval's raw due time → Review Queue Timing's rounding → persisted `nextReviewAt` (`domains/srs/review-completion.ts`).
+SRS Strictness, SRS Interval mode, Review Queue Timing, and Fluent Mode are all resolved once per review session and embedded in the signed session state (`domains/srs/review-schemas.ts`'s `reviewPreferencesSchema`, plus a top-level `timeZone` snapshot for Start of Day) — a setting change never affects a review session already in progress, and none of SRS Interval, Review Queue Timing, or Fluent Mode ever recalculate a review's existing due time (future-only). The scheduling pipeline is: stage transition → (if the new stage is Fluent) Fluent Mode's own 6-month maintenance schedule or terminal `null`, bypassing the rest of the pipeline entirely; otherwise → SRS Interval's raw due time → Review Queue Timing's rounding → persisted `nextReviewAt` (`domains/srs/review-completion.ts`).
+
+**Fluent Mode's maintenance schedule is anchored differently depending on which code path sets it** — this is a real, intentional distinction, not an inconsistency to "fix" into one formula: the live per-review scheduling loop (`review-completion.ts`) anchors to that review's own `now`, the same way every other stage's interval is computed from `now`; only the *toggle*-driven reconciliation for items that have been sitting terminal (`domains/progress/repository.ts`'s `reconcileFluentSchedules`, called from `domains/srs/review-service.ts`'s `updateGrammarFluentMode`/`updateVocabularyFluentMode` inside one transaction with the preference write) anchors to the item's own `fluent_at` — spec 20's own explicit rule for that specific case ("Use fluentAt + 6 calendar months. Do not use settingChangedAt + 6 months").
 
 ## Review Direction Rules
 

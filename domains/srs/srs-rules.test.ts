@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { calculateNextReview, getNextStage, getStageIndex, isReviewDue, isStageAtLeast } from "./srs-rules";
+import { calculateFluentMaintenanceReview, calculateNextReview, getNextStage, getStageIndex, isReviewDue, isStageAtLeast } from "./srs-rules";
 import { SRS_STAGE_ORDER } from "./srs-config";
 
 const NOW = new Date("2026-01-01T00:00:00Z");
@@ -245,6 +245,25 @@ describe("calculateNextReview determinism", () => {
     const first = calculateNextReview({ stage: "beginner_1", level: 3, mode: "default", now: NOW });
     const second = calculateNextReview({ stage: "beginner_1", level: 3, mode: "default", now: NOW });
     expect(first).toEqual(second);
+  });
+});
+
+describe("calculateFluentMaintenanceReview (spec 20 Fluent Mode)", () => {
+  it("matches the spec's own worked example: reached Fluent January 1 -> next review July 1, six calendar months later", () => {
+    const result = calculateFluentMaintenanceReview(new Date("2026-01-01T00:00:00Z"));
+    expect(result).toEqual(new Date("2026-07-01T00:00:00Z"));
+  });
+
+  it("is independent of SRS Interval mode — only ever anchored to fluentAt plus a fixed 6 calendar months", () => {
+    // No `mode` parameter exists at all for this function, unlike `calculateNextReview` — this test documents that omission is deliberate.
+    const result = calculateFluentMaintenanceReview(new Date("2026-03-15T09:00:00Z"));
+    expect(result).toEqual(new Date("2026-09-15T09:00:00Z"));
+  });
+
+  it("uses real calendar-month arithmetic at a month-end boundary, not a fixed 180-day offset", () => {
+    // August 31 + 6 months = February 31, which doesn't exist (2027 is not a leap year and February has 28 days) — overflows into March, same rollover rule as calculateNextReview's Master stage.
+    const result = calculateFluentMaintenanceReview(new Date("2026-08-31T00:00:00Z"));
+    expect(result).toEqual(new Date("2027-03-03T00:00:00Z"));
   });
 });
 

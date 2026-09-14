@@ -16,7 +16,7 @@ import { applyReviewQueueTiming } from "./review-queue-timing";
 import { insertReviewEvent } from "./review-repository";
 import { calculateReviewStageResult } from "./review-result";
 import { SRS_STAGE_ORDER } from "./srs-config";
-import { calculateNextReview, getStageIndex, isReviewDue } from "./srs-rules";
+import { calculateFluentMaintenanceReview, calculateNextReview, getStageIndex, isReviewDue } from "./srs-rules";
 import type { ReviewItemCompletionPreview } from "./review-types";
 
 /**
@@ -49,10 +49,21 @@ export type ApplyReviewCompletionInput = {
   srsStrictness: SrsStrictness;
   /** Spec 20 SRS Interval — which schedule resolves the next review's due date on a correct/advancing result. Resolved by the caller the same way as `srsStrictness`. */
   srsIntervalMode: SrsIntervalMode;
-  /** Spec 20 Review Queue Timing — the final rounding step applied to the raw due time this completion computes. Resolved by the caller the same way as `srsStrictness`/`srsIntervalMode`. */
+  /** Spec 20 Review Queue Timing — the final rounding step applied to the raw due time this completion computes. Resolved by the caller the same way as `srsStrictness`/`srsIntervalMode`. Never applied to a Fluent Mode maintenance schedule — see `fluentMode`. */
   reviewQueueTiming: ReviewQueueTimingMode;
   /** The learner's timezone at session start (spec 20 Review Queue Timing — Start of Day). Only read when `reviewQueueTiming` is `"start_of_day"`. */
   timeZone: string;
+  /**
+   * Spec 20 Fluent Mode — whether this item's content type schedules a
+   * 6-calendar-month maintenance review when a completion lands on Fluent
+   * (`true`), or terminates outright (`false`, `nextReviewAt = null`).
+   * Resolved by the caller the same way as `srsStrictness`/`srsIntervalMode`.
+   * Only consulted when `stageAfter` is `"fluent"` — bypasses SRS Interval
+   * and Review Queue Timing entirely rather than layering on top of them
+   * (spec's own pipeline: "raw next-review timestamp -> Review Queue Timing
+   * -> Fluent behavior if applicable" — Fluent overrides, it doesn't refine).
+   */
+  fluentMode: boolean;
   now: Date;
   /** Client-generated UUID, stable for this item's completion across retries (spec 09 §12). */
   idempotencyKey: string;
@@ -99,17 +110,37 @@ export async function applyReviewCompletion(
         hadIncorrectRequiredAnswer: input.hadIncorrectRequiredAnswer,
         srsStrictness: input.srsStrictness,
       });
-      const rawNextReviewAt = calculateNextReview({
-        stage: stageAfter,
-        level: level.levelNumber,
-        mode: input.srsIntervalMode,
-        now: input.now,
-      });
-      // Spec 20 Review Queue Timing — the pipeline's last step, applied to
-      // every freshly-computed due time regardless of advance/penalty.
-      // `null` (terminal, e.g. Fluent with Fluent Mode off) has nothing to round.
-      const nextReviewAt = rawNextReviewAt && applyReviewQueueTiming(rawNextReviewAt, input.reviewQueueTiming, input.timeZone);
+      // The historical "when did this item first become Fluent" record —
+      // set once, on the completion that first reaches Fluent, and
+      // preserved through every later Fluent-maintenance review. Persisted
+      // for `domains/progress/repository.ts`'s `reconcileFluentSchedules`
+      // (the *toggle*-driven backfill for items that have been sitting
+      // terminal — that is the one place spec 20's "Use fluentAt + 6
+      // calendar months. Do not use settingChangedAt + 6 months" applies).
+      // The *live* maintenance loop below is a different rule and does not
+      // read this value.
       const fluentAt = reachedFluent ? input.now : locked.fluentAt;
+
+      let nextReviewAt: Date | null;
+      if (stageAfter === "fluent") {
+        // Spec 20 Fluent Mode's "Fluent Mode On": "next review in 6 calendar
+        // months," computed fresh from *this* completion the same way every
+        // other stage's interval is computed from `now` — not from the
+        // original `fluentAt`, which would silently stop advancing after
+        // the first maintenance cycle. Bypasses SRS Interval / Review Queue
+        // Timing outright rather than refining their output.
+        nextReviewAt = input.fluentMode ? calculateFluentMaintenanceReview(input.now) : null;
+      } else {
+        const rawNextReviewAt = calculateNextReview({
+          stage: stageAfter,
+          level: level.levelNumber,
+          mode: input.srsIntervalMode,
+          now: input.now,
+        });
+        // Spec 20 Review Queue Timing — the pipeline's last step, applied to
+        // every freshly-computed due time regardless of advance/penalty.
+        nextReviewAt = rawNextReviewAt && applyReviewQueueTiming(rawNextReviewAt, input.reviewQueueTiming, input.timeZone);
+      }
 
       const updated = await applyItemProgressUpdate(tx, {
         userId: input.userId,

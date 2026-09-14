@@ -67,10 +67,11 @@ const reviewQueueTimingModeSchema = z.enum(REVIEW_QUEUE_TIMING_MODES as unknown 
  * mid-session. Re-fetching this per submit instead of trusting the signed
  * copy would violate that directly.
  *
- * Review Type, Review Hints, SRS Strictness, SRS Interval, and Review Queue
- * Timing all live here — each affects either what `buildQuestionView`
- * computes server-side per question, or the authoritative stage/schedule
- * transition itself at completion time (`review-completion.ts`). The seven Review UI toggles
+ * Review Type, Review Hints, SRS Strictness, SRS Interval, Review Queue
+ * Timing, and Fluent Mode all live here — each affects either what
+ * `buildQuestionView` computes server-side per question, or the
+ * authoritative stage/schedule transition itself at completion time
+ * (`review-completion.ts`). The seven Review UI toggles
  * (Autoplay Audio, Lightning Mode, Focus Mode, Auto Highlight Errors, Show
  * SRS Stage, Auto-Expand Info, Undo Action) are pure client presentation
  * with no effect on grading or SRS, so they ride once in
@@ -89,6 +90,8 @@ export const reviewPreferencesSchema = z.object({
   grammarSrsIntervalMode: srsIntervalModeSchema,
   vocabularySrsIntervalMode: srsIntervalModeSchema,
   reviewQueueTiming: reviewQueueTimingModeSchema,
+  grammarFluentMode: z.boolean(),
+  vocabularyFluentMode: z.boolean(),
 });
 
 export const reviewStateSchema = z.object({

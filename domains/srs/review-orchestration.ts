@@ -236,6 +236,8 @@ export async function startReviewSession(
       grammarSrsIntervalMode: reviewPreferences.grammarSrsIntervalMode,
       vocabularySrsIntervalMode: reviewPreferences.vocabularySrsIntervalMode,
       reviewQueueTiming: reviewPreferences.reviewQueueTiming,
+      grammarFluentMode: reviewPreferences.grammarFluentMode,
+      vocabularyFluentMode: reviewPreferences.vocabularyFluentMode,
     },
     stats,
     issuedAt: now,
@@ -406,13 +408,15 @@ export async function submitReviewAnswer(
       if (!snapshot) throw new ReviewError("INVALID_REVIEW_STATE");
 
       const hadIncorrectRequiredAnswer = requiredIds.some((id) => nextState.failedQuestionIds.includes(id));
-      // Spec 20 SRS Strictness / SRS Interval — resolved by content type,
-      // from the session's signed-in preferences, the same split every
-      // other per-content-type setting in this file already uses.
+      // Spec 20 SRS Strictness / SRS Interval / Fluent Mode — resolved by
+      // content type, from the session's signed-in preferences, the same
+      // split every other per-content-type setting in this file already uses.
       const srsStrictness =
         item.type === "vocabulary" ? state.reviewPreferences.vocabularySrsStrictness : state.reviewPreferences.grammarSrsStrictness;
       const srsIntervalMode =
         item.type === "vocabulary" ? state.reviewPreferences.vocabularySrsIntervalMode : state.reviewPreferences.grammarSrsIntervalMode;
+      const fluentMode =
+        item.type === "vocabulary" ? state.reviewPreferences.vocabularyFluentMode : state.reviewPreferences.grammarFluentMode;
       try {
         completedItem = await applyReviewCompletion(db, {
           userId,
@@ -425,6 +429,7 @@ export async function submitReviewAnswer(
           srsStrictness,
           reviewQueueTiming: state.reviewPreferences.reviewQueueTiming,
           timeZone: state.timeZone,
+          fluentMode,
           now: new Date(now),
           idempotencyKey,
           sessionId: state.sessionId,

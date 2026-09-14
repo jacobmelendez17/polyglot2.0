@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { FluentModeToggle } from "@/components/settings/reviews/fluent-mode-toggle";
 import { GrammarReviewTypeSelect } from "@/components/settings/reviews/grammar-review-type-select";
 import { HintModeSelect } from "@/components/settings/reviews/hint-mode-select";
 import { HintOrderSelect } from "@/components/settings/reviews/hint-order-select";
@@ -139,7 +140,20 @@ export default async function ReviewSettingsPage() {
         </div>
       </div>
 
-      <SettingsSectionPlaceholder title="More Review settings" description="Ghost Reviews, Leeches, and Fluent Mode." />
+      <div className="rounded-xl border border-border bg-card p-6">
+        <h2 className="font-heading text-lg font-semibold text-foreground">Fluent Mode</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          When on, an item that reaches Fluent keeps coming back for a maintenance review every 6 months. Turning either off ends
+          reviews outright for items at Fluent in that category — turning it back on picks up a maintenance schedule from when each
+          item first became Fluent.
+        </p>
+        <div className="mt-4">
+          <FluentModeToggle contentType="grammar" initialValue={preferences.grammarFluentMode} />
+          <FluentModeToggle contentType="vocabulary" initialValue={preferences.vocabularyFluentMode} />
+        </div>
+      </div>
+
+      <SettingsSectionPlaceholder title="More Review settings" description="Ghost Reviews and Leeches." />
     </div>
   );
 }

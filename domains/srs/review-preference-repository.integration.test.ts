@@ -9,10 +9,12 @@ import {
   saveGrammarHintOrder,
   saveGrammarReviewType,
   saveGrammarSrsIntervalMode,
+  saveGrammarFluentMode,
   saveGrammarSrsStrictness,
   saveReviewQueueTiming,
   saveReviewUiToggle,
   saveUndoAction,
+  saveVocabularyFluentMode,
   saveVocabularyHintMode,
   saveVocabularyHintOrder,
   saveVocabularyReviewType,
@@ -39,6 +41,8 @@ const DEFAULTS = {
   grammarSrsIntervalMode: "default",
   vocabularySrsIntervalMode: "default",
   reviewQueueTiming: "start_of_hour",
+  grammarFluentMode: true,
+  vocabularyFluentMode: true,
 } as const;
 
 describe("findReviewPreferences", () => {
@@ -186,6 +190,26 @@ describe("Review Queue Timing saves", () => {
 
       const result = await saveReviewQueueTiming(tx, { userId: learnerId, languageId, reviewQueueTiming: "start_of_day" });
       expect(result).toEqual({ userId: learnerId, languageId, ...DEFAULTS, reviewQueueTiming: "start_of_day" });
+    });
+  });
+});
+
+describe("Fluent Mode saves", () => {
+  it("saves grammar and vocabulary Fluent Mode independently of each other and of every other field", async () => {
+    await withTestTransaction(async (tx) => {
+      const { learnerId, languageId } = await seedTestFixtures(tx);
+
+      const afterGrammar = await saveGrammarFluentMode(tx, { userId: learnerId, languageId, fluentMode: false });
+      expect(afterGrammar).toEqual({ userId: learnerId, languageId, ...DEFAULTS, grammarFluentMode: false });
+
+      const afterVocabulary = await saveVocabularyFluentMode(tx, { userId: learnerId, languageId, fluentMode: false });
+      expect(afterVocabulary).toEqual({
+        userId: learnerId,
+        languageId,
+        ...DEFAULTS,
+        grammarFluentMode: false,
+        vocabularyFluentMode: false,
+      });
     });
   });
 });

@@ -1,4 +1,4 @@
-import { getConfiguredInterval, intervalToMs, SRS_STAGE_ORDER } from "./srs-config";
+import { FLUENT_MAINTENANCE_INTERVAL_MONTHS, getConfiguredInterval, intervalToMs, SRS_STAGE_ORDER } from "./srs-config";
 import type { SrsIntervalMode } from "./review-preference";
 import type { SrsInterval, SrsStage } from "./srs-types";
 
@@ -31,6 +31,30 @@ function addCalendarMonths(date: Date, months: number): Date {
   const result = new Date(date.getTime());
   result.setUTCMonth(result.getUTCMonth() + months);
   return result;
+}
+
+/**
+ * Spec 20 Fluent Mode — "next review in 6 calendar months" from `anchor`.
+ * Reuses the same calendar-month arithmetic as SRS Interval's Master stage;
+ * entirely bypasses the normal SRS Interval / Review Queue Timing pipeline
+ * (`review-completion.ts` calls this instead of `calculateNextReview`
+ * whenever a completion lands on Fluent with Fluent Mode enabled), not
+ * layered on top of it.
+ *
+ * Two different callers, two different anchors — both correct for their own
+ * rule, so this function stays agnostic about which one applies:
+ * - The live maintenance loop ("Fluent Mode On": every completed Fluent
+ *   review schedules another one 6 months out) passes that review's own
+ *   `now`, exactly like any other stage's interval is computed from `now`.
+ * - `domains/progress/repository.ts`'s `reconcileFluentSchedules` — the
+ *   *toggle*-driven backfill for items that have been sitting terminal —
+ *   passes the item's own `fluentAt` instead, per spec 20's explicit
+ *   "Existing Fluent Items" contrast: "Use fluentAt + 6 calendar months. Do
+ *   not use settingChangedAt + 6 months." Passing `now` there would be
+ *   exactly the mistake that sentence rules out.
+ */
+export function calculateFluentMaintenanceReview(anchor: Date): Date {
+  return addCalendarMonths(anchor, FLUENT_MAINTENANCE_INTERVAL_MONTHS);
 }
 
 function addInterval(date: Date, interval: SrsInterval): Date {

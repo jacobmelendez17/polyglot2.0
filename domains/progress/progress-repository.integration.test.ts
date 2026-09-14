@@ -30,6 +30,7 @@ import {
   getUserProgressForLanguage,
   hasItemProgress,
   lockItemProgressForReview,
+  reconcileFluentSchedules,
   unlockLevel,
 } from "./repository";
 
@@ -549,6 +550,75 @@ describe("countProgressForItems", () => {
       // Only gato has a seeded progress row for this user; casa/agua have none.
       expect(await countProgressForItems(tx, learnerId, [gatoId, casaId, aguaId])).toBe(1);
       expect(await countProgressForItems(tx, learnerId, [])).toBe(0);
+    });
+  });
+});
+
+describe("reconcileFluentSchedules (spec 20 Fluent Mode)", () => {
+  it("enabling schedules a maintenance review anchored to fluentAt (not now), only for terminal Fluent items of the matching content type", async () => {
+    await withTestTransaction(async (tx) => {
+      const { learnerId, languageId, casaId, grammarYId } = await seedTestFixtures(tx);
+      const fluentAt = new Date("2026-01-01T00:00:00Z");
+
+      await tx.insert(userItemProgress).values([
+        { userId: learnerId, learningItemId: casaId, languageId, srsStage: "fluent", nextReviewAt: null, fluentAt },
+        { userId: learnerId, learningItemId: grammarYId, languageId, srsStage: "fluent", nextReviewAt: null, fluentAt },
+      ]);
+
+      await reconcileFluentSchedules(tx, { userId: learnerId, languageId, itemType: "vocabulary", fluentModeEnabled: true });
+
+      const casaProgress = await getItemProgress(tx, learnerId, casaId);
+      expect(casaProgress?.nextReviewAt).toEqual(new Date("2026-07-01T00:00:00Z"));
+
+      // grammarYId is a different content type — untouched by the vocabulary-scoped call.
+      const grammarProgress = await getItemProgress(tx, learnerId, grammarYId);
+      expect(grammarProgress?.nextReviewAt).toBeNull();
+    });
+  });
+
+  it("disabling nulls out only Fluent-stage items with a live schedule, of the matching content type", async () => {
+    await withTestTransaction(async (tx) => {
+      const { learnerId, languageId, casaId, grammarYId } = await seedTestFixtures(tx);
+      const scheduled = new Date("2026-07-01T00:00:00Z");
+
+      await tx.insert(userItemProgress).values([
+        { userId: learnerId, learningItemId: casaId, languageId, srsStage: "fluent", nextReviewAt: scheduled, fluentAt: new Date("2026-01-01T00:00:00Z") },
+        { userId: learnerId, learningItemId: grammarYId, languageId, srsStage: "fluent", nextReviewAt: scheduled, fluentAt: new Date("2026-01-01T00:00:00Z") },
+      ]);
+
+      await reconcileFluentSchedules(tx, { userId: learnerId, languageId, itemType: "vocabulary", fluentModeEnabled: false });
+
+      expect((await getItemProgress(tx, learnerId, casaId))?.nextReviewAt).toBeNull();
+      // grammarYId untouched — different content type.
+      expect((await getItemProgress(tx, learnerId, grammarYId))?.nextReviewAt).toEqual(scheduled);
+    });
+  });
+
+  it("never touches a non-Fluent scheduled review", async () => {
+    await withTestTransaction(async (tx) => {
+      const { learnerId, languageId, casaId } = await seedTestFixtures(tx);
+      const scheduled = new Date("2026-07-01T00:00:00Z");
+      await tx.insert(userItemProgress).values({ userId: learnerId, learningItemId: casaId, languageId, srsStage: "beginner_2", nextReviewAt: scheduled });
+
+      await reconcileFluentSchedules(tx, { userId: learnerId, languageId, itemType: "vocabulary", fluentModeEnabled: false });
+
+      expect((await getItemProgress(tx, learnerId, casaId))?.nextReviewAt).toEqual(scheduled);
+    });
+  });
+
+  it("is idempotent — a second enable call makes no further change once a maintenance schedule is already set", async () => {
+    await withTestTransaction(async (tx) => {
+      const { learnerId, languageId, casaId } = await seedTestFixtures(tx);
+      const fluentAt = new Date("2026-01-01T00:00:00Z");
+      await tx.insert(userItemProgress).values({ userId: learnerId, learningItemId: casaId, languageId, srsStage: "fluent", nextReviewAt: null, fluentAt });
+
+      await reconcileFluentSchedules(tx, { userId: learnerId, languageId, itemType: "vocabulary", fluentModeEnabled: true });
+      const afterFirst = (await getItemProgress(tx, learnerId, casaId))?.nextReviewAt;
+
+      await reconcileFluentSchedules(tx, { userId: learnerId, languageId, itemType: "vocabulary", fluentModeEnabled: true });
+      const afterSecond = (await getItemProgress(tx, learnerId, casaId))?.nextReviewAt;
+
+      expect(afterSecond).toEqual(afterFirst);
     });
   });
 });

@@ -49,6 +49,8 @@ function toReviewPreferences(row: ReviewPreferencesRow): ReviewPreferences {
     grammarSrsIntervalMode: row.grammarSrsIntervalMode,
     vocabularySrsIntervalMode: row.vocabularySrsIntervalMode,
     reviewQueueTiming: row.reviewQueueTiming,
+    grammarFluentMode: row.grammarFluentMode,
+    vocabularyFluentMode: row.vocabularyFluentMode,
   };
 }
 
@@ -159,4 +161,21 @@ export function saveVocabularySrsIntervalMode(db: DbClient, input: { userId: str
 /** Spec 20 Review Queue Timing — one value per language, not split grammar/vocabulary. */
 export function saveReviewQueueTiming(db: DbClient, input: { userId: string; languageId: string; reviewQueueTiming: ReviewQueueTimingMode }) {
   return savePreferenceField(db, "reviewQueueTiming", { ...input, value: input.reviewQueueTiming });
+}
+
+/**
+ * Spec 20 Fluent Mode — Grammar Fluent Mode. Only the preference column
+ * itself; the cascading effect on already-Fluent items' `nextReviewAt`
+ * (`domains/progress/repository.ts`'s `reconcileFluentSchedules`) is the
+ * caller's job (`domains/srs/review-service.ts`'s `updateGrammarFluentMode`)
+ * — kept out of this repository since it reaches into a different table
+ * entirely, unlike every other single-column save here.
+ */
+export function saveGrammarFluentMode(db: DbClient, input: { userId: string; languageId: string; fluentMode: boolean }) {
+  return savePreferenceField(db, "grammarFluentMode", { ...input, value: input.fluentMode });
+}
+
+/** Spec 20 Fluent Mode — Vocabulary Fluent Mode. See `saveGrammarFluentMode`. */
+export function saveVocabularyFluentMode(db: DbClient, input: { userId: string; languageId: string; fluentMode: boolean }) {
+  return savePreferenceField(db, "vocabularyFluentMode", { ...input, value: input.fluentMode });
 }

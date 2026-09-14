@@ -32,11 +32,22 @@ async function markDue(
   userId: string,
   learningItemId: string,
   languageId: string,
-  overrides: { srsStage?: SrsStage; now?: number } = {},
+  overrides: { srsStage?: SrsStage; now?: number; fluentAt?: Date | null } = {},
 ) {
   const past = new Date((overrides.now ?? Date.now()) - 60_000);
   const srsStage = overrides.srsStage ?? "beginner_2";
-  const baseline = { srsStage, nextReviewAt: past, correctCount: 0, incorrectCount: 0, reviewCount: 0, version: 0 };
+  const baseline = {
+    srsStage,
+    nextReviewAt: past,
+    correctCount: 0,
+    incorrectCount: 0,
+    reviewCount: 0,
+    version: 0,
+    // Spec 20 Fluent Mode — only meaningful (and required) when seeding a
+    // row directly at `srsStage: "fluent"`; every other stage leaves this
+    // `null`, matching a real item that has never reached Fluent.
+    fluentAt: overrides.fluentAt ?? null,
+  };
   await tx
     .insert(userItemProgress)
     .values({ userId, learningItemId, languageId, ...baseline })
@@ -122,6 +133,17 @@ async function setReviewQueueTiming(tx: DbClient, userId: string, languageId: st
     .onConflictDoUpdate({
       target: [userReviewPreferences.userId, userReviewPreferences.languageId],
       set: { reviewQueueTiming },
+    });
+}
+
+/** Spec 20 Fluent Mode — sets the vocabulary Fluent Mode toggle a fresh session should resolve at `startReviewSession` time. */
+async function setVocabularyFluentMode(tx: DbClient, userId: string, languageId: string, fluentMode: boolean) {
+  await tx
+    .insert(userReviewPreferences)
+    .values({ userId, languageId, vocabularyFluentMode: fluentMode })
+    .onConflictDoUpdate({
+      target: [userReviewPreferences.userId, userReviewPreferences.languageId],
+      set: { vocabularyFluentMode: fluentMode },
     });
 }
 
@@ -490,11 +512,16 @@ describe("submitReviewAnswer — Flashcard (self-graded, both directions — com
     });
   });
 
-  it("reaching Fluent ends the scheduled review cycle (no next review time)", async () => {
+  it("reaching Fluent with Fluent Mode off ends the scheduled review cycle (no next review time)", async () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
       await markDue(tx, learnerId, gatoId, languageId, { srsStage: "master" });
       await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
+      // Spec 20 Fluent Mode defaults ON (a 6-month maintenance schedule
+      // instead of a terminal null) — turned off here to preserve this
+      // test's original intent (see the dedicated "submitReviewAnswer —
+      // Fluent Mode" describe block below for the on-by-default behavior).
+      await setVocabularyFluentMode(tx, learnerId, languageId, false);
 
       const started = await startReviewSession(tx, { userId: learnerId, languageId });
       if (started.kind !== "session") throw new Error("expected a session");
@@ -788,6 +815,168 @@ describe("submitReviewAnswer — Review Queue Timing (spec 20)", () => {
   });
 });
 
+describe("submitReviewAnswer — Fluent Mode (spec 20)", () => {
+  /** Both required directions answered correctly. */
+  async function completeBothDirectionsCorrectly(tx: DbClient, token: string, firstQuestionId: string, userId: string, languageId: string, now: number) {
+    const first = await submitKnows(tx, {
+      token,
+      userId,
+      languageId,
+      questionId: firstQuestionId,
+      knowsAnswer: true,
+      idempotencyKey: crypto.randomUUID(),
+      now,
+    });
+    return submitKnows(tx, {
+      token: first.token,
+      userId,
+      languageId,
+      questionId: first.currentQuestion!.questionId,
+      knowsAnswer: true,
+      idempotencyKey: crypto.randomUUID(),
+      now,
+    });
+  }
+
+  /** Wrong on the first question, correct on the other required direction, then correct on the first question's retry — the only sequence that both completes the item and carries `hadIncorrectRequiredAnswer: true` (an incorrect answer reschedules its question rather than satisfying it). */
+  async function completeWithOneEarlierIncorrectAnswer(tx: DbClient, token: string, firstQuestionId: string, userId: string, languageId: string, now: number) {
+    const wrong = await submitKnows(tx, { token, userId, languageId, questionId: firstQuestionId, knowsAnswer: false, idempotencyKey: crypto.randomUUID(), now });
+    const other = await submitKnows(tx, {
+      token: wrong.token,
+      userId,
+      languageId,
+      questionId: wrong.currentQuestion!.questionId,
+      knowsAnswer: true,
+      idempotencyKey: crypto.randomUUID(),
+      now,
+    });
+    return submitKnows(tx, {
+      token: other.token,
+      userId,
+      languageId,
+      questionId: firstQuestionId,
+      knowsAnswer: true,
+      idempotencyKey: crypto.randomUUID(),
+      now,
+    });
+  }
+
+  it("reaching Fluent with Fluent Mode on (the default) schedules a maintenance review 6 calendar months out", async () => {
+    await withTestTransaction(async (tx) => {
+      const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
+      const now = Date.parse("2026-01-01T00:00:00Z");
+      await markDue(tx, learnerId, gatoId, languageId, { srsStage: "master", now });
+      await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
+
+      const started = await startReviewSession(tx, { userId: learnerId, languageId, now });
+      if (started.kind !== "session") throw new Error("expected a session");
+
+      const response = await completeBothDirectionsCorrectly(tx, started.token, started.currentQuestion!.questionId, learnerId, languageId, now);
+
+      expect(response.completedItem).toMatchObject({ stageBefore: "master", stageAfter: "fluent", result: "advanced", reachedFluent: true });
+      expect(response.completedItem?.nextReviewAt).toEqual(new Date("2026-07-01T00:00:00Z"));
+    });
+  });
+
+  it("reaching Fluent with Fluent Mode off terminates the item outright", async () => {
+    await withTestTransaction(async (tx) => {
+      const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
+      const now = Date.parse("2026-01-01T00:00:00Z");
+      await markDue(tx, learnerId, gatoId, languageId, { srsStage: "master", now });
+      await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
+      await setVocabularyFluentMode(tx, learnerId, languageId, false);
+
+      const started = await startReviewSession(tx, { userId: learnerId, languageId, now });
+      if (started.kind !== "session") throw new Error("expected a session");
+
+      const response = await completeBothDirectionsCorrectly(tx, started.token, started.currentQuestion!.questionId, learnerId, languageId, now);
+
+      expect(response.completedItem).toMatchObject({ stageBefore: "master", stageAfter: "fluent", result: "advanced", reachedFluent: true });
+      expect(response.completedItem?.nextReviewAt).toBeNull();
+    });
+  });
+
+  it("a correctly-answered Fluent maintenance review stays Fluent, does not re-report reachedFluent, and reschedules 6 months from that review's own completion time (not the original fluentAt)", async () => {
+    await withTestTransaction(async (tx) => {
+      const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
+      const firstNow = Date.parse("2026-01-01T00:00:00Z");
+      await markDue(tx, learnerId, gatoId, languageId, { srsStage: "master", now: firstNow });
+      await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
+
+      const firstSession = await startReviewSession(tx, { userId: learnerId, languageId, now: firstNow });
+      if (firstSession.kind !== "session") throw new Error("expected a session");
+      const firstResponse = await completeBothDirectionsCorrectly(
+        tx,
+        firstSession.token,
+        firstSession.currentQuestion!.questionId,
+        learnerId,
+        languageId,
+        firstNow,
+      );
+      const secondNow = firstResponse.completedItem!.nextReviewAt!.getTime();
+      expect(secondNow).toBe(Date.parse("2026-07-01T00:00:00Z"));
+
+      // The item is now due again, exactly at its maintenance schedule — start a second session there.
+      const secondSession = await startReviewSession(tx, { userId: learnerId, languageId, now: secondNow });
+      if (secondSession.kind !== "session") throw new Error("expected a session");
+      const secondResponse = await completeBothDirectionsCorrectly(
+        tx,
+        secondSession.token,
+        secondSession.currentQuestion!.questionId,
+        learnerId,
+        languageId,
+        secondNow,
+      );
+
+      expect(secondResponse.completedItem).toMatchObject({ stageBefore: "fluent", stageAfter: "fluent", result: "advanced", reachedFluent: false });
+      // 2026-07-01 + 6 months = 2027-01-01 — from *this* review's own completion time, not "original fluentAt (Jan 1) + 6 months" (which would wrongly be July 1 again, i.e. already due).
+      expect(secondResponse.completedItem?.nextReviewAt).toEqual(new Date("2027-01-01T00:00:00Z"));
+    });
+  });
+
+  it("an incorrect Fluent review demotes using the learner's normal SRS Strictness, and normal SRS scheduling resumes", async () => {
+    await withTestTransaction(async (tx) => {
+      const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
+      const now = Date.parse("2026-01-31T00:00:00Z");
+      await markDue(tx, learnerId, gatoId, languageId, { srsStage: "fluent", now, fluentAt: new Date("2025-01-01T00:00:00Z") });
+      await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
+
+      const started = await startReviewSession(tx, { userId: learnerId, languageId, now });
+      if (started.kind !== "session") throw new Error("expected a session");
+
+      const response = await completeWithOneEarlierIncorrectAnswer(tx, started.token, started.currentQuestion!.questionId, learnerId, languageId, now);
+
+      // Default SRS Strictness (1 Stage): Fluent (position 9) - 1 = Master.
+      expect(response.completedItem).toMatchObject({ stageBefore: "fluent", stageAfter: "master", result: "penalized", reachedFluent: false });
+      // Normal SRS Interval scheduling resumes — Default mode's Master interval is 3 calendar months, not the Fluent 6-month schedule.
+      // January 31 + 3 months overflows past April's 30 days to May 1 (real calendar-month arithmetic, not a fixed-day approximation).
+      expect(response.completedItem?.nextReviewAt).toEqual(new Date("2026-05-01T00:00:00Z"));
+    });
+  });
+
+  it("a Fluent Mode change made after a session starts does not affect that already-open session's scheduling", async () => {
+    await withTestTransaction(async (tx) => {
+      const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
+      const now = Date.parse("2026-01-01T00:00:00Z");
+      await markDue(tx, learnerId, gatoId, languageId, { srsStage: "master", now });
+      await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
+      // Fluent Mode on (the default) in effect when this session starts.
+
+      const started = await startReviewSession(tx, { userId: learnerId, languageId, now });
+      if (started.kind !== "session") throw new Error("expected a session");
+
+      // The learner turns Fluent Mode off in another tab while this session is still open.
+      await setVocabularyFluentMode(tx, learnerId, languageId, false);
+
+      const response = await completeBothDirectionsCorrectly(tx, started.token, started.currentQuestion!.questionId, learnerId, languageId, now);
+
+      // Still the on-at-session-start 6-month schedule, not off's null.
+      expect(response.completedItem).toMatchObject({ stageBefore: "master", stageAfter: "fluent", result: "advanced", reachedFluent: true });
+      expect(response.completedItem?.nextReviewAt).toEqual(new Date("2026-07-01T00:00:00Z"));
+    });
+  });
+});
+
 describe("atomic review completion (spec 09 unit 4)", () => {
   it("actually updates the real user_item_progress row, not just the returned preview", async () => {
     await withTestTransaction(async (tx) => {
@@ -919,6 +1108,7 @@ describe("atomic review completion (spec 09 unit 4)", () => {
           srsIntervalMode: "default",
           reviewQueueTiming: "start_of_hour",
           timeZone: "UTC",
+          fluentMode: true,
           now: new Date(),
           idempotencyKey: crypto.randomUUID(),
           sessionId: "session-stale-test",
@@ -958,6 +1148,7 @@ describe("atomic review completion (spec 09 unit 4)", () => {
           srsIntervalMode: "default",
           reviewQueueTiming: "start_of_hour",
           timeZone: "UTC",
+          fluentMode: true,
           now: new Date(),
           idempotencyKey: crypto.randomUUID(),
           sessionId: "session-not-due-test",
@@ -1036,6 +1227,7 @@ describe("atomic review completion (spec 09 unit 4)", () => {
         srsIntervalMode: "default" as const,
         reviewQueueTiming: "start_of_hour" as const,
         timeZone: "UTC",
+        fluentMode: true,
         now: new Date(),
         idempotencyKey: key,
         sessionId: "session-replay-test",
@@ -1076,6 +1268,7 @@ describe("atomic review completion (spec 09 unit 4)", () => {
           srsIntervalMode: "default",
           reviewQueueTiming: "start_of_hour",
           timeZone: "UTC",
+          fluentMode: true,
         now: new Date(),
         idempotencyKey: key,
         sessionId: "session-conflict-test",
@@ -1093,6 +1286,7 @@ describe("atomic review completion (spec 09 unit 4)", () => {
           srsIntervalMode: "default",
           reviewQueueTiming: "start_of_hour",
           timeZone: "UTC",
+          fluentMode: true,
           now: new Date(),
           idempotencyKey: key,
           sessionId: "session-conflict-test",
@@ -1236,6 +1430,7 @@ describe("atomic review completion (spec 09 unit 4)", () => {
           srsIntervalMode: "default",
           reviewQueueTiming: "start_of_hour",
           timeZone: "UTC",
+          fluentMode: true,
           now: new Date(),
           idempotencyKey: crypto.randomUUID(), // different keys — this proves the row lock/version guard itself, independent of idempotency
           sessionId: "session-concurrent-a",

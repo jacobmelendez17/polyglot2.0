@@ -162,14 +162,11 @@ every boundary before considering these done)*
 24. Delete Account — request → email-verified confirmation → 7-day pending
     window → cancel → the Vercel Cron finalize job from decision 1.
 
-**Units 1-14 are done — see their Completed entries below.** Account,
+**Units 1-15 are done — see their Completed entries below.** Account,
 General, and Lessons are fully complete; Reviews has Review Types, Review
-Hints, Review UI, SRS Strictness, SRS Interval, and now Review Queue Timing —
-`user_review_preferences` now has 20 columns. Unit 15 (Fluent Mode) is next,
-continuing Phase E — it will be the first unit to actually call
-`domains/srs`'s new `applyReviewQueueTiming` (unit 14's own rounding step)
-on a Fluent maintenance review's due time, since Fluent scheduling doesn't
-exist yet.
+Hints, Review UI, SRS Strictness, SRS Interval, Review Queue Timing, and now
+Fluent Mode — `user_review_preferences` now has 22 columns. Unit 16 (Ghost
+Reviews) is next, continuing Phase E.
 
 **Migration-tooling note for every future unit touching a Postgres enum**:
 `drizzle-kit migrate`'s CLI proved unreliable in this session's environment
@@ -1198,6 +1195,121 @@ writing to real `user_item_progress` rows.
 ## Completed
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
+
+- **Spec 20 unit 15 — Fluent Mode** (2026-09-14). Continues Phase E: a
+  `grammarFluentMode`/`vocabularyFluentMode` toggle pair (both boolean, ON
+  by default per the spec) controlling what happens once an item reaches
+  Fluent — a 6-calendar-month maintenance loop (ON) or the pre-spec-20
+  terminal `nextReviewAt = null` (OFF).
+
+  **A real pre-existing bug, only observable once this unit's maintenance
+  loop exists at all**: `review-result.ts`'s `reachedFluent` flag
+  (`nextStage === "fluent"`) didn't check whether the item was *already* at
+  Fluent — `getNextStage` clamps at the end of `SRS_STAGE_ORDER`, so every
+  correct review at Fluent, not just the first, satisfied that condition.
+  Before this unit, Fluent was hard-terminal, so a correct review could
+  never happen there again and the bug had no live code path to manifest
+  through. Fixed with one added condition (`&& stage !== "fluent"`) and a
+  regression test (`review-result.test.ts`) plus an orchestration-level
+  proof that a real maintenance review doesn't re-report it.
+
+  **Two different valid anchors for the identical "+6 calendar months"
+  calculation, not one formula misapplied** — this took a wrong first draft
+  to get right. The live per-review maintenance loop (`review-completion.ts`,
+  "Fluent Mode On": "next review in 6 calendar months") anchors to *that
+  review's own* `now`, exactly like every other stage's interval — my
+  initial implementation wrongly anchored every maintenance cycle to the
+  item's original `fluentAt` instead, which (since `fluentAt` is deliberately
+  never updated after the first arrival, per the bug fix above) would have
+  made every subsequent maintenance review's `nextReviewAt` land on the
+  *same* date forever rather than actually advancing. Caught before writing
+  any test, by working through what a second maintenance cycle should
+  concretely produce and finding the two formulas disagreed. The
+  `fluentAt`-anchored formula is correct for exactly one place: spec 20's
+  own separately-titled "Existing Fluent Items" rule — reconciling items
+  that have been sitting terminal when the learner (re-)enables Fluent Mode,
+  where "Use fluentAt + 6 calendar months. Do not use settingChangedAt + 6
+  months" is explicit. `calculateFluentMaintenanceReview` (`srs-rules.ts`)
+  stays a single generic "anchor + 6 months" function precisely because both
+  call sites are legitimately different anchors for the same math, not
+  because one of them is wrong.
+
+  **Fluent bypasses SRS Interval and Review Queue Timing outright, not
+  layered on top of them** — confirmed directly from spec 20's own SRS Data
+  Flow pipeline diagram ordering ("raw next-review timestamp → Review Queue
+  Timing → **Fluent behavior if applicable**"): `review-completion.ts`
+  branches before either step whenever `stageAfter === "fluent"`, so Start
+  of Hour/Start of Day rounding never touches a 6-month-out Fluent date.
+
+  **Toggling either setting has a real cascading effect on already-Fluent
+  items** — a first for a Reviews setting in this spec (every prior Reviews
+  toggle was a pure preference value, consulted only at read time).
+  `domains/progress/repository.ts`'s new `reconcileFluentSchedules`:
+  enabling gives every terminal Fluent-stage item of that content type a
+  maintenance schedule anchored to its own `fluent_at`; disabling nulls out
+  every Fluent-stage item with a live schedule. Naturally idempotent (each
+  branch's own `next_review_at IS NULL`/`IS NOT NULL` filter stops matching
+  once applied) and fetch-then-update rather than one bulk `UPDATE ... CASE`
+  — deliberately unlike `applyVacationSchedulingAdjustment`'s account-wide
+  precedent, since this only ever touches one learner's Fluent-stage items
+  in one content type/language (a small, bounded, rare-action set, not a hot
+  path), and doing the calendar-month math in JS via
+  `calculateFluentMaintenanceReview` avoids a real, confirmed (queried
+  directly against the dev DB via `interval '6 month'`) divergence from
+  Postgres's own interval arithmetic: Postgres clamps at a short month's end
+  (Jan 31 + 1 month = Feb 28) where this codebase's JS-based calendar
+  arithmetic overflows into the next month instead (Jan 31 + 1 month = Mar
+  3) — mixing the two would have made a toggle-driven reschedule silently
+  disagree with a normal review-completion's schedule for the exact same
+  kind of date math. Wired into `domains/srs/review-service.ts`'s
+  `updateGrammarFluentMode`/`updateVocabularyFluentMode` inside one
+  `db.transaction()` with the preference write — the same
+  commit-together-or-not-at-all guarantee `vacation-service.ts`'s
+  `disableVacationMode` already established for Vacation Mode's equivalent
+  toggle-with-cascading-schedule-effect case.
+
+  **No historical backfill migration was needed for the "Fluent Migration"
+  spec section** (reconciling *all* existing Fluent items now that the
+  default is ON) — queried the real dev database directly before assuming
+  one was required (`select srs_stage, count(*) from user_item_progress
+  group by srs_stage`) and found zero rows at any stage past `beginner_2`,
+  so there is nothing yet for that one-time reconciliation to do. The
+  ongoing mechanism it would have used already exists and is exercised by
+  every "enabling" `reconcileFluentSchedules` test — if real Fluent items
+  ever exist before this ships, running that same reconciliation once,
+  system-wide, is the correct follow-up, not a new code path.
+
+  **Threading and session-pinning**: identical pattern to units 12/13/14 —
+  `fluentMode` resolved by content type from the session's signed-in
+  preferences, passed into `applyReviewCompletion`'s new required
+  `fluentMode` field, and (per spec 20's own "Review Session" list, which
+  names "Fluent Mode" alongside review type/SRS strictness/SRS interval/
+  queue timing) signed into `ReviewState` at session start — a mid-session
+  toggle change has no effect on that already-open session, proven by a
+  dedicated integration test.
+
+  Settings UI: new `FluentModeToggle` component (grammar/vocabulary,
+  reusing `InlineToggleSettingField` directly rather than a new primitive —
+  the same boolean-field shape as every Review UI toggle, just with its own
+  dedicated Server Action instead of the generic toggle-field mechanism,
+  since this one has the cascading reconciliation side effect), wired into
+  `/settings/reviews`'s new "Fluent Mode" section. `project-overview.md`'s
+  SRS/Review Scoring sections and `architecture.md`'s SRS Configuration
+  section were both extended to describe Fluent Mode and its two-anchor
+  scheduling rule.
+
+  Verified: `tsc`/`eslint` clean, 983 unit tests (4 new, across
+  `review-result.test.ts`, `srs-rules.test.ts`), `npm run build` clean,
+  `drizzle-kit check` clean (two brand-new boolean columns, no enum
+  involved), new repository-save, `reconcileFluentSchedules`, and
+  orchestration-level integration tests all passing (including a real
+  two-session-cycle proof that a second Fluent maintenance review
+  reschedules from its own completion time, not the frozen `fluentAt`), one
+  pre-existing test's title/setup updated to reflect the new on-by-default
+  behavior it was implicitly assuming away, full `npm run test:integration`
+  run with failures matching the established pre-existing baseline (3
+  unscoped audit-log queries, 1 idempotency cleanup-count flake, 2 item-`y`
+  fixture-drift symptoms) — no new regressions.
 
 - **Spec 20 unit 14 — Review Queue Timing** (2026-09-14). Continues Phase E:
   adds the pipeline's last step — spec 20's own diagram is "stage transition
