@@ -48,10 +48,11 @@ export function CurriculumChoiceView({
   const [error, setError] = useState<string | null>(null);
   const [isSaving, startSaving] = useTransition();
 
-  // Theme mode with themes available needs one picked; with none available
-  // the learner picks at their first lesson instead, so the button stays
-  // usable rather than trapping them on a screen with nothing to choose.
-  const needsTheme = mode === "theme" && themes.length > 0 && !themeId;
+  // Choose Group as You Go with groups available needs one picked; with
+  // none available the learner picks at their first lesson instead, so the
+  // button stays usable rather than trapping them on a screen with nothing
+  // to choose.
+  const needsTheme = mode === "choose_group" && themes.length > 0 && !themeId;
   const canContinue = mode !== null && !needsTheme;
 
   function handleContinue() {
@@ -67,7 +68,7 @@ export function CurriculumChoiceView({
     startSaving(async () => {
       const result = await setCurriculumPreferenceAction({
         curriculumMode: mode,
-        selectedVocabularyGroupId: mode === "theme" ? themeId : null,
+        selectedVocabularyGroupId: mode === "choose_group" ? themeId : null,
       });
       if (!result.ok) {
         setError(result.error.message);
@@ -100,7 +101,7 @@ export function CurriculumChoiceView({
           selectedMode={mode}
           onSelectMode={(next) => {
             setMode(next);
-            if (next !== "theme") setThemeId(null);
+            if (next !== "choose_group") setThemeId(null);
           }}
           themes={themes}
           selectedThemeId={themeId}

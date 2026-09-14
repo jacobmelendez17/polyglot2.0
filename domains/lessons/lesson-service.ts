@@ -181,7 +181,7 @@ export type StartLessonInput = {
 };
 
 /** The mode a lesson is built under when the learner has no stored preference — used only by the fixture-backed unit tests and the pre-spec-16 call shape. */
-const FALLBACK_CURRICULUM_MODE: CurriculumMode = "balanced";
+const FALLBACK_CURRICULUM_MODE: CurriculumMode = "variety";
 
 /**
  * Spec 07 §10 — server-selected batch, signed initial state — now under the
@@ -204,10 +204,10 @@ export async function startLesson({
   const batchSize = getLessonBatchSize();
   const mode = settings?.curriculumMode ?? FALLBACK_CURRICULUM_MODE;
 
-  if (mode === "theme") {
+  if (mode === "choose_group") {
     const themes = toThemeChoices(eligibleItems);
     if (isThemeSelectionRequired(settings, themes.map((theme) => theme.id))) {
-      // Nothing left in any theme is "nothing left to learn", not a choice.
+      // Nothing left in any group is "nothing left to learn", not a choice.
       if (themes.length === 0) return { kind: "empty" };
       return { kind: "choose-theme", themes };
     }
@@ -218,6 +218,7 @@ export async function startLesson({
     batchSize,
     mode,
     selectedThemeId: settings?.selectedVocabularyGroupId ?? null,
+    grammarPlacement: settings?.grammarPlacement,
   });
 
   if (selected.length === 0) {

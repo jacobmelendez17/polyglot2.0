@@ -18,9 +18,10 @@ type CurriculumModePickerProps = {
 };
 
 /**
- * The mode (and, for Theme mode, the theme) chooser — spec 16's curriculum
- * decider, as pure presentation. Owns no persistence and no routing, so the
- * onboarding screen, the Sandbox preview, and any later Settings surface can
+ * The Learning Queue mode (and, for Choose Group as You Go, the group)
+ * chooser — spec 16's curriculum decider, renamed/consolidated by spec 20,
+ * as pure presentation. Owns no persistence and no routing, so the
+ * onboarding screen, the Sandbox preview, and Settings' `/settings/lessons`
  * all render the same control.
  *
  * A radio group rather than a set of buttons: these are three mutually
@@ -78,7 +79,7 @@ export function CurriculumModePicker({
         })}
       </fieldset>
 
-      {selectedMode === "theme" && themes.length > 0 ? (
+      {selectedMode === "choose_group" && themes.length > 0 ? (
         <fieldset disabled={disabled} className="flex flex-col gap-3">
           <legend className="mb-1 font-medium text-foreground">Which theme first?</legend>
           <div className="flex flex-wrap gap-2">
@@ -111,7 +112,7 @@ export function CurriculumModePicker({
         </fieldset>
       ) : null}
 
-      {selectedMode === "theme" && themes.length === 0 ? (
+      {selectedMode === "choose_group" && themes.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           You&apos;ll pick your first theme when your first lesson is ready.
         </p>

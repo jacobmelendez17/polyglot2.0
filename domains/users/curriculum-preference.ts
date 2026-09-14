@@ -1,17 +1,41 @@
 /**
- * The learner's curriculum-mode preference (spec 16), as pure values and
- * rules. Database-free on purpose: the modes are needed by the onboarding
- * screen, the Sandbox, and `domains/lessons`' batch selection, and only one
- * of those has a database in reach.
+ * The learner's curriculum-mode preference, as pure values and rules.
+ * Database-free on purpose: the modes are needed by the onboarding screen,
+ * the Sandbox, and `domains/lessons`' batch selection, and only one of
+ * those has a database in reach.
  *
  * This module owns *what the modes are*. It deliberately owns neither how
  * they are worded to a learner (that is UI copy, in
  * `components/curriculum/`) nor how a batch is built from one (that is
  * `domains/lessons`' `lesson-batch.ts`, which owns batch selection).
+ *
+ * Originally spec 16's `theme`/`random`/`balanced`; spec 20 ("Learning
+ * Queue") renamed and consolidated these to three different modes. Old
+ * `theme` → `choose_group` (a rename, same behavior); old `random` *and*
+ * `balanced` both → `variety` (a real, spec-mandated behavior change for
+ * anyone previously in `random` — see `db/schema/user-settings.ts`'s
+ * `curriculumModeEnum` docstring for the full migration story, including
+ * why the database enum still contains the old labels even though nothing
+ * in this codebase ever produces or expects them again after that
+ * migration's backfill). `default_order` is new, not a rename.
  */
 
-export const CURRICULUM_MODES = ["theme", "random", "balanced"] as const;
+export const CURRICULUM_MODES = ["default_order", "choose_group", "variety"] as const;
 export type CurriculumMode = (typeof CURRICULUM_MODES)[number];
+
+/**
+ * Spec 20 Lessons — Grammar Placement. Meaningful only in `variety` mode;
+ * `default_order` always teaches grammar first and `choose_group` follows
+ * the grammar curriculum's own authored order regardless, both regardless
+ * of this setting (`domains/lessons/lesson-batch.ts` enforces that, not a
+ * database constraint — every mode still stores a value).
+ */
+export const GRAMMAR_PLACEMENTS = ["first", "last", "no_preference"] as const;
+export type GrammarPlacement = (typeof GRAMMAR_PLACEMENTS)[number];
+
+export function isGrammarPlacement(value: unknown): value is GrammarPlacement {
+  return typeof value === "string" && (GRAMMAR_PLACEMENTS as readonly string[]).includes(value);
+}
 
 /**
  * A learner's settings for one language. `null` from a lookup means "has
@@ -23,8 +47,10 @@ export type LanguageSettings = {
   userId: string;
   languageId: string;
   curriculumMode: CurriculumMode;
-  /** Theme mode only, and `null` until a theme is picked or after one is finished. Every other mode stores `null` — the database enforces it. */
+  /** Choose Group as You Go only, and `null` until a group is picked or after one is finished. Every other mode stores `null` — the database enforces it. */
   selectedVocabularyGroupId: string | null;
+  /** Meaningful only in `variety` mode — see `GrammarPlacement`'s docstring. */
+  grammarPlacement: GrammarPlacement;
 };
 
 /** Narrows an untrusted value (a form field, a URL parameter) to a real mode. Validation still belongs at the boundary; this is what the boundary checks against. */
@@ -47,19 +73,19 @@ export function isCurriculumChoiceRequired(
 }
 
 /**
- * Whether Theme mode still needs a theme chosen before a lesson can be
- * built. True when the learner is in Theme mode and either has never picked
- * a theme or the one they picked has no eligible items left — spec 16's
- * "After a theme is completed, the learner chooses another available theme".
+ * Whether Choose Group as You Go still needs a group chosen before a lesson
+ * can be built. True when the learner is in that mode and either has never
+ * picked a group or the one they picked has no eligible items left — "after
+ * the active group is completed, the learner chooses another."
  *
- * Takes the *eligible* theme ids rather than every theme in the curriculum,
- * so a finished theme and a theme that never existed resolve the same way.
+ * Takes the *eligible* group ids rather than every group in the curriculum,
+ * so a finished group and a group that never existed resolve the same way.
  */
 export function isThemeSelectionRequired(
   settings: LanguageSettings | null,
   availableThemeIds: readonly string[],
 ): boolean {
-  if (settings?.curriculumMode !== "theme") return false;
+  if (settings?.curriculumMode !== "choose_group") return false;
   if (!settings.selectedVocabularyGroupId) return true;
   return !availableThemeIds.includes(settings.selectedVocabularyGroupId);
 }

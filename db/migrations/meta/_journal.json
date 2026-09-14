@@ -162,6 +162,34 @@
       "when": 1789337328288,
       "tag": "0022_chilly_skaar",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1789338689001,
+      "tag": "0023_acoustic_power_pack",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1789340354402,
+      "tag": "0024_romantic_freak",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1789340953786,
+      "tag": "0025_brainy_pestilence",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1789341977712,
+      "tag": "0026_curriculum_mode_backfill",
+      "breakpoints": true
     }
   ]
 }

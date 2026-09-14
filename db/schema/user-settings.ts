@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, check, foreignKey, index, pgEnum, pgTable, primaryKey, uuid } from "drizzle-orm/pg-core";
+import { boolean, check, foreignKey, index, pgEnum, pgTable, primaryKey, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
 import { timestamps } from "./columns";
 import { vocabularyGroups } from "./curriculum";
@@ -7,19 +7,56 @@ import { languages } from "./languages";
 import { users } from "./users";
 
 /**
- * How new curriculum is introduced to a learner (spec 16, "Curriculum
- * Decider"):
+ * How new curriculum is introduced to a learner. Originally spec 16's
+ * `theme`/`random`/`balanced`; spec 20 ("Learning Queue") renamed and
+ * consolidated the learner-facing system to three different modes without
+ * abandoning existing stored preferences:
  *
- * - `theme` — work through one chosen vocabulary theme at a time
- * - `random` — mix eligible vocabulary and grammar randomly
- * - `balanced` — spread the vocabulary portion across the available themes
+ * - `theme` → **`default_order`** is new, not a rename: the authored
+ *   curriculum sequence (grammar first, then each vocabulary group in
+ *   order) — no old mode behaved this way.
+ * - `choose_group` — the renamed `theme` (work through one chosen
+ *   vocabulary group at a time); behavior is unchanged.
+ * - `variety` — both old `balanced` *and* old `random` migrate here (spec
+ *   20's explicit mapping). This is a real, spec-mandated behavior change
+ *   for anyone previously in `random`: `variety` behaves like old
+ *   `balanced` (round-robin vocabulary across groups, grammar reserved
+ *   separately) plus the new Grammar Placement setting — old `random`'s
+ *   "mix vocabulary and grammar with no reservation at all" behavior no
+ *   longer exists as an option.
  *
- * Lowercase values matching every other enum in this schema, not the spec's
- * conceptual `THEME`/`RANDOM`/`BALANCED` spelling. The mode changes *only*
- * how the next batch is selected — never SRS state, unlock rules, or what
- * the level eventually teaches.
+ * The old three values are **expanded, not replaced** — Postgres enum
+ * values are only ever added here, and the migration that added
+ * `default_order`/`choose_group`/`variety` a data-only follow-up migration
+ * that backfilled every existing row from old to new (see that migration's
+ * comment for why it's a separate file). `theme`/`random`/`balanced` are
+ * never written by application code again after that backfill —
+ * `domains/users/curriculum-preference.ts`'s `CurriculumMode` union only
+ * ever includes the three new values — but the labels stay in the SQL enum
+ * type itself: removing a Postgres enum value safely requires recreating
+ * the whole type, which is a bigger, riskier operation than leaving three
+ * permanently-unused labels behind. Recorded as a known, deliberate
+ * deviation from "the old values should not remain as a second hidden
+ * behavior system," read at the application-code level (satisfied) rather
+ * than the SQL-type level (not attempted) — see progress-tracker.md.
  */
-export const curriculumModeEnum = pgEnum("curriculum_mode", ["theme", "random", "balanced"]);
+export const curriculumModeEnum = pgEnum("curriculum_mode", [
+  "theme",
+  "random",
+  "balanced",
+  "default_order",
+  "choose_group",
+  "variety",
+]);
+
+/**
+ * Spec 20 Lessons — Grammar Placement. Meaningful only in `variety` mode
+ * (`default_order` always teaches grammar first; `choose_group` follows
+ * the grammar curriculum's own authored order regardless) — enforced in
+ * `domains/lessons/lesson-batch.ts`, not by a database constraint, since
+ * every mode still needs *some* stored value even when it ignores it.
+ */
+export const grammarPlacementEnum = pgEnum("grammar_placement", ["first", "last", "no_preference"]);
 
 /**
  * Per-learner, per-language settings (spec 16: "Store the selected mode on
@@ -62,13 +99,28 @@ export const userLanguageSettings = pgTable(
      * than deleted, like every other curriculum reference in this schema.
      */
     selectedVocabularyGroupId: uuid("selected_vocabulary_group_id"),
+    /**
+     * Spec 20 Lessons — Grammar Placement. `no_preference` default matches
+     * the spec's stated default exactly. Every mode stores a value even
+     * though only `variety` reads it — there is no "row exists but this
+     * field is undecided" state here, unlike `curriculum_mode` itself.
+     */
+    grammarPlacement: grammarPlacementEnum("grammar_placement").notNull().default("no_preference"),
     ...timestamps(),
   },
   (t) => [
     primaryKey({ columns: [t.userId, t.languageId] }),
+    // Accepts both the old and new "choose one group" spelling — a row can
+    // transiently be either between this migration and the data-backfill
+    // migration that follows it, and neither spelling is ever wrong to allow.
+    // This constraint intentionally lives in its own migration, separate
+    // from the one that added `choose_group` to the enum — see that
+    // migration's note on why (Postgres forbids using a freshly added enum
+    // value, including inside a CHECK constraint's validation of existing
+    // rows, within the same transaction that added it).
     check(
       "user_language_settings_theme_selection_consistency",
-      sql`${t.selectedVocabularyGroupId} IS NULL OR ${t.curriculumMode} = 'theme'`,
+      sql`${t.selectedVocabularyGroupId} IS NULL OR ${t.curriculumMode} IN ('theme', 'choose_group')`,
     ),
     // A selected group must belong to the same language as the settings row
     // it lives on — cross-language selection is made unrepresentable rather
@@ -97,3 +149,35 @@ export const userPreferences = pgTable("user_preferences", {
   showNsfwContent: boolean("show_nsfw_content").notNull().default(false),
   ...timestamps(),
 });
+
+/**
+ * Spec 20 General — Vacation Mode. Account-wide (no `language_id`) —
+ * "applies to the learner's entire account, not only the active language."
+ * A row is a real historical vacation period, not a boolean flag:
+ * completed vacations still matter for schedule reconciliation
+ * (`domains/srs`'s `calculateVacationAdjustedReview`) and, once Danger
+ * Zone's manual streak lands (spec 20 unit 22), for treating those
+ * calendar days as neutral.
+ *
+ * `ended_at IS NULL` means "currently on vacation." The partial unique
+ * index is the actual concurrency guarantee behind "only one active
+ * vacation period may exist for a user" and "enabling Vacation Mode twice
+ * should not create duplicate active periods" — enforced by the database,
+ * not by an application-level check-then-insert.
+ */
+export const userVacationPeriods = pgTable(
+  "user_vacation_periods",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+    ...timestamps(),
+  },
+  (t) => [
+    uniqueIndex("user_vacation_periods_one_active_per_user").on(t.userId).where(sql`${t.endedAt} IS NULL`),
+    index("user_vacation_periods_user_id_started_at_idx").on(t.userId, t.startedAt.desc()),
+  ],
+);

@@ -7,7 +7,7 @@ import { SANDBOX_SESSION_COOKIE, verifySandboxGrant } from "@/domains/sandbox/sa
 import { AppError } from "@/lib/errors/app-error";
 
 import type { ContentPreferences } from "./content-preferences";
-import type { CurriculumMode, LanguageSettings } from "./curriculum-preference";
+import type { CurriculumMode, GrammarPlacement, LanguageSettings } from "./curriculum-preference";
 import {
   completeOnboarding as completeOnboardingInDb,
   findLanguageSettings,
@@ -18,6 +18,7 @@ import {
   provisionUser,
   saveContentPreferences,
   saveCurriculumPreference,
+  saveGrammarPlacement,
   updateDisplayName,
   updateTimezone as updateTimezoneInDb,
   updateUsername as updateUsernameInDb,
@@ -125,6 +126,19 @@ export async function setCurriculumPreference(input: {
     throw new AppError("RATE_LIMITED", `Please slow down and try again in ${decision.retryAfterSeconds}s.`);
   }
   return saveCurriculumPreference(db, input);
+}
+
+/** Spec 20 Lessons — Grammar Placement. Ordinary "account-settings" rate limit, matching every other narrow Settings field save. */
+export async function updateGrammarPlacement(input: {
+  userId: string;
+  languageId: string;
+  grammarPlacement: GrammarPlacement;
+}): Promise<LanguageSettings> {
+  const decision = await getRateLimiter().check({ policy: "account-settings", subject: input.userId });
+  if (!decision.allowed) {
+    throw new AppError("RATE_LIMITED", `Please slow down and try again in ${decision.retryAfterSeconds}s.`);
+  }
+  return saveGrammarPlacement(db, input);
 }
 
 /**

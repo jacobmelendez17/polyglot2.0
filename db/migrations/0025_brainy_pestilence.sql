@@ -1,0 +1,2 @@
+ALTER TABLE "user_language_settings" DROP CONSTRAINT "user_language_settings_theme_selection_consistency";--> statement-breakpoint
+ALTER TABLE "user_language_settings" ADD CONSTRAINT "user_language_settings_theme_selection_consistency" CHECK ("user_language_settings"."selected_vocabulary_group_id" IS NULL OR "user_language_settings"."curriculum_mode" IN ('theme', 'choose_group'));

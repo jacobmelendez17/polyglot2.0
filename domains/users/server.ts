@@ -16,8 +16,11 @@ export {
   requireUser,
   setCurriculumPreference,
   updateContentPreferences,
+  updateGrammarPlacement,
   updateName,
   updateTimezone,
   updateUsername,
 } from "./user-service";
 export { resolveUserNow } from "./user-clock";
+export { disableVacationMode, enableVacationMode, isVacationModeActive } from "./vacation-service";
+export type { VacationPeriod } from "./vacation-service";

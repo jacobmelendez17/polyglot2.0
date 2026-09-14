@@ -162,9 +162,23 @@ every boundary before considering these done)*
 24. Delete Account — request → email-verified confirmation → 7-day pending
     window → cancel → the Vercel Cron finalize job from decision 1.
 
-**Units 1-5 are done — see their Completed entries below. The entire
-Account section is complete; General has Timezone.** Unit 6 (General —
-Content preferences: Hide English during Reviews + NSFW plumbing) is next. **Process decision (2026-09-13, user):** the established
+**Units 1-8 are done — see their Completed entries below.** Account and
+General are fully complete; Lessons has the Learning Queue migration
+(Default Order / Choose Group as You Go / Variety) and Grammar Placement.
+Unit 9 (Lessons — Batch size & auto-pronunciation) is next — much smaller
+and lower-risk than unit 8, a plain settings field on the already-existing
+`user_language_settings` table plus one on the audio-provider side.
+
+**Migration-tooling note for every future unit touching a Postgres enum**:
+`drizzle-kit migrate`'s CLI proved unreliable in this session's environment
+for enum-modifying migrations (see unit 8's Completed entry for the full
+incident and root cause — a real Postgres restriction on using a freshly
+`ADD VALUE`'d enum value within the same transaction, compounded by a
+drizzle-kit tracking-table inconsistency). Applying such a migration
+directly via a raw Postgres transaction, with the user's explicit
+confirmation for each direct database write, is the verified fallback.
+Plan any future enum-value addition as its own migration, separate from
+anything that references the new value. **Process decision (2026-09-13, user):** the established
 real-browser verification recipe (`npx playwright` + `@clerk/testing`,
 Environment Notes) is blocked by Auto Mode's command classifier in this
 session — confirmed blocked on two independent attempts, including trying
@@ -1182,6 +1196,273 @@ writing to real `user_item_progress` rows.
 ## Completed
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
+
+- **Spec 20 unit 8 — Lessons: Learning Queue migration** (2026-09-13). Spec
+  16's `theme`/`random`/`balanced` curriculum modes are renamed and
+  consolidated to `default_order`/`choose_group`/`variety`
+  (`domains/users/curriculum-preference.ts`, `CURRICULUM_MODES`), plus a new
+  language-scoped Grammar Placement preference
+  (`first`/`last`/`no_preference`). `architecture.md`'s "Curriculum Modes"
+  section was rewritten in the same unit to match — see it for the full
+  per-mode selection rules, now including Default Order and Grammar
+  Placement. `domains/lessons/lesson-batch.ts`'s `selectLessonBatch` was
+  rewritten: `default_order` is a plain slice of one authored sequence
+  (grammar first, then each vocabulary group in position order — no
+  grammar-share reservation, unlike the other two); `choose_group` is the
+  unchanged old `theme` behavior; `variety` is the unchanged old `balanced`
+  round-robin-across-groups behavior plus a new `interleaveEvenly` helper
+  for Grammar Placement's "No Preference" (a deterministic running-ratio
+  merge, not randomness — old `random` mode is genuinely gone, and this
+  domain no longer takes an injected random source at all). Every
+  `CurriculumMode`-typed call site across `domains/lessons`,
+  `domains/sandbox`, onboarding, and the shared `CurriculumModePicker` /
+  `curriculum-mode-options.ts` was updated — `tsc`'s own exhaustiveness
+  checking against the narrowed union was used as the completeness net
+  for this rename, not a manual audit.
+
+  **A significant, unplanned migration-infrastructure incident happened
+  mid-unit, worth its own detailed record**: the first generated migration
+  combined `ALTER TYPE curriculum_mode ADD VALUE 'choose_group'` with a
+  `CHECK` constraint referencing that same new value, in one file/transaction.
+  Postgres forbids this — confirmed by reproducing the exact error directly
+  against the database (`unsafe use of new value "choose_group" of enum
+  type curriculum_mode`) rather than guessing — and the transaction rolled
+  back, so no schema change actually took effect. But `drizzle-kit migrate`
+  still recorded the migration as applied in its own
+  `drizzle.__drizzle_migrations` tracking table, a real tool-level
+  inconsistency (not something introduced by this migration's design) that
+  silently desynced the tracked history from the real schema. Confirmed by
+  direct query, twice, before touching anything. **Fixed by**: deleting the
+  false tracking row (user-approved — this required explicit confirmation
+  each time, since Auto Mode's classifier blocks raw writes to the
+  database, including to drizzle's own metadata table), splitting the
+  migration into two files (`0024_romantic_freak.sql`: enum values + the
+  new `grammar_placement` column, safe together since the column uses a
+  brand-new type, not the ADD-VALUE'd one; `0025_brainy_pestilence.sql`:
+  the `CHECK` constraint change alone, safe once run in a later,
+  separate transaction), and applying both directly via a raw Postgres
+  connection with full transactional error visibility — `drizzle-kit
+  migrate`'s own CLI was unreliable in this session's environment for
+  enum-touching migrations (spinner output gave no visible error text, and
+  a correct migration file still couldn't be gotten to apply through it
+  even after the split) — followed by manually recording each migration's
+  tracking row with the exact `sha256(file content)` hash and journal
+  timestamp `drizzle-kit` itself would have written, each insert
+  individually confirmed with the user first. A third, hand-written
+  data-only migration (`0026_curriculum_mode_backfill.sql`, no schema shape
+  change, so its snapshot is a verified duplicate of 0025's with a fresh
+  chained `id`/`prevId`) backfilled the one real existing row
+  (`theme`→`choose_group`) the same verified way. **Takeaways worth
+  remembering for any future migration touching a Postgres enum**: (1) a
+  freshly `ALTER TYPE ... ADD VALUE`'d value cannot be used anywhere in the
+  same transaction, including inside a `CHECK` constraint's own row
+  validation — split into separate migrations, always; (2) `drizzle-kit
+  migrate`'s CLI could not be trusted to either apply or clearly report
+  failure for this migration shape in this environment — verifying directly
+  against Postgres (a raw transaction, explicit commit/rollback, real error
+  messages) is the reliable fallback, and drizzle's tracking-row format
+  (`sha256` of the raw migration file bytes, `created_at` = the journal
+  entry's `when` in epoch ms) is simple enough to replicate by hand when
+  needed, but doing so demands the same care as any other direct database
+  write.
+
+  **Settings UI**: `/settings/lessons` reuses the existing shared
+  `CurriculumModePicker` (built in spec 16 anticipating exactly this reuse)
+  through a new `LearningQueuePicker` wrapper that saves immediately on
+  each change — unlike onboarding's `CurriculumChoiceView`, which saves
+  behind a "Continue" button — plus a new `GrammarPlacementSelect`. Both
+  are thin, narrow-mutation Server Action wrappers following this spec's
+  established pattern.
+
+  Verified: `tsc`, `eslint`, the full `npm run test` (834 tests, no
+  regressions — extensive new coverage for `default_order`'s authored-slice
+  behavior, `variety`'s three Grammar Placement variants including a caught
+  test-assertion mistake of my own — see below — and the two new Settings
+  components), `npm run test:integration` across `domains/users`,
+  `domains/lessons`, `domains/sandbox`, and `domains/dashboard` (59 passed,
+  confirming the rename didn't regress any existing flow), `npm run
+  db:verify` (no drift after the full three-migration sequence), and `npm
+  run build`.
+
+  **A real test-authoring mistake was caught and fixed, not the
+  implementation**: a "No Preference interleaves grammar" test initially
+  asserted the batch's *last* item was always vocabulary — wrong, since an
+  even running-ratio interleave can legitimately end on the minority item
+  when the ratio doesn't divide evenly (verified this was expected by
+  hand-tracing `interleaveEvenly`'s exact steps for the fixture in
+  question). Fixed by asserting the actual requirement instead — grammar
+  present, and not exclusively before or exclusively after every
+  vocabulary index — rather than loosening it to make the wrong assertion
+  pass.
+
+  **No live-browser pass** — see Current Goal / Next Up #26.
+
+- **Spec 20 unit 7 — General: Vacation Mode** (2026-09-13). The most
+  complex unit in Phase B, exactly as flagged before starting — real
+  SRS-adjacent scheduling logic, not just a stored preference. **Completes
+  the entire General section** (Timezone, Content preferences, Vacation
+  Mode all done).
+
+  **Schema**: `user_vacation_periods` (`db/migrations/0023_acoustic_power_pack.sql`)
+  — `started_at`/`ended_at`, account-wide (no `language_id`, per spec's
+  explicit "applies to the learner's entire account"). `ended_at IS NULL`
+  means currently on vacation; a partial unique index on `(user_id) WHERE
+  ended_at IS NULL` is the actual concurrency guarantee behind "enabling
+  twice must not create duplicate active periods" — proven with a real
+  concurrent double-enable in `vacation-repository.integration.test.ts`,
+  same technique as unit 3's username race test.
+
+  **The scheduling rule — `domains/srs`'s new `calculateVacationAdjustedReview`**
+  (`vacation-scheduling.ts`): an item's SRS wait-clock only ticks outside a
+  vacation. Splits into exactly two cases depending on whether the item's
+  wait (`lastReviewedAt ?? learnedAt`) began before or during the vacation;
+  the docstring on that function derives both from first principles and
+  should be read before touching this again. Verified directly against
+  spec 20's own two worked examples ("review still 3 days away" for a
+  pre-existing wait; "due 4 hours after vacation ends" for a lesson taken
+  mid-vacation) as literal unit test assertions, not just described.
+
+  **`domains/progress`'s new `applyVacationSchedulingAdjustment`** is the
+  same rule expressed as a single SQL `UPDATE ... CASE` (not a
+  per-row round trip — a learner's scheduled-review count is unbounded, and
+  this runs inside the same transaction that closes the vacation period).
+  Because a hand-translated SQL formula is exactly the kind of thing that
+  silently drifts from its TypeScript source of truth, the integration test
+  doesn't just check plausible-looking output — it computes the same
+  scenario through both `calculateVacationAdjustedReview` and the real SQL
+  update and asserts they produce identical timestamps, for a pre-vacation
+  wait, a mid-vacation wait, an already-overdue item, and a Fluent item
+  with `next_review_at IS NULL` (left untouched — nothing to freeze). All
+  pass, including reproducing both spec examples end-to-end through real
+  Postgres.
+
+  **The transactional orchestration** lives in `domains/users`' new
+  `vacation-service.ts`: `disableVacationMode` opens one `db.transaction`,
+  closes the period (`vacation-repository.ts`'s `endVacationPeriod`,
+  idempotent — returns `null` if already closed, which skips reconciliation
+  entirely so a repeated disable shifts nothing a second time), and calls
+  `applyVacationSchedulingAdjustment` in the same transaction. `enableVacationMode`
+  is the idempotent open half. Both are rate-limited under the ordinary
+  `"account-settings"` policy — Vacation Mode isn't in Settings Security's
+  "sensitive" list.
+
+  **Review availability is gated at `domains/progress/service.ts`'s
+  `getDueReviewItems`** (spec 20: "review availability is paused," "there
+  is no separate 'overdue' state") — resolves `isVacationModeActive` from
+  `domains/users/server` first and returns `[]` immediately if so, before
+  ever querying `user_item_progress`. This is the same real-database-binding
+  cross-domain pattern unit 6 established for NSFW (`curriculum` →
+  `users`); here it's `progress` → `users`. Both `domains/srs`'s review
+  session start *and* the dashboard's due-count read through this one
+  function, so neither needed its own vacation check.
+
+  **"Lessons During Vacation"**: `app/(focus)/lessons/page.tsx` now checks
+  `isVacationModeActive` before calling `startLesson`, rendering a new
+  `LessonVacationWarning` interstitial (exact spec copy) unless
+  `?vacationConfirmed=1` is already present — gated server-side, the same
+  `?flag=1`-plus-server-recheck pattern unit 4 used for onboarding replay.
+  Nothing about lesson enrollment itself needed to change: a lesson
+  completed mid-vacation computes its schedule completely normally
+  (`calculateNextReview`, unaware vacation exists), and the freeze is
+  applied only later, at vacation-end reconciliation, using that item's
+  `learnedAt` as its wait-start anchor — confirmed by the "mid-vacation"
+  integration-test case above using exactly that shape.
+
+  **Deliberately out of scope, recorded rather than silently skipped**:
+  Ghost Review freeze (Ghost Reviews don't exist yet — spec 20 unit 16's
+  job; `calculateVacationAdjustedReview` is written generically enough to
+  reuse there) and the numeric streak-with-break-semantics "vacation days
+  are neutral" requirement (no numeric streak counter exists anywhere in
+  this codebase yet — today's `buildStreak` is only a Monday-Sunday
+  dashboard *grid* widget with no break/reset concept to protect; the real
+  requirement belongs to unit 22, Danger Zone's manual streak, which must
+  consult `user_vacation_periods` when it's built). Also unaddressed: the
+  review session's "empty" state doesn't say *why* nothing is due during
+  vacation specifically (it shows the same copy as a genuinely empty
+  queue) — correct and non-misleading, just not maximally informative; a
+  minor polish item, not a correctness gap.
+
+  Verified: `tsc`, `eslint`, the full `npm run test` (818 tests, no
+  regressions — 6 new pure-function cases, 4 vacation-repository
+  integration tests including the concurrency proof, 2 SQL-equivalence
+  integration tests, and component tests for the toggle and the lesson
+  warning), `npm run test:integration` across `domains/users`,
+  `domains/progress`, `domains/srs`'s review orchestration, and
+  `domains/dashboard` (84 passed, confirming the new vacation gate doesn't
+  regress existing due-review/dashboard behavior), `npm run db:verify` (no
+  drift), and `npm run build`. Migration applied to the dev database.
+  **No live-browser pass** — see Current Goal / Next Up #26; this is the
+  unit where that gap matters most of any so far, since the actual
+  freeze/reconciliation behavior has only ever been exercised against a
+  real database in an isolated transaction, never through the real
+  Settings UI → toggle → real elapsed time → real review queue path a
+  human would actually experience.
+
+- **Spec 20 unit 6 — General: Content preferences (Hide English + NSFW)**
+  (2026-09-13). New `user_preferences` table (`user_id` PK,
+  `hide_english_reviews`/`show_nsfw_content` booleans, both default
+  `false`) — absent-row-means-defaults, per spec 20's "Effective Defaults."
+  New `content_classification` enum (`safe`/`nsfw`) added to
+  `learning_items` and `sentences` (shared base tables, so one column on
+  each covers vocabulary and grammar together) — additive, `NOT NULL
+  DEFAULT 'safe'`, zero lock/backfill risk. Migration
+  `0022_chilly_skaar.sql`, applied to the dev database, `db:verify` clean.
+
+  **Two new shared Settings primitives**, justified by more than a dozen
+  toggle-shaped fields named later in this same spec (Vacation Mode,
+  autoplay, lightning mode, focus mode, and the rest of Review UI) — not
+  speculative:
+  - `components/ui/switch.tsx`, a new shadcn base primitive on
+    `radix-ui`'s `Switch` (already a dependency via the unified `radix-ui`
+    package; no new install).
+  - `components/settings/inline-toggle-setting-field.tsx`, the toggle
+    equivalent of unit 3's `InlineTextSettingField` — optimistic flip,
+    revert-and-show-error on failure, "Saving…/Saved" feedback.
+
+  **NSFW filtering scope, deliberately bounded and explicitly recorded
+  rather than left implicit**: real, tested, server-side filtering is wired
+  into exactly the path spec 20 names outright — "NSFW lesson items are not
+  selected" (`domains/curriculum`'s `databaseCurriculumReader` resolves
+  `getEffectiveContentPreferences(userId)` and passes `includeNsfw` into
+  `getEligibleLessonItems`, a real DB query filter, not a post-hoc
+  in-memory one). `CurriculumVisibility` (the existing
+  `includeUnpublished` pattern) also gained the same `includeNsfw` gate and
+  it's wired into `getLevelItems`, but **no caller yet resolves a real
+  per-user preference for level-page browsing, item detail, or dashboard
+  counts** — they still pass the safe default. This is a real, known,
+  recorded gap (Next Up #28), not a silent one: since nothing in the
+  curriculum is classified `nsfw` today, the gap has zero current-content
+  impact either way, so it was reasoned to be a smaller compounding risk
+  than half-wiring six-plus call sites without a way to verify each one in
+  a live browser this session. Dictionary-content classification
+  (`domains/lexicon`) was scoped out of this unit entirely, as originally
+  decided — a separate, large domain surface, tracked as the same follow-up.
+
+  **A real pre-existing integration-test bug was found while verifying,
+  not caused by this unit** — `curriculum-repository.integration.test.ts`'s
+  "returns every item in a level via getLevelItems, ordered by position"
+  fails independent of any change here: `seedTestFixtures()`'s returned
+  `level1Id` (`20000000-…-0001`) no longer matches fixture grammar item
+  `y`'s (`grammarYId`, `40000000-…-0004`) actual stored `level_id`
+  (`d08bbb5e-…`, confirmed by direct query) — the item was excluded by the
+  `levelId` join condition alone, before `getLevelItems`'s new
+  `content_classification` filter ever runs. This is the exact same
+  shared-dev-branch drift already described in Next Up #A/the spec-18
+  Completed entry ("the fixture grammar item `y` has been moved out of the
+  fixture level into the real Level 1 and the seed cannot move it back").
+  Confirmed pre-existing by running the test in total isolation (still
+  fails) and by directly querying both UUIDs. Not fixed here — out of this
+  unit's scope, same as every other instance of this family of issue
+  recorded in this file. All of this unit's own new integration tests (13
+  across three files, including two proving the NSFW-selection guarantee
+  with a real concurrent-looking two-item fixture) pass; only this one
+  pre-existing, unrelated test fails.
+
+  Verified: `tsc`, `eslint`, the full `npm run test` (808 tests, no
+  regressions), `npm run test:integration` across the three affected files
+  (52 passed, 1 pre-existing unrelated failure as above), `npm run
+  db:verify` (no drift), and `npm run build`. **No live-browser pass** —
+  see Current Goal / Next Up #26.
 
 - **Spec 20 unit 5 — General: Timezone** (2026-09-13). A Settings UI over
   the already-existing `users.timezone` column — no migration. New
@@ -2755,6 +3036,8 @@ file) does not shift.
 25. **`components/admin/logs/audit-log-filters.test.tsx` flaked twice under the full `npm run test` suite** (found 2026-09-12/13, during spec 19 units 12-13's final verification) — one `userEvent`-driven test failed on one full-suite run, a different one in the same file failed on the next, while the whole file passed cleanly (5/5) both times it was run in isolation. Unrelated to spec 19 — this file wasn't touched this session, and both failures point at timing sensitivity in `userEvent` simulated interaction under jsdom, most likely aggravated by this session's unusually heavy concurrent load (Terraform applies, a real Lambda's worth of AWS SDK calls, and a Playwright browser all running alongside the suite). Worth a dedicated look at whether the test needs explicit `await waitFor(...)` around its assertions rather than relying on `userEvent`'s own timing, but not chased further here per code-standards.md's rule against papering over flakiness with retries.
 26. **Real-browser pass needed for every spec 20 (Settings) unit**, starting with unit 1 (2026-09-13) — same gap as #21/#23, but for a different reason: Auto Mode's command classifier blocked the `npx playwright` + `@clerk/testing` verification flow this session (confirmed on two independent attempts, including trying to self-configure a permission rule), and the user chose to skip live-browser checks for the rest of this spec rather than keep retrying — see Current Goal. Each spec-20 unit is verified by `tsc`/`eslint`/`npm run test`/`npm run build` only. Worth a real-browser pass across all of Settings once this session's classifier restriction is lifted (a permission rule added outside the session, or a future session without the restriction) — desktop sidebar + mobile sheet navigation, every section's rendered state, and eventually every interactive control as each unit ships one.
 27. **`architecture.md`'s "index creation on a populated table uses `CREATE INDEX CONCURRENTLY`" was not followed for `users_username_lower_key`** (2026-09-13, spec 20 unit 3) — Drizzle's `db:generate` has no built-in option for it, and a search of this codebase's 21-migration history found zero prior uses of `CONCURRENTLY` anywhere, so there's no established pattern to follow, and it's unverified whether `drizzle-kit migrate`'s transaction-per-file execution can even run a statement that must execute outside a transaction without a runner change. Shipped as an ordinary (locking) index creation instead, on the reasoning that the `users` table's actual row count at this stage of the beta makes the real lock risk negligible — but the underlying gap (no concurrent-index capability exists in this project's migration tooling at all) is real and will recur for every future index added to a populated table, not just this one. Worth a dedicated infrastructure unit: confirm whether `drizzle-kit migrate` supports a non-transactional statement, and if not, decide the mechanism (hand-written migration outside the generator, a split migration step, etc.) before a genuinely large table needs a new index.
+28. **NSFW filtering is real but only wired into lesson-item selection** (2026-09-13, spec 20 unit 6) — `domains/curriculum`'s `getLevelItems`/`CurriculumVisibility` gained the same `includeNsfw` gate `getEligibleLessonItems` uses, but no caller resolves a learner's real preference for it yet: the level page, item detail, and dashboard counts all still pass the safe default rather than `getEffectiveContentPreferences`. Zero current impact (nothing in the curriculum is classified `nsfw`), but a learner who opts into NSFW today would still not see it on those surfaces. Also out of scope entirely: `domains/lexicon` dictionary-content classification (a separate, large domain) and any Admin authoring UI to mark content NSFW in the first place (deliberate decision at the start of this spec, not an oversight). Worth its own follow-up unit once real NSFW content exists to test against.
+29. **Pre-existing, unrelated integration-test failure found while verifying spec 20 unit 6** — `curriculum-repository.integration.test.ts`'s "returns every item in a level via getLevelItems, ordered by position" fails on its own, independent of any spec 20 change: `seedTestFixtures()`'s `level1Id` (`20000000-…-0001`) no longer matches fixture grammar item `y`'s (`grammarYId`) actual stored `level_id` (`d08bbb5e-…`, confirmed by direct query against the real dev/test database) — the same underlying drift as the spec-18-era note about item `y` having moved out of its fixture level into the real Level 1 (see that Completed entry and Next Up #A). Confirmed by running the test in isolation (still fails) before touching anything. Not fixed here, matching this file's established handling of every other instance of this drift family — worth the same dedicated Neon test-branch fix #A already proposes.
 
 ## Infrastructure Status
 

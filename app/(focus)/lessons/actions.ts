@@ -149,7 +149,7 @@ export async function chooseLessonThemeAction(
     await setCurriculumPreference({
       userId: user.id,
       languageId: user.activeLanguageId,
-      curriculumMode: "theme",
+      curriculumMode: "choose_group",
       selectedVocabularyGroupId: themeId,
     });
     return { ok: true, data: null };

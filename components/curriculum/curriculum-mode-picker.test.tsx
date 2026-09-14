@@ -24,9 +24,9 @@ function renderPicker(overrides: Partial<React.ComponentProps<typeof CurriculumM
 }
 
 describe("CurriculumModePicker", () => {
-  it("offers all three curriculum modes as one radio group", () => {
+  it("offers all three Learning Queue modes as one radio group", () => {
     renderPicker();
-    const modes = screen.getAllByRole("radio", { name: /theme|everything|surprise/i });
+    const modes = screen.getAllByRole("radio", { name: /default order|choose group|variety/i });
     expect(modes).toHaveLength(3);
     expect(modes.every((radio) => radio.getAttribute("name") === "curriculum-mode")).toBe(true);
   });
@@ -38,24 +38,24 @@ describe("CurriculumModePicker", () => {
 
   it("reports the chosen mode", async () => {
     const { onSelectMode } = renderPicker();
-    await userEvent.click(screen.getByRole("radio", { name: /one theme at a time/i }));
-    expect(onSelectMode).toHaveBeenCalledWith("theme");
+    await userEvent.click(screen.getByRole("radio", { name: /choose group as you go/i }));
+    expect(onSelectMode).toHaveBeenCalledWith("choose_group");
   });
 
-  it("asks which theme only in theme mode", () => {
-    renderPicker({ selectedMode: "balanced" });
+  it("asks which group only in Choose Group as You Go", () => {
+    renderPicker({ selectedMode: "variety" });
     expect(screen.queryByRole("radio", { name: /Numbers/ })).not.toBeInTheDocument();
   });
 
-  it("lists the available themes with what is left in each", async () => {
-    const { onSelectTheme } = renderPicker({ selectedMode: "theme" });
+  it("lists the available groups with what is left in each", async () => {
+    const { onSelectTheme } = renderPicker({ selectedMode: "choose_group" });
     expect(screen.getByText("11 left")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("radio", { name: /Colors/ }));
     expect(onSelectTheme).toHaveBeenCalledWith("theme-colors");
   });
 
-  it("explains the wait instead of showing an empty theme list", () => {
-    renderPicker({ selectedMode: "theme", themes: [] });
+  it("explains the wait instead of showing an empty group list", () => {
+    renderPicker({ selectedMode: "choose_group", themes: [] });
     expect(screen.getByText(/pick your first theme when your first lesson is ready/i)).toBeInTheDocument();
   });
 });

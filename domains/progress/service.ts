@@ -1,4 +1,5 @@
 import { db } from "@/db/client";
+import { isVacationModeActive } from "@/domains/users/server";
 
 import * as repository from "./repository";
 
@@ -19,7 +20,15 @@ export async function getUserProgressForLanguage(userId: string, languageId: str
   return repository.getUserProgressForLanguage(db, userId, languageId);
 }
 
+/**
+ * Spec 20 General — Vacation Mode: "normal review availability is paused"
+ * and "there is no separate 'overdue' state" while active. Resolved here,
+ * at the real-database binding, the same way unit 6's NSFW preference is —
+ * `domains/srs`'s review session and the dashboard's due-count both call
+ * this one function, so neither needs its own vacation check.
+ */
 export async function getDueReviewItems(userId: string, languageId: string, now: Date) {
+  if (await isVacationModeActive(userId)) return [];
   return repository.getDueReviewItems(db, userId, languageId, now);
 }
 

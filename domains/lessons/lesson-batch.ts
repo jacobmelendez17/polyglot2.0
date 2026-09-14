@@ -1,13 +1,13 @@
 import type { LearningItem, VocabularyItem, VocabularyTheme } from "@/domains/curriculum";
-import type { CurriculumMode } from "@/domains/users";
+import type { CurriculumMode, GrammarPlacement } from "@/domains/users";
 
 import type { LessonBatchItem } from "./lesson-types";
 
 /**
  * Pure, server-authoritative batch selection (spec 07 §2, §10; spec 16's
- * curriculum modes). The single place batch membership is decided — a
- * client-chosen batch is never accepted, and no page or component
- * re-implements any of this.
+ * curriculum modes, renamed/consolidated by spec 20's "Learning Queue"). The
+ * single place batch membership is decided — a client-chosen batch is never
+ * accepted, and no page or component re-implements any of this.
  *
  * Every mode selects from the same eligible curriculum and obeys the same
  * progression: the mode changes only *which* of the remaining unlearned
@@ -15,8 +15,9 @@ import type { LessonBatchItem } from "./lesson-types";
  * progress, which is what makes "switching modes affects future lessons
  * only" true by construction rather than by care.
  *
- * Theme and Balanced are fully deterministic and therefore directly
- * testable. Random takes an injected number source so it is testable too.
+ * All three modes are fully deterministic — spec 20 removed the one mode
+ * (old "random") that wasn't, so this domain no longer needs an injected
+ * random source at all.
  */
 
 export type SelectLessonBatchInput = {
@@ -24,10 +25,10 @@ export type SelectLessonBatchInput = {
   eligibleItems: LearningItem[];
   batchSize: number;
   mode: CurriculumMode;
-  /** Theme mode's chosen vocabulary group. A batch is empty when this is absent or has nothing left — the caller asks the learner to choose instead of silently picking one. */
+  /** Choose Group as You Go's chosen vocabulary group. A batch is empty when this is absent or has nothing left — the caller asks the learner to choose instead of silently picking one. */
   selectedThemeId?: string | null;
-  /** Injected only so Random mode is testable; production passes nothing. */
-  random?: () => number;
+  /** Meaningful only in `variety` mode (spec 20 Lessons — Grammar Placement). Defaults to "no_preference", matching the stored default. */
+  grammarPlacement?: GrammarPlacement;
 };
 
 function isVocabulary(item: LearningItem): item is VocabularyItem {
@@ -42,11 +43,17 @@ function byLessonPriority(a: LearningItem, b: LearningItem): number {
   return a.id.localeCompare(b.id);
 }
 
+/** Vocabulary in authored order: by group position, then lesson priority within the group — Default Order's "Group 1, then Group 2, ..." (spec 20). */
+function byGroupThenPriority(a: VocabularyItem, b: VocabularyItem): number {
+  const positionDifference = (a.theme?.position ?? Number.MAX_SAFE_INTEGER) - (b.theme?.position ?? Number.MAX_SAFE_INTEGER);
+  return positionDifference !== 0 ? positionDifference : byLessonPriority(a, b);
+}
+
 /**
  * Spec 16 scopes every mode to "the current Level": the lowest level that
- * still has anything left to teach. Doing it explicitly matters for Random
- * and Balanced, which have no inherent ordering to fall back on and would
- * otherwise happily mix a Level 1 word into a Level 3 lesson.
+ * still has anything left to teach. Doing it explicitly matters for modes
+ * with no inherent cross-level ordering to fall back on and would otherwise
+ * happily mix a Level 1 word into a Level 3 lesson.
  */
 function currentLevelItems(eligibleItems: LearningItem[]): LearningItem[] {
   if (eligibleItems.length === 0) return [];
@@ -69,23 +76,13 @@ function grammarShareOf(vocabularyCount: number, grammarCount: number): number {
   return total === 0 ? 0 : grammarCount / total;
 }
 
-/** Fisher-Yates over a copy, driven by the injected source, so Random mode is uniform rather than sort-comparator "random". */
-function shuffle<T>(items: T[], random: () => number): T[] {
-  const shuffled = [...items];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j]!, shuffled[i]!];
-  }
-  return shuffled;
-}
-
 /**
- * The themes a learner could pick right now: every vocabulary group with at
- * least one eligible item in the current level, in curriculum order. A theme
+ * The groups a learner could pick right now: every vocabulary group with at
+ * least one eligible item in the current level, in curriculum order. A group
  * whose items are all learned simply stops being offered, which is what
- * makes "after a theme is completed, the learner chooses another" work
- * without tracking theme completion separately (spec 16's scope limit: no
- * permanent per-theme progress system).
+ * makes "after a group is completed, the learner chooses another" work
+ * without tracking group completion separately (spec 16's scope limit: no
+ * permanent per-group progress system).
  */
 export function getAvailableThemes(eligibleItems: LearningItem[]): VocabularyTheme[] {
   const byId = new Map<string, VocabularyTheme>();
@@ -97,13 +94,14 @@ export function getAvailableThemes(eligibleItems: LearningItem[]): VocabularyThe
 }
 
 /**
- * Round-robin across themes in curriculum order, each theme contributing its
- * own items in lesson-priority order. A theme that runs out simply stops
- * contributing and the remaining themes absorb its share, which is spec 16's
- * "redistribute naturally when a theme has fewer remaining items" — no
+ * Round-robin across vocabulary groups in curriculum order, each group
+ * contributing its own items in lesson-priority order — Variety's "pulls a
+ * little from each available vocabulary group" (spec 20). A group that runs
+ * out simply stops contributing and the remaining groups absorb its share
+ * ("redistribute naturally when a group has fewer remaining items") — no
  * attempt is made to force exactly equal counts.
  */
-function selectBalancedVocabulary(vocabulary: VocabularyItem[], slots: number): VocabularyItem[] {
+function selectVarietyVocabulary(vocabulary: VocabularyItem[], slots: number): VocabularyItem[] {
   const queues = new Map<string, VocabularyItem[]>();
   for (const item of [...vocabulary].sort(byLessonPriority)) {
     const key = item.theme?.id ?? "";
@@ -112,12 +110,7 @@ function selectBalancedVocabulary(vocabulary: VocabularyItem[], slots: number): 
     queues.set(key, queue);
   }
 
-  const ordered = [...queues.entries()].sort(([, a], [, b]) => {
-    const first = a[0]!;
-    const second = b[0]!;
-    const positionDifference = (first.theme?.position ?? Number.MAX_SAFE_INTEGER) - (second.theme?.position ?? Number.MAX_SAFE_INTEGER);
-    return positionDifference !== 0 ? positionDifference : byLessonPriority(first, second);
-  });
+  const ordered = [...queues.entries()].sort(([, a], [, b]) => byGroupThenPriority(a[0]!, b[0]!));
 
   const selected: VocabularyItem[] = [];
   let round = 0;
@@ -135,44 +128,77 @@ function selectBalancedVocabulary(vocabulary: VocabularyItem[], slots: number): 
 }
 
 /**
- * Builds the next lesson batch for one learner under one curriculum mode.
+ * Spreads `secondary` items evenly throughout `primary`, preserving each
+ * list's own internal order — Variety + Grammar Placement "No Preference":
+ * "grammar remains included, no forced first/last position, normal
+ * curriculum logic may interleave it" (spec 20). Deterministic (a running
+ * ratio, not randomness) — the eliminated "Random" mode is not being
+ * quietly reintroduced here under a different name.
+ */
+function interleaveEvenly<T>(primary: T[], secondary: T[]): T[] {
+  if (secondary.length === 0) return primary;
+  if (primary.length === 0) return secondary;
+
+  const result: T[] = [];
+  const ratio = secondary.length / (primary.length + secondary.length);
+  let secondaryIndex = 0;
+  let accumulated = 0;
+  for (const item of primary) {
+    result.push(item);
+    accumulated += ratio;
+    while (accumulated >= 1 && secondaryIndex < secondary.length) {
+      result.push(secondary[secondaryIndex]!);
+      secondaryIndex += 1;
+      accumulated -= 1;
+    }
+  }
+  while (secondaryIndex < secondary.length) {
+    result.push(secondary[secondaryIndex]!);
+    secondaryIndex += 1;
+  }
+  return result;
+}
+
+/**
+ * Builds the next lesson batch for one learner under one Learning Queue mode.
  *
- * Non-random modes reserve a share of the batch for grammar, sized from what
- * the level itself still has left to teach, and fill it in the grammar
- * curriculum's own order — spec 16's "grammar sequencing stays authoritative
- * to the existing grammar curriculum configuration", untouched by which
- * vocabulary theme is active.
+ * `default_order` uses the authored sequence directly: grammar (in its own
+ * priority order) always first, then vocabulary group by group in position
+ * order — a plain slice of one combined, already-correctly-ordered list, so
+ * it needs none of the grammar-share reservation below.
+ *
+ * `choose_group` and `variety` both reserve a share of the batch for
+ * grammar, sized from what the level itself still has left to teach, and
+ * fill it in the grammar curriculum's own order — spec 20's "grammar
+ * follows normal authored progression" / "grammar sequencing stays
+ * authoritative to the existing grammar curriculum configuration",
+ * untouched by which vocabulary group is active.
  *
  * The reserved share is a pace, not a filler. When the vocabulary side comes
  * up short the batch is simply shorter — grammar does not expand to fill it,
- * because a nearly-finished theme would otherwise produce a lesson that is
- * mostly grammar. That is what makes spec 16's example literal: a theme with
- * one item left really does yield a one-item vocabulary portion, never
- * padded from another theme.
- *
- * The one exception is a level whose vocabulary is entirely learned. With no
- * vocabulary left to pace against, grammar fills the whole batch rather than
- * trickling out one item per lesson.
+ * because a nearly-finished group would otherwise produce a lesson that is
+ * mostly grammar. The one exception is a level whose vocabulary is entirely
+ * learned: with no vocabulary left to pace against, grammar fills the whole
+ * batch rather than trickling out one item per lesson.
  */
 export function selectLessonBatch({
   eligibleItems,
   batchSize,
   mode,
   selectedThemeId,
-  random = Math.random,
+  grammarPlacement = "no_preference",
 }: SelectLessonBatchInput): LearningItem[] {
   if (batchSize <= 0) return [];
   const candidates = currentLevelItems(eligibleItems);
   if (candidates.length === 0) return [];
 
-  if (mode === "random") {
-    // Random is the one mode spec 16 allows to mix grammar and vocabulary
-    // freely, so it deliberately skips the reservation below.
-    return shuffle(candidates, random).slice(0, batchSize);
-  }
-
   const grammar = candidates.filter((item) => item.type === "grammar").sort(byLessonPriority);
   const vocabulary = candidates.filter(isVocabulary).sort(byLessonPriority);
+
+  if (mode === "default_order") {
+    const ordered = [...grammar, ...[...vocabulary].sort(byGroupThenPriority)];
+    return ordered.slice(0, batchSize);
+  }
 
   // Capped at one slot short of the batch whenever vocabulary is available:
   // a level of one word and eleven grammar points rounds to a batch that is
@@ -187,21 +213,28 @@ export function selectLessonBatch({
   );
   const vocabularySlots = batchSize - reservedGrammar;
 
-  if (mode === "theme" && !selectedThemeId) {
+  if (mode === "choose_group" && !selectedThemeId) {
     // Undecidable rather than empty: the caller (`startLesson`) turns this
-    // into "choose a theme". Selecting grammar alone here would quietly
+    // into "choose a group". Selecting grammar alone here would quietly
     // teach around the learner's unanswered choice.
     return [];
   }
 
   const selectedVocabulary =
-    mode === "theme"
+    mode === "choose_group"
       ? vocabulary.filter((item) => item.theme?.id === selectedThemeId).slice(0, vocabularySlots)
-      : selectBalancedVocabulary(vocabulary, vocabularySlots);
+      : selectVarietyVocabulary(vocabulary, vocabularySlots);
 
   const grammarSlots = selectedVocabulary.length === 0 ? batchSize : reservedGrammar;
   const selectedGrammar = grammar.slice(0, grammarSlots);
 
+  // Grammar Placement only applies to Variety — Choose Group as You Go
+  // ignores it and always appends grammar after vocabulary (spec 20: "the
+  // setting does not affect Choose Group as You Go").
+  if (mode === "variety") {
+    if (grammarPlacement === "first") return [...selectedGrammar, ...selectedVocabulary];
+    if (grammarPlacement === "no_preference") return interleaveEvenly<LearningItem>(selectedVocabulary, selectedGrammar);
+  }
   return [...selectedVocabulary, ...selectedGrammar];
 }
 

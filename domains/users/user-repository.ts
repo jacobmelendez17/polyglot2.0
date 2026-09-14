@@ -7,7 +7,7 @@ import { AppError } from "@/lib/errors/app-error";
 
 import type { ContentPreferences } from "./content-preferences";
 import { DEFAULT_CONTENT_PREFERENCES } from "./content-preferences";
-import type { CurriculumMode, LanguageSettings } from "./curriculum-preference";
+import type { CurriculumMode, GrammarPlacement, LanguageSettings } from "./curriculum-preference";
 import { getDefaultLanguageCode } from "./provisioning-config";
 import type { PolyglotUser } from "./user-types";
 
@@ -78,38 +78,70 @@ export async function completeOnboarding(db: DbClient, userId: string, now: Date
  * chosen — the distinction the curriculum preference screen exists for, so
  * it is preserved rather than collapsed into a default row (spec 16).
  */
+const LANGUAGE_SETTINGS_COLUMNS = {
+  userId: userLanguageSettings.userId,
+  languageId: userLanguageSettings.languageId,
+  curriculumMode: userLanguageSettings.curriculumMode,
+  selectedVocabularyGroupId: userLanguageSettings.selectedVocabularyGroupId,
+  grammarPlacement: userLanguageSettings.grammarPlacement,
+};
+
+type LanguageSettingsRow = {
+  userId: string;
+  languageId: string;
+  curriculumMode: typeof userLanguageSettings.$inferSelect.curriculumMode;
+  selectedVocabularyGroupId: string | null;
+  grammarPlacement: GrammarPlacement;
+};
+
+/**
+ * The Postgres enum still contains spec 20's pre-migration labels
+ * (`theme`/`random`/`balanced` — see `curriculumModeEnum`'s docstring for
+ * why they were never dropped), so Drizzle's inferred column type is wider
+ * than the application-level `CurriculumMode` this domain actually reads and
+ * writes. No row should hold one of those values after the backfill
+ * migration — application code never writes them again — but a read
+ * shouldn't crash if one somehow still does; it re-applies the exact same
+ * mapping the backfill used, as a defensive fallback rather than a new rule.
+ */
+function normalizeLegacyCurriculumMode(mode: LanguageSettingsRow["curriculumMode"]): CurriculumMode {
+  if (mode === "theme") return "choose_group";
+  if (mode === "random" || mode === "balanced") return "variety";
+  return mode;
+}
+
+function toLanguageSettings(row: LanguageSettingsRow): LanguageSettings {
+  return { ...row, curriculumMode: normalizeLegacyCurriculumMode(row.curriculumMode) };
+}
+
 export async function findLanguageSettings(db: DbClient, userId: string, languageId: string): Promise<LanguageSettings | null> {
   const [row] = await db
-    .select({
-      userId: userLanguageSettings.userId,
-      languageId: userLanguageSettings.languageId,
-      curriculumMode: userLanguageSettings.curriculumMode,
-      selectedVocabularyGroupId: userLanguageSettings.selectedVocabularyGroupId,
-    })
+    .select(LANGUAGE_SETTINGS_COLUMNS)
     .from(userLanguageSettings)
     .where(and(eq(userLanguageSettings.userId, userId), eq(userLanguageSettings.languageId, languageId)))
     .limit(1);
-  return row ?? null;
+  return row ? toLanguageSettings(row) : null;
 }
 
 /**
- * Records the learner's curriculum mode, and the theme that goes with it in
- * Theme mode. One upsert, so choosing during onboarding and changing the
- * choice later are the same write with the same rules — there is no
- * separate "first time" path to drift.
+ * Records the learner's curriculum mode ("Learning Queue", spec 20), and the
+ * group that goes with it in Choose Group as You Go. One upsert, so choosing
+ * during onboarding and changing the choice later are the same write with
+ * the same rules — there is no separate "first time" path to drift.
  *
- * Any mode other than `theme` stores `null` for the selection, which is
- * both what the check constraint requires and what stops a stale theme from
- * silently reappearing if the learner switches back later. Nothing here
- * touches progress, SRS state, or unlocks: spec 16's "changing modes
- * affects future lesson generation only" holds because this row is all
- * there is to change.
+ * Any mode other than `choose_group` stores `null` for the selection, which
+ * is both what the check constraint requires and what stops a stale group
+ * from silently reappearing if the learner switches away and back. Nothing
+ * here touches progress, SRS state, unlocks, or `grammar_placement` (a
+ * separate narrow mutation, `saveGrammarPlacement`) — "changing Learning
+ * Queue affects future lesson generation only" holds because this row is
+ * all there is to change.
  */
 export async function saveCurriculumPreference(
   db: DbClient,
   input: { userId: string; languageId: string; curriculumMode: CurriculumMode; selectedVocabularyGroupId?: string | null },
 ): Promise<LanguageSettings> {
-  const selectedVocabularyGroupId = input.curriculumMode === "theme" ? (input.selectedVocabularyGroupId ?? null) : null;
+  const selectedVocabularyGroupId = input.curriculumMode === "choose_group" ? (input.selectedVocabularyGroupId ?? null) : null;
 
   const [row] = await db
     .insert(userLanguageSettings)
@@ -123,13 +155,32 @@ export async function saveCurriculumPreference(
       target: [userLanguageSettings.userId, userLanguageSettings.languageId],
       set: { curriculumMode: input.curriculumMode, selectedVocabularyGroupId, updatedAt: new Date() },
     })
-    .returning({
-      userId: userLanguageSettings.userId,
-      languageId: userLanguageSettings.languageId,
-      curriculumMode: userLanguageSettings.curriculumMode,
-      selectedVocabularyGroupId: userLanguageSettings.selectedVocabularyGroupId,
-    });
-  return row!;
+    .returning(LANGUAGE_SETTINGS_COLUMNS);
+  return toLanguageSettings(row!);
+}
+
+/**
+ * Spec 20 Lessons — Grammar Placement, saved independently of the
+ * curriculum mode it modifies the interpretation of (Settings Security's
+ * "prefer narrow mutations"). Requires an existing settings row — a learner
+ * reaches the Lessons Settings page only after choosing a Learning Queue
+ * mode at all (onboarding gates on exactly that), so this should never
+ * legitimately miss in practice; `ITEM_NOT_FOUND` is a defensive guard, not
+ * an expected path.
+ */
+export async function saveGrammarPlacement(
+  db: DbClient,
+  input: { userId: string; languageId: string; grammarPlacement: GrammarPlacement },
+): Promise<LanguageSettings> {
+  const [row] = await db
+    .update(userLanguageSettings)
+    .set({ grammarPlacement: input.grammarPlacement, updatedAt: new Date() })
+    .where(and(eq(userLanguageSettings.userId, input.userId), eq(userLanguageSettings.languageId, input.languageId)))
+    .returning(LANGUAGE_SETTINGS_COLUMNS);
+  if (!row) {
+    throw new AppError("ITEM_NOT_FOUND", "Choose a Learning Queue mode before setting Grammar Placement.");
+  }
+  return toLanguageSettings(row);
 }
 
 /**

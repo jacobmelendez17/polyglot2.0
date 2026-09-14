@@ -49,7 +49,7 @@ export function SandboxCurriculumPanel({ languageId, preview }: SandboxCurriculu
       const result = await setSandboxCurriculumModeAction({
         languageId,
         curriculumMode: mode,
-        selectedVocabularyGroupId: mode === "theme" ? themeId : null,
+        selectedVocabularyGroupId: mode === "choose_group" ? themeId : null,
         idempotencyKey: crypto.randomUUID(),
       });
       if (!result.ok) {
@@ -75,7 +75,7 @@ export function SandboxCurriculumPanel({ languageId, preview }: SandboxCurriculu
           selectedMode={mode}
           onSelectMode={(next) => {
             setMode(next);
-            if (next !== "theme") setThemeId(null);
+            if (next !== "choose_group") setThemeId(null);
           }}
           themes={preview.themes}
           selectedThemeId={themeId}
@@ -112,8 +112,8 @@ export function SandboxCurriculumPanel({ languageId, preview }: SandboxCurriculu
               <p className="text-sm font-medium text-foreground">{getCurriculumModeOption(previewMode).label}</p>
               {items.length === 0 ? (
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {previewMode === "theme" && preview.themes.length === 0
-                    ? "No themes with anything left to teach."
+                  {previewMode === "choose_group" && preview.themes.length === 0
+                    ? "No groups with anything left to teach."
                     : "Nothing eligible — publish curriculum or reset the persona."}
                 </p>
               ) : (

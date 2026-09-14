@@ -12,11 +12,13 @@ export type { ContentPreferences } from "./content-preferences";
 export { isOnboardingRequired } from "./onboarding";
 export {
   CURRICULUM_MODES,
+  GRAMMAR_PLACEMENTS,
   isCurriculumChoiceRequired,
   isCurriculumMode,
+  isGrammarPlacement,
   isThemeSelectionRequired,
 } from "./curriculum-preference";
-export type { CurriculumMode, LanguageSettings } from "./curriculum-preference";
+export type { CurriculumMode, GrammarPlacement, LanguageSettings } from "./curriculum-preference";
 export { getDefaultLanguageCode } from "./provisioning-config";
 export { USER_ROLES } from "./user-types";
 export type { PolyglotUser, UserRole } from "./user-types";

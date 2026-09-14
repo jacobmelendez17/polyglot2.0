@@ -41,7 +41,7 @@ export async function setCurriculumPreferenceAction(
     }
 
     let themeId: string | null = null;
-    if (curriculumMode === "theme" && selectedVocabularyGroupId) {
+    if (curriculumMode === "choose_group" && selectedVocabularyGroupId) {
       const themes = await listAvailableThemes({ userId: user.id, languageId: user.activeLanguageId });
       if (!themes.some((theme) => theme.id === selectedVocabularyGroupId)) {
         return { ok: false, error: { code: "THEME_UNAVAILABLE", message: "That theme isn't available to study right now." } };

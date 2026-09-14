@@ -5,7 +5,13 @@ import { z } from "zod";
 
 import { isSupportedTimezone } from "@/lib/time/timezones";
 import type { ContentPreferences } from "@/domains/users";
-import { requireUser, updateContentPreferences, updateTimezone } from "@/domains/users/server";
+import {
+  disableVacationMode,
+  enableVacationMode,
+  requireUser,
+  updateContentPreferences,
+  updateTimezone,
+} from "@/domains/users/server";
 import { AppError } from "@/lib/errors/app-error";
 
 export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: { code: string; message: string } };
@@ -88,6 +94,51 @@ export async function updateContentPreferencesAction(
       return { ok: false, error: { code: "VALIDATION_FAILED", message: error.issues[0]?.message ?? "That request isn't valid." } };
     }
     console.error("Unexpected update content preferences action error", error);
+    return { ok: false, error: { code: "UNKNOWN", message: "Could not save setting. Please try again." } };
+  }
+}
+
+/**
+ * Spec 20 General — Vacation Mode. Two narrow actions (spec's own
+ * `enableVacationMode`/`disableVacationMode` naming) rather than one toggle
+ * action, since the two directions do genuinely different things
+ * server-side — disabling is the one that reconciles every scheduled
+ * review, enabling just opens the period.
+ */
+export async function enableVacationModeAction(): Promise<ActionResult<{ vacationModeEnabled: true }>> {
+  try {
+    const user = await requireUser();
+    await enableVacationMode(user.id);
+
+    revalidatePath("/settings/general");
+    revalidatePath("/dashboard");
+    revalidatePath("/reviews");
+
+    return { ok: true, data: { vacationModeEnabled: true } };
+  } catch (error) {
+    if (error instanceof AppError) {
+      return { ok: false, error: { code: error.code, message: error.message } };
+    }
+    console.error("Unexpected enable vacation mode action error", error);
+    return { ok: false, error: { code: "UNKNOWN", message: "Could not save setting. Please try again." } };
+  }
+}
+
+export async function disableVacationModeAction(): Promise<ActionResult<{ vacationModeEnabled: false }>> {
+  try {
+    const user = await requireUser();
+    await disableVacationMode(user.id);
+
+    revalidatePath("/settings/general");
+    revalidatePath("/dashboard");
+    revalidatePath("/reviews");
+
+    return { ok: true, data: { vacationModeEnabled: false } };
+  } catch (error) {
+    if (error instanceof AppError) {
+      return { ok: false, error: { code: error.code, message: error.message } };
+    }
+    console.error("Unexpected disable vacation mode action error", error);
     return { ok: false, error: { code: "UNKNOWN", message: "Could not save setting. Please try again." } };
   }
 }

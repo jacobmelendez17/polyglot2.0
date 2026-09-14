@@ -1032,18 +1032,32 @@ Lower unlocked curriculum levels receive priority over higher unlocked levels.
 
 Custom lesson sessions may select specific currently eligible items but cannot bypass normal availability or curriculum gates.
 
-## Curriculum Modes
+## Curriculum Modes ("Learning Queue")
 
-Every learner chooses, per language, how new curriculum is introduced (spec
-16). The three modes are stored on `user_language_settings` as `theme`,
-`random`, and `balanced`; `domains/users` owns the preference and
-`domains/lessons` owns what each mode does.
+Every learner chooses, per language, how new curriculum is introduced.
+Originally spec 16's `theme`/`random`/`balanced`; spec 20 ("Learning Queue")
+renamed and consolidated these to three different modes, stored on
+`user_language_settings` as `default_order`, `choose_group`, and `variety`.
+`domains/users` owns the preference (plus the language-scoped
+`grammar_placement` field below) and `domains/lessons` owns what each mode
+does. The database enum still contains the three old labels — removing a
+Postgres enum value safely requires recreating the whole type, judged a
+bigger, riskier operation than leaving them permanently unused — but every
+existing row was backfilled to a new value and application code never
+produces or expects an old one again; see
+`db/schema/user-settings.ts`'s `curriculumModeEnum` docstring for the full
+migration story, including why it shipped as three separate migrations
+(Postgres forbids using a freshly added enum value, including inside a
+`CHECK` constraint's validation of existing rows, within the same
+transaction that added it).
 
 The choice is made once, immediately after onboarding, and can be changed
-afterwards. **The absence of a settings row is the "has not chosen" state** —
-there is no default mode, and the `(app)`/`(focus)` layouts route a learner
-with no row onto the curriculum screen exactly as they do for onboarding.
-Sandbox personas are exempt from that routing, like onboarding.
+afterwards — in Settings (`/settings/lessons`) as of spec 20, in addition to
+`/onboarding/curriculum`. **The absence of a settings row is the "has not
+chosen" state** — there is no default mode, and the `(app)`/`(focus)`
+layouts route a learner with no row onto the curriculum screen exactly as
+they do for onboarding. Sandbox personas are exempt from that routing, like
+onboarding.
 
 A mode changes only which of the remaining unlearned items is selected next.
 It must never change learned items, SRS stages, review schedules, level
@@ -1052,28 +1066,52 @@ unlocks, existing progress, or what a level eventually teaches.
 Selection rules, all scoped to the learner's current level (the lowest level
 with anything left to teach):
 
-- **Theme** — vocabulary comes from one chosen vocabulary group. A theme with
-  fewer items left than the batch size produces a *shorter* batch; it is
-  never padded from another theme. When the chosen theme is finished, or none
-  is chosen yet, the learner is asked to choose rather than being given one.
-- **Balanced** — the vocabulary portion is distributed round-robin across the
-  themes that still have items, in curriculum order, redistributing naturally
-  when a theme runs short. Exactly equal counts are not required.
-- **Random** — eligible vocabulary and grammar of the current level are mixed
-  freely; this is the one mode allowed to interleave the two arbitrarily.
+- **Default Order** — new in spec 20, not a rename of anything. The authored
+  curriculum sequence: grammar (in its own priority order) always first,
+  then each vocabulary group in position order, group by group. A plain
+  slice of one already-correctly-ordered list — no grammar-share reservation
+  applies, and Grammar Placement (below) is ignored entirely.
+- **Choose Group as You Go** — the renamed `theme`, behavior unchanged:
+  vocabulary comes from one chosen vocabulary group. A group with fewer
+  items left than the batch size produces a *shorter* batch; it is never
+  padded from another group. When the chosen group is finished, or none is
+  chosen yet, the learner is asked to choose rather than being given one.
+  Grammar Placement does not affect this mode either — grammar always
+  follows the grammar curriculum's own authored order.
+- **Variety** — both old `balanced` *and* old `random` migrate here (a real,
+  spec-mandated behavior change for anyone previously in `random`: there is
+  no longer a true-arbitrary-interleave option). The vocabulary portion is
+  distributed round-robin across the groups that still have items, in
+  curriculum order, redistributing naturally when a group runs short.
+  Grammar Placement (see below) decides where grammar sits in the batch.
 
-Grammar sequencing stays authoritative to the grammar curriculum's own
-order in Theme and Balanced modes. Those modes reserve a proportional share
-of each batch for grammar, derived from **what the level itself still has
-left to teach** — levels are flexible, so a configured shape would pace a
-200-word level and a 10-word one identically. That share is a pace, not a
-filler: a short vocabulary side yields a shorter batch rather than a
-grammar-heavy one, and grammar never takes the whole batch while vocabulary
-remains. The single exception is a level whose vocabulary is fully learned,
-where grammar fills the batch.
+Grammar sequencing stays authoritative to the grammar curriculum's own order
+in Choose Group as You Go and (within its reserved share) Variety. Both
+modes reserve a proportional share of each batch for grammar, derived from
+**what the level itself still has left to teach** — levels are flexible, so
+a configured shape would pace a 200-word level and a 10-word one
+identically. That share is a pace, not a filler: a short vocabulary side
+yields a shorter batch rather than a grammar-heavy one, and grammar never
+takes the whole batch while vocabulary remains. The single exception is a
+level whose vocabulary is fully learned, where grammar fills the batch.
 
-Theme and Balanced selection must stay deterministic and testable. Random
-takes an injected number source for the same reason.
+All three modes are fully deterministic and testable — spec 20 removed the
+one mode (old `random`) that needed an injected random source at all.
+
+### Grammar Placement
+
+A second, language-scoped preference (`user_language_settings.grammar_placement`:
+`first` / `last` / `no_preference`, default `no_preference`), meaningful only
+in Variety mode:
+
+- **First** — eligible grammar is placed before vocabulary in the batch.
+- **Last** — eligible grammar is placed after vocabulary.
+- **No Preference** — grammar is spread evenly through the vocabulary
+  sequence (a deterministic running-ratio interleave, not randomness) rather
+  than forced to either end.
+
+Default Order and Choose Group as You Go both ignore this setting outright —
+their grammar position is a property of the mode itself, not configurable.
 
 ---
 

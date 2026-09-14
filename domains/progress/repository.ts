@@ -1,4 +1,4 @@
-import { and, asc, count, eq, gt, inArray, lte, sql } from "drizzle-orm";
+import { and, asc, count, eq, gt, inArray, isNotNull, lte, sql } from "drizzle-orm";
 
 import type { DbClient } from "@/db/client";
 import { learningItems, levels, userItemProgress, userLevelProgress } from "@/db/schema";
@@ -91,6 +91,45 @@ export async function getDueReviewItems(
       ),
     );
   return rows.map(toItemProgress);
+}
+
+/**
+ * Applies spec 20's Vacation Scheduling rule to every one of a user's
+ * scheduled reviews, in one statement — the SQL expression of
+ * `domains/srs`'s `calculateVacationAdjustedReview` (see that function's
+ * docstring for the full derivation; `applyVacationSchedulingAdjustment.
+ * integration.test.ts` proves the two stay in agreement row-for-row rather
+ * than trusting them to match by inspection).
+ *
+ * A single `UPDATE ... CASE` rather than one call per row: a learner's
+ * scheduled-review count can be in the thousands, and this must be called
+ * from inside the same transaction that closes the vacation period —
+ * `code-standards.md`'s "avoid N+1" applies as much to a rare action as a
+ * hot path once the row count is unbounded.
+ *
+ * Account-wide, not language-scoped — spec 20: Vacation Mode "applies to
+ * the learner's entire account, not only the active language." Items with
+ * `next_review_at IS NULL` (Fluent, with no maintenance schedule) are
+ * excluded — there is nothing to freeze.
+ */
+export async function applyVacationSchedulingAdjustment(
+  db: DbClient,
+  userId: string,
+  vacationStartedAt: Date,
+  vacationEndedAt: Date,
+): Promise<void> {
+  const waitStartedAt = sql`COALESCE(${userItemProgress.lastReviewedAt}, ${userItemProgress.learnedAt})`;
+
+  await db
+    .update(userItemProgress)
+    .set({
+      nextReviewAt: sql`CASE
+        WHEN ${waitStartedAt} <= ${vacationStartedAt}
+          THEN ${userItemProgress.nextReviewAt} + (${vacationEndedAt}::timestamptz - ${vacationStartedAt}::timestamptz)
+        ELSE ${vacationEndedAt}::timestamptz + (${userItemProgress.nextReviewAt} - ${waitStartedAt})
+      END`,
+    })
+    .where(and(eq(userItemProgress.userId, userId), isNotNull(userItemProgress.nextReviewAt)));
 }
 
 /**

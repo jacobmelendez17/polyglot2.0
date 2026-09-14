@@ -60,3 +60,5 @@ export type {
   ReviewStartResult,
   ReviewState,
 } from "./review-types";
+export { calculateVacationAdjustedReview } from "./vacation-scheduling";
+export type { CalculateVacationAdjustedReviewInput } from "./vacation-scheduling";
