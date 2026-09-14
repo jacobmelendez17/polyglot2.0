@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, check, foreignKey, index, pgEnum, pgTable, primaryKey, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { boolean, check, foreignKey, index, integer, pgEnum, pgTable, primaryKey, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
 import { timestamps } from "./columns";
 import { vocabularyGroups } from "./curriculum";
@@ -106,6 +106,21 @@ export const userLanguageSettings = pgTable(
      * field is undecided" state here, unlike `curriculum_mode` itself.
      */
     grammarPlacement: grammarPlacementEnum("grammar_placement").notNull().default("no_preference"),
+    /**
+     * Spec 20 Lessons — Lesson Batch Size: "the maximum preferred lesson
+     * batch size." Range-checked below rather than with a narrower Postgres
+     * type — the spec's 3-15 bound is a product decision, not a storage
+     * constraint, and a `smallint` would express the same rule less clearly.
+     */
+    lessonBatchSize: integer("lesson_batch_size").notNull().default(6),
+    /**
+     * Spec 20 Lessons — Auto Pronunciation. The spec gives every other
+     * toggle an explicit default except this one; `true` was chosen as the
+     * lower-friction default for a feature that only ever adds an audio cue
+     * a learner can already trigger manually (see
+     * `components/lessons/lesson-session-view.tsx`'s auto-pronounce effect).
+     */
+    autoPronounceLessons: boolean("auto_pronounce_lessons").notNull().default(true),
     ...timestamps(),
   },
   (t) => [
@@ -122,6 +137,7 @@ export const userLanguageSettings = pgTable(
       "user_language_settings_theme_selection_consistency",
       sql`${t.selectedVocabularyGroupId} IS NULL OR ${t.curriculumMode} IN ('theme', 'choose_group')`,
     ),
+    check("user_language_settings_batch_size_range", sql`${t.lessonBatchSize} BETWEEN 3 AND 15`),
     // A selected group must belong to the same language as the settings row
     // it lives on — cross-language selection is made unrepresentable rather
     // than merely discouraged, the same technique `learning_items` uses.

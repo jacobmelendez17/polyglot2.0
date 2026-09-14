@@ -85,6 +85,15 @@ export type LessonSessionResult = {
    * component.
    */
   characterHelpers: readonly string[];
+  /**
+   * The language being studied's code (`es-MX`), for client-side speech
+   * synthesis (spec 20 Lessons — Auto Pronunciation). Only ever set by
+   * `startLesson`'s "session" result, the same way `studyItems` is —
+   * auto-pronunciation only ever fires during the study phase.
+   */
+  languageCode?: string;
+  /** Spec 20 Lessons — Auto Pronunciation. Only ever set by `startLesson`'s "session" result; see `languageCode`. */
+  autoPronounceLessons?: boolean;
 };
 
 /**

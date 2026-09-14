@@ -16,9 +16,11 @@ import {
   findUsersByIds,
   getContentPreferences as getContentPreferencesFromDb,
   provisionUser,
+  saveAutoPronounceLessons,
   saveContentPreferences,
   saveCurriculumPreference,
   saveGrammarPlacement,
+  saveLessonBatchSize,
   updateDisplayName,
   updateTimezone as updateTimezoneInDb,
   updateUsername as updateUsernameInDb,
@@ -139,6 +141,32 @@ export async function updateGrammarPlacement(input: {
     throw new AppError("RATE_LIMITED", `Please slow down and try again in ${decision.retryAfterSeconds}s.`);
   }
   return saveGrammarPlacement(db, input);
+}
+
+/** Spec 20 Lessons — Lesson Batch Size. Ordinary "account-settings" rate limit, matching every other narrow Settings field save. */
+export async function updateLessonBatchSize(input: {
+  userId: string;
+  languageId: string;
+  lessonBatchSize: number;
+}): Promise<LanguageSettings> {
+  const decision = await getRateLimiter().check({ policy: "account-settings", subject: input.userId });
+  if (!decision.allowed) {
+    throw new AppError("RATE_LIMITED", `Please slow down and try again in ${decision.retryAfterSeconds}s.`);
+  }
+  return saveLessonBatchSize(db, input);
+}
+
+/** Spec 20 Lessons — Auto Pronunciation. Ordinary "account-settings" rate limit, matching every other narrow Settings field save. */
+export async function updateAutoPronounceLessons(input: {
+  userId: string;
+  languageId: string;
+  autoPronounceLessons: boolean;
+}): Promise<LanguageSettings> {
+  const decision = await getRateLimiter().check({ policy: "account-settings", subject: input.userId });
+  if (!decision.allowed) {
+    throw new AppError("RATE_LIMITED", `Please slow down and try again in ${decision.retryAfterSeconds}s.`);
+  }
+  return saveAutoPronounceLessons(db, input);
 }
 
 /**

@@ -8,7 +8,6 @@
 export {
   getCharacterHelpers,
   getLanguageDisplayName,
-  getLessonBatchSize,
   getLessonTokenTtlSeconds,
   getRetrySpacingMinimum,
 } from "./lesson-config";

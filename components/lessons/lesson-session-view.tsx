@@ -26,7 +26,9 @@ import type {
   QuizAnswerFeedback,
   QuizQuestionView,
   QuizStats,
+  StudyItemView,
 } from "@/domains/lessons";
+import { browserSpeechSynthesisProvider } from "@/providers/speech/speech-synthesis-provider";
 
 type ActionError = { code: string; message: string };
 
@@ -135,6 +137,8 @@ export function LessonSessionView({ initial }: LessonSessionViewProps) {
   // it up here is what previously forced a curriculum import into this
   // "use client" component.
   const characterHelpers = initial.characterHelpers;
+  const languageCode = initial.languageCode ?? "";
+  const autoPronounceLessons = initial.autoPronounceLessons ?? false;
 
   const [state, dispatch] = useReducer(sessionReducer, {
     token: initial.token,
@@ -170,6 +174,34 @@ export function LessonSessionView({ initial }: LessonSessionViewProps) {
     [state.token],
   );
 
+  /**
+   * Spec 20 Lessons — Auto Pronunciation: "automatically play pronunciation
+   * when a vocabulary item is introduced during Lessons." "Introduced" is
+   * exactly the moment `markViewed` is about to be called for an item that
+   * has never been viewed before — reusing that existing signal rather than
+   * tracking a second, parallel notion of "have we shown this item yet."
+   * A real recording wins over synthesis, matching `PronunciationButton`'s
+   * own preference (manual controls stay available regardless, per spec).
+   */
+  const maybeAutoPronounce = useCallback(
+    (item: StudyItemView) => {
+      if (!autoPronounceLessons || item.item.type !== "vocabulary") return;
+      const { audioUrl } = item.item.pronunciation;
+      if (audioUrl) {
+        void new Audio(audioUrl).play().catch(() => {});
+        return;
+      }
+      browserSpeechSynthesisProvider.speak({ text: item.item.word, languageCode });
+    },
+    [autoPronounceLessons, languageCode],
+  );
+
+  // Stop any in-flight auto-pronunciation when the session goes away —
+  // exiting mid-word should not leave it talking.
+  useEffect(() => {
+    return () => browserSpeechSynthesisProvider.cancel();
+  }, []);
+
   // Mark the first study item viewed on mount — merely rendering it isn't enough on its
   // own to unlock the quiz (§18), so this establishes the server-authoritative record.
   // Guarded to the study phase: a lesson always starts in "study" in practice, but this
@@ -180,8 +212,9 @@ export function LessonSessionView({ initial }: LessonSessionViewProps) {
     const first = studyItems[0];
     if (first && !state.viewedItemIds.includes(first.itemId)) {
       markViewed(first.itemId);
+      maybeAutoPronounce(first);
     }
-  }, [markViewed, state.phase, state.viewedItemIds, studyItems]);
+  }, [markViewed, maybeAutoPronounce, state.phase, state.viewedItemIds, studyItems]);
 
   /**
    * Spec 07 §49 — one idempotency key per logical completion, generated once
@@ -216,6 +249,7 @@ export function LessonSessionView({ initial }: LessonSessionViewProps) {
     const item = studyItems[index];
     if (item && !state.viewedItemIds.includes(item.itemId)) {
       markViewed(item.itemId);
+      maybeAutoPronounce(item);
     }
   }
 
@@ -347,7 +381,7 @@ export function LessonSessionView({ initial }: LessonSessionViewProps) {
               </header>
 
               <div className="mt-8 pb-6">
-                <LessonItemTabs item={currentItem.item} />
+                <LessonItemTabs item={currentItem.item} languageCode={languageCode} />
               </div>
             </>
           ) : null}

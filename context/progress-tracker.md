@@ -162,12 +162,11 @@ every boundary before considering these done)*
 24. Delete Account — request → email-verified confirmation → 7-day pending
     window → cancel → the Vercel Cron finalize job from decision 1.
 
-**Units 1-8 are done — see their Completed entries below.** Account and
-General are fully complete; Lessons has the Learning Queue migration
-(Default Order / Choose Group as You Go / Variety) and Grammar Placement.
-Unit 9 (Lessons — Batch size & auto-pronunciation) is next — much smaller
-and lower-risk than unit 8, a plain settings field on the already-existing
-`user_language_settings` table plus one on the audio-provider side.
+**Units 1-9 are done — see their Completed entries below.** Account,
+General, and Lessons are now fully complete. Unit 10 (Reviews — Review
+Types) is next, starting Phase D — the first unit to touch `domains/srs`'s
+question-building/grading and the first new `user_review_preferences`
+table.
 
 **Migration-tooling note for every future unit touching a Postgres enum**:
 `drizzle-kit migrate`'s CLI proved unreliable in this session's environment
@@ -1196,6 +1195,107 @@ writing to real `user_item_progress` rows.
 ## Completed
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
+
+- **Spec 20 unit 9 — Lessons: Batch size & auto-pronunciation** (2026-09-13).
+  Much smaller than unit 8, as anticipated in that entry — a plain settings
+  field plus one client-side playback trigger, no enum/migration incident.
+
+  **Schema**: `user_language_settings` gained `lesson_batch_size` (integer,
+  default 6, `CHECK ... BETWEEN 3 AND 15`) and `auto_pronounce_lessons`
+  (boolean, default `true`) — a single plain `ALTER TABLE` migration
+  (`0027_breezy_proemial_gods.sql`), applied cleanly through `drizzle-kit
+  migrate` with no repeat of unit 8's enum-transaction incident (these are
+  plain column adds, not an enum value). `MIN_LESSON_BATCH_SIZE` /
+  `MAX_LESSON_BATCH_SIZE` / `DEFAULT_LESSON_BATCH_SIZE` /
+  `DEFAULT_AUTO_PRONOUNCE_LESSONS` / `isValidLessonBatchSize` now live in
+  `domains/users/curriculum-preference.ts` alongside `GrammarPlacement` —
+  the one canonical place for both, per the dependency direction
+  `domains/lessons` already follows (it imports from `domains/users`, never
+  the reverse). `domains/lessons/lesson-config.ts`'s old hardcoded
+  `getLessonBatchSize()` (which its own docstring had explicitly flagged as
+  a placeholder for exactly this unit) was deleted outright rather than kept
+  as a fallback; `lesson-service.ts`'s `startLesson` and
+  `sandbox-service.ts`'s `previewSandboxCurriculum` both now read
+  `settings?.lessonBatchSize ?? DEFAULT_LESSON_BATCH_SIZE`.
+
+  **Auto Pronunciation had no stated spec default** — unlike every other
+  toggle in spec 20. Decided **on** (lower-friction default for a feature
+  that only ever adds an audio cue the learner could already trigger
+  manually) and recorded as a stated, deliberate choice rather than a
+  silent one, in both `db/schema/user-settings.ts`'s column docstring and
+  here — a case for a brief inline note rather than a blocking question,
+  given how low-stakes and reversible a presentational audio preference is
+  (matching how similarly low-risk gaps were handled in earlier units).
+
+  **A real, pre-existing dead control was found and fixed as part of wiring
+  this feature, not left in place**: `components/lessons/lesson-item-tabs.tsx`
+  rendered a plain `<button>` with a Volume2 icon and no `onClick` at all
+  whenever an item had `audioUrl`, and rendered nothing whenever it had only
+  a guide/IPA — i.e. every real item today, since no curriculum content has
+  real audio yet. It never worked and was never reachable from Lessons.
+  Replaced with the real `PronunciationButton` (already used throughout
+  `components/items/item-detail/*`, just never in Lessons), which correctly
+  falls back to browser speech synthesis and renders an honestly-disabled
+  control with a stated reason when neither a recording nor synthesis is
+  available — required threading a new `languageCode` prop down through
+  `LessonItemTabs` from `LessonSessionView`, itself newly sent from
+  `startLesson`'s "session" result (`LessonSessionResult.languageCode`, set
+  only there — the same "only the initial mount needs it" precedent
+  `studyItems`/`characterHelpers` already established).
+
+  **Auto-pronunciation reuses the existing "has this item been shown yet"
+  signal rather than tracking a second one**: `LessonSessionView` already
+  calls `markViewed(item)` at exactly the moment an item is about to be
+  shown for the first time (on mount for the first item, in
+  `handleSelectStudyIndex` for every item after). `maybeAutoPronounce` is
+  called at those same two call sites, gated on `autoPronounceLessons &&
+  item.type === "vocabulary"` — "introduced" needed no new bookkeeping
+  because that transition already existed and already means exactly that.
+  Prefers `item.pronunciation.audioUrl` (plays via `Audio`, currently always
+  absent — no curriculum content has real audio yet) and otherwise calls
+  `browserSpeechSynthesisProvider.speak()` directly (not through
+  `PronunciationButton`, which owns its own click/`isPlaying` state a
+  fire-and-forget auto-trigger doesn't need) with the language code carried
+  in the same `LessonSessionResult.languageCode` field. A mount-scoped
+  cleanup effect calls `browserSpeechSynthesisProvider.cancel()` so exiting
+  mid-word doesn't leave it talking.
+
+  **Settings UI**: `InlineSelectSettingField` extracted from
+  `GrammarPlacementSelect` (same trigger as `InlineTextSettingField` in unit
+  3 — a second field, `LessonBatchSizeSelect`, needing the exact same
+  immediate-save `Select` shape) — `GrammarPlacementSelect` now a thin
+  wrapper over it, with no observable behavior change (its existing test
+  passed unmodified). `LessonBatchSizeSelect` renders the 3-15 range from
+  `MIN_LESSON_BATCH_SIZE`/`MAX_LESSON_BATCH_SIZE` rather than a hardcoded
+  list. `AutoPronounceToggle` reuses the existing `InlineToggleSettingField`
+  (no new toggle shape needed). `/settings/lessons`'s "More Lesson settings"
+  placeholder (present since unit 8) is now a real "Batch & Audio" section
+  with both controls.
+
+  Verified: `tsc`, `eslint .`, full `npm run test` (846 tests, no
+  regressions — new coverage for `isValidLessonBatchSize`, both new
+  components, and four new `LessonSessionView` auto-pronunciation cases:
+  fires on introduction, fires again on the next item and not before,
+  never fires when the preference is off, and cancels on unmount), `npm
+  run build`. `npm run test:integration`: **363/369 passing**, 6 failures
+  across 4 files, none caused by this unit — 2 in `domains/admin/audit-
+  repository.integration.test.ts` (Next Up #10's unscoped-query-vs-real-log
+  condition), 1 in `domains/idempotency/with-idempotency.integration.test.ts`
+  (Next Up #9's cleanup-count flake), 1 in `domains/curriculum/curriculum-
+  repository.integration.test.ts` (Next Up #29's already-documented fixture
+  drift on item Y), and **one newly-observed instance of that same item-Y
+  drift family**: `domains/admin/usage-contexts.integration.test.ts`'s
+  "refuses a grammar item" test expects `ITEM_Y_ID` to still be a grammar
+  item with no inflected forms, and it no longer refuses — added to Next Up
+  below as a second confirmed symptom rather than a new root cause. New
+  integration coverage: 4 tests appended to
+  `user-repository.integration.test.ts` proving the batch-size/auto-
+  pronounce defaults on a freshly chosen Learning Queue, that the two save
+  independently of each other, that the database's own check constraint
+  rejects a batch size outside 3-15, and that both are refused before a
+  Learning Queue mode has ever been chosen.
+
+  **No live-browser pass** — see Current Goal / Next Up #26.
 
 - **Spec 20 unit 8 — Lessons: Learning Queue migration** (2026-09-13). Spec
   16's `theme`/`random`/`balanced` curriculum modes are renamed and
@@ -3037,7 +3137,7 @@ file) does not shift.
 26. **Real-browser pass needed for every spec 20 (Settings) unit**, starting with unit 1 (2026-09-13) — same gap as #21/#23, but for a different reason: Auto Mode's command classifier blocked the `npx playwright` + `@clerk/testing` verification flow this session (confirmed on two independent attempts, including trying to self-configure a permission rule), and the user chose to skip live-browser checks for the rest of this spec rather than keep retrying — see Current Goal. Each spec-20 unit is verified by `tsc`/`eslint`/`npm run test`/`npm run build` only. Worth a real-browser pass across all of Settings once this session's classifier restriction is lifted (a permission rule added outside the session, or a future session without the restriction) — desktop sidebar + mobile sheet navigation, every section's rendered state, and eventually every interactive control as each unit ships one.
 27. **`architecture.md`'s "index creation on a populated table uses `CREATE INDEX CONCURRENTLY`" was not followed for `users_username_lower_key`** (2026-09-13, spec 20 unit 3) — Drizzle's `db:generate` has no built-in option for it, and a search of this codebase's 21-migration history found zero prior uses of `CONCURRENTLY` anywhere, so there's no established pattern to follow, and it's unverified whether `drizzle-kit migrate`'s transaction-per-file execution can even run a statement that must execute outside a transaction without a runner change. Shipped as an ordinary (locking) index creation instead, on the reasoning that the `users` table's actual row count at this stage of the beta makes the real lock risk negligible — but the underlying gap (no concurrent-index capability exists in this project's migration tooling at all) is real and will recur for every future index added to a populated table, not just this one. Worth a dedicated infrastructure unit: confirm whether `drizzle-kit migrate` supports a non-transactional statement, and if not, decide the mechanism (hand-written migration outside the generator, a split migration step, etc.) before a genuinely large table needs a new index.
 28. **NSFW filtering is real but only wired into lesson-item selection** (2026-09-13, spec 20 unit 6) — `domains/curriculum`'s `getLevelItems`/`CurriculumVisibility` gained the same `includeNsfw` gate `getEligibleLessonItems` uses, but no caller resolves a learner's real preference for it yet: the level page, item detail, and dashboard counts all still pass the safe default rather than `getEffectiveContentPreferences`. Zero current impact (nothing in the curriculum is classified `nsfw`), but a learner who opts into NSFW today would still not see it on those surfaces. Also out of scope entirely: `domains/lexicon` dictionary-content classification (a separate, large domain) and any Admin authoring UI to mark content NSFW in the first place (deliberate decision at the start of this spec, not an oversight). Worth its own follow-up unit once real NSFW content exists to test against.
-29. **Pre-existing, unrelated integration-test failure found while verifying spec 20 unit 6** — `curriculum-repository.integration.test.ts`'s "returns every item in a level via getLevelItems, ordered by position" fails on its own, independent of any spec 20 change: `seedTestFixtures()`'s `level1Id` (`20000000-…-0001`) no longer matches fixture grammar item `y`'s (`grammarYId`) actual stored `level_id` (`d08bbb5e-…`, confirmed by direct query against the real dev/test database) — the same underlying drift as the spec-18-era note about item `y` having moved out of its fixture level into the real Level 1 (see that Completed entry and Next Up #A). Confirmed by running the test in isolation (still fails) before touching anything. Not fixed here, matching this file's established handling of every other instance of this drift family — worth the same dedicated Neon test-branch fix #A already proposes.
+29. **Pre-existing, unrelated integration-test failure found while verifying spec 20 unit 6** — `curriculum-repository.integration.test.ts`'s "returns every item in a level via getLevelItems, ordered by position" fails on its own, independent of any spec 20 change: `seedTestFixtures()`'s `level1Id` (`20000000-…-0001`) no longer matches fixture grammar item `y`'s (`grammarYId`) actual stored `level_id` (`d08bbb5e-…`, confirmed by direct query against the real dev/test database) — the same underlying drift as the spec-18-era note about item `y` having moved out of its fixture level into the real Level 1 (see that Completed entry and Next Up #A). Confirmed by running the test in isolation (still fails) before touching anything. Not fixed here, matching this file's established handling of every other instance of this drift family — worth the same dedicated Neon test-branch fix #A already proposes. **A second confirmed symptom of the same item-`y` drift, found during spec 20 unit 9's full `test:integration` run**: `domains/admin/usage-contexts.integration.test.ts`'s "refuses a grammar item — grammar has no inflected forms to group by" test expects `ITEM_Y_ID` to still be a grammar item on the shared branch, and the mutation no longer refuses — same root cause, not a second issue to track separately.
 
 ## Infrastructure Status
 

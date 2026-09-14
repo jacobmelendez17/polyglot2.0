@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isCurriculumChoiceRequired, isCurriculumMode, isGrammarPlacement, isThemeSelectionRequired } from "./curriculum-preference";
+import { isCurriculumChoiceRequired, isCurriculumMode, isGrammarPlacement, isThemeSelectionRequired, isValidLessonBatchSize } from "./curriculum-preference";
 import type { LanguageSettings } from "./curriculum-preference";
 
 function settings(overrides: Partial<LanguageSettings> = {}): LanguageSettings {
@@ -10,6 +10,8 @@ function settings(overrides: Partial<LanguageSettings> = {}): LanguageSettings {
     curriculumMode: "variety",
     selectedVocabularyGroupId: null,
     grammarPlacement: "no_preference",
+    lessonBatchSize: 6,
+    autoPronounceLessons: true,
     ...overrides,
   };
 }
@@ -79,5 +81,21 @@ describe("isThemeSelectionRequired", () => {
   it("stays out of the way while the chosen group still has items", () => {
     const chosen = settings({ curriculumMode: "choose_group", selectedVocabularyGroupId: "theme-1" });
     expect(isThemeSelectionRequired(chosen, ["theme-1", "theme-2"])).toBe(false);
+  });
+});
+
+describe("isValidLessonBatchSize", () => {
+  it("accepts every integer from 3 through 15", () => {
+    for (let size = 3; size <= 15; size++) {
+      expect(isValidLessonBatchSize(size)).toBe(true);
+    }
+  });
+
+  it("rejects out-of-range and non-integer values", () => {
+    expect(isValidLessonBatchSize(2)).toBe(false);
+    expect(isValidLessonBatchSize(16)).toBe(false);
+    expect(isValidLessonBatchSize(6.5)).toBe(false);
+    expect(isValidLessonBatchSize("6")).toBe(false);
+    expect(isValidLessonBatchSize(undefined)).toBe(false);
   });
 });

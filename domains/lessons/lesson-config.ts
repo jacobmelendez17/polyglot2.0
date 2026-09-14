@@ -3,21 +3,16 @@ import { resolveByLanguageCode } from "@/lib/language-code";
 /**
  * Centralized lesson configuration. Spec 07 §2: "Do not read a literal 6 in
  * more than one place" — every consumer must go through these accessors.
+ *
+ * Lesson batch size itself is no longer configured here: it is a per-user,
+ * per-language preference (spec 20 Lessons) living on `LanguageSettings`.
+ * `domains/users`' `DEFAULT_LESSON_BATCH_SIZE` is the one canonical default —
+ * `domains/lessons` reads it from there (lessons may depend on users, not
+ * the reverse) rather than duplicating the literal.
  */
 
-const DEFAULT_LESSON_BATCH_SIZE = 6;
 const LESSON_TOKEN_TTL_SECONDS = 60 * 60;
 const RETRY_SPACING_MINIMUM = 3;
-
-/**
- * User-configurable lesson batch size. User settings don't exist yet (see
- * progress-tracker.md), so this always returns the default; swapping in a
- * real per-user settings lookup later is a one-function change with no
- * call-site churn.
- */
-export function getLessonBatchSize(): number {
-  return DEFAULT_LESSON_BATCH_SIZE;
-}
 
 /** Lesson-state token lifetime, per spec 07 §9 ("the exact expiration duration belongs in configuration"). */
 export function getLessonTokenTtlSeconds(): number {

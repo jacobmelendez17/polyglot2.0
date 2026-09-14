@@ -1,6 +1,6 @@
 import type { LearningItem } from "@/domains/curriculum";
 import type { CurriculumMode, LanguageSettings } from "@/domains/users";
-import { isThemeSelectionRequired } from "@/domains/users";
+import { DEFAULT_AUTO_PRONOUNCE_LESSONS, DEFAULT_LESSON_BATCH_SIZE, isThemeSelectionRequired } from "@/domains/users";
 import { checkAnswer } from "@/lib/answer-checking";
 import { LessonError } from "@/lib/errors/lesson-errors";
 
@@ -9,7 +9,6 @@ import type { LessonCurriculumReader } from "./lesson-curriculum-reader";
 import {
   getCharacterHelpers,
   getLanguageDisplayName,
-  getLessonBatchSize,
   getLessonTokenTtlSeconds,
   getRetrySpacingMinimum,
 } from "./lesson-config";
@@ -201,7 +200,7 @@ export async function startLesson({
   now = Date.now(),
 }: StartLessonInput): Promise<LessonStartResult> {
   const eligibleItems = await curriculum.getEligibleLearningItems(userId, languageId);
-  const batchSize = getLessonBatchSize();
+  const batchSize = settings?.lessonBatchSize ?? DEFAULT_LESSON_BATCH_SIZE;
   const mode = settings?.curriculumMode ?? FALLBACK_CURRICULUM_MODE;
 
   if (mode === "choose_group") {
@@ -253,6 +252,12 @@ export async function startLesson({
     studyItems,
     itemStates: computeItemStates(undefined, batchSummary),
     characterHelpers: getCharacterHelpers(state.languageCode),
+    // Only meaningful for the client's initial mount (spec 20 Lessons — Auto
+    // Pronunciation triggers during the study phase only), so — like
+    // `studyItems` — this is populated here and nowhere else `LessonSessionResult`
+    // is built; the client never re-reads it from a later action's result.
+    languageCode: state.languageCode,
+    autoPronounceLessons: settings?.autoPronounceLessons ?? DEFAULT_AUTO_PRONOUNCE_LESSONS,
   };
 }
 

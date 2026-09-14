@@ -84,6 +84,8 @@ const LANGUAGE_SETTINGS_COLUMNS = {
   curriculumMode: userLanguageSettings.curriculumMode,
   selectedVocabularyGroupId: userLanguageSettings.selectedVocabularyGroupId,
   grammarPlacement: userLanguageSettings.grammarPlacement,
+  lessonBatchSize: userLanguageSettings.lessonBatchSize,
+  autoPronounceLessons: userLanguageSettings.autoPronounceLessons,
 };
 
 type LanguageSettingsRow = {
@@ -92,6 +94,8 @@ type LanguageSettingsRow = {
   curriculumMode: typeof userLanguageSettings.$inferSelect.curriculumMode;
   selectedVocabularyGroupId: string | null;
   grammarPlacement: GrammarPlacement;
+  lessonBatchSize: number;
+  autoPronounceLessons: boolean;
 };
 
 /**
@@ -179,6 +183,38 @@ export async function saveGrammarPlacement(
     .returning(LANGUAGE_SETTINGS_COLUMNS);
   if (!row) {
     throw new AppError("ITEM_NOT_FOUND", "Choose a Learning Queue mode before setting Grammar Placement.");
+  }
+  return toLanguageSettings(row);
+}
+
+/** Spec 20 Lessons — Lesson Batch Size, saved independently for the same reason as `saveGrammarPlacement`. */
+export async function saveLessonBatchSize(
+  db: DbClient,
+  input: { userId: string; languageId: string; lessonBatchSize: number },
+): Promise<LanguageSettings> {
+  const [row] = await db
+    .update(userLanguageSettings)
+    .set({ lessonBatchSize: input.lessonBatchSize, updatedAt: new Date() })
+    .where(and(eq(userLanguageSettings.userId, input.userId), eq(userLanguageSettings.languageId, input.languageId)))
+    .returning(LANGUAGE_SETTINGS_COLUMNS);
+  if (!row) {
+    throw new AppError("ITEM_NOT_FOUND", "Choose a Learning Queue mode before setting Lesson Batch Size.");
+  }
+  return toLanguageSettings(row);
+}
+
+/** Spec 20 Lessons — Auto Pronunciation, saved independently for the same reason as `saveGrammarPlacement`. */
+export async function saveAutoPronounceLessons(
+  db: DbClient,
+  input: { userId: string; languageId: string; autoPronounceLessons: boolean },
+): Promise<LanguageSettings> {
+  const [row] = await db
+    .update(userLanguageSettings)
+    .set({ autoPronounceLessons: input.autoPronounceLessons, updatedAt: new Date() })
+    .where(and(eq(userLanguageSettings.userId, input.userId), eq(userLanguageSettings.languageId, input.languageId)))
+    .returning(LANGUAGE_SETTINGS_COLUMNS);
+  if (!row) {
+    throw new AppError("ITEM_NOT_FOUND", "Choose a Learning Queue mode before setting Auto Pronunciation.");
   }
   return toLanguageSettings(row);
 }

@@ -3,9 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { CURRICULUM_MODES, GRAMMAR_PLACEMENTS } from "@/domains/users";
+import { CURRICULUM_MODES, GRAMMAR_PLACEMENTS, MAX_LESSON_BATCH_SIZE, MIN_LESSON_BATCH_SIZE } from "@/domains/users";
 import { listAvailableThemes } from "@/domains/lessons/server";
-import { requireUser, updateGrammarPlacement } from "@/domains/users/server";
+import { requireUser, updateAutoPronounceLessons, updateGrammarPlacement, updateLessonBatchSize } from "@/domains/users/server";
 import { setCurriculumPreference } from "@/domains/users/server";
 import { AppError } from "@/lib/errors/app-error";
 
@@ -94,6 +94,64 @@ export async function updateGrammarPlacementAction(
       return { ok: false, error: { code: "VALIDATION_FAILED", message: error.issues[0]?.message ?? "That request isn't valid." } };
     }
     console.error("Unexpected update grammar placement action error", error);
+    return { ok: false, error: { code: "UNKNOWN", message: "Could not save setting. Please try again." } };
+  }
+}
+
+const lessonBatchSizeInputSchema = z.object({
+  lessonBatchSize: z.number().int().min(MIN_LESSON_BATCH_SIZE).max(MAX_LESSON_BATCH_SIZE),
+});
+
+export async function updateLessonBatchSizeAction(
+  input: z.infer<typeof lessonBatchSizeInputSchema>,
+): Promise<ActionResult<{ lessonBatchSize: number }>> {
+  try {
+    const { lessonBatchSize } = lessonBatchSizeInputSchema.parse(input);
+    const user = await requireUser();
+
+    const updated = await updateLessonBatchSize({ userId: user.id, languageId: user.activeLanguageId, lessonBatchSize });
+
+    revalidatePath("/settings/lessons");
+    revalidatePath("/lessons");
+
+    return { ok: true, data: { lessonBatchSize: updated.lessonBatchSize } };
+  } catch (error) {
+    if (error instanceof AppError) {
+      return { ok: false, error: { code: error.code, message: error.message } };
+    }
+    if (error instanceof z.ZodError) {
+      return { ok: false, error: { code: "VALIDATION_FAILED", message: error.issues[0]?.message ?? "That request isn't valid." } };
+    }
+    console.error("Unexpected update lesson batch size action error", error);
+    return { ok: false, error: { code: "UNKNOWN", message: "Could not save setting. Please try again." } };
+  }
+}
+
+const autoPronounceLessonsInputSchema = z.object({
+  autoPronounceLessons: z.boolean(),
+});
+
+export async function updateAutoPronounceLessonsAction(
+  input: z.infer<typeof autoPronounceLessonsInputSchema>,
+): Promise<ActionResult<{ autoPronounceLessons: boolean }>> {
+  try {
+    const { autoPronounceLessons } = autoPronounceLessonsInputSchema.parse(input);
+    const user = await requireUser();
+
+    const updated = await updateAutoPronounceLessons({ userId: user.id, languageId: user.activeLanguageId, autoPronounceLessons });
+
+    revalidatePath("/settings/lessons");
+    revalidatePath("/lessons");
+
+    return { ok: true, data: { autoPronounceLessons: updated.autoPronounceLessons } };
+  } catch (error) {
+    if (error instanceof AppError) {
+      return { ok: false, error: { code: error.code, message: error.message } };
+    }
+    if (error instanceof z.ZodError) {
+      return { ok: false, error: { code: "VALIDATION_FAILED", message: error.issues[0]?.message ?? "That request isn't valid." } };
+    }
+    console.error("Unexpected update auto pronounce lessons action error", error);
     return { ok: false, error: { code: "UNKNOWN", message: "Could not save setting. Please try again." } };
   }
 }

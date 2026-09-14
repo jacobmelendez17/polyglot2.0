@@ -1,0 +1,3 @@
+ALTER TABLE "user_language_settings" ADD COLUMN "lesson_batch_size" integer DEFAULT 6 NOT NULL;--> statement-breakpoint
+ALTER TABLE "user_language_settings" ADD COLUMN "auto_pronounce_lessons" boolean DEFAULT true NOT NULL;--> statement-breakpoint
+ALTER TABLE "user_language_settings" ADD CONSTRAINT "user_language_settings_batch_size_range" CHECK ("user_language_settings"."lesson_batch_size" BETWEEN 3 AND 15);

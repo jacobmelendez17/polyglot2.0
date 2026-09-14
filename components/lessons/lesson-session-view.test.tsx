@@ -22,6 +22,16 @@ vi.mock("@/app/(focus)/lessons/actions", () => ({
   completeLessonAction: (...args: unknown[]) => completeLessonAction(...args),
 }));
 
+const speak = vi.fn();
+const cancel = vi.fn();
+vi.mock("@/providers/speech/speech-synthesis-provider", () => ({
+  browserSpeechSynthesisProvider: {
+    isSupported: () => true,
+    speak: (...args: unknown[]) => speak(...args),
+    cancel: (...args: unknown[]) => cancel(...args),
+  },
+}));
+
 const INITIAL: LessonSessionResult = {
   token: "initial-token",
   phase: "study",
@@ -89,6 +99,8 @@ beforeEach(() => {
   startQuizAction.mockReset();
   submitQuizAnswerAction.mockReset();
   completeLessonAction.mockReset();
+  speak.mockReset();
+  cancel.mockReset();
 });
 
 describe("LessonSessionView", () => {
@@ -204,5 +216,56 @@ describe("LessonSessionView", () => {
 
     await waitFor(() => expect(screen.getByText("perro")).toBeInTheDocument());
     expect(screen.getByText(/1 \/ 4/)).toBeInTheDocument();
+  });
+
+  describe("Auto Pronunciation (spec 20 Lessons)", () => {
+    it("pronounces the first vocabulary item on introduction when enabled", async () => {
+      openLessonItemAction.mockResolvedValue({ ok: true, data: { token: "t2", viewedItemIds: ["vocab-gato"] } });
+
+      render(<LessonSessionView initial={{ ...INITIAL, languageCode: "es-MX", autoPronounceLessons: true }} />);
+
+      await waitFor(() => expect(speak).toHaveBeenCalledTimes(1));
+      expect(speak).toHaveBeenCalledWith({ text: "gato", languageCode: "es-MX" });
+    });
+
+    it("pronounces the next item only once it's actually introduced, not before", async () => {
+      openLessonItemAction.mockImplementation(({ itemId }: { itemId: string }) =>
+        Promise.resolve({ ok: true, data: { token: "t2", viewedItemIds: ["vocab-gato", "vocab-perro"].filter((id) => id === "vocab-gato" || id === itemId) } }),
+      );
+
+      const user = userEvent.setup();
+      render(<LessonSessionView initial={{ ...INITIAL, languageCode: "es-MX", autoPronounceLessons: true }} />);
+
+      await waitFor(() => expect(speak).toHaveBeenCalledTimes(1));
+
+      const nextButton = screen.getByRole("button", { name: "Next" });
+      await waitFor(() => expect(nextButton).toBeEnabled());
+      await user.click(nextButton);
+
+      await waitFor(() => expect(speak).toHaveBeenCalledTimes(2));
+      expect(speak).toHaveBeenLastCalledWith({ text: "perro", languageCode: "es-MX" });
+    });
+
+    it("never pronounces anything when the preference is off", async () => {
+      openLessonItemAction.mockResolvedValue({ ok: true, data: { token: "t2", viewedItemIds: ["vocab-gato"] } });
+
+      render(<LessonSessionView initial={{ ...INITIAL, languageCode: "es-MX", autoPronounceLessons: false }} />);
+
+      await waitFor(() => expect(openLessonItemAction).toHaveBeenCalled());
+      expect(speak).not.toHaveBeenCalled();
+    });
+
+    it("cancels any in-flight speech when the session unmounts", async () => {
+      openLessonItemAction.mockResolvedValue({ ok: true, data: { token: "t2", viewedItemIds: ["vocab-gato"] } });
+
+      const { unmount } = render(<LessonSessionView initial={{ ...INITIAL, languageCode: "es-MX", autoPronounceLessons: true }} />);
+      await waitFor(() => expect(speak).toHaveBeenCalledTimes(1));
+
+      unmount();
+
+      // Also called by the mounted `PronunciationButton`'s own cleanup — this
+      // only asserts the session's cleanup fires at all, not an exact count.
+      expect(cancel).toHaveBeenCalled();
+    });
   });
 });

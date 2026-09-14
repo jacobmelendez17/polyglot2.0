@@ -1,12 +1,8 @@
 "use client";
 
-import { useState } from "react";
-
 import { updateGrammarPlacementAction } from "@/app/(app)/settings/lessons/actions";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { InlineSelectSettingField } from "@/components/settings/inline-select-setting-field";
 import type { GrammarPlacement } from "@/domains/users";
-
-type SaveState = "idle" | "saving" | "saved" | "error";
 
 const OPTIONS: { value: GrammarPlacement; label: string }[] = [
   { value: "first", label: "First" },
@@ -27,53 +23,18 @@ type GrammarPlacementSelectProps = {
  * chosen, per "this setting changes learner-specific queue ordering only."
  */
 export function GrammarPlacementSelect({ initialValue }: GrammarPlacementSelectProps) {
-  const [value, setValue] = useState<GrammarPlacement>(initialValue);
-  const [state, setState] = useState<SaveState>("idle");
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  async function handleChange(next: string) {
-    const previous = value;
-    const nextValue = next as GrammarPlacement;
-    setValue(nextValue);
-    setState("saving");
-    setErrorMessage(null);
-
-    const result = await updateGrammarPlacementAction({ grammarPlacement: nextValue });
-
-    if (!result.ok) {
-      setValue(previous);
-      setState("error");
-      setErrorMessage(result.error.message);
-      return;
-    }
-    setState("saved");
-  }
-
   return (
-    <div className="border-b border-border py-4 first:pt-0 last:border-b-0">
-      <p className="text-sm font-medium text-foreground">Grammar Placement</p>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Only applies to Variety — Default Order and Choose Group as You Go set grammar&apos;s position on their own.
-      </p>
-      <div className="mt-2">
-        <Select value={value} onValueChange={handleChange} disabled={state === "saving"}>
-          <SelectTrigger aria-label="Grammar Placement" className="w-full sm:max-w-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {OPTIONS.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <p className="mt-2 text-sm" aria-live="polite">
-        {state === "saving" && <span className="text-muted-foreground">Saving…</span>}
-        {state === "saved" && <span className="text-state-success">Saved</span>}
-        {state === "error" && <span className="text-destructive">{errorMessage ?? "Could not save setting."}</span>}
-      </p>
-    </div>
+    <InlineSelectSettingField
+      label="Grammar Placement"
+      description="Only applies to Variety — Default Order and Choose Group as You Go set grammar's position on their own."
+      initialValue={initialValue}
+      options={OPTIONS}
+      onSave={async (grammarPlacement) => {
+        const result = await updateGrammarPlacementAction({ grammarPlacement });
+        return result.ok
+          ? { ok: true, value: result.data.grammarPlacement as GrammarPlacement }
+          : { ok: false, message: result.error.message };
+      }}
+    />
   );
 }

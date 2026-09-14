@@ -15,7 +15,10 @@ import {
   findUsersByIds,
   getContentPreferences,
   provisionUser,
+  saveAutoPronounceLessons,
   saveContentPreferences,
+  saveCurriculumPreference,
+  saveLessonBatchSize,
   updateDisplayName,
   updateUsername,
 } from "./user-repository";
@@ -456,6 +459,56 @@ describe("content preferences (spec 20 General)", () => {
       const afterSecondSave = await saveContentPreferences(tx, user.id, { hideEnglishReviews: true });
 
       expect(afterSecondSave).toEqual({ hideEnglishReviews: true, showNsfwContent: true });
+    });
+  });
+});
+
+describe("saveLessonBatchSize / saveAutoPronounceLessons (spec 20 Lessons)", () => {
+  it("defaults a freshly chosen Learning Queue to batch size 6 and auto-pronunciation on", async () => {
+    await withTestTransaction(async (tx) => {
+      const { language } = await seedDefaultLanguageAndLevel1(tx);
+      const user = await provisionUser(tx, "clerk-lesson-batch-default");
+
+      const settings = await saveCurriculumPreference(tx, { userId: user.id, languageId: language.id, curriculumMode: "variety" });
+
+      expect(settings.lessonBatchSize).toBe(6);
+      expect(settings.autoPronounceLessons).toBe(true);
+    });
+  });
+
+  it("saves batch size independently of auto-pronunciation, and vice versa", async () => {
+    await withTestTransaction(async (tx) => {
+      const { language } = await seedDefaultLanguageAndLevel1(tx);
+      const user = await provisionUser(tx, "clerk-lesson-batch-independent");
+      await saveCurriculumPreference(tx, { userId: user.id, languageId: language.id, curriculumMode: "variety" });
+
+      const afterBatchSize = await saveLessonBatchSize(tx, { userId: user.id, languageId: language.id, lessonBatchSize: 12 });
+      expect(afterBatchSize.lessonBatchSize).toBe(12);
+      expect(afterBatchSize.autoPronounceLessons).toBe(true);
+
+      const afterToggle = await saveAutoPronounceLessons(tx, { userId: user.id, languageId: language.id, autoPronounceLessons: false });
+      expect(afterToggle.autoPronounceLessons).toBe(false);
+      expect(afterToggle.lessonBatchSize).toBe(12);
+    });
+  });
+
+  it("rejects a batch size outside 3-15 at the database's own check constraint", async () => {
+    await withTestTransaction(async (tx) => {
+      const { language } = await seedDefaultLanguageAndLevel1(tx);
+      const user = await provisionUser(tx, "clerk-lesson-batch-out-of-range");
+      await saveCurriculumPreference(tx, { userId: user.id, languageId: language.id, curriculumMode: "variety" });
+
+      await expect(saveLessonBatchSize(tx, { userId: user.id, languageId: language.id, lessonBatchSize: 16 })).rejects.toThrow();
+    });
+  });
+
+  it("refuses to save either field before a Learning Queue mode has ever been chosen", async () => {
+    await withTestTransaction(async (tx) => {
+      const { language } = await seedDefaultLanguageAndLevel1(tx);
+      const user = await provisionUser(tx, "clerk-lesson-batch-no-row");
+
+      await expect(saveLessonBatchSize(tx, { userId: user.id, languageId: language.id, lessonBatchSize: 8 })).rejects.toThrow(AppError);
+      await expect(saveAutoPronounceLessons(tx, { userId: user.id, languageId: language.id, autoPronounceLessons: false })).rejects.toThrow(AppError);
     });
   });
 });

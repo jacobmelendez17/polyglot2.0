@@ -38,6 +38,22 @@ export function isGrammarPlacement(value: unknown): value is GrammarPlacement {
 }
 
 /**
+ * Spec 20 Lessons — Lesson Batch Size. The one place this range and default
+ * are written down; `domains/lessons` reads `DEFAULT_LESSON_BATCH_SIZE`
+ * instead of a literal `6` (lessons may depend on users, not the reverse).
+ */
+export const MIN_LESSON_BATCH_SIZE = 3;
+export const MAX_LESSON_BATCH_SIZE = 15;
+export const DEFAULT_LESSON_BATCH_SIZE = 6;
+
+export function isValidLessonBatchSize(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= MIN_LESSON_BATCH_SIZE && value <= MAX_LESSON_BATCH_SIZE;
+}
+
+/** Spec 20 Lessons — Auto Pronunciation. No stated spec default, unlike every other toggle; see `db/schema/user-settings.ts`'s `autoPronounceLessons` docstring for why `true` was chosen. */
+export const DEFAULT_AUTO_PRONOUNCE_LESSONS = true;
+
+/**
  * A learner's settings for one language. `null` from a lookup means "has
  * never chosen", which is what routes them to the preference screen — never
  * "chose the default", because there is no default: spec 16 asks the
@@ -51,6 +67,10 @@ export type LanguageSettings = {
   selectedVocabularyGroupId: string | null;
   /** Meaningful only in `variety` mode — see `GrammarPlacement`'s docstring. */
   grammarPlacement: GrammarPlacement;
+  /** Spec 20 Lessons — Lesson Batch Size. The maximum preferred size of the next generated lesson; an active lesson keeps whatever size it started with. */
+  lessonBatchSize: number;
+  /** Spec 20 Lessons — Auto Pronunciation. Whether Lessons automatically plays pronunciation when a vocabulary item is introduced; manual controls are unaffected. */
+  autoPronounceLessons: boolean;
 };
 
 /** Narrows an untrusted value (a form field, a URL parameter) to a real mode. Validation still belongs at the boundary; this is what the boundary checks against. */

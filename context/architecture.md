@@ -1113,6 +1113,26 @@ in Variety mode:
 Default Order and Choose Group as You Go both ignore this setting outright —
 their grammar position is a property of the mode itself, not configurable.
 
+### Lesson Batch Size & Auto Pronunciation
+
+Two more per-language preferences on the same `user_language_settings` row
+(`lesson_batch_size`, integer 3-15, default 6; `auto_pronounce_lessons`,
+boolean, default `true`), unrelated to mode selection:
+
+- **Lesson Batch Size** is the maximum size of the *next* generated lesson
+  (`domains/lessons/lesson-service.ts`'s `startLesson` reads
+  `settings.lessonBatchSize` instead of a hardcoded constant). A lesson may
+  still be smaller when fewer eligible items exist, and an already-open
+  lesson session keeps whatever size it started with — changing this setting
+  never resizes one in progress.
+- **Auto Pronunciation** plays a vocabulary item's pronunciation the moment
+  it is introduced during a lesson's study phase (`components/lessons/
+  lesson-session-view.tsx`, at the same point an item is first marked
+  viewed), preferring a real recording and falling back to browser speech
+  synthesis — the same preference order `PronunciationButton` uses for
+  manual playback, which stays available regardless of this setting. Grammar
+  items are never auto-pronounced.
+
 ---
 
 # Level Unlock Architecture

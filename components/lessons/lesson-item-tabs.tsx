@@ -1,21 +1,20 @@
-import { Volume2 } from "lucide-react";
-
+import { PronunciationButton } from "@/components/shared/pronunciation-button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { LearningItem } from "@/domains/curriculum";
 import { REGIONAL_STATUS_LABELS } from "@/domains/lexicon";
 
 type LessonItemTabsProps = {
   item: LearningItem;
+  /** `languages.code`, e.g. `es-MX` — passed down to `PronunciationButton` for voice selection. */
+  languageCode: string;
 };
 
 /**
  * Details / Examples / Resources, operating within the current learning
  * item rather than navigating routes (spec 07 §14). Field lists follow
- * §15 (vocabulary) / §16 (grammar). Audio degrades to text-only pronunciation
- * when unavailable — the `media` domain doesn't exist yet — rather than
- * rendering a dead play control (§15 Missing Media).
+ * §15 (vocabulary) / §16 (grammar).
  */
-export function LessonItemTabs({ item }: LessonItemTabsProps) {
+export function LessonItemTabs({ item, languageCode }: LessonItemTabsProps) {
   return (
     <Tabs defaultValue="details" className="mx-auto w-full max-w-2xl">
       <TabsList className="mx-auto">
@@ -25,7 +24,7 @@ export function LessonItemTabs({ item }: LessonItemTabsProps) {
       </TabsList>
 
       <TabsContent value="details" className="mt-4 flex flex-col gap-4">
-        {item.type === "vocabulary" ? <VocabularyDetails item={item} /> : <GrammarDetails item={item} />}
+        {item.type === "vocabulary" ? <VocabularyDetails item={item} languageCode={languageCode} /> : <GrammarDetails item={item} />}
       </TabsContent>
 
       <TabsContent value="examples" className="mt-4">
@@ -39,7 +38,7 @@ export function LessonItemTabs({ item }: LessonItemTabsProps) {
   );
 }
 
-function VocabularyDetails({ item }: { item: Extract<LearningItem, { type: "vocabulary" }> }) {
+function VocabularyDetails({ item, languageCode }: { item: Extract<LearningItem, { type: "vocabulary" }>; languageCode: string }) {
   return (
     <div className="flex flex-col gap-4">
       {item.definition ? (
@@ -73,15 +72,13 @@ function VocabularyDetails({ item }: { item: Extract<LearningItem, { type: "voca
         <section className="rounded-lg bg-card p-4 ring-1 ring-foreground/10">
           <h3 className="text-sm font-medium text-muted-foreground">Pronunciation</h3>
           <div className="mt-1 flex items-center gap-2">
-            {item.pronunciation.audioUrl ? (
-              <button
-                type="button"
-                aria-label={`Play pronunciation of ${item.word}`}
-                className="flex h-8 w-8 items-center justify-center rounded-full text-primary hover:bg-muted"
-              >
-                <Volume2 className="h-4 w-4" aria-hidden="true" />
-              </button>
-            ) : null}
+            <PronunciationButton
+              text={item.word}
+              languageCode={languageCode}
+              audioUrl={item.pronunciation.audioUrl}
+              label={item.word}
+              size="sm"
+            />
             <p className="text-sm text-foreground">
               {item.pronunciation.guide}
               {item.pronunciation.ipa ? (

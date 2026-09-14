@@ -12,11 +12,16 @@ export type { ContentPreferences } from "./content-preferences";
 export { isOnboardingRequired } from "./onboarding";
 export {
   CURRICULUM_MODES,
+  DEFAULT_AUTO_PRONOUNCE_LESSONS,
+  DEFAULT_LESSON_BATCH_SIZE,
   GRAMMAR_PLACEMENTS,
   isCurriculumChoiceRequired,
   isCurriculumMode,
   isGrammarPlacement,
   isThemeSelectionRequired,
+  isValidLessonBatchSize,
+  MAX_LESSON_BATCH_SIZE,
+  MIN_LESSON_BATCH_SIZE,
 } from "./curriculum-preference";
 export type { CurriculumMode, GrammarPlacement, LanguageSettings } from "./curriculum-preference";
 export { getDefaultLanguageCode } from "./provisioning-config";

@@ -11,7 +11,7 @@ const gato = FIXTURE_LEARNING_ITEMS.find((item) => item.id === "vocab-gato")! as
 describe("LessonItemTabs", () => {
   it("switches between Details, Examples, and Resources", async () => {
     const user = userEvent.setup();
-    render(<LessonItemTabs item={gato} />);
+    render(<LessonItemTabs item={gato} languageCode="es-MX" />);
 
     expect(screen.getByText("Definition")).toBeVisible();
 
@@ -22,9 +22,13 @@ describe("LessonItemTabs", () => {
     expect(screen.getByText("No additional resources for this item.")).toBeVisible();
   });
 
-  it("does not render a dead play control when pronunciation audio is unavailable", () => {
-    render(<LessonItemTabs item={gato} />);
-    expect(screen.queryByRole("button", { name: /play pronunciation/i })).not.toBeInTheDocument();
+  it("renders a real, honestly-disabled pronunciation control rather than a dead button when neither a recording nor synthesis is available", () => {
+    render(<LessonItemTabs item={gato} languageCode="es-MX" />);
+    // jsdom implements no speech synthesis and the fixture has no `audioUrl`
+    // — the same "browser cannot pronounce this" case `PronunciationButton`
+    // is built to handle (see `components/shared/pronunciation-button.test.tsx`).
+    const button = screen.getByRole("button", { name: "Pronunciation of gato is unavailable in this browser" });
+    expect(button).toBeDisabled();
   });
 
   it("renders the dictionary information section when a confirmed mapping's data is present", () => {
@@ -39,7 +43,7 @@ describe("LessonItemTabs", () => {
         attributionText: "From Wiktionary, CC BY-SA 4.0",
       },
     };
-    render(<LessonItemTabs item={gatoWithDictionary} />);
+    render(<LessonItemTabs item={gatoWithDictionary} languageCode="es-MX" />);
 
     expect(screen.getByText("Dictionary information")).toBeVisible();
     expect(screen.getByText("colloquial")).toBeVisible();
@@ -50,7 +54,7 @@ describe("LessonItemTabs", () => {
   });
 
   it("omits the dictionary section entirely when the item has no confirmed mapping", () => {
-    render(<LessonItemTabs item={gato} />);
+    render(<LessonItemTabs item={gato} languageCode="es-MX" />);
     expect(screen.queryByText("Dictionary information")).not.toBeInTheDocument();
   });
 });

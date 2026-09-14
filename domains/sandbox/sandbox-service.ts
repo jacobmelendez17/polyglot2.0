@@ -4,8 +4,7 @@ import { getLevelByLanguageAndNumber } from "@/domains/curriculum/curriculum-rep
 import { withIdempotency } from "@/domains/idempotency";
 import { getEligibleLessonItems } from "@/domains/curriculum/lesson-curriculum-repository";
 import { getAvailableThemes, selectLessonBatch } from "@/domains/lessons/lesson-batch";
-import { getLessonBatchSize } from "@/domains/lessons";
-import { CURRICULUM_MODES } from "@/domains/users";
+import { CURRICULUM_MODES, DEFAULT_LESSON_BATCH_SIZE } from "@/domains/users";
 import type { CurriculumMode } from "@/domains/users";
 import { findLanguageSettings, saveCurriculumPreference } from "@/domains/users/user-repository";
 import { getSandboxTimeOffset, setSandboxTimeOffset } from "@/domains/users/user-clock";
@@ -272,7 +271,7 @@ export async function previewSandboxCurriculum(db: DbClient, ownerUserId: string
   }
 
   const previewThemeId = settings?.selectedVocabularyGroupId ?? availableThemes[0]?.id ?? null;
-  const batchSize = getLessonBatchSize();
+  const batchSize = settings?.lessonBatchSize ?? DEFAULT_LESSON_BATCH_SIZE;
 
   return {
     currentMode: settings?.curriculumMode ?? null,
