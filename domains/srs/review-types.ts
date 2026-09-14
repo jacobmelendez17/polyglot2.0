@@ -1,9 +1,11 @@
 import type { z } from "zod";
 
+import type { ReviewQuestionPresentation } from "./review-presentation";
 import type { ReviewResultCategory } from "./review-result";
 import type {
   reviewItemSnapshotSchema,
   reviewItemTypeSchema,
+  reviewPreferencesSchema,
   reviewQuestionDirectionSchema,
   reviewQuestionSchema,
   reviewSessionStatsSchema,
@@ -16,6 +18,8 @@ export type ReviewQuestionDirection = z.infer<typeof reviewQuestionDirectionSche
 export type ReviewQuestion = z.infer<typeof reviewQuestionSchema>;
 export type ReviewItemSnapshot = z.infer<typeof reviewItemSnapshotSchema>;
 export type ReviewSessionStats = z.infer<typeof reviewSessionStatsSchema>;
+/** The session's resolved Review Type preferences (spec 20 Reviews) — see `reviewPreferencesSchema`'s docstring for why these live inside the signed state rather than being re-fetched per submit. */
+export type SignedReviewPreferences = z.infer<typeof reviewPreferencesSchema>;
 /** The signed ephemeral review-session payload (spec 09 §6). */
 export type ReviewState = z.infer<typeof reviewStateSchema>;
 
@@ -24,8 +28,9 @@ export type ReviewQuestionView = {
   itemId: string;
   itemType: ReviewItemType;
   direction: ReviewQuestionDirection;
-  prompt: string;
   directionLabel: string;
+  /** Spec 20 Reviews — Review Types: how the client must present and answer this question. */
+  presentation: ReviewQuestionPresentation;
 };
 
 export type ReviewAnswerFeedback =
@@ -37,7 +42,9 @@ export type ReviewAnswerFeedback =
       article?: string;
       userAnswer: string;
       expectedAnswer: string;
-    };
+    }
+  /** Spec 20 Reviews — Flashcard/Cloze (Flashcard): the learner self-reported "Don't Know" after revealing the answer. Nothing more to show — they already saw it via Reveal. */
+  | { kind: "self_graded_incorrect" };
 
 /**
  * The real, persisted SRS mutation a just-completed item received (spec 09

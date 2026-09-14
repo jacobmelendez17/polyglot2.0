@@ -79,6 +79,21 @@ describe("buildReviewQuestions", () => {
     ]);
     expect(questions).toHaveLength(2);
   });
+
+  describe("collapseVocabularyToOneQuestion (spec 20 Reviews — Cloze review types)", () => {
+    it("asks a vocabulary item as a single englishToTarget question instead of two", () => {
+      const questions = buildReviewQuestions([vocab("v1")], { collapseVocabularyToOneQuestion: true });
+      expect(questions).toEqual([{ id: "v1::englishToTarget", itemId: "v1", itemType: "vocabulary", direction: "englishToTarget" }]);
+    });
+
+    it("never changes a grammar item's configured question count", () => {
+      const questions = buildReviewQuestions(
+        [grammar("g2", [{ format: "translation", direction: "targetToEnglish" }, { format: "translation", direction: "englishToTarget" }])],
+        { collapseVocabularyToOneQuestion: true },
+      );
+      expect(questions).toHaveLength(2);
+    });
+  });
 });
 
 describe("interleaveReviewQuestions", () => {

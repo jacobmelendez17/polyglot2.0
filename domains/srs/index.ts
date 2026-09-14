@@ -33,14 +33,28 @@ export type {
   ReviewHistoryPage,
 } from "./review-history-types";
 export { buildReviewQuestions, interleaveReviewQuestions } from "./review-queue";
+export type { BuildReviewQuestionsOptions } from "./review-queue";
 export { rescheduleReviewAfterIncorrect } from "./review-retry";
 export { getReviewQuestionAnswerSpec } from "./review-answer-spec";
 export type { ReviewQuestionAnswerSpec } from "./review-answer-spec";
+export {
+  DEFAULT_REVIEW_PREFERENCES,
+  DEFAULT_REVIEW_TYPE,
+  isClozeReviewType,
+  isReviewType,
+  REVIEW_TYPES,
+} from "./review-preference";
+export type { ReviewPreferences, ReviewType } from "./review-preference";
+export { findCompatibleClozeSentence } from "./review-cloze";
+export type { ClozeSentence } from "./review-cloze";
+export { isTypedPresentation, resolveReviewPresentation } from "./review-presentation";
+export type { ReviewQuestionPresentation } from "./review-presentation";
 export { buildReviewItemCompletionPreview } from "./review-completion-preview";
 export type { BuildReviewItemCompletionPreviewInput } from "./review-completion-preview";
 export {
   reviewItemSnapshotSchema,
   reviewItemTypeSchema,
+  reviewPreferencesSchema,
   reviewQuestionDirectionSchema,
   reviewQuestionSchema,
   reviewSessionStatsSchema,

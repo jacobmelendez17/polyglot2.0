@@ -16,6 +16,7 @@ function makeState(overrides: Partial<ReviewState> = {}): ReviewState {
     failedQuestionIds: [],
     completedItemIds: [],
     itemSnapshots: [{ itemId: "gato", stage: "beginner_1", version: 0, levelNumber: 1 }],
+    reviewPreferences: { grammarReviewType: "cloze_manual", vocabularyReviewType: "cloze_manual" },
     stats: { itemsTotal: 1, itemsCompleted: 0, questionsAttempted: 0, questionsCorrect: 0 },
     issuedAt: NOW,
     expiresAt: NOW + 60 * 60 * 1000,

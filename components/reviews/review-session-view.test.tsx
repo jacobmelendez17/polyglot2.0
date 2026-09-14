@@ -20,8 +20,8 @@ const GATO_TARGET_TO_ENGLISH: ReviewQuestionView = {
   itemId: "gato",
   itemType: "vocabulary",
   direction: "targetToEnglish",
-  prompt: "gato",
   directionLabel: "Spanish → English",
+  presentation: { kind: "typed", prompt: "gato" },
 };
 
 const GATO_ENGLISH_TO_TARGET: ReviewQuestionView = {
@@ -29,8 +29,8 @@ const GATO_ENGLISH_TO_TARGET: ReviewQuestionView = {
   itemId: "gato",
   itemType: "vocabulary",
   direction: "englishToTarget",
-  prompt: "cat",
   directionLabel: "English → Spanish",
+  presentation: { kind: "typed", prompt: "cat" },
 };
 
 const INITIAL: ReviewSessionResult = {
@@ -186,5 +186,35 @@ describe("ReviewSessionView", () => {
     await user.type(screen.getByRole("textbox", { name: "Your answer" }), "{Enter}");
     expect(submitReviewAnswerAction).not.toHaveBeenCalled();
     expect(screen.getByText("gato")).toBeInTheDocument();
+  });
+
+  it("sends a self-graded submission for a reveal-presentation question (spec 20 Reviews)", async () => {
+    const revealInitial: ReviewSessionResult = {
+      ...INITIAL,
+      currentQuestion: { ...GATO_TARGET_TO_ENGLISH, presentation: { kind: "reveal", prompt: "gato", revealAnswer: "cat" } },
+    };
+    submitReviewAnswerAction.mockResolvedValue({
+      ok: true,
+      data: {
+        token: "t2",
+        sessionId: "session-1",
+        phase: "in_progress",
+        currentQuestion: GATO_ENGLISH_TO_TARGET,
+        characterHelpers: [],
+        stats: { itemsTotal: 1, itemsCompleted: 0, questionsAttempted: 1, questionsCorrect: 1 },
+        feedback: { kind: "correct" },
+      },
+    });
+
+    const user = userEvent.setup();
+    render(<ReviewSessionView initial={revealInitial} />);
+
+    await user.click(screen.getByRole("button", { name: "Reveal Answer" }));
+    await user.click(screen.getByRole("button", { name: "Know" }));
+
+    await waitFor(() => expect(submitReviewAnswerAction).toHaveBeenCalledTimes(1));
+    expect(submitReviewAnswerAction).toHaveBeenCalledWith(
+      expect.objectContaining({ submission: { kind: "self_graded", knowsAnswer: true } }),
+    );
   });
 });

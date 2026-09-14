@@ -47,23 +47,26 @@ async function runReviewAction<T>(fn: () => Promise<T>): Promise<ActionResult<T>
 const submitAnswerInputSchema = z.object({
   token: z.string().min(1),
   questionId: z.string().min(1),
-  answer: z.string(),
   idempotencyKey: z.string().uuid(),
+  submission: z.discriminatedUnion("kind", [
+    z.object({ kind: z.literal("typed"), answer: z.string() }),
+    z.object({ kind: z.literal("self_graded"), knowsAnswer: z.boolean() }),
+  ]),
 });
 
 export async function submitReviewAnswerAction(
   input: z.infer<typeof submitAnswerInputSchema>,
 ): Promise<ActionResult<ReviewSessionResult>> {
   return runReviewAction(async () => {
-    const { token, questionId, answer, idempotencyKey } = submitAnswerInputSchema.parse(input);
+    const { token, questionId, idempotencyKey, submission } = submitAnswerInputSchema.parse(input);
     const user = await requireUser();
     return submitReviewAnswer({
       token,
       userId: user.id,
       languageId: user.activeLanguageId,
       questionId,
-      answer,
       idempotencyKey,
+      ...submission,
     });
   });
 }

@@ -98,15 +98,15 @@ export function ReviewSessionView({ initial }: ReviewSessionViewProps) {
   const [isPending, startTransition] = useTransition();
   const [isExitDialogOpen, setExitDialogOpen] = useState(false);
 
-  function handleSubmitAnswer(answer: string) {
+  function submit(submission: { kind: "typed"; answer: string } | { kind: "self_graded"; knowsAnswer: boolean }) {
     const questionId = state.currentQuestion?.questionId;
     if (!questionId) return;
     startTransition(async () => {
       const result = await submitReviewAnswerAction({
         token: state.token,
         questionId,
-        answer,
         idempotencyKey: state.idempotencyKey,
+        submission,
       });
       if (!result.ok) {
         dispatch({ type: "ERROR", error: result.error });
@@ -114,6 +114,14 @@ export function ReviewSessionView({ initial }: ReviewSessionViewProps) {
       }
       dispatch({ type: "ANSWER_SUBMITTED", result: result.data });
     });
+  }
+
+  function handleSubmitAnswer(answer: string) {
+    submit({ kind: "typed", answer });
+  }
+
+  function handleKnowsAnswer(knowsAnswer: boolean) {
+    submit({ kind: "self_graded", knowsAnswer });
   }
 
   function handleExitConfirm() {
@@ -157,6 +165,7 @@ export function ReviewSessionView({ initial }: ReviewSessionViewProps) {
             characterHelpers={state.characterHelpers}
             isPending={isPending}
             onSubmit={handleSubmitAnswer}
+            onKnowsAnswer={handleKnowsAnswer}
             onAdvance={() => dispatch({ type: "ADVANCE_QUESTION" })}
           />
         ) : null}

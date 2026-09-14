@@ -8,9 +8,12 @@
  */
 export {
   getReviewHistory,
+  getReviewPreferences,
   getReviewTimestampsInWindow,
   insertReviewEvent,
   startReviewSession,
   submitReviewAnswer,
+  updateGrammarReviewType,
+  updateVocabularyReviewType,
 } from "./review-service";
-export type { StartReviewSessionInput, SubmitReviewAnswerInput } from "./review-orchestration";
+export type { ReviewAnswerSubmission, StartReviewSessionInput, SubmitReviewAnswerInput } from "./review-orchestration";

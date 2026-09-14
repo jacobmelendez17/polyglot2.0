@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { REVIEW_TYPES } from "./review-preference";
+import type { ReviewType } from "./review-preference";
 import { SRS_STAGE_ORDER } from "./srs-config";
 import type { SrsStage } from "./srs-types";
 
@@ -50,6 +52,21 @@ export const reviewSessionStatsSchema = z.object({
   questionsCorrect: z.number().int().min(0),
 });
 
+const reviewTypeSchema = z.enum(REVIEW_TYPES as unknown as readonly [ReviewType, ...ReviewType[]]);
+
+/**
+ * Spec 20 Reviews' "Review Session Settings": resolved once at session
+ * start and carried inside the signed state from then on, exactly like
+ * `itemSnapshots` — "the active review keeps its original settings [...]
+ * the next review session uses the new settings," never a setting change
+ * mid-session. Re-fetching this per submit instead of trusting the signed
+ * copy would violate that directly.
+ */
+export const reviewPreferencesSchema = z.object({
+  grammarReviewType: reviewTypeSchema,
+  vocabularyReviewType: reviewTypeSchema,
+});
+
 export const reviewStateSchema = z.object({
   sessionId: z.string().min(1),
   userId: z.string().min(1),
@@ -63,6 +80,7 @@ export const reviewStateSchema = z.object({
   /** Items whose completion preview has already fired this session — prevents re-triggering on a replayed/duplicate submit. */
   completedItemIds: z.array(z.string().min(1)),
   itemSnapshots: z.array(reviewItemSnapshotSchema).min(1),
+  reviewPreferences: reviewPreferencesSchema,
   stats: reviewSessionStatsSchema,
   issuedAt: z.number().int().positive(),
   expiresAt: z.number().int().positive(),

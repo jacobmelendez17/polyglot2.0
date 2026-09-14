@@ -2,13 +2,14 @@ import { and, eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 
 import type { DbClient } from "@/db/client";
-import { learningItems, reviewEvents, userItemProgress, userLevelProgress } from "@/db/schema";
+import { learningItems, learningItemSentences, reviewEvents, userItemProgress, userLevelProgress, userReviewPreferences, userSynonyms } from "@/db/schema";
 import { seedTestFixtures } from "@/db/seed/test-fixtures";
 import { testDb } from "@/db/test/test-client";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
 
 import { applyReviewCompletion } from "./review-completion";
 import { startReviewSession, submitReviewAnswer } from "./review-orchestration";
+import type { ReviewType } from "./review-preference";
 import { verifyReviewState } from "./review-token";
 import type { ReviewSessionResult } from "./review-types";
 import type { SrsStage } from "./srs-types";
@@ -62,6 +63,44 @@ async function setStageNotDue(tx: DbClient, userId: string, learningItemId: stri
     });
 }
 
+/**
+ * Spec 20 Reviews — Review Types. Vocabulary defaults to Cloze (Manual),
+ * which for `gatoId` specifically (the item most of these tests already use)
+ * finds a real compatible example sentence ("El gato duerme.", seeded by
+ * `db/seed/test-fixtures.ts`) and collapses it to a single, sentence-blank
+ * `englishToTarget` question. Every test in this file that needs the
+ * pre-spec-20 shape — two independently-gradable questions per item, to
+ * exercise retry ordering, penalties, idempotency, and level-unlock
+ * machinery that has nothing to do with Review Types itself — sets
+ * `"flashcard"` explicitly instead of relying on whatever the default
+ * happens to be, and grades with `submitKnows` (self-graded) rather than
+ * `submitTyped`, since Flashcard is never typed.
+ */
+async function setVocabularyReviewType(tx: DbClient, userId: string, languageId: string, reviewType: ReviewType) {
+  await tx
+    .insert(userReviewPreferences)
+    .values({ userId, languageId, vocabularyReviewType: reviewType })
+    .onConflictDoUpdate({
+      target: [userReviewPreferences.userId, userReviewPreferences.languageId],
+      set: { vocabularyReviewType: reviewType },
+    });
+}
+
+/** Removes `gatoId`'s seeded example sentence link for one test, forcing Cloze (Manual)'s "no compatible sentence" fallback deterministically rather than depending on the fixture never gaining one. */
+async function removeExampleSentence(tx: DbClient, learningItemId: string) {
+  await tx.delete(learningItemSentences).where(eq(learningItemSentences.learningItemId, learningItemId));
+}
+
+type CommonSubmitFields = { token: string; userId: string; languageId: string; questionId: string; idempotencyKey: string; now?: number };
+
+function submitTyped(tx: DbClient, input: CommonSubmitFields & { answer: string }) {
+  return submitReviewAnswer(tx, { ...input, kind: "typed" });
+}
+
+function submitKnows(tx: DbClient, input: CommonSubmitFields & { knowsAnswer: boolean }) {
+  return submitReviewAnswer(tx, { ...input, kind: "self_graded" });
+}
+
 describe("startReviewSession", () => {
   it("is a success state with the soonest upcoming review time when nothing is due", async () => {
     await withTestTransaction(async (tx) => {
@@ -71,7 +110,7 @@ describe("startReviewSession", () => {
     });
   });
 
-  it("returns a session for a due vocabulary item, requiring the target->English direction first in a single-item queue", async () => {
+  it("returns a session for a due vocabulary item under the default Cloze (Manual) review type — a single sentence-blank englishToTarget question", async () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
       await markDue(tx, learnerId, gatoId, languageId);
@@ -82,16 +121,33 @@ describe("startReviewSession", () => {
 
       expect(result.stats.itemsTotal).toBe(1);
       expect(result.currentQuestion?.itemId).toBe(gatoId);
-      expect(result.currentQuestion?.direction).toBe("targetToEnglish");
-      expect(result.currentQuestion?.prompt).toBe("gato");
+      expect(result.currentQuestion?.direction).toBe("englishToTarget");
+      // "El gato duerme." is gato's seeded example sentence — the blanked word is "gato".
+      expect(result.currentQuestion?.presentation).toEqual({ kind: "cloze_typed", sentenceBefore: "El ", sentenceAfter: " duerme." });
 
       const decoded = await verifyReviewState({ token: result.token, userId: learnerId, languageId, now: Date.now() });
-      // Vocabulary requires both directions (spec 09 §7).
-      expect(decoded.queue).toHaveLength(2);
+      // Cloze (Manual) asks vocabulary as one question, not two (2026-09-13 decision: "there is no other direction").
+      expect(decoded.queue).toHaveLength(1);
     });
   });
 
-  it("uses exactly the grammar item's configured single required direction, not both", async () => {
+  it("asks vocabulary in both directions under Flashcard, unaffected by Cloze's single-question collapse", async () => {
+    await withTestTransaction(async (tx) => {
+      const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
+      await markDue(tx, learnerId, gatoId, languageId);
+      await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
+
+      const result = await startReviewSession(tx, { userId: learnerId, languageId });
+      expect(result.kind).toBe("session");
+      if (result.kind !== "session") return;
+
+      const decoded = await verifyReviewState({ token: result.token, userId: learnerId, languageId, now: Date.now() });
+      expect(decoded.queue).toHaveLength(2);
+      expect(result.currentQuestion?.presentation.kind).toBe("reveal");
+    });
+  });
+
+  it("uses exactly the grammar item's configured single required direction, not both, regardless of review type", async () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, grammarYId, languageId } = await seedTestFixtures(tx);
       await markDue(tx, learnerId, grammarYId, languageId);
@@ -103,6 +159,8 @@ describe("startReviewSession", () => {
       const decoded = await verifyReviewState({ token: result.token, userId: learnerId, languageId, now: Date.now() });
       expect(decoded.queue).toHaveLength(1);
       expect(decoded.questions[0]?.direction).toBe("targetToEnglish");
+      // grammarYId's one configured question is targetToEnglish, which Cloze never reshapes (spec 20 Reviews).
+      expect(result.currentQuestion?.presentation).toEqual({ kind: "typed", prompt: "y" });
     });
   });
 
@@ -121,33 +179,128 @@ describe("startReviewSession", () => {
   });
 });
 
-describe("submitReviewAnswer", () => {
-  it("completes a vocabulary item only after both directions are answered correctly, with a preview advancement", async () => {
+describe("submitReviewAnswer — Cloze (Manual) fallback (no compatible sentence)", () => {
+  it("accepts the missing-article bare form as incorrect with a missing_article reason, and el gato as correct", async () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
-      await markDue(tx, learnerId, gatoId, languageId, { srsStage: "beginner_1" });
+      await markDue(tx, learnerId, gatoId, languageId);
+      await removeExampleSentence(tx, gatoId);
 
       const started = await startReviewSession(tx, { userId: learnerId, languageId });
       if (started.kind !== "session") throw new Error("expected a session");
+      // With no compatible sentence, gato's single collapsed question falls
+      // back to the ordinary englishToTarget prompt ("cat" -> "el gato").
+      expect(started.currentQuestion?.presentation).toEqual({ kind: "typed", prompt: "cat" });
 
-      const first = await submitReviewAnswer(tx, {
+      const bareAnswer = await submitTyped(tx, {
         token: started.token,
         userId: learnerId,
         languageId,
         questionId: started.currentQuestion!.questionId,
-        answer: "cat",
+        answer: "gato",
+        idempotencyKey: crypto.randomUUID(),
+      });
+      expect(bareAnswer.feedback).toMatchObject({ kind: "incorrect", reason: "missing_article", article: "el" });
+
+      const correct = await submitTyped(tx, {
+        token: bareAnswer.token,
+        userId: learnerId,
+        languageId,
+        questionId: started.currentQuestion!.questionId,
+        answer: "el gato",
+        idempotencyKey: crypto.randomUUID(),
+      });
+      expect(correct.feedback).toEqual({ kind: "correct" });
+    });
+  });
+
+  it("accepts a real applicable user-created term-side synonym alongside the official answer", async () => {
+    await withTestTransaction(async (tx) => {
+      const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
+      await markDue(tx, learnerId, gatoId, languageId);
+      await removeExampleSentence(tx, gatoId);
+      // "term" side applies to englishToTarget (produce the target word) — the
+      // seed's own "kitty" synonym is "meaning"-side (targetToEnglish), which
+      // no longer exists for vocabulary under Cloze (Manual)'s collapse.
+      await tx.insert(userSynonyms).values({
+        userId: learnerId,
+        learningItemId: gatoId,
+        side: "term",
+        value: "minino",
+        normalizedValue: "minino",
+      });
+
+      const started = await startReviewSession(tx, { userId: learnerId, languageId });
+      if (started.kind !== "session") throw new Error("expected a session");
+      expect(started.currentQuestion?.direction).toBe("englishToTarget");
+
+      // Like the official term, a term-side synonym still needs gato's
+      // article to be marked correct in the englishToTarget direction — only
+      // "meaning"-side (targetToEnglish) synonyms are article-free.
+      const result = await submitTyped(tx, {
+        token: started.token,
+        userId: learnerId,
+        languageId,
+        questionId: started.currentQuestion!.questionId,
+        answer: "el minino",
+        idempotencyKey: crypto.randomUUID(),
+      });
+      expect(result.feedback).toEqual({ kind: "correct" });
+    });
+  });
+
+  it("rejects a typed submission for a question the server resolved as self-graded (reveal), and vice versa", async () => {
+    await withTestTransaction(async (tx) => {
+      const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
+      await markDue(tx, learnerId, gatoId, languageId);
+      await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
+
+      const started = await startReviewSession(tx, { userId: learnerId, languageId });
+      if (started.kind !== "session") throw new Error("expected a session");
+      expect(started.currentQuestion?.presentation.kind).toBe("reveal");
+
+      await expect(
+        submitTyped(tx, {
+          token: started.token,
+          userId: learnerId,
+          languageId,
+          questionId: started.currentQuestion!.questionId,
+          answer: "cat",
+          idempotencyKey: crypto.randomUUID(),
+        }),
+      ).rejects.toMatchObject({ code: "INVALID_REVIEW_STATE" });
+    });
+  });
+});
+
+describe("submitReviewAnswer — Flashcard (self-graded, both directions — completion/retry/penalty machinery)", () => {
+  it("completes a vocabulary item only after both directions are answered correctly, with a preview advancement", async () => {
+    await withTestTransaction(async (tx) => {
+      const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
+      await markDue(tx, learnerId, gatoId, languageId, { srsStage: "beginner_1" });
+      await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
+
+      const started = await startReviewSession(tx, { userId: learnerId, languageId });
+      if (started.kind !== "session") throw new Error("expected a session");
+
+      const first = await submitKnows(tx, {
+        token: started.token,
+        userId: learnerId,
+        languageId,
+        questionId: started.currentQuestion!.questionId,
+        knowsAnswer: true,
         idempotencyKey: crypto.randomUUID(),
       });
       expect(first.feedback).toEqual({ kind: "correct" });
       expect(first.completedItem).toBeUndefined();
       expect(first.phase).toBe("in_progress");
 
-      const second = await submitReviewAnswer(tx, {
+      const second = await submitKnows(tx, {
         token: first.token,
         userId: learnerId,
         languageId,
         questionId: first.currentQuestion!.questionId,
-        answer: "el gato",
+        knowsAnswer: true,
         idempotencyKey: crypto.randomUUID(),
       });
       expect(second.feedback).toEqual({ kind: "correct" });
@@ -163,54 +316,24 @@ describe("submitReviewAnswer", () => {
     });
   });
 
-  it("accepts the missing-article bare form as incorrect with a missing_article reason, and el gato as correct", async () => {
+  it("Don't Know is an incorrect SRS outcome and shows self-graded feedback with no expected-answer breakdown", async () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
       await markDue(tx, learnerId, gatoId, languageId);
+      await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
 
       const started = await startReviewSession(tx, { userId: learnerId, languageId });
       if (started.kind !== "session") throw new Error("expected a session");
-      // First required question is targetToEnglish; answer it to reach englishToTarget.
-      const afterFirst = await submitReviewAnswer(tx, {
+
+      const result = await submitKnows(tx, {
         token: started.token,
         userId: learnerId,
         languageId,
         questionId: started.currentQuestion!.questionId,
-        answer: "cat",
+        knowsAnswer: false,
         idempotencyKey: crypto.randomUUID(),
       });
-
-      const bareAnswer = await submitReviewAnswer(tx, {
-        token: afterFirst.token,
-        userId: learnerId,
-        languageId,
-        questionId: afterFirst.currentQuestion!.questionId,
-        answer: "gato",
-        idempotencyKey: crypto.randomUUID(),
-      });
-      expect(bareAnswer.feedback).toMatchObject({ kind: "incorrect", reason: "missing_article", article: "el" });
-    });
-  });
-
-  it("accepts a real applicable user-created synonym alongside the official answer", async () => {
-    await withTestTransaction(async (tx) => {
-      const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
-      await markDue(tx, learnerId, gatoId, languageId);
-
-      const started = await startReviewSession(tx, { userId: learnerId, languageId });
-      if (started.kind !== "session") throw new Error("expected a session");
-      expect(started.currentQuestion?.direction).toBe("targetToEnglish");
-
-      // "kitty" is the seeded user synonym for gato (db/seed/test-fixtures.ts).
-      const result = await submitReviewAnswer(tx, {
-        token: started.token,
-        userId: learnerId,
-        languageId,
-        questionId: started.currentQuestion!.questionId,
-        answer: "kitty",
-        idempotencyKey: crypto.randomUUID(),
-      });
-      expect(result.feedback).toEqual({ kind: "correct" });
+      expect(result.feedback).toEqual({ kind: "self_graded_incorrect" });
     });
   });
 
@@ -218,41 +341,42 @@ describe("submitReviewAnswer", () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
       await markDue(tx, learnerId, gatoId, languageId, { srsStage: "familiar_1" });
+      await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
 
       const started = await startReviewSession(tx, { userId: learnerId, languageId });
       if (started.kind !== "session") throw new Error("expected a session");
       const firstQuestionId = started.currentQuestion!.questionId;
 
-      const wrong = await submitReviewAnswer(tx, {
+      const wrong = await submitKnows(tx, {
         token: started.token,
         userId: learnerId,
         languageId,
         questionId: firstQuestionId,
-        answer: "totally-wrong",
+        knowsAnswer: false,
         idempotencyKey: crypto.randomUUID(),
       });
-      expect(wrong.feedback).toMatchObject({ kind: "incorrect", reason: "no_match" });
+      expect(wrong.feedback).toEqual({ kind: "self_graded_incorrect" });
       // The failed question does not repeat immediately — the other direction comes next.
       expect(wrong.currentQuestion?.questionId).not.toBe(firstQuestionId);
 
-      const other = await submitReviewAnswer(tx, {
+      const other = await submitKnows(tx, {
         token: wrong.token,
         userId: learnerId,
         languageId,
         questionId: wrong.currentQuestion!.questionId,
-        answer: wrong.currentQuestion!.direction === "targetToEnglish" ? "cat" : "el gato",
+        knowsAnswer: true,
         idempotencyKey: crypto.randomUUID(),
       });
       expect(other.feedback).toEqual({ kind: "correct" });
       expect(other.completedItem).toBeUndefined(); // the failed question is still outstanding
       expect(other.currentQuestion?.questionId).toBe(firstQuestionId); // it returns
 
-      const retry = await submitReviewAnswer(tx, {
+      const retry = await submitKnows(tx, {
         token: other.token,
         userId: learnerId,
         languageId,
         questionId: firstQuestionId,
-        answer: wrong.currentQuestion!.direction === "targetToEnglish" ? "el gato" : "cat",
+        knowsAnswer: true,
         idempotencyKey: crypto.randomUUID(),
       });
       expect(retry.feedback).toEqual({ kind: "correct" });
@@ -265,41 +389,42 @@ describe("submitReviewAnswer", () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
       await markDue(tx, learnerId, gatoId, languageId, { srsStage: "familiar_1" });
+      await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
 
       const started = await startReviewSession(tx, { userId: learnerId, languageId });
       if (started.kind !== "session") throw new Error("expected a session");
 
-      let response = await submitReviewAnswer(tx, {
+      let response = await submitKnows(tx, {
         token: started.token,
         userId: learnerId,
         languageId,
         questionId: started.currentQuestion!.questionId,
-        answer: "wrong-1",
+        knowsAnswer: false,
         idempotencyKey: crypto.randomUUID(),
       });
-      response = await submitReviewAnswer(tx, {
+      response = await submitKnows(tx, {
         token: response.token,
         userId: learnerId,
         languageId,
         questionId: response.currentQuestion!.questionId,
-        answer: "wrong-2",
+        knowsAnswer: false,
         idempotencyKey: crypto.randomUUID(),
       });
       // Both directions now wrong once each; answer both correctly on retry.
-      response = await submitReviewAnswer(tx, {
+      response = await submitKnows(tx, {
         token: response.token,
         userId: learnerId,
         languageId,
         questionId: response.currentQuestion!.questionId,
-        answer: response.currentQuestion!.direction === "targetToEnglish" ? "cat" : "el gato",
+        knowsAnswer: true,
         idempotencyKey: crypto.randomUUID(),
       });
-      response = await submitReviewAnswer(tx, {
+      response = await submitKnows(tx, {
         token: response.token,
         userId: learnerId,
         languageId,
         questionId: response.currentQuestion!.questionId,
-        answer: response.currentQuestion!.direction === "targetToEnglish" ? "cat" : "el gato",
+        knowsAnswer: true,
         idempotencyKey: crypto.randomUUID(),
       });
 
@@ -307,15 +432,16 @@ describe("submitReviewAnswer", () => {
     });
   });
 
-  it("an empty submission does nothing — same question, no stats change, no feedback beyond 'empty'", async () => {
+  it("an empty typed submission does nothing — same question, no stats change, no feedback beyond 'empty'", async () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
       await markDue(tx, learnerId, gatoId, languageId);
+      await removeExampleSentence(tx, gatoId); // typed fallback prompt
 
       const started = await startReviewSession(tx, { userId: learnerId, languageId });
       if (started.kind !== "session") throw new Error("expected a session");
 
-      const result = await submitReviewAnswer(tx, {
+      const result = await submitTyped(tx, {
         token: started.token,
         userId: learnerId,
         languageId,
@@ -334,24 +460,25 @@ describe("submitReviewAnswer", () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
       await markDue(tx, learnerId, gatoId, languageId, { srsStage: "master" });
+      await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
 
       const started = await startReviewSession(tx, { userId: learnerId, languageId });
       if (started.kind !== "session") throw new Error("expected a session");
 
-      let response = await submitReviewAnswer(tx, {
+      let response = await submitKnows(tx, {
         token: started.token,
         userId: learnerId,
         languageId,
         questionId: started.currentQuestion!.questionId,
-        answer: started.currentQuestion!.direction === "targetToEnglish" ? "cat" : "el gato",
+        knowsAnswer: true,
         idempotencyKey: crypto.randomUUID(),
       });
-      response = await submitReviewAnswer(tx, {
+      response = await submitKnows(tx, {
         token: response.token,
         userId: learnerId,
         languageId,
         questionId: response.currentQuestion!.questionId,
-        answer: response.currentQuestion!.direction === "targetToEnglish" ? "cat" : "el gato",
+        knowsAnswer: true,
         idempotencyKey: crypto.randomUUID(),
       });
 
@@ -365,24 +492,25 @@ describe("atomic review completion (spec 09 unit 4)", () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
       await markDue(tx, learnerId, gatoId, languageId, { srsStage: "beginner_1" });
+      await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
 
       const started = await startReviewSession(tx, { userId: learnerId, languageId });
       if (started.kind !== "session") throw new Error("expected a session");
       let response: ReviewSessionResult = started;
-      response = await submitReviewAnswer(tx, {
+      response = await submitKnows(tx, {
         token: response.token,
         userId: learnerId,
         languageId,
         questionId: response.currentQuestion!.questionId,
-        answer: "cat",
+        knowsAnswer: true,
         idempotencyKey: crypto.randomUUID(),
       });
-      await submitReviewAnswer(tx, {
+      await submitKnows(tx, {
         token: response.token,
         userId: learnerId,
         languageId,
         questionId: response.currentQuestion!.questionId,
-        answer: "el gato",
+        knowsAnswer: true,
         idempotencyKey: crypto.randomUUID(),
       });
 
@@ -401,24 +529,25 @@ describe("atomic review completion (spec 09 unit 4)", () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
       await markDue(tx, learnerId, gatoId, languageId, { srsStage: "beginner_1" });
+      await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
 
       const started = await startReviewSession(tx, { userId: learnerId, languageId });
       if (started.kind !== "session") throw new Error("expected a session");
       let response: ReviewSessionResult = started;
-      response = await submitReviewAnswer(tx, {
+      response = await submitKnows(tx, {
         token: response.token,
         userId: learnerId,
         languageId,
         questionId: response.currentQuestion!.questionId,
-        answer: "cat",
+        knowsAnswer: true,
         idempotencyKey: crypto.randomUUID(),
       });
-      await submitReviewAnswer(tx, {
+      await submitKnows(tx, {
         token: response.token,
         userId: learnerId,
         languageId,
         questionId: response.currentQuestion!.questionId,
-        answer: "el gato",
+        knowsAnswer: true,
         idempotencyKey: crypto.randomUUID(),
       });
       // Session token is now simply discarded, as a real client abandoning
@@ -438,15 +567,16 @@ describe("atomic review completion (spec 09 unit 4)", () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
       await markDue(tx, learnerId, gatoId, languageId, { srsStage: "beginner_1" });
+      await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
 
       const started = await startReviewSession(tx, { userId: learnerId, languageId });
       if (started.kind !== "session") throw new Error("expected a session");
-      await submitReviewAnswer(tx, {
+      await submitKnows(tx, {
         token: started.token,
         userId: learnerId,
         languageId,
         questionId: started.currentQuestion!.questionId,
-        answer: "cat",
+        knowsAnswer: true,
         idempotencyKey: crypto.randomUUID(),
       });
 
@@ -531,15 +661,16 @@ describe("atomic review completion (spec 09 unit 4)", () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
       await markDue(tx, learnerId, gatoId, languageId, { srsStage: "beginner_1" });
+      await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
 
       const started = await startReviewSession(tx, { userId: learnerId, languageId });
       if (started.kind !== "session") throw new Error("expected a session");
-      const first = await submitReviewAnswer(tx, {
+      const first = await submitKnows(tx, {
         token: started.token,
         userId: learnerId,
         languageId,
         questionId: started.currentQuestion!.questionId,
-        answer: "cat",
+        knowsAnswer: true,
         idempotencyKey: crypto.randomUUID(),
       });
       expect(first.completedItem).toBeUndefined();
@@ -552,12 +683,12 @@ describe("atomic review completion (spec 09 unit 4)", () => {
         .set({ version: 99 })
         .where(and(eq(userItemProgress.userId, learnerId), eq(userItemProgress.learningItemId, gatoId)));
 
-      const final = await submitReviewAnswer(tx, {
+      const final = await submitKnows(tx, {
         token: first.token,
         userId: learnerId,
         languageId,
         questionId: first.currentQuestion!.questionId,
-        answer: "el gato",
+        knowsAnswer: true,
         idempotencyKey: crypto.randomUUID(),
       });
 
@@ -652,6 +783,7 @@ describe("atomic review completion (spec 09 unit 4)", () => {
   it("a newly earned level unlock persists as part of the completing transaction", async () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, gatoId, level1Id, level2Id, languageId } = await seedTestFixtures(tx);
+      await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
 
       // Bring every *other* published item in level 1 to Familiar 1 already
       // (not due themselves — only gato should be in this session's queue),
@@ -678,20 +810,20 @@ describe("atomic review completion (spec 09 unit 4)", () => {
       const started = await startReviewSession(tx, { userId: learnerId, languageId });
       if (started.kind !== "session") throw new Error("expected a session");
       let response: ReviewSessionResult = started;
-      response = await submitReviewAnswer(tx, {
+      response = await submitKnows(tx, {
         token: response.token,
         userId: learnerId,
         languageId,
         questionId: response.currentQuestion!.questionId,
-        answer: response.currentQuestion!.direction === "targetToEnglish" ? "cat" : "el gato",
+        knowsAnswer: true,
         idempotencyKey: crypto.randomUUID(),
       });
-      await submitReviewAnswer(tx, {
+      await submitKnows(tx, {
         token: response.token,
         userId: learnerId,
         languageId,
         questionId: response.currentQuestion!.questionId,
-        answer: response.currentQuestion!.direction === "targetToEnglish" ? "cat" : "el gato",
+        knowsAnswer: true,
         idempotencyKey: crypto.randomUUID(),
       });
 
@@ -708,6 +840,7 @@ describe("atomic review completion (spec 09 unit 4)", () => {
   it("an already-earned level unlock is not revoked when an item later falls back below the threshold", async () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, gatoId, level2Id, languageId } = await seedTestFixtures(tx);
+      await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
       // Level 2 already unlocked (as if earned earlier).
       await tx.insert(userLevelProgress).values({ userId: learnerId, levelId: level2Id, unlockedAt: new Date("2026-01-01T00:00:00Z") });
 
@@ -719,31 +852,30 @@ describe("atomic review completion (spec 09 unit 4)", () => {
       if (started.kind !== "session") throw new Error("expected a session");
       let response: ReviewSessionResult = started;
       const firstQuestionId = response.currentQuestion!.questionId;
-      const firstDirection = response.currentQuestion!.direction;
 
-      response = await submitReviewAnswer(tx, {
+      response = await submitKnows(tx, {
         token: response.token,
         userId: learnerId,
         languageId,
         questionId: firstQuestionId,
-        answer: "wrong",
+        knowsAnswer: false,
         idempotencyKey: crypto.randomUUID(),
       });
-      response = await submitReviewAnswer(tx, {
+      response = await submitKnows(tx, {
         token: response.token,
         userId: learnerId,
         languageId,
         questionId: response.currentQuestion!.questionId,
-        answer: response.currentQuestion!.direction === "targetToEnglish" ? "cat" : "el gato",
+        knowsAnswer: true,
         idempotencyKey: crypto.randomUUID(),
       });
       // The originally-failed direction returns; answer it correctly to complete the item.
-      response = await submitReviewAnswer(tx, {
+      response = await submitKnows(tx, {
         token: response.token,
         userId: learnerId,
         languageId,
         questionId: firstQuestionId,
-        answer: firstDirection === "targetToEnglish" ? "cat" : "el gato",
+        knowsAnswer: true,
         idempotencyKey: crypto.randomUUID(),
       });
       expect(response.completedItem).toMatchObject({ stageBefore: "familiar_1", stageAfter: "beginner_3", result: "penalized" });

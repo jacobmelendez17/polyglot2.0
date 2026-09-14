@@ -1,12 +1,15 @@
 import { db } from "@/db/client";
 import { resolveUserNow } from "@/domains/users/server";
 import { getRateLimiter } from "@/providers/rate-limit";
+import { AppError } from "@/lib/errors/app-error";
 import { ReviewError } from "@/lib/errors/review-errors";
 
 import * as orchestration from "./review-orchestration";
+import * as preferenceRepository from "./review-preference-repository";
 import * as repository from "./review-repository";
 import type { GetReviewHistoryInput, InsertReviewEventInput } from "./review-history-types";
 import type { StartReviewSessionInput, SubmitReviewAnswerInput } from "./review-orchestration";
+import type { ReviewType } from "./review-preference";
 
 /**
  * Binds the real app database to the injectable review repository/
@@ -54,4 +57,27 @@ export async function submitReviewAnswer(input: SubmitReviewAnswerInput) {
   }
   const now = input.now ?? (await resolveUserNow(db, input.userId)).getTime();
   return orchestration.submitReviewAnswer(db, { ...input, now });
+}
+
+/** This learner's Review Type preferences for one language, or the centralized defaults (spec 20 Reviews). */
+export async function getReviewPreferences(userId: string, languageId: string) {
+  return preferenceRepository.findReviewPreferences(db, userId, languageId);
+}
+
+/** Spec 20 Reviews — Grammar Review Type. Ordinary "account-settings" rate limit, matching every other narrow Settings field save. */
+export async function updateGrammarReviewType(input: { userId: string; languageId: string; reviewType: ReviewType }) {
+  const decision = await getRateLimiter().check({ policy: "account-settings", subject: input.userId });
+  if (!decision.allowed) {
+    throw new AppError("RATE_LIMITED", `Please slow down and try again in ${decision.retryAfterSeconds}s.`);
+  }
+  return preferenceRepository.saveGrammarReviewType(db, input);
+}
+
+/** Spec 20 Reviews — Vocabulary Review Type. Ordinary "account-settings" rate limit, matching every other narrow Settings field save. */
+export async function updateVocabularyReviewType(input: { userId: string; languageId: string; reviewType: ReviewType }) {
+  const decision = await getRateLimiter().check({ policy: "account-settings", subject: input.userId });
+  if (!decision.allowed) {
+    throw new AppError("RATE_LIMITED", `Please slow down and try again in ${decision.retryAfterSeconds}s.`);
+  }
+  return preferenceRepository.saveVocabularyReviewType(db, input);
 }

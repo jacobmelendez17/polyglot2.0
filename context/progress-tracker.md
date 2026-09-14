@@ -162,11 +162,14 @@ every boundary before considering these done)*
 24. Delete Account — request → email-verified confirmation → 7-day pending
     window → cancel → the Vercel Cron finalize job from decision 1.
 
-**Units 1-9 are done — see their Completed entries below.** Account,
-General, and Lessons are now fully complete. Unit 10 (Reviews — Review
-Types) is next, starting Phase D — the first unit to touch `domains/srs`'s
-question-building/grading and the first new `user_review_preferences`
-table.
+**Units 1-10 are done — see their Completed entries below.** Account,
+General, and Lessons are fully complete; Reviews has Review Types (Cloze
+(Manual)/Cloze (Flashcard)/Flashcard), the first unit to touch
+`domains/srs`'s question-building/grading and the first `user_review_preferences`
+table. Unit 11 (Reviews — Hints & Review UI toggles) is next, extending the
+same table with hint order/mode columns and the presentation-only toggles
+(autoplay, lightning mode, focus mode, auto-highlight, show SRS stage,
+auto-expand info, undo action).
 
 **Migration-tooling note for every future unit touching a Postgres enum**:
 `drizzle-kit migrate`'s CLI proved unreliable in this session's environment
@@ -1195,6 +1198,143 @@ writing to real `user_item_progress` rows.
 ## Completed
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
+
+- **Spec 20 unit 10 — Reviews: Review Types** (2026-09-13). The largest and
+  riskiest unit so far — the first to touch `domains/srs`'s review
+  orchestration itself, not just a settings row a consuming domain reads.
+
+  **A real design gap the spec doesn't resolve, put to the user before
+  writing code**: Cloze modes replace a question's prompt with a blanked
+  sentence, but sentences only exist in the target language, so a blank only
+  ever fits the direction that *produces* the target word
+  (`englishToTarget`). The spec never says what `targetToEnglish` (read the
+  target word, translate to English) should look like under a Cloze review
+  type. **User's answer (2026-09-13): "There is no other direction. they
+  only need to answer the sentence and they get to move on."** Read
+  together with the spec's own separate instruction for grammar ("Continue
+  respecting the grammar item's configured review/question requirements"),
+  the two decisions reconcile cleanly rather than conflicting: **vocabulary**
+  under a Cloze review type is asked as **exactly one** `englishToTarget`
+  question instead of the normal two (`domains/srs/review-queue.ts`'s
+  `buildReviewQuestions` gained a `collapseVocabularyToOneQuestion` option,
+  read from `isClozeReviewType(vocabularyReviewType)`); **grammar** keeps
+  whatever question count is authored on the item regardless of review
+  type — only a `targetToEnglish`-shaped grammar question is ever unaffected
+  by Cloze, the same as vocabulary's now-sole surviving direction is the
+  only one Cloze ever reshapes. `domains/decks/deck-practice.ts` (spec 14,
+  a separate typed-only feature never touched by Review Type preferences)
+  needed no changes — the new option defaults to `false`.
+
+  **Schema**: new `user_review_preferences` (`grammar_review_type`,
+  `vocabulary_review_type`, both a new `review_type` enum — `cloze_manual` /
+  `cloze_flashcard` / `flashcard`, default `cloze_manual` — the spec's own
+  pre-selected mockup value). A brand-new table and enum, not an ADD VALUE,
+  so it applied through `drizzle-kit migrate` in one plain transaction with
+  no repeat of unit 8's incident. Deliberately owned by `domains/srs`
+  (`review-preference.ts`/`review-preference-repository.ts`/
+  `review-preference-service.ts`), not `domains/users` — unlike
+  `user_language_settings`'s columns, this is a brand-new table with no
+  legacy-ownership precedent to follow, and `domains/srs` is both its sole
+  consumer and the domain that defines what the values mean, matching
+  architecture.md's "Settings stores SRS strictness; domains/srs calculates
+  stage change" example directly.
+
+  **Cloze sentence resolution** (`domains/srs/review-cloze.ts`,
+  `findCompatibleClozeSentence`): literal, whole-word, case-insensitive
+  containment of the item's own `term`/`structure` inside an official
+  example sentence's `targetText` (Unicode-letter-aware boundaries — `\b` is
+  ASCII-only and misclassifies accented letters like the "í" in "días").
+  Deliberately not morphological (a conjugated form like "como" for
+  "comer" does not match) — the spec says "containing the vocabulary term,"
+  and matching only the literal term, never inventing or guessing an
+  inflected form, is what "do not invent a sentence at runtime" requires
+  in code. No compatible sentence falls back to Polyglot's ordinary prompt
+  (verified against real fixture data: `rojoId`/`casaId` have no seeded
+  sentence and exercise this path; `gatoId`'s seeded "El gato duerme."
+  exercises the match path).
+
+  **Presentation model** (`domains/srs/review-presentation.ts`,
+  `resolveReviewPresentation`): re-derives a question's presentation from
+  the item and the session's own resolved review type every time — on the
+  server, at both view-build and grading time — rather than trusting
+  anything the client claims about which mode it's in.
+  `submitReviewAnswer` now rejects a client submission whose `kind`
+  ("typed" vs "self_graded") doesn't match the server's own re-derived
+  presentation, closing off a real "claim self-graded Know to bypass typed
+  grading" bypass. Flashcard is always `reveal` (self-graded Know/Don't
+  Know, no sentence, ever); Cloze (Manual)/(Flashcard) are `cloze_typed`/
+  `cloze_reveal` when a sentence was found, else fall back to `typed`/
+  `reveal` using the item's ordinary prompt exactly as before this unit.
+
+  **Grading**: `ReviewAnswerFeedback` gained `self_graded_incorrect` (Know/
+  Don't Know's "Don't Know" — nothing to display beyond that, the learner
+  already saw the answer via Reveal). A `cloze_typed` answer is checked
+  against exactly the sentence's own blanked word (`checkAnswer` still
+  provides the existing typo/case/accent tolerance) — never the official
+  meaning-based `acceptedAnswers`, and never widened by user synonyms
+  (a synonym doesn't fit grammatically into a specific authored sentence
+  the way it fits a free translation). `review-orchestration.ts`'s
+  `ReviewState` (the signed token) now carries `reviewPreferences`,
+  resolved once at `startReviewSession` and never re-read mid-session —
+  spec 20 Reviews' own explicit rule ("the active review keeps its original
+  settings [...] the next review session uses the new settings").
+
+  **Settings UI**: `/settings/reviews` gained Grammar/Vocabulary Review
+  Type selects, reusing `InlineSelectSettingField` (its third use — see
+  unit 9's extraction) — replacing that page's placeholder text with a real
+  control, not adding a setting with no effect (Scope Limits: "Do not fill
+  Settings with controls that currently have no effect" — this unit could
+  not ship the dropdowns without the full behavior behind them, which is
+  why this was one large unit rather than split into settings-then-behavior).
+
+  **UI**: `ReviewQuestionView` now branches on `question.presentation.kind`
+  — a new `RevealField` (Reveal → Know/Don't Know) alongside the existing
+  typed `AnswerField`, and a `ClozeSentence` presentational piece for the
+  blanked-sentence prompt. `ReviewSessionView` gained `onKnowsAnswer`
+  alongside `onSubmit`, both funneling into one `submit()` that posts the
+  right discriminated-union shape.
+
+  **A large, necessary integration-test rewrite, not a scope creep**: nearly
+  every existing `review-orchestration.integration.test.ts` case used
+  `gatoId`, which — it turns out — already has a seeded compatible sentence
+  ("El gato duerme."), so the *default* review type genuinely changes what
+  those tests were exercising (one collapsed cloze question, not two typed
+  directions). Tests about SRS completion/retry/penalty/idempotency/level-
+  unlock *machinery* (not about Review Types itself) now explicitly set
+  `"flashcard"` and grade via self-graded submissions — preserving their
+  original two-question-per-item shape on a path unaffected by Cloze, and
+  incidentally the first integration coverage of the self-graded flow.
+  Tests specifically about typed-answer-checking nuances (missing article,
+  a term-side synonym) now force the fallback path deterministically
+  (`removeExampleSentence`, an ad-hoc synonym insert) rather than assuming
+  no sentence exists. **A real mistake of my own, caught by this run**: a
+  new "term-side synonym" test initially submitted the synonym without
+  gato's article ("minino" instead of "el minino") — `getReviewQuestionAnswerSpec`
+  applies the same article requirement to a synonym as to the official term
+  in the `englishToTarget` direction, which the test had not accounted for;
+  fixed the test's submitted answer, not the (correct) production behavior.
+
+  Verified: `tsc`, `eslint .`, full `npm run test` (883 tests, no
+  regressions — new coverage for `findCompatibleClozeSentence`,
+  `resolveReviewPresentation`, `isClozeReviewType`/`isReviewType`, the
+  vocabulary-collapse option in `buildReviewQuestions`, both new Settings
+  components, and `ReviewQuestionView`'s four presentation kinds including
+  Know/Don't Know wiring), `npm run build`, `npm run db:verify` (clean).
+  `npm run test:integration`: **368/375 passing on the first clean run**
+  (a same-session earlier attempt hit a transient Neon websocket outage
+  affecting ~330 unrelated tests across the whole suite — confirmed
+  infrastructure, not a regression, by an immediate clean re-run). The 6
+  genuine failures are the same already-documented pre-existing shared-
+  dev-branch conditions from Next Up #9/#10/#29 (idempotency cleanup-count
+  flake, 2 unscoped audit-log queries, and the item-`y` fixture-drift family
+  in both its known symptoms) — unchanged in identity from unit 9's run,
+  confirming none of them are new. New integration coverage: 3
+  `review-preference-repository` tests (effective defaults, independent
+  per-field saves) plus a rewritten and expanded
+  `review-orchestration.integration.test.ts` (28 tests total, all passing
+  after the one self-authored test fix above).
+
+  **No live-browser pass** — see Current Goal / Next Up #26.
 
 - **Spec 20 unit 9 — Lessons: Batch size & auto-pronunciation** (2026-09-13).
   Much smaller than unit 8, as anticipated in that entry — a plain settings

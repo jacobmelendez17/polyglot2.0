@@ -1,5 +1,5 @@
 import type { DbClient } from "@/db/client";
-import { getLanguageById, getLearningItemsByIds, getLevelsByLanguage } from "@/domains/curriculum/curriculum-repository";
+import { getLanguageById, getLearningItemExamples, getLearningItemsByIds, getLevelsByLanguage } from "@/domains/curriculum/curriculum-repository";
 import type { CurriculumLanguage, CurriculumLearningItem } from "@/domains/curriculum/curriculum-db-types";
 import { getSynonyms } from "@/domains/learner-content/repository";
 import { getDueReviewItems, getUserProgressForLanguage } from "@/domains/progress/repository";
@@ -8,14 +8,22 @@ import { checkAnswer } from "@/lib/answer-checking";
 import { ReviewError } from "@/lib/errors/review-errors";
 
 import { getReviewQuestionAnswerSpec } from "./review-answer-spec";
+import type { ReviewQuestionAnswerSpec } from "./review-answer-spec";
 import { applyReviewCompletion } from "./review-completion";
 import { getCharacterHelpers, getReviewRetrySpacingMinimum, getReviewStateTokenTtlSeconds } from "./review-config";
+import { findCompatibleClozeSentence } from "./review-cloze";
+import type { ClozeSentence } from "./review-cloze";
+import { isClozeReviewType } from "./review-preference";
+import { findReviewPreferences } from "./review-preference-repository";
 import { buildReviewQuestions, interleaveReviewQuestions } from "./review-queue";
+import { isTypedPresentation, resolveReviewPresentation } from "./review-presentation";
+import type { ReviewQuestionPresentation } from "./review-presentation";
 import { rescheduleReviewAfterIncorrect } from "./review-retry";
 import { signReviewState, verifyReviewState } from "./review-token";
 import type {
   ReviewAnswerFeedback,
   ReviewItemSnapshot,
+  ReviewQuestionDirection,
   ReviewQuestionView,
   ReviewSessionResult,
   ReviewSessionStats,
@@ -46,7 +54,7 @@ import type {
  * real `db` singleton to these functions for actual server-side callers.
  */
 
-function directionLabel(languageName: string, direction: "targetToEnglish" | "englishToTarget"): string {
+function directionLabel(languageName: string, direction: ReviewQuestionDirection): string {
   return direction === "targetToEnglish" ? `${languageName} → English` : `English → ${languageName}`;
 }
 
@@ -57,6 +65,38 @@ async function resolveQuestionItems(db: DbClient, state: ReviewState): Promise<C
     throw new ReviewError("ITEM_NOT_FOUND");
   }
   return items;
+}
+
+/**
+ * Resolves one question's presentation (spec 20 Reviews — Review Types),
+ * shared by `buildQuestionView` (what the client sees) and
+ * `submitReviewAnswer` (what grades it) so the two can never disagree about
+ * which mode a question is in. Re-derived from the item and the session's
+ * signed-in `reviewPreferences` every time rather than trusted from the
+ * client, for the same reason nothing else authoritative here is.
+ *
+ * Returns `clozeSentence` alongside the presentation because grading a
+ * `cloze_typed` answer needs the exact accepted word — deliberately never
+ * sent to the client ahead of a correct/incorrect result — and re-resolving
+ * it from scratch (not trusting an echoed value) is what makes that safe.
+ */
+async function resolveQuestionPresentation(
+  db: DbClient,
+  state: ReviewState,
+  item: CurriculumLearningItem,
+  direction: ReviewQuestionDirection,
+  answerSpec: ReviewQuestionAnswerSpec,
+): Promise<{ presentation: ReviewQuestionPresentation; clozeSentence: ClozeSentence | null }> {
+  const reviewType = item.type === "vocabulary" ? state.reviewPreferences.vocabularyReviewType : state.reviewPreferences.grammarReviewType;
+  const targetWord = item.type === "vocabulary" ? item.vocabulary.term : item.grammar.structure;
+
+  const clozeSentence =
+    direction === "englishToTarget" && isClozeReviewType(reviewType)
+      ? findCompatibleClozeSentence(await getLearningItemExamples(db, item.id), targetWord)
+      : null;
+
+  const presentation = resolveReviewPresentation({ reviewType, direction, answerSpec, clozeSentence });
+  return { presentation, clozeSentence };
 }
 
 async function buildQuestionView(
@@ -74,14 +114,15 @@ async function buildQuestionView(
 
   const synonyms = await getSynonyms(db, state.userId, question.itemId);
   const spec = getReviewQuestionAnswerSpec(item, question.direction, synonyms);
+  const { presentation } = await resolveQuestionPresentation(db, state, item, question.direction, spec);
 
   return {
     questionId,
     itemId: question.itemId,
     itemType: question.itemType,
     direction: question.direction,
-    prompt: spec.prompt,
     directionLabel: directionLabel(language.name, question.direction),
+    presentation,
   };
 }
 
@@ -109,10 +150,11 @@ export async function startReviewSession(
   }
 
   const itemIds = dueItems.map((progress) => progress.learningItemId);
-  const [curriculumItems, levels, language] = await Promise.all([
+  const [curriculumItems, levels, language, reviewPreferences] = await Promise.all([
     getLearningItemsByIds(db, itemIds),
     getLevelsByLanguage(db, languageId),
     getLanguageById(db, languageId),
+    findReviewPreferences(db, userId, languageId),
   ]);
 
   if (curriculumItems.length !== dueItems.length) {
@@ -134,7 +176,12 @@ export async function startReviewSession(
     return { itemId: progress.learningItemId, stage: progress.srsStage, version: progress.version, levelNumber };
   });
 
-  const questions = interleaveReviewQuestions(buildReviewQuestions(curriculumItems));
+  // Spec 20 Reviews' "Review Session Settings": resolved once, here, and
+  // carried inside the signed state from now on — never re-fetched
+  // mid-session (see `reviewPreferencesSchema`'s docstring).
+  const questions = interleaveReviewQuestions(
+    buildReviewQuestions(curriculumItems, { collapseVocabularyToOneQuestion: isClozeReviewType(reviewPreferences.vocabularyReviewType) }),
+  );
   const queue = questions.map((question) => question.id);
 
   const ttlMs = getReviewStateTokenTtlSeconds() * 1000;
@@ -155,6 +202,10 @@ export async function startReviewSession(
     failedQuestionIds: [],
     completedItemIds: [],
     itemSnapshots,
+    reviewPreferences: {
+      grammarReviewType: reviewPreferences.grammarReviewType,
+      vocabularyReviewType: reviewPreferences.vocabularyReviewType,
+    },
     stats,
     issuedAt: now,
     expiresAt: now + ttlMs,
@@ -174,12 +225,14 @@ export async function startReviewSession(
   };
 }
 
+/** What the client submits for one question — which shape is valid depends on that question's server-resolved presentation, never on the client's own claim (spec 20 Reviews — Review Types). */
+export type ReviewAnswerSubmission = { kind: "typed"; answer: string } | { kind: "self_graded"; knowsAnswer: boolean };
+
 export type SubmitReviewAnswerInput = {
   token: string;
   userId: string;
   languageId: string;
   questionId: string;
-  answer: string;
   /**
    * Client-generated UUID for this item's completion (spec 09 §12) — the
    * client generates one when it opens an item and reuses it across every
@@ -190,13 +243,14 @@ export type SubmitReviewAnswerInput = {
    */
   idempotencyKey: string;
   now?: number;
-};
+} & ReviewAnswerSubmission;
 
 /** Spec 09 §7, §8, §10 — the only place a review answer is graded. When an item's last required question is satisfied, this calls the real atomic completion transaction (`applyReviewCompletion`) — never a preview past spec 09 unit 3. */
 export async function submitReviewAnswer(
   db: DbClient,
-  { token, userId, languageId, questionId, answer, idempotencyKey, now = Date.now() }: SubmitReviewAnswerInput,
+  input: SubmitReviewAnswerInput,
 ): Promise<ReviewSessionResult> {
+  const { token, userId, languageId, questionId, idempotencyKey, now = Date.now() } = input;
   const state = await verifyReviewState({ token, userId, languageId, now });
 
   const currentQuestionId = state.queue[0];
@@ -214,44 +268,75 @@ export async function submitReviewAnswer(
   const item = items.find((candidate) => candidate.id === question.itemId);
   if (!item) throw new ReviewError("ITEM_NOT_FOUND");
 
-  const trimmedAnswer = answer.trim();
-
-  if (trimmedAnswer.length === 0) {
-    // Spec 09 §7: an empty submission is not an attempt and does not affect state.
-    const currentQuestion = await buildQuestionView(db, state, currentQuestionId, items, language);
-    return {
-      token,
-      sessionId: state.sessionId,
-      phase: "in_progress",
-      currentQuestion,
-      characterHelpers: getCharacterHelpers(language.code),
-      stats: state.stats,
-      feedback: { kind: "empty" },
-    };
-  }
-
   const synonyms = await getSynonyms(db, userId, question.itemId);
   const spec = getReviewQuestionAnswerSpec(item, question.direction, synonyms);
-  const result = checkAnswer({
-    userAnswer: trimmedAnswer,
-    acceptedAnswers: spec.acceptedAnswers,
-    articleRequirement: spec.articleRequirement,
-  });
+  const { presentation, clozeSentence } = await resolveQuestionPresentation(db, state, item, question.direction, spec);
+
+  // Never trust the client's own claim about which mode a question is in —
+  // re-derive the expected shape server-side and reject a mismatch outright
+  // (spec's "no client-authoritative SRS calculations").
+  if (isTypedPresentation(presentation) !== (input.kind === "typed")) {
+    throw new ReviewError("INVALID_REVIEW_STATE");
+  }
+
+  let isCorrect: boolean;
+  let feedback: ReviewAnswerFeedback;
+
+  if (input.kind === "typed") {
+    const trimmedAnswer = input.answer.trim();
+
+    if (trimmedAnswer.length === 0) {
+      // Spec 09 §7: an empty submission is not an attempt and does not affect state.
+      const currentQuestion = await buildQuestionView(db, state, currentQuestionId, items, language);
+      return {
+        token,
+        sessionId: state.sessionId,
+        phase: "in_progress",
+        currentQuestion,
+        characterHelpers: getCharacterHelpers(language.code),
+        stats: state.stats,
+        feedback: { kind: "empty" },
+      };
+    }
+
+    const isClozeTyped = presentation.kind === "cloze_typed";
+    if (isClozeTyped && !clozeSentence) {
+      // Cannot happen by construction (resolveReviewPresentation only returns
+      // "cloze_typed" when a cloze sentence was found) — defensive only.
+      throw new ReviewError("INVALID_REVIEW_STATE");
+    }
+
+    const acceptedAnswers = isClozeTyped ? [clozeSentence!.blankedWord] : spec.acceptedAnswers;
+    const expectedAnswerDisplay = isClozeTyped ? clozeSentence!.blankedWord : spec.expectedAnswerDisplay;
+    const articleRequirement = isClozeTyped ? undefined : spec.articleRequirement;
+
+    const result = checkAnswer({ userAnswer: trimmedAnswer, acceptedAnswers, articleRequirement });
+    isCorrect = result.isCorrect;
+    feedback = result.isCorrect
+      ? { kind: "correct" }
+      : result.reason === "missing_article"
+        ? { kind: "incorrect", reason: "missing_article", article: result.article, userAnswer: trimmedAnswer, expectedAnswer: expectedAnswerDisplay }
+        : { kind: "incorrect", reason: "no_match", userAnswer: trimmedAnswer, expectedAnswer: expectedAnswerDisplay };
+  } else {
+    // Spec 20 Reviews — Flashcard/Cloze (Flashcard): "Know" is a correct SRS
+    // outcome, "Don't Know" is incorrect. Self-reported after the client has
+    // already revealed the answer — there is nothing left to check.
+    isCorrect = input.knowsAnswer;
+    feedback = isCorrect ? { kind: "correct" } : { kind: "self_graded_incorrect" };
+  }
 
   const restOfQueue = state.queue.slice(1);
   const questionsAttempted = state.stats.questionsAttempted + 1;
 
   let nextState: ReviewState;
-  let feedback: ReviewAnswerFeedback;
 
-  if (result.isCorrect) {
+  if (isCorrect) {
     nextState = {
       ...state,
       queue: restOfQueue,
       satisfiedQuestionIds: [...state.satisfiedQuestionIds, questionId],
       stats: { ...state.stats, questionsAttempted, questionsCorrect: state.stats.questionsCorrect + 1 },
     };
-    feedback = { kind: "correct" };
   } else {
     const rescheduledQueue = rescheduleReviewAfterIncorrect(restOfQueue, questionId, getReviewRetrySpacingMinimum());
     nextState = {
@@ -262,27 +347,12 @@ export async function submitReviewAnswer(
         : [...state.failedQuestionIds, questionId],
       stats: { ...state.stats, questionsAttempted },
     };
-    feedback =
-      result.reason === "missing_article"
-        ? {
-            kind: "incorrect",
-            reason: "missing_article",
-            article: result.article,
-            userAnswer: trimmedAnswer,
-            expectedAnswer: spec.expectedAnswerDisplay,
-          }
-        : {
-            kind: "incorrect",
-            reason: "no_match",
-            userAnswer: trimmedAnswer,
-            expectedAnswer: spec.expectedAnswerDisplay,
-          };
   }
 
   // Item completion: every required question for this item is now satisfied, and it hasn't already fired.
   let completedItem: ReviewSessionResult["completedItem"];
   let staleItem: ReviewSessionResult["staleItem"];
-  if (result.isCorrect && !nextState.completedItemIds.includes(question.itemId)) {
+  if (isCorrect && !nextState.completedItemIds.includes(question.itemId)) {
     const requiredIds = requiredQuestionIdsForItem(nextState, question.itemId);
     const allSatisfied = requiredIds.every((id) => nextState.satisfiedQuestionIds.includes(id));
 

@@ -197,3 +197,41 @@ export const userVacationPeriods = pgTable(
     index("user_vacation_periods_user_id_started_at_idx").on(t.userId, t.startedAt.desc()),
   ],
 );
+
+/**
+ * Spec 20 Reviews — Review Types. `cloze_manual` is the spec's own default
+ * (shown pre-selected in its mockup and listed first among the three
+ * options) for both content types.
+ */
+export const reviewTypeEnum = pgEnum("review_type", ["cloze_manual", "cloze_flashcard", "flashcard"]);
+
+/**
+ * Per-learner, per-language review preferences (spec 20 Reviews) — the first
+ * of what the spec's own Settings Data Model describes as a much larger
+ * table (Ghost mode, Leech minimums, hints, Review UI toggles, SRS
+ * Strictness/Interval, queue timing, Fluent Mode all land on this same row
+ * in later units). Seeded with just the two review-type columns for this
+ * unit, on purpose — see progress-tracker.md.
+ *
+ * Language-scoped like `userLanguageSettings`, for the same reason: a
+ * learner studying two languages makes independent review-type choices for
+ * each. Unlike `userLanguageSettings.curriculumMode`, there is no
+ * "row absent means never chosen" state to preserve here — both columns
+ * have real defaults and effective-default reads never require a row to
+ * exist (`domains/srs`'s `findReviewPreferences` upserts on first change).
+ */
+export const userReviewPreferences = pgTable(
+  "user_review_preferences",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    languageId: uuid("language_id")
+      .notNull()
+      .references(() => languages.id, { onDelete: "restrict" }),
+    grammarReviewType: reviewTypeEnum("grammar_review_type").notNull().default("cloze_manual"),
+    vocabularyReviewType: reviewTypeEnum("vocabulary_review_type").notNull().default("cloze_manual"),
+    ...timestamps(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.languageId] })],
+);

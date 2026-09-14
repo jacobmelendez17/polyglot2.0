@@ -49,7 +49,13 @@ export function getReviewRetrySpacingMinimum(): number {
   return REVIEW_RETRY_SPACING_MINIMUM;
 }
 
-/** Normal vocabulary reviews require both directions (spec 09 §7) — never just one. */
+/**
+ * Normal vocabulary reviews require both directions (spec 09 §7) — never
+ * just one. Spec 20 Reviews' Cloze review types are the one exception:
+ * `review-queue.ts`'s `buildReviewQuestions` collapses a vocabulary item to
+ * a single `englishToTarget` question instead of reading this constant, per
+ * that unit's recorded decision.
+ */
 export const VOCABULARY_REQUIRED_DIRECTIONS = ["targetToEnglish", "englishToTarget"] as const;
 
 /**
