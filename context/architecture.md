@@ -1663,6 +1663,20 @@ Client state, browser storage, caches, dashboard projections, analytics, and ext
 
 Database constraints should enforce important integrity rules where appropriate in addition to application-level validation.
 
+**Appearance (spec 20) is the one deliberate, spec-sanctioned exception** — theme, color palette, font family, font size, and color-blind assistance are not learning data at all (never affect SRS, review eligibility, curriculum, progress, streak, or authorization), so they live entirely in browser storage (`polyglot:appearance:v1`, `lib/appearance/`) with no database row and no server round-trip. This is a narrow, named carve-out, not a precedent for moving other Settings client-side.
+
+## Appearance Architecture
+
+`lib/appearance/` is the whole system, in three layers:
+
+- `appearance-settings.ts` — pure types, defaults, and a lenient field-by-field parser (an unrecognized/missing field falls back to its own default, not the whole object).
+- `appearance-storage.ts` — the localStorage read/write (never throws — private browsing or a corrupt value both fall back to defaults) and `applyAppearanceToDocument`, the *one* place that ever mutates `document.documentElement`'s `class`/`data-*` attributes.
+- `appearance-context.tsx` — a React provider (`AppearanceProvider`, mounted once in `app/layout.tsx`) exposing `useAppearance()` to any client component; every Settings control calls `updateSettings(...)` directly, with no Server Action and no `onSave`/promise round-trip, unlike every database-backed Settings control elsewhere in this app.
+
+`appearance-bootstrap.ts` generates a small inline `<script>` (rendered directly in `<head>`, `app/layout.tsx`) that reads the same storage key and paints the right `class`/`data-*` attributes *before* the body renders — spec 20's own "Avoid Theme Flash." It necessarily duplicates a sliver of `appearance-settings.ts`'s logic in plain, import-free JS (a bootstrap script can't import modules) and is deliberately lenient — `AppearanceProvider` re-validates properly on mount and corrects anything the bootstrap missed.
+
+Every visual effect is a CSS rule keyed off `document.documentElement`'s state — `.dark`, `[data-palette]`, `[data-font-family]`, `[data-font-scale]` (a root `font-size` percentage, so every existing `rem`-based Tailwind class scales together), `[data-color-blind]` (`app/globals.css`) — never a per-component conditional reading `useAppearance()` to decide its own styling.
+
 ---
 
 # Environments

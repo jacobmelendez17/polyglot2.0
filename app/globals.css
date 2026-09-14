@@ -96,6 +96,11 @@
     --ease-out: cubic-bezier(.22, .61, .36, 1);
     --ease-soft: cubic-bezier(.4, 0, .2, 1);
 
+    /* Spec 20 Appearance — Font Family. Default points at Cozy (Shantell
+       Sans, the spec's own stated default); [data-font-family] below
+       repoints it, never redefined per-component. */
+    --font-sans: var(--font-cozy);
+
     /* shadcn/ui contract, aliased to the Polyglot tokens above */
     --radius: 0.5rem;
     --background: var(--bg-base);
@@ -190,6 +195,96 @@
     --sidebar-accent-foreground: var(--text-primary);
     --sidebar-border: var(--border-default);
     --sidebar-ring: var(--accent-primary);
+}
+
+/*
+ * Spec 20 Appearance — Color Palette/Accent. Only the non-semantic accent
+ * tokens are overridden here (`--accent-primary`/`-hover`/`-foreground`);
+ * every consumer of them (`--primary`, `--ring`, `--sidebar-primary`, ...)
+ * is itself defined as `var(--accent-primary)` etc. in :root/.dark, so it
+ * updates automatically without being repeated per palette. Meaning-bearing
+ * tokens (--learning-vocabulary/-grammar, --srs-*, --state-*) are never
+ * touched here — spec's own "A color palette should not make Grammar stop
+ * meaning Grammar." `sage` needs no override block: it *is* the :root/.dark
+ * default already.
+ */
+[data-palette="ocean"] {
+    --accent-primary: #4A8FA0;
+    --accent-primary-hover: #3D7A8A;
+    --accent-foreground: #16292D;
+}
+.dark[data-palette="ocean"] {
+    --accent-primary: #5FA8BA;
+    --accent-primary-hover: #6FB5C6;
+    --accent-foreground: #0F2226;
+}
+[data-palette="amber"] {
+    --accent-primary: #C98A3E;
+    --accent-primary-hover: #B77A32;
+    --accent-foreground: #2E2013;
+}
+.dark[data-palette="amber"] {
+    --accent-primary: #D9A45F;
+    --accent-primary-hover: #E3B378;
+    --accent-foreground: #2A1D10;
+}
+[data-palette="plum"] {
+    --accent-primary: #9B6FA6;
+    --accent-primary-hover: #8B5F96;
+    --accent-foreground: #2A1E2D;
+}
+.dark[data-palette="plum"] {
+    --accent-primary: #B084BC;
+    --accent-primary-hover: #BC96C4;
+    --accent-foreground: #241A26;
+}
+
+/* Spec 20 Appearance — Font Family. `cozy` is the :root default (no override needed). */
+[data-font-family="formal"] {
+    --font-sans: var(--font-formal);
+}
+[data-font-family="standard"] {
+    --font-sans: var(--font-standard);
+}
+
+/*
+ * Spec 20 Appearance — Font Size. A root font-size percentage, not a flat
+ * per-element pixel addition — every existing `rem`-based Tailwind text/
+ * heading/label class (already used throughout this app) scales together
+ * by the same ratio, preserving each one's relative size difference
+ * ("designed scaling ratios... not one identical pixel multiplier") with no
+ * changes to individual components. 125% is a deliberately modest ceiling
+ * so the largest size stays usable without horizontal overflow.
+ */
+html[data-font-scale="small"] {
+    font-size: 87.5%;
+}
+html[data-font-scale="default"] {
+    font-size: 100%;
+}
+html[data-font-scale="large"] {
+    font-size: 112.5%;
+}
+html[data-font-scale="extra_large"] {
+    font-size: 125%;
+}
+
+/*
+ * Spec 20 Appearance — Color-Blind Assistance. "Do not merely replace one
+ * color palette with another while continuing to encode state using color
+ * alone" — most meaning-bearing UI here already pairs color with an icon
+ * and text label (`category-badge.tsx`'s Vocabulary/Grammar badges, the
+ * review feedback region's Correct/Incorrect icon+text, both a pre-spec-20
+ * baseline rule). `stacked-bar-chart.tsx`'s Vocabulary/Grammar segments are
+ * a real exception — two adjacent color fills with no per-segment label —
+ * so this is where the toggle adds a genuine non-color cue: a border-style
+ * difference between the two, on top of the color that's always there.
+ */
+[data-color-blind="true"] .chart-bar-vocabulary {
+    border: 2px solid var(--learning-vocabulary);
+}
+[data-color-blind="true"] .chart-bar-grammar {
+    border: 2px dashed var(--learning-grammar);
 }
 
 /* --nav-h grows at the `md` breakpoint — see context/feature-specs/02-landing-page.md */

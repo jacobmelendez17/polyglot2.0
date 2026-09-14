@@ -28,6 +28,12 @@ Light mode is the primary visual reference.
 
 Dark mode must preserve the same warm/cozy visual language. Do not turn dark mode into a high-contrast neon, cyberpunk, or technical-dashboard aesthetic.
 
+Implemented as spec 20 Appearance's Theme setting (`/settings/appearance`) — System (default), Light, or Dark, device-local, applied via the `.dark` class already defined below (`app/globals.css`).
+
+### Color Palette (Appearance)
+
+Spec 20 Appearance also offers a curated accent choice on top of the base theme, applied via `[data-palette]` (`app/globals.css`): **Sage** (default — the palette below), **Ocean**, **Amber**, **Plum**. Each only repoints `--accent-primary`/`--accent-primary-hover`/`--accent-foreground` (and everything already defined in terms of them — `--primary`, `--ring`, `--sidebar-primary`, ...); the learning-type, SRS-stage, and state colors below are fixed regardless of palette.
+
 ### Product vs Landing Page
 
 The public landing page may be more expressive and animated than the authenticated application.
@@ -179,6 +185,8 @@ The handwritten typeface is intentional and should be used for:
 - Landing-page copy
 
 Do not replace it with Geist, Inter, Arial, or another generic UI typeface unless explicitly instructed.
+
+**Spec 20 Appearance's Font Family setting is that explicit instruction** — Shantell Sans ("Polyglot / Cozy") remains the default and the primary visual voice everywhere it isn't overridden, but a learner may opt into "Formal" (Lora) or "Standard" (Inter) for the whole app via Settings. This is a learner-chosen, persisted *alternative*, not a redesign of the default — see `context/architecture.md`'s "Appearance Architecture."
 
 ### Mono Font
 

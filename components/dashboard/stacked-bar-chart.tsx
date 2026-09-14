@@ -39,14 +39,15 @@ export function StackedBarChart({ buckets }: StackedBarChartProps) {
               className="flex flex-1 flex-col-reverse items-stretch gap-0.5"
               style={{ height: CHART_HEIGHT_PX }}
             >
+              {/* Spec 20 Appearance — Color-Blind Assistance: these two segments are otherwise color-only (the chart itself is `aria-hidden`, and neither bar carries its own visible label). `chart-bar-vocabulary`/`chart-bar-grammar` are `globals.css`'s `[data-color-blind="true"]` hook — a border-style difference, not a second color. */}
               <motion.div
-                className="min-h-0 rounded-t-sm bg-learning-vocabulary last:rounded-t-none"
+                className="chart-bar-vocabulary min-h-0 rounded-t-sm bg-learning-vocabulary last:rounded-t-none"
                 initial={false}
                 animate={{ height: vocabHeight }}
                 transition={BAR_SPRING}
               />
               <motion.div
-                className="min-h-0 rounded-t-sm bg-learning-grammar"
+                className="chart-bar-grammar min-h-0 rounded-t-sm bg-learning-grammar"
                 initial={false}
                 animate={{ height: grammarHeight }}
                 transition={BAR_SPRING}

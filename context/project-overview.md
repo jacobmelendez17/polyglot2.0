@@ -414,6 +414,18 @@ Leaderboards and tournaments are planned future features and are not required fo
 - Users may reset levels, languages, or their account from settings.
 - User data export is not part of the current product scope.
 
+### Appearance
+
+Appearance (Theme, Color Palette, Font Family, Font Size, Color-Blind Assistance) is spec 20's one explicit exception to server-authoritative Settings: it is not authoritative learning data, never affects SRS/review eligibility/curriculum/progress/streak/authorization, and is stored device-local (`polyglot:appearance:v1` in browser storage, not the database) — it does not sync between devices.
+
+- **Theme** — System (default, follows `prefers-color-scheme`), Light, or Dark, using the app's existing semantic light/dark token system.
+- **Color Palette** — a curated accent choice (Sage default, Ocean, Amber, Plum) with a live preview. Only non-semantic accent tokens change; Vocabulary/Grammar/SRS-stage/Success/Warning/Error colors are fixed regardless of palette.
+- **Font Family** — three curated choices (Polyglot/Cozy default, Formal, Standard), each with real language-script fallback coverage.
+- **Font Size** — Small/Default/Large/Extra Large, scaling body text, headings, and labels together by a designed ratio, not one flat pixel offset.
+- **Color-Blind Assistance** — OFF by default; strengthens non-color cues (icons, labels, borders, patterns) wherever meaning would otherwise be color-only, rather than substituting a different palette.
+
+Applied at the document level (CSS variables, data attributes, a `dark` class) with an early inline bootstrap script so the correct theme paints before hydration — never scattered per-component conditionals.
+
 ## Demo Experience
 
 The landing page provides a demo option without requiring an account.

@@ -162,21 +162,31 @@ every boundary before considering these done)*
 24. Delete Account — request → email-verified confirmation → 7-day pending
     window → cancel → the Vercel Cron finalize job from decision 1.
 
-**Units 1-17 are done — see their Completed entries below — and that
-completes the entire Reviews section of Settings.** Account, General,
-Lessons, and Reviews are all fully built now. `user_review_preferences` has
-26 columns; `user_item_progress` gained two Leech-tracking columns; one
-genuinely new table (`user_sentence_ghost_progress`) backs Ghost Reviews.
-Unit 18 (Appearance) is next, starting **Phase F — the remaining, mostly
-independent Settings sections** (Appearance, Notifications, Subscription/API
+**Units 1-18 are done — see their Completed entries below.** Account,
+General, Lessons, Reviews, and now Appearance are all fully built.
+`user_review_preferences` has 26 columns; `user_item_progress` gained two
+Leech-tracking columns; one genuinely new table (`user_sentence_ghost_
+progress`) backs Ghost Reviews; a new `lib/appearance/` module (no database
+involvement at all — device-local by design) backs Appearance. Unit 19
+(Notifications) is next, continuing **Phase F — the remaining, mostly
+independent Settings sections** (Notifications, Subscription/API
 placeholders, then Danger Zone). Per the 2026-09-14 user decision, these are
 being implemented back-to-back without pausing for the ~12-minute full
 `npm run test:integration` suite after every single one — fast checks
-(`tsc`, `eslint`, unit tests) still run continuously after each unit, with
-one full integration-suite pass at natural checkpoints and again at the end
-— **except** the two data-destroying Danger Zone units (Reset Entire
-Account, Delete Account), which still get full individual verification
-before moving on, given what a mistake there would cost.
+(`tsc`, `eslint`, unit tests, `npm run build`) still run continuously after
+each unit, with one full integration-suite pass at natural checkpoints and
+again at the end — **except** the two data-destroying Danger Zone units
+(Reset Entire Account, Delete Account), which still get full individual
+verification before moving on, given what a mistake there would cost.
+
+**Real-browser verification remains skipped for every spec-20 unit**,
+Appearance included, per the standing 2026-09-13 process decision above
+(Auto Mode's command classifier blocks the established Playwright/
+`@clerk/testing` recipe in this session) — Unit 18 is verified by `tsc`,
+`eslint`, `npm run test`, and `npm run build` only, the same as every unit
+since. This is a real, recorded gap for a unit that is unusually UI-heavy
+(live palette/font/theme previews, a no-flash bootstrap script) — worth
+a real-browser pass whenever this session's environment stops blocking it.
 
 **Migration-tooling note for every future unit touching a Postgres enum**:
 `drizzle-kit migrate`'s CLI proved unreliable in this session's environment
@@ -1205,6 +1215,91 @@ writing to real `user_item_progress` rows.
 ## Completed
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
+
+- **Spec 20 unit 18 — Appearance** (2026-09-14). Genuinely different from
+  every prior spec-20 unit: not authoritative learning data at all (spec's
+  own explicit carve-out from the server-settings rule), so this is the
+  first unit with **zero** database involvement — no schema, no migration,
+  no Server Action, no repository. Theme (System/Light/Dark),
+  Color Palette (Sage/Ocean/Amber/Plum), Font Family (Cozy/Formal/Standard),
+  Font Size (Small/Default/Large/Extra Large), and Color-Blind Assistance
+  all live in one versioned `localStorage` key (`polyglot:appearance:v1`,
+  `lib/appearance/`), applied to `document.documentElement` as a `.dark`
+  class plus `data-palette`/`data-font-family`/`data-font-scale`/
+  `data-color-blind` attributes — never a per-component conditional reading
+  the setting to decide its own styling.
+
+  **Font Size as a root `font-size` percentage, not a per-element pixel
+  offset** — the practical way to satisfy "adjusts normal text, headings,
+  labels... using designed scaling ratios... not one identical pixel
+  multiplier" without touching any of this app's many already-existing
+  components: every `rem`-based Tailwind text/heading/label class already
+  in use scales together by the same ratio automatically, since `rem` units
+  are relative to the root. 87.5%/100%/112.5%/125% (Small through Extra
+  Large) — a deliberately modest ceiling so the largest size stays usable
+  without horizontal overflow, and the same technique respects a learner's
+  own OS/browser zoom rather than fighting it.
+
+  **Palette overrides only ever redefine `--accent-primary`/`-hover`/
+  `-foreground`, never `--primary`/`--ring`/`--sidebar-primary`/etc.
+  directly** — since those are all themselves defined as `var(--accent-
+  primary)` in `:root`/`.dark`, CSS custom property resolution walks the
+  live cascade at compute time, so overriding the three base tokens under
+  `[data-palette="..."]` is sufficient; every downstream consumer updates
+  for free. Meaning-bearing tokens (`--learning-vocabulary`/`-grammar`,
+  `--srs-*`, `--state-*`) are never touched by any palette — spec's own "A
+  color palette should not make Grammar stop meaning Grammar."
+
+  **The no-flash bootstrap necessarily duplicates a sliver of logic inline**
+  (`lib/appearance/appearance-bootstrap.ts`, rendered as a raw `<script>` in
+  `app/layout.tsx`'s `<head>`) — a script that has to run before hydration
+  can't import modules, so it re-implements the theme-resolution rule in
+  plain, lenient, import-free JS. Deliberately not the source of truth:
+  `AppearanceProvider` re-validates the real stored value properly on
+  mount and corrects anything the bootstrap's leniency let through — the
+  bootstrap's only job is avoiding the *visible flash*, covered by real
+  unit tests only at the pure-logic level (`resolvesToDark`,
+  `parseAppearanceSettings`), since the inline script itself has no
+  practical way to run under Vitest.
+
+  **A real, useful discovery while scoping Color-Blind Assistance**: most
+  of this app's meaning-bearing color already pairs with an icon and text
+  label unconditionally — `category-badge.tsx`'s Vocabulary/Grammar badges
+  and the review feedback region's Correct/Incorrect icon+text both predate
+  spec 20 entirely (an existing "never color alone" rule). Retrofitting
+  every remaining color-only spot across the whole app was explicitly
+  scoped *out* of this unit as too large for a single Settings unit (a
+  judgment call under this session's "finish by end of day" time
+  constraint, not something spec 20 itself scopes unit-by-unit) — but the
+  toggle needed at least one real, live effect to not be inert, so
+  `stacked-bar-chart.tsx`'s Vocabulary/Grammar segments (genuinely
+  color-only: two adjacent fills, `aria-hidden`, no per-segment label) get
+  a border-style difference under `[data-color-blind="true"]`. A full sweep
+  for every remaining color-only spot is real, recorded future work, not
+  silently considered done.
+
+  Settings UI: `ThemeSelector`, `PaletteSelector` (with a live mini
+  dashboard preview — real app chrome, not a static mockup, so it already
+  reflects whichever palette is current), `FontFamilySelector` (each option
+  literally rendered in its own real font), `FontSizeSelector` (a live text
+  preview using the spec's own example copy), `ColorBlindToggle` (a preview
+  matching the spec's own ◆/■/✓/× worked examples exactly) —
+  `app/(app)/settings/appearance/page.tsx` is a client component, the first
+  Settings page with no server data to fetch at all. `project-overview.md`
+  gained an "Appearance" subsection, `architecture.md` an "Appearance
+  Architecture" section plus a named carve-out note in "Database Authority"
+  (so this unit's zero-database design doesn't read as contradicting that
+  rule), and `ui-context.md`'s Theme/Typography sections were updated to
+  mark System/Light/Dark and the curated font choices as now actually
+  implemented, not just documented intent.
+
+  Verified: `tsc`/`eslint` clean, 1011 unit tests (5 new:
+  `appearance-settings.test.ts`), `npm run build` clean (three new
+  `next/font/google` fonts load correctly). No database changes at all, so
+  no `drizzle-kit check` and no integration-suite involvement for this
+  unit specifically. **Real-browser verification skipped** per the standing
+  2026-09-13 process decision (see "Current Goal" above) — a real, recorded
+  gap for a unit this UI-heavy, not a silent omission.
 
 - **Spec 20 unit 17 — Leeches** (2026-09-14). Completes Reviews. Two new
   `user_item_progress` columns — `current_correct_streak` (resets to 0 on a
