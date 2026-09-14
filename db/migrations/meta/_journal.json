@@ -253,6 +253,13 @@
       "when": 1789422324827,
       "tag": "0035_sad_beyonder",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1789428940332,
+      "tag": "0036_far_landau",
+      "breakpoints": true
     }
   ]
 }

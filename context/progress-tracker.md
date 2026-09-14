@@ -162,16 +162,20 @@ every boundary before considering these done)*
 24. Delete Account — request → email-verified confirmation → 7-day pending
     window → cancel → the Vercel Cron finalize job from decision 1.
 
-**Units 1-18 are done — see their Completed entries below.** Account,
-General, Lessons, Reviews, and now Appearance are all fully built.
-`user_review_preferences` has 26 columns; `user_item_progress` gained two
-Leech-tracking columns; one genuinely new table (`user_sentence_ghost_
-progress`) backs Ghost Reviews; a new `lib/appearance/` module (no database
-involvement at all — device-local by design) backs Appearance. Unit 19
-(Notifications) is next, continuing **Phase F — the remaining, mostly
-independent Settings sections** (Notifications, Subscription/API
-placeholders, then Danger Zone). Per the 2026-09-14 user decision, these are
-being implemented back-to-back without pausing for the ~12-minute full
+**Units 1-19 are done — see their Completed entries below.** Account,
+General, Lessons, Reviews, Appearance, and now Notifications are all fully
+built. `user_review_preferences` has 26 columns; `user_item_progress`
+gained two Leech-tracking columns; one genuinely new table (`user_sentence_
+ghost_progress`) backs Ghost Reviews; a new `lib/appearance/` module (no
+database involvement at all — device-local by design) backs Appearance;
+`user_notification_preferences` (storage only, no delivery system) backs
+Notifications. Unit 20 (Subscription & API placeholders) is next — note
+both pages already exist as trivial "Coming Soon" content (built ahead of
+schedule alongside the Settings shell in unit 1), so unit 20 is mainly a
+verification pass confirming both still match the spec exactly, continuing
+**Phase G/H — the remaining, mostly independent Settings sections and
+Danger Zone**. Per the 2026-09-14 user decision, these are being
+implemented back-to-back without pausing for the ~12-minute full
 `npm run test:integration` suite after every single one — fast checks
 (`tsc`, `eslint`, unit tests, `npm run build`) still run continuously after
 each unit, with one full integration-suite pass at natural checkpoints and
@@ -180,13 +184,12 @@ again at the end — **except** the two data-destroying Danger Zone units
 verification before moving on, given what a mistake there would cost.
 
 **Real-browser verification remains skipped for every spec-20 unit**,
-Appearance included, per the standing 2026-09-13 process decision above
+Notifications included, per the standing 2026-09-13 process decision above
 (Auto Mode's command classifier blocks the established Playwright/
-`@clerk/testing` recipe in this session) — Unit 18 is verified by `tsc`,
+`@clerk/testing` recipe in this session) — Unit 19 is verified by `tsc`,
 `eslint`, `npm run test`, and `npm run build` only, the same as every unit
-since. This is a real, recorded gap for a unit that is unusually UI-heavy
-(live palette/font/theme previews, a no-flash bootstrap script) — worth
-a real-browser pass whenever this session's environment stops blocking it.
+since. Worth a real-browser pass whenever this session's environment stops
+blocking it.
 
 **Migration-tooling note for every future unit touching a Postgres enum**:
 `drizzle-kit migrate`'s CLI proved unreliable in this session's environment
@@ -1215,6 +1218,50 @@ writing to real `user_item_progress` rows.
 ## Completed
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
+
+- **Spec 20 unit 19 — Notifications** (2026-09-14). Opens Phase G's second
+  unit; the smallest and most mechanical unit since unit 5 (Timezone) —
+  storage only, no delivery system, exactly as the spec insists twice
+  ("do not send fake/nonexistent emails simply because a toggle exists").
+  One new account-wide table, `user_notification_preferences`
+  (`news_updates`/`progress_email`/`inactivity_email`/`trial_email`, all
+  `NOT NULL DEFAULT true`), same "Effective Defaults"/no-row-required shape
+  as `user_preferences` (unit 6) — the spec's own "Absence of a row
+  resolves to all true for these optional categories" is satisfied by the
+  column defaults themselves, not application code. `domains/users/
+  notification-preferences.ts` centralizes the type/defaults;
+  `getNotificationPreferences`/`saveNotificationPreferences` in
+  `user-repository.ts` and `getEffectiveNotificationPreferences`/
+  `updateNotificationPreferences` in `user-service.ts` mirror Content
+  Preferences' functions exactly, including the narrow-mutation contract
+  (`Partial<NotificationPreferences>`, one toggle saved independently of
+  the other three).
+
+  Transactional Emails has no column, no toggle, and no schema
+  representation at all — the spec gives it none ("cannot be disabled"),
+  so `app/(app)/settings/notifications/page.tsx` renders it as plain
+  informational text beneath the four real toggles, matching the spec's
+  own example copy verbatim. Four new `InlineToggleSettingField`-based
+  client components (`NewsUpdatesToggle`, `ProgressEmailToggle`,
+  `InactivityEmailToggle`, `TrialEmailsToggle`), one Server Action file
+  (`updateNotificationPreferencesAction`) following General's exact
+  Zod-refine-at-least-one-field shape. No new rate-limit policy — reuses
+  the existing `account-settings` policy, same as every other Settings
+  mutation.
+
+  Verified: `tsc`/`eslint` clean, 1011 unit tests (no new unit tests — no
+  new pure logic to test; the toggle components are thin wrappers over the
+  already-tested `InlineToggleSettingField`, matching how `HideEnglishToggle`
+  et al. were verified in unit 6), `npm run build` clean, migration
+  `0036_far_landau.sql` applied via `drizzle-kit migrate` (a single additive
+  `CREATE TABLE` + one FK — no enum involved, so none of unit 8's
+  `drizzle-kit migrate` CLI unreliability applied here). Per the 2026-09-14
+  batching decision, the full `npm run test:integration` suite was not
+  re-run for this unit specifically (deferred to the next natural
+  checkpoint) — this table has no integration test of its own, and no
+  existing integration test reads or writes it. **Real-browser verification
+  skipped** per the standing 2026-09-13 process decision (see "Current
+  Goal" above).
 
 - **Spec 20 unit 18 — Appearance** (2026-09-14). Genuinely different from
   every prior spec-20 unit: not authoritative learning data at all (spec's

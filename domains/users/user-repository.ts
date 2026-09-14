@@ -2,12 +2,14 @@ import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import type { DbClient } from "@/db/client";
 import { isUniqueViolation } from "@/db/postgres-errors";
-import { languages, levels, userLanguageSettings, userPreferences, users, userLevelProgress } from "@/db/schema";
+import { languages, levels, userLanguageSettings, userNotificationPreferences, userPreferences, users, userLevelProgress } from "@/db/schema";
 import { AppError } from "@/lib/errors/app-error";
 
 import type { ContentPreferences } from "./content-preferences";
 import { DEFAULT_CONTENT_PREFERENCES } from "./content-preferences";
 import type { CurriculumMode, GrammarPlacement, LanguageSettings } from "./curriculum-preference";
+import type { NotificationPreferences } from "./notification-preferences";
+import { DEFAULT_NOTIFICATION_PREFERENCES } from "./notification-preferences";
 import { getDefaultLanguageCode } from "./provisioning-config";
 import type { PolyglotUser } from "./user-types";
 
@@ -253,6 +255,52 @@ export async function saveContentPreferences(
     })
     .returning();
   return { hideEnglishReviews: row.hideEnglishReviews, showNsfwContent: row.showNsfwContent };
+}
+
+/**
+ * This learner's account-wide notification preferences (spec 20
+ * Notifications), or the centralized defaults when no row exists yet —
+ * "absence of a row resolves to all true for these optional categories."
+ */
+export async function getNotificationPreferences(db: DbClient, userId: string): Promise<NotificationPreferences> {
+  const [row] = await db.select().from(userNotificationPreferences).where(eq(userNotificationPreferences.userId, userId)).limit(1);
+  return row
+    ? {
+        newsUpdates: row.newsUpdates,
+        progressEmail: row.progressEmail,
+        inactivityEmail: row.inactivityEmail,
+        trialEmail: row.trialEmail,
+      }
+    : DEFAULT_NOTIFICATION_PREFERENCES;
+}
+
+/**
+ * Persists one or more notification-preference fields. Same narrow-mutation
+ * shape as `saveContentPreferences`: `input` carries only the field(s) the
+ * calling toggle changed, so a first-time save of one toggle can never
+ * silently invent a value for the other three — the plain-insert branch
+ * relies on `user_notification_preferences`' own column defaults (all
+ * `true`) for whatever is left unset.
+ */
+export async function saveNotificationPreferences(
+  db: DbClient,
+  userId: string,
+  input: Partial<NotificationPreferences>,
+): Promise<NotificationPreferences> {
+  const [row] = await db
+    .insert(userNotificationPreferences)
+    .values({ userId, ...input })
+    .onConflictDoUpdate({
+      target: userNotificationPreferences.userId,
+      set: { ...input, updatedAt: new Date() },
+    })
+    .returning();
+  return {
+    newsUpdates: row.newsUpdates,
+    progressEmail: row.progressEmail,
+    inactivityEmail: row.inactivityEmail,
+    trialEmail: row.trialEmail,
+  };
 }
 
 /**

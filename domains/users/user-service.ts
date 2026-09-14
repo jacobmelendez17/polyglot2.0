@@ -8,6 +8,7 @@ import { AppError } from "@/lib/errors/app-error";
 
 import type { ContentPreferences } from "./content-preferences";
 import type { CurriculumMode, GrammarPlacement, LanguageSettings } from "./curriculum-preference";
+import type { NotificationPreferences } from "./notification-preferences";
 import {
   completeOnboarding as completeOnboardingInDb,
   findLanguageSettings,
@@ -15,12 +16,14 @@ import {
   findUserById,
   findUsersByIds,
   getContentPreferences as getContentPreferencesFromDb,
+  getNotificationPreferences as getNotificationPreferencesFromDb,
   provisionUser,
   saveAutoPronounceLessons,
   saveContentPreferences,
   saveCurriculumPreference,
   saveGrammarPlacement,
   saveLessonBatchSize,
+  saveNotificationPreferences,
   updateDisplayName,
   updateTimezone as updateTimezoneInDb,
   updateUsername as updateUsernameInDb,
@@ -264,4 +267,31 @@ export async function updateContentPreferences(
   }
 
   return saveContentPreferences(db, userId, input);
+}
+
+/**
+ * Spec 20 Notifications — effective preferences. Storing/reading a
+ * preference never sends anything: "the actual optional email-delivery
+ * provider/workflow is deferred... do not send fake/nonexistent emails
+ * simply because a toggle exists."
+ */
+export async function getEffectiveNotificationPreferences(userId: string): Promise<NotificationPreferences> {
+  return getNotificationPreferencesFromDb(db, userId);
+}
+
+/**
+ * Spec 20's notification-preference update. `input` carries only the
+ * field(s) the calling toggle changed, matching Content Preferences' own
+ * narrow-mutation shape.
+ */
+export async function updateNotificationPreferences(
+  userId: string,
+  input: Partial<NotificationPreferences>,
+): Promise<NotificationPreferences> {
+  const decision = await getRateLimiter().check({ policy: "account-settings", subject: userId });
+  if (!decision.allowed) {
+    throw new AppError("RATE_LIMITED", `Please slow down and try again in ${decision.retryAfterSeconds}s.`);
+  }
+
+  return saveNotificationPreferences(db, userId, input);
 }

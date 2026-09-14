@@ -339,3 +339,29 @@ export const userReviewPreferences = pgTable(
   },
   (t) => [primaryKey({ columns: [t.userId, t.languageId] })],
 );
+
+/**
+ * Spec 20 Notifications. Account-wide (no `language_id`), same "Effective
+ * Defaults" shape as `userPreferences`: no row means every optional email
+ * category resolves to `true` (spec's own "Absence of a row resolves to all
+ * true for these optional categories"). All four default `true`, matching
+ * the spec's stated default for every toggle in this section exactly.
+ *
+ * Transactional Emails has no column here — the spec gives it no toggle at
+ * all ("cannot be disabled"), so there is nothing to store.
+ *
+ * Storing a preference here never sends anything: "the actual optional
+ * email-delivery provider/workflow is deferred... do not send fake/
+ * nonexistent emails simply because a toggle exists." No email-sending code
+ * exists anywhere in this codebase as of spec 20 unit 19.
+ */
+export const userNotificationPreferences = pgTable("user_notification_preferences", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  newsUpdates: boolean("news_updates").notNull().default(true),
+  progressEmail: boolean("progress_email").notNull().default(true),
+  inactivityEmail: boolean("inactivity_email").notNull().default(true),
+  trialEmail: boolean("trial_email").notNull().default(true),
+  ...timestamps(),
+});

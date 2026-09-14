@@ -10,6 +10,7 @@
 export {
   completeOnboarding,
   getEffectiveContentPreferences,
+  getEffectiveNotificationPreferences,
   getLanguageSettings,
   getUsersByIds,
   resolveCurrentUser,
@@ -20,6 +21,7 @@ export {
   updateGrammarPlacement,
   updateLessonBatchSize,
   updateName,
+  updateNotificationPreferences,
   updateTimezone,
   updateUsername,
 } from "./user-service";

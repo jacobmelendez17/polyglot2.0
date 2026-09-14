@@ -9,6 +9,8 @@
 export { hasRole, requireRole } from "./role-helpers";
 export { DEFAULT_CONTENT_PREFERENCES } from "./content-preferences";
 export type { ContentPreferences } from "./content-preferences";
+export { DEFAULT_NOTIFICATION_PREFERENCES } from "./notification-preferences";
+export type { NotificationPreferences } from "./notification-preferences";
 export { isOnboardingRequired } from "./onboarding";
 export {
   CURRICULUM_MODES,
