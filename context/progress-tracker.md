@@ -162,11 +162,14 @@ every boundary before considering these done)*
 24. Delete Account — request → email-verified confirmation → 7-day pending
     window → cancel → the Vercel Cron finalize job from decision 1.
 
-**Units 1-13 are done — see their Completed entries below.** Account,
+**Units 1-14 are done — see their Completed entries below.** Account,
 General, and Lessons are fully complete; Reviews has Review Types, Review
-Hints, Review UI, SRS Strictness, and now SRS Interval —
-`user_review_preferences` now has 19 columns. Unit 14 (Review Queue Timing)
-is next, continuing Phase E.
+Hints, Review UI, SRS Strictness, SRS Interval, and now Review Queue Timing —
+`user_review_preferences` now has 20 columns. Unit 15 (Fluent Mode) is next,
+continuing Phase E — it will be the first unit to actually call
+`domains/srs`'s new `applyReviewQueueTiming` (unit 14's own rounding step)
+on a Fluent maintenance review's due time, since Fluent scheduling doesn't
+exist yet.
 
 **Migration-tooling note for every future unit touching a Postgres enum**:
 `drizzle-kit migrate`'s CLI proved unreliable in this session's environment
@@ -1195,6 +1198,89 @@ writing to real `user_item_progress` rows.
 ## Completed
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
+
+- **Spec 20 unit 14 — Review Queue Timing** (2026-09-14). Continues Phase E:
+  adds the pipeline's last step — spec 20's own diagram is "stage transition
+  → SRS Interval's raw due time → **Review Queue Timing** → persisted
+  `nextReviewAt`" — a single `ReviewQueueTimingMode` setting
+  (`start_of_hour`/`start_of_day`, `start_of_hour` the spec's own default)
+  that rounds every freshly-computed due time forward, whether the
+  completion just advanced or was penalized. **One value per language, not
+  split grammar/vocabulary** — confirmed directly from the spec's own
+  "Language-Specific Settings" list, which names "Review Queue Timing" once,
+  unlike the paired "Grammar X / Vocabulary X" entries surrounding it.
+
+  **No date library exists anywhere in this codebase** (`lib/time/
+  format-absolute-date.ts` was the only precedent, and only for *display*).
+  Start of Day's timezone-safe midnight alignment — the spec's explicit "Use
+  timezone-safe date handling. Do not align Start-of-Day using server UTC
+  midnight" — required a new from-scratch utility,
+  `lib/time/zoned-date.ts`'s `startOfDayInTimeZone`, built on bare `Intl`
+  the same technique `date-fns-tz`'s `fromZonedTime` uses internally (guess
+  the UTC instant, then correct by the guess's own drift from midnight in
+  the target zone). Verified against real cases via `node -e` before
+  trusting it in a test: the spec's own worked example (Sept 18 3:40 PM
+  America/Phoenix → Sept 18 12:00 AM Phoenix), a DST-observing zone
+  (America/New_York, confirmed it aligns to *that zone's* midnight, not a
+  fixed UTC offset), and a fractional-offset zone (Asia/Kolkata, UTC+5:30,
+  confirmed it correctly crosses a UTC calendar-date boundary that a naive
+  "same UTC date" implementation would have missed entirely). Start of
+  Hour needed no timezone at all — an hour boundary is the same absolute
+  instant everywhere; only Start of Day's calendar-date alignment does.
+
+  **Threading and session-pinning**: identical pattern to units 12/13 for
+  the per-content-type settings, plus one new wrinkle — Review Queue Timing
+  needs the learner's **timezone**, which is account-wide (`users.timezone`,
+  spec 20 General/unit 4) rather than a `user_review_preferences` field.
+  Resolved once at `startReviewSession` (`domains/users/user-repository.ts`'s
+  `findUserById`, called directly — not through `domains/users/server.ts`,
+  since `review-orchestration.ts` must stay database-secret-free and
+  `DbClient`-testable, the same reasoning that already governs every other
+  cross-domain repository call in this file) and signed into `ReviewState`
+  as a new top-level `timeZone` field alongside `reviewPreferences`, for the
+  identical reason: "the active review keeps its original settings... the
+  next review session uses the new settings" (spec 20's "Review Session"
+  rule, which explicitly lists "queue timing" among the settings a
+  mid-session change must not retroactively apply). Two dedicated
+  integration tests prove Start of Hour vs. Start of Day rounding using the
+  session-resolved mode, and a third proves a queue-timing-and-timezone
+  change made *after* a session starts has no effect on that already-open
+  session's rounding.
+
+  **`ApplyReviewCompletionInput` gained `reviewQueueTiming` and `timeZone`**;
+  `review-completion.ts`'s `nextReviewAt` is now `rawNextReviewAt &&
+  applyReviewQueueTiming(rawNextReviewAt, ...)` — `null` (Fluent-terminal)
+  passes through untouched, since there's nothing to round. Lessons'
+  enrollment scheduling (`lesson-completion.ts`) was deliberately **not**
+  changed to apply queue timing — the spec's own pipeline diagram is
+  explicitly framed as "normal review outcome," i.e. the review-completion
+  flow only; a lesson's very first scheduled review is a distinct
+  first-scheduling event outside that diagram.
+
+  **The same `ReviewUiPreferences` `Omit` mistake from units 12/13 was
+  caught proactively this time** — added `"reviewQueueTiming"` to
+  `review-types.ts`'s exclusion list in the same edit that added the field
+  to `ReviewPreferences`, before ever running `tsc`, instead of discovering
+  the error after the fact.
+
+  Settings UI: new `ReviewQueueTimingSelect` component (mirroring
+  `UndoActionSelect`'s single-select shape, the only prior precedent for a
+  Reviews setting that isn't split grammar/vocabulary), wired into
+  `/settings/reviews`'s new "Review Queue Timing" section.
+  `project-overview.md`'s Standard Review Intervals section and
+  `architecture.md`'s SRS Configuration section were both extended to
+  describe the full three-step pipeline (SRS Interval → Review Queue Timing
+  → persisted `nextReviewAt`), not just SRS Interval alone.
+
+  Verified: `tsc`/`eslint` clean, 979 unit tests (8 new: `lib/time/
+  zoned-date.test.ts`, `domains/srs/review-queue-timing.test.ts`), `npm run
+  build` clean, `drizzle-kit check` clean (a brand-new enum/column
+  migration, same as every unit since 10 — no enum-transaction incident),
+  new repository-save and orchestration-level integration tests all
+  passing, full `npm run test:integration` run with failures matching the
+  established pre-existing baseline (3 unscoped audit-log queries, 1
+  idempotency cleanup-count flake, 2 item-`y` fixture-drift symptoms) — no
+  new regressions.
 
 - **Spec 20 unit 13 — SRS Interval** (2026-09-14). Continues Phase E: replaces
   the previous single fixed `STANDARD_INTERVALS` table (Master → Fluent

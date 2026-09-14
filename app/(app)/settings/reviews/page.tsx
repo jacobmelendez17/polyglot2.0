@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { GrammarReviewTypeSelect } from "@/components/settings/reviews/grammar-review-type-select";
 import { HintModeSelect } from "@/components/settings/reviews/hint-mode-select";
 import { HintOrderSelect } from "@/components/settings/reviews/hint-order-select";
+import { ReviewQueueTimingSelect } from "@/components/settings/reviews/review-queue-timing-select";
 import { ReviewUiToggle } from "@/components/settings/reviews/review-ui-toggle";
 import { SrsIntervalModeSelect } from "@/components/settings/reviews/srs-interval-mode-select";
 import { SrsStrictnessSelect } from "@/components/settings/reviews/srs-strictness-select";
@@ -127,10 +128,18 @@ export default async function ReviewSettingsPage() {
         </div>
       </div>
 
-      <SettingsSectionPlaceholder
-        title="More Review settings"
-        description="Ghost Reviews, Leeches, Review Queue Timing, and Fluent Mode."
-      />
+      <div className="rounded-xl border border-border bg-card p-6">
+        <h2 className="font-heading text-lg font-semibold text-foreground">Review Queue Timing</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Applied after your SRS interval is calculated, rounding the resulting due time forward. One setting for both grammar and
+          vocabulary.
+        </p>
+        <div className="mt-4">
+          <ReviewQueueTimingSelect initialValue={preferences.reviewQueueTiming} />
+        </div>
+      </div>
+
+      <SettingsSectionPlaceholder title="More Review settings" description="Ghost Reviews, Leeches, and Fluent Mode." />
     </div>
   );
 }

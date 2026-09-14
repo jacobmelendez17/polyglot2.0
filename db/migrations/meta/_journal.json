@@ -225,6 +225,13 @@
       "when": 1789411987449,
       "tag": "0031_aromatic_peter_parker",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1789414301233,
+      "tag": "0032_blushing_korvac",
+      "breakpoints": true
     }
   ]
 }

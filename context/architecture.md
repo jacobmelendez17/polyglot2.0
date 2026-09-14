@@ -905,12 +905,13 @@ Configuration includes:
 - Standard intervals, one full table per SRS Interval mode (spec 20 — Shortest/Shorter/Default/Longer/Longest, grammar and vocabulary independently)
 - Early-level accelerated intervals (mode-invariant)
 - SRS Strictness demotion levels (spec 20 — flat 1/2/3-Stage, Half, Full; replaces the old tiered penalty-factor model)
+- Review Queue Timing rounding mode (spec 20 — Start of Hour/Start of Day, one value per language, applied after the SRS Interval schedule produces a raw due time)
 - Minimum-stage behavior
 - Level-unlock threshold stage
 
 Do not scatter interval literals throughout the application.
 
-Both SRS Strictness and SRS Interval mode are resolved once per review session and embedded in the signed session state (`domains/srs/review-schemas.ts`'s `reviewPreferencesSchema`) — a setting change never affects a review session already in progress, and SRS Interval changes never recalculate a review's existing due time (future-only).
+SRS Strictness, SRS Interval mode, and Review Queue Timing are all resolved once per review session and embedded in the signed session state (`domains/srs/review-schemas.ts`'s `reviewPreferencesSchema`, plus a top-level `timeZone` snapshot for Start of Day) — a setting change never affects a review session already in progress, and neither SRS Interval nor Review Queue Timing changes ever recalculate a review's existing due time (future-only). The scheduling pipeline is: stage transition → SRS Interval's raw due time → Review Queue Timing's rounding → persisted `nextReviewAt` (`domains/srs/review-completion.ts`).
 
 ## Review Direction Rules
 

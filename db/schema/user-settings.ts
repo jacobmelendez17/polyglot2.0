@@ -239,13 +239,25 @@ export const srsStrictnessEnum = pgEnum("srs_strictness", ["one_stage", "two_sta
 export const srsIntervalModeEnum = pgEnum("srs_interval_mode", ["shortest", "shorter", "default", "longer", "longest"]);
 
 /**
+ * Spec 20 Review Queue Timing. `start_of_hour` is the spec's own stated
+ * default. Unlike every other Reviews setting so far, this is **one value
+ * per language, not split grammar/vocabulary** — the spec's own "Language-
+ * Specific Settings" list names it once ("Review Queue Timing"), unlike the
+ * paired "Grammar X / Vocabulary X" entries around it. Applied as the last
+ * step of the SRS scheduling pipeline, after the interval-derived raw due
+ * time and regardless of whether that completion advanced or was penalized
+ * — see `domains/srs/review-queue-timing.ts`.
+ */
+export const reviewQueueTimingModeEnum = pgEnum("review_queue_timing_mode", ["start_of_hour", "start_of_day"]);
+
+/**
  * Per-learner, per-language review preferences (spec 20 Reviews) — what the
  * spec's own Settings Data Model describes as a much larger table (Ghost
- * mode, Leech minimums, queue timing, Fluent Mode still land on this same
- * row in later units). Unit 10 seeded the two review-type columns; unit 11
- * added Review Hints (four columns) and Review UI (seven columns); unit 12
- * added SRS Strictness (two columns); unit 13 adds SRS Interval (two
- * columns) — see progress-tracker.md.
+ * mode, Leech minimums, Fluent Mode still land on this same row in later
+ * units). Unit 10 seeded the two review-type columns; unit 11 added Review
+ * Hints (four columns) and Review UI (seven columns); unit 12 added SRS
+ * Strictness (two columns); unit 13 added SRS Interval (two columns); unit
+ * 14 adds Review Queue Timing (one column) — see progress-tracker.md.
  *
  * Language-scoped like `userLanguageSettings`, for the same reason: a
  * learner studying two languages makes independent choices for each.
@@ -290,6 +302,7 @@ export const userReviewPreferences = pgTable(
     vocabularySrsStrictness: srsStrictnessEnum("vocabulary_srs_strictness").notNull().default("one_stage"),
     grammarSrsIntervalMode: srsIntervalModeEnum("grammar_srs_interval_mode").notNull().default("default"),
     vocabularySrsIntervalMode: srsIntervalModeEnum("vocabulary_srs_interval_mode").notNull().default("default"),
+    reviewQueueTiming: reviewQueueTimingModeEnum("review_queue_timing").notNull().default("start_of_hour"),
     ...timestamps(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.languageId] })],

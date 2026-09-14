@@ -3,7 +3,16 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { HINT_MODES, HINT_ORDERS, REVIEW_TYPES, REVIEW_UI_TOGGLE_FIELDS, SRS_INTERVAL_MODES, SRS_STRICTNESSES, UNDO_ACTIONS } from "@/domains/srs";
+import {
+  HINT_MODES,
+  HINT_ORDERS,
+  REVIEW_QUEUE_TIMING_MODES,
+  REVIEW_TYPES,
+  REVIEW_UI_TOGGLE_FIELDS,
+  SRS_INTERVAL_MODES,
+  SRS_STRICTNESSES,
+  UNDO_ACTIONS,
+} from "@/domains/srs";
 import { requireUser } from "@/domains/users/server";
 import {
   updateGrammarHintMode,
@@ -11,6 +20,7 @@ import {
   updateGrammarReviewType,
   updateGrammarSrsIntervalMode,
   updateGrammarSrsStrictness,
+  updateReviewQueueTiming,
   updateReviewUiToggle,
   updateUndoAction,
   updateVocabularyHintMode,
@@ -209,5 +219,20 @@ export async function updateVocabularySrsIntervalModeAction(
     const updated = await updateVocabularySrsIntervalMode({ userId: user.id, languageId: user.activeLanguageId, srsIntervalMode });
     revalidatePath("/settings/reviews");
     return { srsIntervalMode: updated.vocabularySrsIntervalMode };
+  });
+}
+
+const reviewQueueTimingInputSchema = z.object({ reviewQueueTiming: z.enum(REVIEW_QUEUE_TIMING_MODES) });
+
+/** Spec 20 Review Queue Timing — one value per language, not split grammar/vocabulary. */
+export async function updateReviewQueueTimingAction(
+  input: z.infer<typeof reviewQueueTimingInputSchema>,
+): Promise<ActionResult<{ reviewQueueTiming: string }>> {
+  return runSettingsAction(async () => {
+    const { reviewQueueTiming } = reviewQueueTimingInputSchema.parse(input);
+    const user = await requireUser();
+    const updated = await updateReviewQueueTiming({ userId: user.id, languageId: user.activeLanguageId, reviewQueueTiming });
+    revalidatePath("/settings/reviews");
+    return { reviewQueueTiming: updated.reviewQueueTiming };
   });
 }

@@ -1,0 +1,2 @@
+CREATE TYPE "public"."review_queue_timing_mode" AS ENUM('start_of_hour', 'start_of_day');--> statement-breakpoint
+ALTER TABLE "user_review_preferences" ADD COLUMN "review_queue_timing" "review_queue_timing_mode" DEFAULT 'start_of_hour' NOT NULL;

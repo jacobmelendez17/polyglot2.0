@@ -4,6 +4,7 @@ import type { CurriculumLanguage, CurriculumLearningItem } from "@/domains/curri
 import { getSynonyms } from "@/domains/learner-content/repository";
 import { getDueReviewItems, getUserProgressForLanguage } from "@/domains/progress/repository";
 import type { ItemProgress } from "@/domains/progress/types";
+import { findUserById } from "@/domains/users/user-repository";
 import { checkAnswer } from "@/lib/answer-checking";
 import { ReviewError } from "@/lib/errors/review-errors";
 
@@ -163,11 +164,12 @@ export async function startReviewSession(
   }
 
   const itemIds = dueItems.map((progress) => progress.learningItemId);
-  const [curriculumItems, levels, language, reviewPreferences] = await Promise.all([
+  const [curriculumItems, levels, language, reviewPreferences, learner] = await Promise.all([
     getLearningItemsByIds(db, itemIds),
     getLevelsByLanguage(db, languageId),
     getLanguageById(db, languageId),
     findReviewPreferences(db, userId, languageId),
+    findUserById(db, userId),
   ]);
 
   if (curriculumItems.length !== dueItems.length) {
@@ -175,6 +177,10 @@ export async function startReviewSession(
   }
   if (!language) {
     throw new ReviewError("ITEM_NOT_FOUND");
+  }
+  if (!learner) {
+    // Defensive only — a caller with a valid `userId` always has a backing user row by construction.
+    throw new ReviewError("UNAUTHENTICATED");
   }
 
   const levelNumberByLevelId = new Map(levels.map((level) => [level.id, level.levelNumber]));
@@ -209,6 +215,9 @@ export async function startReviewSession(
     sessionId: crypto.randomUUID(),
     userId,
     languageId,
+    // Spec 20 Review Queue Timing: resolved once, here, alongside
+    // `reviewPreferences` for the same reason — never re-fetched mid-session.
+    timeZone: learner.timezone,
     questions,
     queue,
     satisfiedQuestionIds: [],
@@ -226,6 +235,7 @@ export async function startReviewSession(
       vocabularySrsStrictness: reviewPreferences.vocabularySrsStrictness,
       grammarSrsIntervalMode: reviewPreferences.grammarSrsIntervalMode,
       vocabularySrsIntervalMode: reviewPreferences.vocabularySrsIntervalMode,
+      reviewQueueTiming: reviewPreferences.reviewQueueTiming,
     },
     stats,
     issuedAt: now,
@@ -413,6 +423,8 @@ export async function submitReviewAnswer(
           hadIncorrectRequiredAnswer,
           srsIntervalMode,
           srsStrictness,
+          reviewQueueTiming: state.reviewPreferences.reviewQueueTiming,
+          timeZone: state.timeZone,
           now: new Date(now),
           idempotencyKey,
           sessionId: state.sessionId,

@@ -54,6 +54,7 @@ export type ReviewUiPreferences = Omit<
   | "vocabularySrsStrictness"
   | "grammarSrsIntervalMode"
   | "vocabularySrsIntervalMode"
+  | "reviewQueueTiming"
 >;
 
 export type ReviewAnswerFeedback =

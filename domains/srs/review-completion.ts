@@ -11,7 +11,8 @@ import {
 import { ReviewError } from "@/lib/errors/review-errors";
 
 import { LEVEL_UNLOCK_MINIMUM_STAGE, LEVEL_UNLOCK_RATIO } from "./review-config";
-import type { SrsIntervalMode, SrsStrictness } from "./review-preference";
+import type { ReviewQueueTimingMode, SrsIntervalMode, SrsStrictness } from "./review-preference";
+import { applyReviewQueueTiming } from "./review-queue-timing";
 import { insertReviewEvent } from "./review-repository";
 import { calculateReviewStageResult } from "./review-result";
 import { SRS_STAGE_ORDER } from "./srs-config";
@@ -48,6 +49,10 @@ export type ApplyReviewCompletionInput = {
   srsStrictness: SrsStrictness;
   /** Spec 20 SRS Interval — which schedule resolves the next review's due date on a correct/advancing result. Resolved by the caller the same way as `srsStrictness`. */
   srsIntervalMode: SrsIntervalMode;
+  /** Spec 20 Review Queue Timing — the final rounding step applied to the raw due time this completion computes. Resolved by the caller the same way as `srsStrictness`/`srsIntervalMode`. */
+  reviewQueueTiming: ReviewQueueTimingMode;
+  /** The learner's timezone at session start (spec 20 Review Queue Timing — Start of Day). Only read when `reviewQueueTiming` is `"start_of_day"`. */
+  timeZone: string;
   now: Date;
   /** Client-generated UUID, stable for this item's completion across retries (spec 09 §12). */
   idempotencyKey: string;
@@ -94,12 +99,16 @@ export async function applyReviewCompletion(
         hadIncorrectRequiredAnswer: input.hadIncorrectRequiredAnswer,
         srsStrictness: input.srsStrictness,
       });
-      const nextReviewAt = calculateNextReview({
+      const rawNextReviewAt = calculateNextReview({
         stage: stageAfter,
         level: level.levelNumber,
         mode: input.srsIntervalMode,
         now: input.now,
       });
+      // Spec 20 Review Queue Timing — the pipeline's last step, applied to
+      // every freshly-computed due time regardless of advance/penalty.
+      // `null` (terminal, e.g. Fluent with Fluent Mode off) has nothing to round.
+      const nextReviewAt = rawNextReviewAt && applyReviewQueueTiming(rawNextReviewAt, input.reviewQueueTiming, input.timeZone);
       const fluentAt = reachedFluent ? input.now : locked.fluentAt;
 
       const updated = await applyItemProgressUpdate(tx, {

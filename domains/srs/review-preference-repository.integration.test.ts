@@ -10,6 +10,7 @@ import {
   saveGrammarReviewType,
   saveGrammarSrsIntervalMode,
   saveGrammarSrsStrictness,
+  saveReviewQueueTiming,
   saveReviewUiToggle,
   saveUndoAction,
   saveVocabularyHintMode,
@@ -37,6 +38,7 @@ const DEFAULTS = {
   vocabularySrsStrictness: "one_stage",
   grammarSrsIntervalMode: "default",
   vocabularySrsIntervalMode: "default",
+  reviewQueueTiming: "start_of_hour",
 } as const;
 
 describe("findReviewPreferences", () => {
@@ -173,6 +175,17 @@ describe("SRS Interval saves", () => {
         grammarSrsIntervalMode: "longest",
         vocabularySrsIntervalMode: "shortest",
       });
+    });
+  });
+});
+
+describe("Review Queue Timing saves", () => {
+  it("saves the one language-scoped value, independent of every other field", async () => {
+    await withTestTransaction(async (tx) => {
+      const { learnerId, languageId } = await seedTestFixtures(tx);
+
+      const result = await saveReviewQueueTiming(tx, { userId: learnerId, languageId, reviewQueueTiming: "start_of_day" });
+      expect(result).toEqual({ userId: learnerId, languageId, ...DEFAULTS, reviewQueueTiming: "start_of_day" });
     });
   });
 });

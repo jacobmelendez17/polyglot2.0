@@ -4,7 +4,17 @@ import type { DbClient } from "@/db/client";
 import { userReviewPreferences } from "@/db/schema";
 
 import { DEFAULT_REVIEW_PREFERENCES } from "./review-preference";
-import type { HintMode, HintOrder, ReviewPreferences, ReviewType, ReviewUiToggleField, SrsIntervalMode, SrsStrictness, UndoAction } from "./review-preference";
+import type {
+  HintMode,
+  HintOrder,
+  ReviewPreferences,
+  ReviewQueueTimingMode,
+  ReviewType,
+  ReviewUiToggleField,
+  SrsIntervalMode,
+  SrsStrictness,
+  UndoAction,
+} from "./review-preference";
 
 /**
  * Takes an injected `DbClient` rather than the app's `db` singleton — same
@@ -38,6 +48,7 @@ function toReviewPreferences(row: ReviewPreferencesRow): ReviewPreferences {
     vocabularySrsStrictness: row.vocabularySrsStrictness,
     grammarSrsIntervalMode: row.grammarSrsIntervalMode,
     vocabularySrsIntervalMode: row.vocabularySrsIntervalMode,
+    reviewQueueTiming: row.reviewQueueTiming,
   };
 }
 
@@ -143,4 +154,9 @@ export function saveGrammarSrsIntervalMode(db: DbClient, input: { userId: string
 /** Spec 20 SRS Interval — Vocabulary SRS Interval. */
 export function saveVocabularySrsIntervalMode(db: DbClient, input: { userId: string; languageId: string; srsIntervalMode: SrsIntervalMode }) {
   return savePreferenceField(db, "vocabularySrsIntervalMode", { ...input, value: input.srsIntervalMode });
+}
+
+/** Spec 20 Review Queue Timing — one value per language, not split grammar/vocabulary. */
+export function saveReviewQueueTiming(db: DbClient, input: { userId: string; languageId: string; reviewQueueTiming: ReviewQueueTimingMode }) {
+  return savePreferenceField(db, "reviewQueueTiming", { ...input, value: input.reviewQueueTiming });
 }

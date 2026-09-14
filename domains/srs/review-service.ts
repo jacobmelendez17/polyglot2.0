@@ -9,7 +9,16 @@ import * as preferenceRepository from "./review-preference-repository";
 import * as repository from "./review-repository";
 import type { GetReviewHistoryInput, InsertReviewEventInput } from "./review-history-types";
 import type { StartReviewSessionInput, SubmitReviewAnswerInput } from "./review-orchestration";
-import type { HintMode, HintOrder, ReviewType, ReviewUiToggleField, SrsIntervalMode, SrsStrictness, UndoAction } from "./review-preference";
+import type {
+  HintMode,
+  HintOrder,
+  ReviewQueueTimingMode,
+  ReviewType,
+  ReviewUiToggleField,
+  SrsIntervalMode,
+  SrsStrictness,
+  UndoAction,
+} from "./review-preference";
 
 /**
  * Every Settings mutation in `domains/srs` shares the same "account-settings"
@@ -137,4 +146,9 @@ export async function updateGrammarSrsIntervalMode(input: { userId: string; lang
 /** Spec 20 SRS Interval — Vocabulary SRS Interval. */
 export async function updateVocabularySrsIntervalMode(input: { userId: string; languageId: string; srsIntervalMode: SrsIntervalMode }) {
   return withAccountSettingsRateLimit(input.userId, () => preferenceRepository.saveVocabularySrsIntervalMode(db, input));
+}
+
+/** Spec 20 Review Queue Timing. */
+export async function updateReviewQueueTiming(input: { userId: string; languageId: string; reviewQueueTiming: ReviewQueueTimingMode }) {
+  return withAccountSettingsRateLimit(input.userId, () => preferenceRepository.saveReviewQueueTiming(db, input));
 }

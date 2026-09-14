@@ -6,10 +6,11 @@ import { learningItems, learningItemSentences, reviewEvents, userItemProgress, u
 import { seedTestFixtures } from "@/db/seed/test-fixtures";
 import { testDb } from "@/db/test/test-client";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
+import { updateTimezone } from "@/domains/users/user-repository";
 
 import { applyReviewCompletion } from "./review-completion";
 import { startReviewSession, submitReviewAnswer } from "./review-orchestration";
-import type { ReviewType, SrsIntervalMode, SrsStrictness } from "./review-preference";
+import type { ReviewQueueTimingMode, ReviewType, SrsIntervalMode, SrsStrictness } from "./review-preference";
 import { verifyReviewState } from "./review-token";
 import type { ReviewSessionResult } from "./review-types";
 import type { SrsStage } from "./srs-types";
@@ -31,9 +32,9 @@ async function markDue(
   userId: string,
   learningItemId: string,
   languageId: string,
-  overrides: { srsStage?: SrsStage } = {},
+  overrides: { srsStage?: SrsStage; now?: number } = {},
 ) {
-  const past = new Date(Date.now() - 60_000);
+  const past = new Date((overrides.now ?? Date.now()) - 60_000);
   const srsStage = overrides.srsStage ?? "beginner_2";
   const baseline = { srsStage, nextReviewAt: past, correctCount: 0, incorrectCount: 0, reviewCount: 0, version: 0 };
   await tx
@@ -110,6 +111,17 @@ async function setVocabularySrsIntervalMode(tx: DbClient, userId: string, langua
     .onConflictDoUpdate({
       target: [userReviewPreferences.userId, userReviewPreferences.languageId],
       set: { vocabularySrsIntervalMode: srsIntervalMode },
+    });
+}
+
+/** Spec 20 Review Queue Timing — one value per language (not split grammar/vocabulary), resolved at `startReviewSession` time. */
+async function setReviewQueueTiming(tx: DbClient, userId: string, languageId: string, reviewQueueTiming: ReviewQueueTimingMode) {
+  await tx
+    .insert(userReviewPreferences)
+    .values({ userId, languageId, reviewQueueTiming })
+    .onConflictDoUpdate({
+      target: [userReviewPreferences.userId, userReviewPreferences.languageId],
+      set: { reviewQueueTiming },
     });
 }
 
@@ -592,19 +604,6 @@ describe("submitReviewAnswer — SRS Strictness (spec 20)", () => {
 describe("submitReviewAnswer — SRS Interval (spec 20)", () => {
   const FIXED_NOW = Date.parse("2026-01-01T00:00:00Z");
 
-  /** Like `markDue`, but the "due" timestamp is relative to an explicit `now` instead of real wall-clock time — required whenever a test also pins `now` to a fixed instant, since `markDue`'s hardcoded `Date.now() - 60_000` would otherwise not be due as of that pinned instant. */
-  async function markDueAt(tx: DbClient, userId: string, learningItemId: string, languageId: string, srsStage: SrsStage, now: number) {
-    const past = new Date(now - 60_000);
-    const baseline = { srsStage, nextReviewAt: past, correctCount: 0, incorrectCount: 0, reviewCount: 0, version: 0 };
-    await tx
-      .insert(userItemProgress)
-      .values({ userId, learningItemId, languageId, ...baseline })
-      .onConflictDoUpdate({
-        target: [userItemProgress.userId, userItemProgress.learningItemId],
-        set: baseline,
-      });
-  }
-
   /** Both required directions answered correctly — the item advances one stage and schedules its next review under the configured SRS Interval mode. */
   async function completeBothDirectionsCorrectly(tx: DbClient, token: string, firstQuestionId: string, userId: string, languageId: string) {
     const first = await submitKnows(tx, {
@@ -630,7 +629,7 @@ describe("submitReviewAnswer — SRS Interval (spec 20)", () => {
   it("a non-default interval mode resolved at session start is what actually applies at completion", async () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
-      await markDueAt(tx, learnerId, gatoId, languageId, "beginner_2", FIXED_NOW);
+      await markDue(tx, learnerId, gatoId, languageId, { srsStage: "beginner_2", now: FIXED_NOW });
       await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
       await setVocabularySrsIntervalMode(tx, learnerId, languageId, "longest");
 
@@ -648,7 +647,7 @@ describe("submitReviewAnswer — SRS Interval (spec 20)", () => {
   it("an interval mode change made after a session starts does not affect that already-open session's scheduling", async () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
-      await markDueAt(tx, learnerId, gatoId, languageId, "beginner_2", FIXED_NOW);
+      await markDue(tx, learnerId, gatoId, languageId, { srsStage: "beginner_2", now: FIXED_NOW });
       await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
       // Default in effect when this session starts.
 
@@ -671,7 +670,7 @@ describe("submitReviewAnswer — SRS Interval (spec 20)", () => {
       const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
       // Default mode: Master -> Fluent is 3 calendar months out.
       const now = Date.parse("2026-01-31T00:00:00Z");
-      await markDueAt(tx, learnerId, gatoId, languageId, "intermediate", now);
+      await markDue(tx, learnerId, gatoId, languageId, { srsStage: "intermediate", now });
       await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
 
       const started = await startReviewSession(tx, { userId: learnerId, languageId, now });
@@ -699,6 +698,92 @@ describe("submitReviewAnswer — SRS Interval (spec 20)", () => {
       // intermediate -> master; January 31 + 3 calendar months rolls over (April has 30 days) to May 1, not a fixed 90-day offset.
       expect(response.completedItem).toMatchObject({ stageBefore: "intermediate", stageAfter: "master", result: "advanced" });
       expect(response.completedItem?.nextReviewAt).toEqual(new Date("2026-05-01T00:00:00Z"));
+    });
+  });
+});
+
+describe("submitReviewAnswer — Review Queue Timing (spec 20)", () => {
+  /** Both required directions answered correctly — the item advances one stage and its raw due time is rounded per the session-resolved Review Queue Timing mode. */
+  async function completeBothDirectionsCorrectly(tx: DbClient, token: string, firstQuestionId: string, userId: string, languageId: string, now: number) {
+    const first = await submitKnows(tx, {
+      token,
+      userId,
+      languageId,
+      questionId: firstQuestionId,
+      knowsAnswer: true,
+      idempotencyKey: crypto.randomUUID(),
+      now,
+    });
+    return submitKnows(tx, {
+      token: first.token,
+      userId,
+      languageId,
+      questionId: first.currentQuestion!.questionId,
+      knowsAnswer: true,
+      idempotencyKey: crypto.randomUUID(),
+      now,
+    });
+  }
+
+  it("Start of Hour rounds the raw due time forward to the next hour boundary", async () => {
+    await withTestTransaction(async (tx) => {
+      const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
+      const now = Date.parse("2026-01-01T00:15:00Z");
+      await markDue(tx, learnerId, gatoId, languageId, { srsStage: "beginner_2", now });
+      await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
+      await setReviewQueueTiming(tx, learnerId, languageId, "start_of_hour");
+
+      const started = await startReviewSession(tx, { userId: learnerId, languageId, now });
+      if (started.kind !== "session") throw new Error("expected a session");
+
+      const response = await completeBothDirectionsCorrectly(tx, started.token, started.currentQuestion!.questionId, learnerId, languageId, now);
+
+      // beginner_2 -> beginner_3, Default interval 24h: raw due 2026-01-02T00:15:00Z, rounded forward to 01:00.
+      expect(response.completedItem).toMatchObject({ stageBefore: "beginner_2", stageAfter: "beginner_3", result: "advanced" });
+      expect(response.completedItem?.nextReviewAt).toEqual(new Date("2026-01-02T01:00:00Z"));
+    });
+  });
+
+  it("Start of Day resolved at session start aligns the raw due time to midnight in the learner's own timezone", async () => {
+    await withTestTransaction(async (tx) => {
+      const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
+      const now = Date.parse("2026-01-01T10:00:00Z");
+      await markDue(tx, learnerId, gatoId, languageId, { srsStage: "beginner_2", now });
+      await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
+      await setReviewQueueTiming(tx, learnerId, languageId, "start_of_day");
+      await updateTimezone(tx, learnerId, "America/Phoenix");
+
+      const started = await startReviewSession(tx, { userId: learnerId, languageId, now });
+      if (started.kind !== "session") throw new Error("expected a session");
+
+      const response = await completeBothDirectionsCorrectly(tx, started.token, started.currentQuestion!.questionId, learnerId, languageId, now);
+
+      // beginner_2 -> beginner_3, Default interval 24h: raw due 2026-01-02T10:00:00Z (03:00 Phoenix), aligned to that same Phoenix calendar date's midnight (07:00Z).
+      expect(response.completedItem).toMatchObject({ stageBefore: "beginner_2", stageAfter: "beginner_3", result: "advanced" });
+      expect(response.completedItem?.nextReviewAt).toEqual(new Date("2026-01-02T07:00:00Z"));
+    });
+  });
+
+  it("a queue timing (and timezone) change made after a session starts does not affect that already-open session's rounding", async () => {
+    await withTestTransaction(async (tx) => {
+      const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
+      const now = Date.parse("2026-01-01T00:15:00Z");
+      await markDue(tx, learnerId, gatoId, languageId, { srsStage: "beginner_2", now });
+      await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
+      // Start of Hour (the default) in effect when this session starts.
+
+      const started = await startReviewSession(tx, { userId: learnerId, languageId, now });
+      if (started.kind !== "session") throw new Error("expected a session");
+
+      // The learner switches to Start of Day and a different timezone in another tab while this session is still open.
+      await setReviewQueueTiming(tx, learnerId, languageId, "start_of_day");
+      await updateTimezone(tx, learnerId, "America/Phoenix");
+
+      const response = await completeBothDirectionsCorrectly(tx, started.token, started.currentQuestion!.questionId, learnerId, languageId, now);
+
+      // Still Start of Hour's rounding (01:00), not Start of Day's Phoenix midnight.
+      expect(response.completedItem).toMatchObject({ stageBefore: "beginner_2", stageAfter: "beginner_3", result: "advanced" });
+      expect(response.completedItem?.nextReviewAt).toEqual(new Date("2026-01-02T01:00:00Z"));
     });
   });
 });
@@ -832,6 +917,8 @@ describe("atomic review completion (spec 09 unit 4)", () => {
           hadIncorrectRequiredAnswer: false,
           srsStrictness: "one_stage",
           srsIntervalMode: "default",
+          reviewQueueTiming: "start_of_hour",
+          timeZone: "UTC",
           now: new Date(),
           idempotencyKey: crypto.randomUUID(),
           sessionId: "session-stale-test",
@@ -869,6 +956,8 @@ describe("atomic review completion (spec 09 unit 4)", () => {
           hadIncorrectRequiredAnswer: false,
           srsStrictness: "one_stage",
           srsIntervalMode: "default",
+          reviewQueueTiming: "start_of_hour",
+          timeZone: "UTC",
           now: new Date(),
           idempotencyKey: crypto.randomUUID(),
           sessionId: "session-not-due-test",
@@ -945,6 +1034,8 @@ describe("atomic review completion (spec 09 unit 4)", () => {
         hadIncorrectRequiredAnswer: false,
         srsStrictness: "one_stage" as const,
         srsIntervalMode: "default" as const,
+        reviewQueueTiming: "start_of_hour" as const,
+        timeZone: "UTC",
         now: new Date(),
         idempotencyKey: key,
         sessionId: "session-replay-test",
@@ -983,6 +1074,8 @@ describe("atomic review completion (spec 09 unit 4)", () => {
         hadIncorrectRequiredAnswer: false,
         srsStrictness: "one_stage",
           srsIntervalMode: "default",
+          reviewQueueTiming: "start_of_hour",
+          timeZone: "UTC",
         now: new Date(),
         idempotencyKey: key,
         sessionId: "session-conflict-test",
@@ -998,6 +1091,8 @@ describe("atomic review completion (spec 09 unit 4)", () => {
           hadIncorrectRequiredAnswer: false,
           srsStrictness: "one_stage",
           srsIntervalMode: "default",
+          reviewQueueTiming: "start_of_hour",
+          timeZone: "UTC",
           now: new Date(),
           idempotencyKey: key,
           sessionId: "session-conflict-test",
@@ -1139,6 +1234,8 @@ describe("atomic review completion (spec 09 unit 4)", () => {
           hadIncorrectRequiredAnswer: false,
           srsStrictness: "one_stage",
           srsIntervalMode: "default",
+          reviewQueueTiming: "start_of_hour",
+          timeZone: "UTC",
           now: new Date(),
           idempotencyKey: crypto.randomUUID(), // different keys — this proves the row lock/version guard itself, independent of idempotency
           sessionId: "session-concurrent-a",

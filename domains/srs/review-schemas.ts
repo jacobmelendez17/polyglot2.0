@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-import { HINT_MODES, HINT_ORDERS, REVIEW_TYPES, SRS_INTERVAL_MODES, SRS_STRICTNESSES } from "./review-preference";
-import type { HintMode, HintOrder, ReviewType, SrsIntervalMode, SrsStrictness } from "./review-preference";
+import { HINT_MODES, HINT_ORDERS, REVIEW_QUEUE_TIMING_MODES, REVIEW_TYPES, SRS_INTERVAL_MODES, SRS_STRICTNESSES } from "./review-preference";
+import type { HintMode, HintOrder, ReviewQueueTimingMode, ReviewType, SrsIntervalMode, SrsStrictness } from "./review-preference";
 import { SRS_STAGE_ORDER } from "./srs-config";
 import type { SrsStage } from "./srs-types";
 
@@ -57,6 +57,7 @@ const hintOrderSchema = z.enum(HINT_ORDERS as unknown as readonly [HintOrder, ..
 const hintModeSchema = z.enum(HINT_MODES as unknown as readonly [HintMode, ...HintMode[]]);
 const srsStrictnessSchema = z.enum(SRS_STRICTNESSES as unknown as readonly [SrsStrictness, ...SrsStrictness[]]);
 const srsIntervalModeSchema = z.enum(SRS_INTERVAL_MODES as unknown as readonly [SrsIntervalMode, ...SrsIntervalMode[]]);
+const reviewQueueTimingModeSchema = z.enum(REVIEW_QUEUE_TIMING_MODES as unknown as readonly [ReviewQueueTimingMode, ...ReviewQueueTimingMode[]]);
 
 /**
  * Spec 20 Reviews' "Review Session Settings": resolved once at session
@@ -66,10 +67,10 @@ const srsIntervalModeSchema = z.enum(SRS_INTERVAL_MODES as unknown as readonly [
  * mid-session. Re-fetching this per submit instead of trusting the signed
  * copy would violate that directly.
  *
- * Review Type, Review Hints, SRS Strictness, and SRS Interval all live
- * here — each affects either what `buildQuestionView` computes server-side
- * per question, or the authoritative stage/schedule transition itself at
- * completion time (`review-completion.ts`). The seven Review UI toggles
+ * Review Type, Review Hints, SRS Strictness, SRS Interval, and Review Queue
+ * Timing all live here — each affects either what `buildQuestionView`
+ * computes server-side per question, or the authoritative stage/schedule
+ * transition itself at completion time (`review-completion.ts`). The seven Review UI toggles
  * (Autoplay Audio, Lightning Mode, Focus Mode, Auto Highlight Errors, Show
  * SRS Stage, Auto-Expand Info, Undo Action) are pure client presentation
  * with no effect on grading or SRS, so they ride once in
@@ -87,12 +88,21 @@ export const reviewPreferencesSchema = z.object({
   vocabularySrsStrictness: srsStrictnessSchema,
   grammarSrsIntervalMode: srsIntervalModeSchema,
   vocabularySrsIntervalMode: srsIntervalModeSchema,
+  reviewQueueTiming: reviewQueueTimingModeSchema,
 });
 
 export const reviewStateSchema = z.object({
   sessionId: z.string().min(1),
   userId: z.string().min(1),
   languageId: z.string().min(1),
+  /**
+   * Spec 20 Review Queue Timing — the learner's `users.timezone` at session
+   * start, resolved once alongside `reviewPreferences` for the identical
+   * reason: Start of Day's calendar-date alignment must stay consistent for
+   * the life of one session, even if the learner changes their timezone in
+   * another tab mid-session.
+   */
+  timeZone: z.string().min(1),
   questions: z.array(reviewQuestionSchema).min(1),
   /** Remaining question ids, in order — `queue[0]` is the current question. */
   queue: z.array(z.string().min(1)),

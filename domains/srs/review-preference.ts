@@ -77,6 +77,22 @@ export function isSrsIntervalMode(value: unknown): value is SrsIntervalMode {
 }
 
 /**
+ * Spec 20 Review Queue Timing — the final rounding step applied to a freshly
+ * computed due time. `start_of_hour` is the spec's own stated default. One
+ * value per language, not split grammar/vocabulary, unlike every other
+ * Reviews setting so far — the spec's own "Language-Specific Settings" list
+ * names it once. See `domains/srs/review-queue-timing.ts` for the rounding
+ * logic itself.
+ */
+export const REVIEW_QUEUE_TIMING_MODES = ["start_of_hour", "start_of_day"] as const;
+export type ReviewQueueTimingMode = (typeof REVIEW_QUEUE_TIMING_MODES)[number];
+export const DEFAULT_REVIEW_QUEUE_TIMING_MODE: ReviewQueueTimingMode = "start_of_hour";
+
+export function isReviewQueueTimingMode(value: unknown): value is ReviewQueueTimingMode {
+  return typeof value === "string" && (REVIEW_QUEUE_TIMING_MODES as readonly string[]).includes(value);
+}
+
+/**
  * Spec 20 Review UI — the seven independent boolean toggle field names.
  * Database-free so the Settings UI (a client component) can reference the
  * field-name union without importing `review-preference-repository.ts`
@@ -121,6 +137,7 @@ export type ReviewPreferences = {
   vocabularySrsStrictness: SrsStrictness;
   grammarSrsIntervalMode: SrsIntervalMode;
   vocabularySrsIntervalMode: SrsIntervalMode;
+  reviewQueueTiming: ReviewQueueTimingMode;
 };
 
 export const DEFAULT_REVIEW_PREFERENCES: Omit<ReviewPreferences, "userId" | "languageId"> = {
@@ -141,4 +158,5 @@ export const DEFAULT_REVIEW_PREFERENCES: Omit<ReviewPreferences, "userId" | "lan
   vocabularySrsStrictness: DEFAULT_SRS_STRICTNESS,
   grammarSrsIntervalMode: DEFAULT_SRS_INTERVAL_MODE,
   vocabularySrsIntervalMode: DEFAULT_SRS_INTERVAL_MODE,
+  reviewQueueTiming: DEFAULT_REVIEW_QUEUE_TIMING_MODE,
 };

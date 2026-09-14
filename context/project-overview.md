@@ -180,6 +180,8 @@ Spec 20's SRS Interval setting (grammar and vocabulary, independently) selects o
 
 Month-valued intervals (Master only) use real calendar-month arithmetic (e.g. September 12 + 3 months = December 12), not a fixed number of days. Changing the SRS Interval setting only affects reviews scheduled from that point forward — it never recalculates a review's existing due time.
 
+After the SRS Interval schedule produces this raw due time, spec 20's **Review Queue Timing** setting (one value per language, not split grammar/vocabulary) rounds it: **Start of Hour** (default) rounds forward to the next hour boundary; **Start of Day** aligns it to 12:00 AM on its own calendar date in the learner's configured timezone, using real timezone-safe date handling rather than server UTC midnight. Applied to every freshly-computed due time, whether the review just advanced or was penalized.
+
 ### Accelerated Early-Level Intervals
 
 For curriculum Levels 1 and 2:
