@@ -15,6 +15,16 @@ vi.mock("@/app/(focus)/reviews/actions", () => ({
   submitReviewAnswerAction: (...args: unknown[]) => submitReviewAnswerAction(...args),
 }));
 
+const speak = vi.fn();
+const cancel = vi.fn();
+vi.mock("@/providers/speech/speech-synthesis-provider", () => ({
+  browserSpeechSynthesisProvider: {
+    isSupported: () => true,
+    speak: (...args: unknown[]) => speak(...args),
+    cancel: (...args: unknown[]) => cancel(...args),
+  },
+}));
+
 const GATO_TARGET_TO_ENGLISH: ReviewQuestionView = {
   questionId: "gato::targetToEnglish",
   itemId: "gato",
@@ -22,6 +32,8 @@ const GATO_TARGET_TO_ENGLISH: ReviewQuestionView = {
   direction: "targetToEnglish",
   directionLabel: "Spanish → English",
   presentation: { kind: "typed", prompt: "gato" },
+  hint: { mode: "hide" },
+  pronunciationText: "gato",
 };
 
 const GATO_ENGLISH_TO_TARGET: ReviewQuestionView = {
@@ -31,6 +43,8 @@ const GATO_ENGLISH_TO_TARGET: ReviewQuestionView = {
   direction: "englishToTarget",
   directionLabel: "English → Spanish",
   presentation: { kind: "typed", prompt: "cat" },
+  hint: { mode: "hide" },
+  pronunciationText: "gato",
 };
 
 const INITIAL: ReviewSessionResult = {
@@ -45,6 +59,8 @@ const INITIAL: ReviewSessionResult = {
 beforeEach(() => {
   submitReviewAnswerAction.mockReset();
   push.mockReset();
+  speak.mockReset();
+  cancel.mockReset();
 });
 
 describe("ReviewSessionView", () => {
@@ -216,5 +232,120 @@ describe("ReviewSessionView", () => {
     expect(submitReviewAnswerAction).toHaveBeenCalledWith(
       expect.objectContaining({ submission: { kind: "self_graded", knowsAnswer: true } }),
     );
+  });
+
+  describe("Review UI (spec 20)", () => {
+    it("pronounces the first item once on mount when Autoplay Audio is on", () => {
+      render(<ReviewSessionView initial={{ ...INITIAL, languageCode: "es-MX", reviewUiPreferences: { autoplayAudio: true, lightningMode: false, focusMode: false, autoHighlightErrors: true, showSrsStage: true, autoExpandInfo: false, undoAction: "clear_last_character" } }} />);
+
+      expect(speak).toHaveBeenCalledWith({ text: "gato", languageCode: "es-MX" });
+    });
+
+    it("never pronounces anything when Autoplay Audio is off", () => {
+      render(<ReviewSessionView initial={{ ...INITIAL, languageCode: "es-MX", reviewUiPreferences: { autoplayAudio: false, lightningMode: false, focusMode: false, autoHighlightErrors: true, showSrsStage: true, autoExpandInfo: false, undoAction: "clear_last_character" } }} />);
+
+      expect(speak).not.toHaveBeenCalled();
+    });
+
+    it("cancels any in-flight speech on unmount", () => {
+      const { unmount } = render(<ReviewSessionView initial={{ ...INITIAL, languageCode: "es-MX" }} />);
+      unmount();
+      expect(cancel).toHaveBeenCalled();
+    });
+
+    it("Lightning Mode auto-advances past a correct answer without a Continue click", async () => {
+      submitReviewAnswerAction.mockResolvedValue({
+        ok: true,
+        data: {
+          token: "t2",
+          sessionId: "session-1",
+          phase: "in_progress",
+          currentQuestion: GATO_ENGLISH_TO_TARGET,
+          characterHelpers: ["ñ"],
+          stats: { itemsTotal: 1, itemsCompleted: 0, questionsAttempted: 1, questionsCorrect: 1 },
+          feedback: { kind: "correct" },
+        },
+      });
+
+      const user = userEvent.setup();
+      render(
+        <ReviewSessionView
+          initial={{
+            ...INITIAL,
+            reviewUiPreferences: { autoplayAudio: false, lightningMode: true, focusMode: false, autoHighlightErrors: true, showSrsStage: true, autoExpandInfo: false, undoAction: "clear_last_character" },
+          }}
+        />,
+      );
+
+      await user.type(screen.getByRole("textbox", { name: "Your answer" }), "cat{Enter}");
+      await waitFor(() => expect(screen.getByText("Correct!")).toBeInTheDocument());
+
+      // No further click — Lightning Mode advances on its own.
+      await waitFor(() => expect(screen.getByText("cat")).toBeInTheDocument(), { timeout: 3000 });
+    });
+
+    it("does not auto-advance an incorrect answer even with Lightning Mode on", async () => {
+      submitReviewAnswerAction.mockResolvedValue({
+        ok: true,
+        data: {
+          token: "t2",
+          sessionId: "session-1",
+          phase: "in_progress",
+          currentQuestion: GATO_TARGET_TO_ENGLISH,
+          characterHelpers: [],
+          stats: { itemsTotal: 1, itemsCompleted: 0, questionsAttempted: 1, questionsCorrect: 0 },
+          feedback: { kind: "incorrect", reason: "no_match", userAnswer: "dog", expectedAnswer: "cat" },
+        },
+      });
+
+      const user = userEvent.setup();
+      render(
+        <ReviewSessionView
+          initial={{
+            ...INITIAL,
+            reviewUiPreferences: { autoplayAudio: false, lightningMode: true, focusMode: false, autoHighlightErrors: true, showSrsStage: true, autoExpandInfo: false, undoAction: "clear_last_character" },
+          }}
+        />,
+      );
+
+      await user.type(screen.getByRole("textbox", { name: "Your answer" }), "dog{Enter}");
+      await waitFor(() => expect(screen.getByText("Not quite")).toBeInTheDocument());
+
+      // Still awaiting an explicit advance a full second later.
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      expect(screen.getByText("Not quite")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Continue" })).toBeInTheDocument();
+    });
+
+    it("Focus Mode hides the accuracy percentage from the top bar", async () => {
+      submitReviewAnswerAction.mockResolvedValue({
+        ok: true,
+        data: {
+          token: "t2",
+          sessionId: "session-1",
+          phase: "in_progress",
+          currentQuestion: GATO_ENGLISH_TO_TARGET,
+          characterHelpers: ["ñ"],
+          stats: { itemsTotal: 2, itemsCompleted: 0, questionsAttempted: 1, questionsCorrect: 1 },
+          feedback: { kind: "correct" },
+        },
+      });
+
+      const user = userEvent.setup();
+      render(
+        <ReviewSessionView
+          initial={{
+            ...INITIAL,
+            stats: { itemsTotal: 2, itemsCompleted: 0, questionsAttempted: 0, questionsCorrect: 0 },
+            reviewUiPreferences: { autoplayAudio: false, lightningMode: false, focusMode: true, autoHighlightErrors: true, showSrsStage: true, autoExpandInfo: false, undoAction: "clear_last_character" },
+          }}
+        />,
+      );
+
+      await user.type(screen.getByRole("textbox", { name: "Your answer" }), "cat{Enter}");
+      await waitFor(() => expect(screen.getByText("Correct!")).toBeInTheDocument());
+
+      expect(screen.queryByText(/%/)).not.toBeInTheDocument();
+    });
   });
 });

@@ -13,7 +13,13 @@ export {
   insertReviewEvent,
   startReviewSession,
   submitReviewAnswer,
+  updateGrammarHintMode,
+  updateGrammarHintOrder,
   updateGrammarReviewType,
+  updateReviewUiToggle,
+  updateUndoAction,
+  updateVocabularyHintMode,
+  updateVocabularyHintOrder,
   updateVocabularyReviewType,
 } from "./review-service";
 export type { ReviewAnswerSubmission, StartReviewSessionInput, SubmitReviewAnswerInput } from "./review-orchestration";

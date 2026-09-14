@@ -1,5 +1,7 @@
 import type { z } from "zod";
 
+import type { ReviewHintView } from "./review-hint";
+import type { ReviewPreferences } from "./review-preference";
 import type { ReviewQuestionPresentation } from "./review-presentation";
 import type { ReviewResultCategory } from "./review-result";
 import type {
@@ -31,7 +33,17 @@ export type ReviewQuestionView = {
   directionLabel: string;
   /** Spec 20 Reviews — Review Types: how the client must present and answer this question. */
   presentation: ReviewQuestionPresentation;
+  /** Spec 20 Review Hints: the optional aid content this question may reveal before answering. */
+  hint: ReviewHintView;
+  /** The item's target-language word/structure (spec 20 Review UI — Autoplay Audio) — never the English meaning, regardless of direction. */
+  pronunciationText: string;
 };
+
+/** Spec 20 Review UI: the seven purely-presentational toggles, sent once (see `reviewPreferencesSchema`'s docstring for why these aren't signed into the session state). */
+export type ReviewUiPreferences = Omit<
+  ReviewPreferences,
+  "userId" | "languageId" | "grammarReviewType" | "vocabularyReviewType" | "grammarHintOrder" | "vocabularyHintOrder" | "grammarHintMode" | "vocabularyHintMode"
+>;
 
 export type ReviewAnswerFeedback =
   | { kind: "empty" }
@@ -71,6 +83,15 @@ export type ReviewSessionResult = {
   currentQuestion?: ReviewQuestionView;
   /** Resolved server-side from the session's language (spec 09 §16) — the client never hardcodes these. */
   characterHelpers: readonly string[];
+  /**
+   * The language being reviewed's code (`es-MX`), for client-side speech
+   * synthesis (spec 20 Review UI — Autoplay Audio). Only ever set by
+   * `startReviewSession`'s "session" result — the same "only the initial
+   * mount needs it" precedent `domains/lessons`' `languageCode` established.
+   */
+  languageCode?: string;
+  /** Spec 20 Review UI. Only ever set by `startReviewSession`'s "session" result; see `languageCode`. */
+  reviewUiPreferences?: ReviewUiPreferences;
   stats: ReviewSessionStats;
   feedback?: ReviewAnswerFeedback;
   /** Present only on the submit that just completed this item — one-shot, not resurfaced on later responses. */

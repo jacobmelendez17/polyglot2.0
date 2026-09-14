@@ -9,7 +9,22 @@ import * as preferenceRepository from "./review-preference-repository";
 import * as repository from "./review-repository";
 import type { GetReviewHistoryInput, InsertReviewEventInput } from "./review-history-types";
 import type { StartReviewSessionInput, SubmitReviewAnswerInput } from "./review-orchestration";
-import type { ReviewType } from "./review-preference";
+import type { HintMode, HintOrder, ReviewType, ReviewUiToggleField, UndoAction } from "./review-preference";
+
+/**
+ * Every Settings mutation in `domains/srs` shares the same "account-settings"
+ * rate limit — checked here, not in the repository, since the limiter
+ * provider is `server-only`-guarded and would make the repository
+ * untestable against a rolled-back transaction (same reasoning as every
+ * other domain's service layer in this codebase).
+ */
+async function withAccountSettingsRateLimit<T>(userId: string, fn: () => Promise<T>): Promise<T> {
+  const decision = await getRateLimiter().check({ policy: "account-settings", subject: userId });
+  if (!decision.allowed) {
+    throw new AppError("RATE_LIMITED", `Please slow down and try again in ${decision.retryAfterSeconds}s.`);
+  }
+  return fn();
+}
 
 /**
  * Binds the real app database to the injectable review repository/
@@ -64,20 +79,42 @@ export async function getReviewPreferences(userId: string, languageId: string) {
   return preferenceRepository.findReviewPreferences(db, userId, languageId);
 }
 
-/** Spec 20 Reviews — Grammar Review Type. Ordinary "account-settings" rate limit, matching every other narrow Settings field save. */
+/** Spec 20 Reviews — Grammar Review Type. */
 export async function updateGrammarReviewType(input: { userId: string; languageId: string; reviewType: ReviewType }) {
-  const decision = await getRateLimiter().check({ policy: "account-settings", subject: input.userId });
-  if (!decision.allowed) {
-    throw new AppError("RATE_LIMITED", `Please slow down and try again in ${decision.retryAfterSeconds}s.`);
-  }
-  return preferenceRepository.saveGrammarReviewType(db, input);
+  return withAccountSettingsRateLimit(input.userId, () => preferenceRepository.saveGrammarReviewType(db, input));
 }
 
-/** Spec 20 Reviews — Vocabulary Review Type. Ordinary "account-settings" rate limit, matching every other narrow Settings field save. */
+/** Spec 20 Reviews — Vocabulary Review Type. */
 export async function updateVocabularyReviewType(input: { userId: string; languageId: string; reviewType: ReviewType }) {
-  const decision = await getRateLimiter().check({ policy: "account-settings", subject: input.userId });
-  if (!decision.allowed) {
-    throw new AppError("RATE_LIMITED", `Please slow down and try again in ${decision.retryAfterSeconds}s.`);
-  }
-  return preferenceRepository.saveVocabularyReviewType(db, input);
+  return withAccountSettingsRateLimit(input.userId, () => preferenceRepository.saveVocabularyReviewType(db, input));
+}
+
+/** Spec 20 Review Hints — Grammar Hint Order. */
+export async function updateGrammarHintOrder(input: { userId: string; languageId: string; hintOrder: HintOrder }) {
+  return withAccountSettingsRateLimit(input.userId, () => preferenceRepository.saveGrammarHintOrder(db, input));
+}
+
+/** Spec 20 Review Hints — Vocabulary Hint Order. */
+export async function updateVocabularyHintOrder(input: { userId: string; languageId: string; hintOrder: HintOrder }) {
+  return withAccountSettingsRateLimit(input.userId, () => preferenceRepository.saveVocabularyHintOrder(db, input));
+}
+
+/** Spec 20 Review Hints — Grammar Hint Mode. */
+export async function updateGrammarHintMode(input: { userId: string; languageId: string; hintMode: HintMode }) {
+  return withAccountSettingsRateLimit(input.userId, () => preferenceRepository.saveGrammarHintMode(db, input));
+}
+
+/** Spec 20 Review Hints — Vocabulary Hint Mode. */
+export async function updateVocabularyHintMode(input: { userId: string; languageId: string; hintMode: HintMode }) {
+  return withAccountSettingsRateLimit(input.userId, () => preferenceRepository.saveVocabularyHintMode(db, input));
+}
+
+/** Spec 20 Review UI — any of the seven independent boolean toggles. */
+export async function updateReviewUiToggle(input: { userId: string; languageId: string; field: ReviewUiToggleField; value: boolean }) {
+  return withAccountSettingsRateLimit(input.userId, () => preferenceRepository.saveReviewUiToggle(db, input));
+}
+
+/** Spec 20 Review UI — Undo Action. */
+export async function updateUndoAction(input: { userId: string; languageId: string; undoAction: UndoAction }) {
+  return withAccountSettingsRateLimit(input.userId, () => preferenceRepository.saveUndoAction(db, input));
 }

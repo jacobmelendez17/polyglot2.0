@@ -206,19 +206,31 @@ export const userVacationPeriods = pgTable(
 export const reviewTypeEnum = pgEnum("review_type", ["cloze_manual", "cloze_flashcard", "flashcard"]);
 
 /**
- * Per-learner, per-language review preferences (spec 20 Reviews) — the first
- * of what the spec's own Settings Data Model describes as a much larger
- * table (Ghost mode, Leech minimums, hints, Review UI toggles, SRS
- * Strictness/Interval, queue timing, Fluent Mode all land on this same row
- * in later units). Seeded with just the two review-type columns for this
- * unit, on purpose — see progress-tracker.md.
+ * Spec 20 Reviews — Review Hints. `nuance_first` and `hint` are the spec's
+ * own stated defaults. Order only matters under Hint Mode "more" (the only
+ * mode with two separate pieces of content to reveal) — see
+ * `domains/srs/review-hint.ts`'s `resolveReviewHint`.
+ */
+export const hintOrderEnum = pgEnum("hint_order", ["nuance_first", "translation_first"]);
+export const hintModeEnum = pgEnum("hint_mode", ["hide", "hint", "show", "more", "always_show_nuance"]);
+
+/** Spec 20 Review UI — Undo Action. `clear_last_character` is the spec's own stated default. */
+export const undoActionEnum = pgEnum("undo_action", ["clear_last_character", "clear_all_characters"]);
+
+/**
+ * Per-learner, per-language review preferences (spec 20 Reviews) — what the
+ * spec's own Settings Data Model describes as a much larger table (Ghost
+ * mode, Leech minimums, SRS Strictness/Interval, queue timing, Fluent Mode
+ * all still land on this same row in later units). Unit 10 seeded the two
+ * review-type columns; unit 11 adds Review Hints (four columns) and Review
+ * UI (seven columns) — see progress-tracker.md.
  *
  * Language-scoped like `userLanguageSettings`, for the same reason: a
- * learner studying two languages makes independent review-type choices for
- * each. Unlike `userLanguageSettings.curriculumMode`, there is no
- * "row absent means never chosen" state to preserve here — both columns
- * have real defaults and effective-default reads never require a row to
- * exist (`domains/srs`'s `findReviewPreferences` upserts on first change).
+ * learner studying two languages makes independent choices for each.
+ * Unlike `userLanguageSettings.curriculumMode`, there is no "row absent
+ * means never chosen" state to preserve here — every column has a real
+ * default and effective-default reads never require a row to exist
+ * (`domains/srs`'s `findReviewPreferences` upserts on first change).
  */
 export const userReviewPreferences = pgTable(
   "user_review_preferences",
@@ -231,6 +243,27 @@ export const userReviewPreferences = pgTable(
       .references(() => languages.id, { onDelete: "restrict" }),
     grammarReviewType: reviewTypeEnum("grammar_review_type").notNull().default("cloze_manual"),
     vocabularyReviewType: reviewTypeEnum("vocabulary_review_type").notNull().default("cloze_manual"),
+    grammarHintOrder: hintOrderEnum("grammar_hint_order").notNull().default("nuance_first"),
+    vocabularyHintOrder: hintOrderEnum("vocabulary_hint_order").notNull().default("nuance_first"),
+    grammarHintMode: hintModeEnum("grammar_hint_mode").notNull().default("hint"),
+    vocabularyHintMode: hintModeEnum("vocabulary_hint_mode").notNull().default("hint"),
+    /**
+     * Spec 20 Review UI. No stated default for `autoplayAudio`,
+     * `autoHighlightErrors`, or `showSrsStage` — chosen `true` as the
+     * lower-friction default for a presentational aid the learner can
+     * already get to manually, matching Lessons' Auto Pronunciation
+     * default (spec 20 unit 9). `lightningMode`, `focusMode`, and
+     * `autoExpandInfo` default `false` — each is a real interaction-flow
+     * change, not just an added cue, matching this spec's other opt-in
+     * behavior toggles (Vacation Mode, NSFW Content).
+     */
+    autoplayAudio: boolean("autoplay_audio").notNull().default(true),
+    lightningMode: boolean("lightning_mode").notNull().default(false),
+    focusMode: boolean("focus_mode").notNull().default(false),
+    autoHighlightErrors: boolean("auto_highlight_errors").notNull().default(true),
+    showSrsStage: boolean("show_srs_stage").notNull().default(true),
+    autoExpandInfo: boolean("auto_expand_info").notNull().default(false),
+    undoAction: undoActionEnum("undo_action").notNull().default("clear_last_character"),
     ...timestamps(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.languageId] })],

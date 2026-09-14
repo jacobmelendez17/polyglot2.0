@@ -31,4 +31,13 @@ describe("ReviewTopBar", () => {
     await user.click(screen.getByRole("button", { name: "Exit review" }));
     expect(onExit).toHaveBeenCalledOnce();
   });
+
+  it("Focus Mode (spec 20 Review UI) hides the accuracy percentage but keeps Exit, progress, and remaining count", () => {
+    render(<ReviewTopBar onExit={() => {}} progressPercent={50} remaining={4} accuracyPercent={80} focusMode />);
+
+    expect(screen.getByText(/4 left/)).toBeInTheDocument();
+    expect(screen.queryByText(/80%/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Exit review" })).toBeInTheDocument();
+    expect(screen.getByRole("progressbar", { name: "Review progress" })).toBeInTheDocument();
+  });
 });

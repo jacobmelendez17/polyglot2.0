@@ -8,6 +8,8 @@ type ReviewTopBarProps = {
   remaining: number;
   /** Null before any question has been attempted this session. */
   accuracyPercent: number | null;
+  /** Spec 20 Review UI — Focus Mode: hides the accuracy percentage, the one nonessential element here — Exit, progress, and remaining count all stay (spec's own list of what must never be removed). */
+  focusMode?: boolean;
 };
 
 /**
@@ -15,7 +17,7 @@ type ReviewTopBarProps = {
  * compact session stats (right). Stays a single row on mobile too (no
  * horizontal overflow) since every element here is intentionally compact.
  */
-export function ReviewTopBar({ onExit, progressPercent, remaining, accuracyPercent }: ReviewTopBarProps) {
+export function ReviewTopBar({ onExit, progressPercent, remaining, accuracyPercent, focusMode = false }: ReviewTopBarProps) {
   return (
     <div className="flex items-center gap-3">
       <ExitFocusButton label="Exit review" onClick={onExit} />
@@ -27,7 +29,7 @@ export function ReviewTopBar({ onExit, progressPercent, remaining, accuracyPerce
       />
 
       <p className="shrink-0 text-xs whitespace-nowrap text-muted-foreground">
-        {remaining} left{accuracyPercent !== null ? ` · ${accuracyPercent}%` : ""}
+        {remaining} left{!focusMode && accuracyPercent !== null ? ` · ${accuracyPercent}%` : ""}
       </p>
     </div>
   );

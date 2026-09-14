@@ -13,6 +13,8 @@ import { applyReviewCompletion } from "./review-completion";
 import { getCharacterHelpers, getReviewRetrySpacingMinimum, getReviewStateTokenTtlSeconds } from "./review-config";
 import { findCompatibleClozeSentence } from "./review-cloze";
 import type { ClozeSentence } from "./review-cloze";
+import { resolveReviewHint } from "./review-hint";
+import type { ReviewHintView } from "./review-hint";
 import { isClozeReviewType } from "./review-preference";
 import { findReviewPreferences } from "./review-preference-repository";
 import { buildReviewQuestions, interleaveReviewQuestions } from "./review-queue";
@@ -123,7 +125,18 @@ async function buildQuestionView(
     direction: question.direction,
     directionLabel: directionLabel(language.name, question.direction),
     presentation,
+    hint: resolveQuestionHint(state, item),
+    pronunciationText: item.type === "vocabulary" ? item.vocabulary.term : item.grammar.structure,
   };
+}
+
+/** Resolves one question's hint content (spec 20 Review Hints) from the item's type-specific Hint Mode/Order. */
+function resolveQuestionHint(state: ReviewState, item: CurriculumLearningItem): ReviewHintView {
+  const { hintMode, hintOrder } =
+    item.type === "vocabulary"
+      ? { hintMode: state.reviewPreferences.vocabularyHintMode, hintOrder: state.reviewPreferences.vocabularyHintOrder }
+      : { hintMode: state.reviewPreferences.grammarHintMode, hintOrder: state.reviewPreferences.grammarHintOrder };
+  return resolveReviewHint({ hintMode, hintOrder, item });
 }
 
 function requiredQuestionIdsForItem(state: ReviewState, itemId: string): string[] {
@@ -205,6 +218,10 @@ export async function startReviewSession(
     reviewPreferences: {
       grammarReviewType: reviewPreferences.grammarReviewType,
       vocabularyReviewType: reviewPreferences.vocabularyReviewType,
+      grammarHintOrder: reviewPreferences.grammarHintOrder,
+      vocabularyHintOrder: reviewPreferences.vocabularyHintOrder,
+      grammarHintMode: reviewPreferences.grammarHintMode,
+      vocabularyHintMode: reviewPreferences.vocabularyHintMode,
     },
     stats,
     issuedAt: now,
@@ -221,6 +238,20 @@ export async function startReviewSession(
     phase: "in_progress",
     currentQuestion,
     characterHelpers: getCharacterHelpers(language.code),
+    // Only meaningful for the client's initial mount (the seven Review UI
+    // toggles are pure presentation, resolved once and never re-read
+    // mid-session the same way `characterHelpers`/`studyItems` aren't in
+    // Lessons) — populated here and nowhere else `ReviewSessionResult` is built.
+    languageCode: language.code,
+    reviewUiPreferences: {
+      autoplayAudio: reviewPreferences.autoplayAudio,
+      lightningMode: reviewPreferences.lightningMode,
+      focusMode: reviewPreferences.focusMode,
+      autoHighlightErrors: reviewPreferences.autoHighlightErrors,
+      showSrsStage: reviewPreferences.showSrsStage,
+      autoExpandInfo: reviewPreferences.autoExpandInfo,
+      undoAction: reviewPreferences.undoAction,
+    },
     stats,
   };
 }

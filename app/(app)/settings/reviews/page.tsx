@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 
 import { GrammarReviewTypeSelect } from "@/components/settings/reviews/grammar-review-type-select";
+import { HintModeSelect } from "@/components/settings/reviews/hint-mode-select";
+import { HintOrderSelect } from "@/components/settings/reviews/hint-order-select";
+import { ReviewUiToggle } from "@/components/settings/reviews/review-ui-toggle";
+import { UndoActionSelect } from "@/components/settings/reviews/undo-action-select";
 import { VocabularyReviewTypeSelect } from "@/components/settings/reviews/vocabulary-review-type-select";
 import { SettingsSectionPlaceholder } from "@/components/settings/settings-section-placeholder";
 import { getReviewPreferences } from "@/domains/srs/server";
@@ -29,9 +33,74 @@ export default async function ReviewSettingsPage() {
         </div>
       </div>
 
+      <div className="rounded-xl border border-border bg-card p-6">
+        <h2 className="font-heading text-lg font-semibold text-foreground">Review Hints</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Control the optional aid available before you answer a review, separately for grammar and vocabulary.
+        </p>
+        <div className="mt-4">
+          <HintModeSelect contentType="grammar" initialValue={preferences.grammarHintMode} />
+        </div>
+        <div className="mt-2">
+          <HintOrderSelect contentType="grammar" initialValue={preferences.grammarHintOrder} />
+        </div>
+        <div className="mt-2">
+          <HintModeSelect contentType="vocabulary" initialValue={preferences.vocabularyHintMode} />
+        </div>
+        <div className="mt-2">
+          <HintOrderSelect contentType="vocabulary" initialValue={preferences.vocabularyHintOrder} />
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-6">
+        <h2 className="font-heading text-lg font-semibold text-foreground">Review UI</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Presentation preferences for the review session itself.</p>
+        <div className="mt-4">
+          <ReviewUiToggle
+            field="autoplayAudio"
+            label="Autoplay Audio"
+            description="Automatically play pronunciation when a new review item appears. Separate from Lessons' auto-pronunciation."
+            initialValue={preferences.autoplayAudio}
+          />
+          <ReviewUiToggle
+            field="lightningMode"
+            label="Lightning Mode"
+            description="Automatically advance after a correct answer, without waiting for Continue. Incorrect answers still wait for you."
+            initialValue={preferences.lightningMode}
+          />
+          <ReviewUiToggle
+            field="focusMode"
+            label="Focus Mode"
+            description="Remove nonessential visual elements from the review session."
+            initialValue={preferences.focusMode}
+          />
+          <ReviewUiToggle
+            field="autoHighlightErrors"
+            label="Auto Highlight Errors"
+            description="Highlight the incorrect portion of a typed answer when Polyglot can determine it confidently."
+            initialValue={preferences.autoHighlightErrors}
+          />
+          <ReviewUiToggle
+            field="showSrsStage"
+            label="Show SRS Stage"
+            description="Show the SRS stage change after completing a review item."
+            initialValue={preferences.showSrsStage}
+          />
+          <ReviewUiToggle
+            field="autoExpandInfo"
+            label="Auto-Expand Info"
+            description="Automatically reveal the Review Hint after you submit an answer."
+            initialValue={preferences.autoExpandInfo}
+          />
+        </div>
+        <div className="mt-2">
+          <UndoActionSelect initialValue={preferences.undoAction} />
+        </div>
+      </div>
+
       <SettingsSectionPlaceholder
         title="More Review settings"
-        description="Ghost Reviews, Leeches, hints, Review UI, SRS Strictness, SRS Interval, Review Queue Timing, and Fluent Mode."
+        description="Ghost Reviews, Leeches, SRS Strictness, SRS Interval, Review Queue Timing, and Fluent Mode."
       />
     </div>
   );

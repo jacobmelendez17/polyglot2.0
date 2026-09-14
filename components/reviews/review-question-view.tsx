@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, X } from "lucide-react";
+import { Check, Undo2, X } from "lucide-react";
 
+import { ReviewHint } from "@/components/reviews/review-hint";
 import { AccentHelpers } from "@/components/shared/accent-helpers";
 import { AnswerInput } from "@/components/shared/answer-input";
 import { Button } from "@/components/ui/button";
-import type { ReviewAnswerFeedback, ReviewQuestionView } from "@/domains/srs";
+import { highlightAnswerDiff } from "@/lib/answer-checking";
+import { SRS_STAGE_LABELS } from "@/domains/srs";
+import type { ReviewAnswerFeedback, ReviewItemCompletionPreview, ReviewQuestionView, ReviewUiPreferences } from "@/domains/srs";
 
 type ReviewQuestionViewProps = {
   question: ReviewQuestionView;
@@ -12,6 +15,9 @@ type ReviewQuestionViewProps = {
   awaitingAdvance: boolean;
   characterHelpers: readonly string[];
   isPending: boolean;
+  reviewUiPreferences: ReviewUiPreferences;
+  /** Present only on the submit that just completed this item — spec 20 Review UI's Show SRS Stage renders it here when present. */
+  completedItem?: ReviewItemCompletionPreview;
   onSubmit: (answer: string) => void;
   /** Spec 20 Reviews — Flashcard/Cloze (Flashcard): the learner's self-report after Reveal. */
   onKnowsAnswer: (knowsAnswer: boolean) => void;
@@ -20,12 +26,16 @@ type ReviewQuestionViewProps = {
 
 /**
  * The distraction-free review prompt (spec 09 §16), extended by spec 20
- * Reviews' Review Types: `question.presentation` decides whether this
- * renders a typed answer field or a Reveal + Know/Don't Know control, and
- * whether the prompt is the item's normal prompt or a Cloze sentence with a
- * blank. No card, panel, or bordered container around the prompt — the page
- * background is the only surface. Rendered inside `ReviewSessionView`,
- * below `ReviewTopBar`.
+ * Reviews' Review Types and Review UI: `question.presentation` decides
+ * whether this renders a typed answer field or a Reveal + Know/Don't Know
+ * control, and whether the prompt is the item's normal prompt or a Cloze
+ * sentence with a blank; `reviewUiPreferences` layers Auto Highlight Errors,
+ * Show SRS Stage, Auto-Expand Info, and Undo Action on top without a second
+ * review implementation (spec's own "Do not create a separate review
+ * implementation for Focus Mode" applies just as much here). No card,
+ * panel, or bordered container around the prompt — the page background is
+ * the only surface. Rendered inside `ReviewSessionView`, below
+ * `ReviewTopBar`.
  */
 export function ReviewQuestionView({
   question,
@@ -33,6 +43,8 @@ export function ReviewQuestionView({
   awaitingAdvance,
   characterHelpers,
   isPending,
+  reviewUiPreferences,
+  completedItem,
   onSubmit,
   onKnowsAnswer,
   onAdvance,
@@ -41,6 +53,11 @@ export function ReviewQuestionView({
   const { presentation } = question;
   const isCloze = presentation.kind === "cloze_typed" || presentation.kind === "cloze_reveal";
   const isTyped = presentation.kind === "typed" || presentation.kind === "cloze_typed";
+  // Spec 20 Review UI — Auto-Expand Info: "After submitting a review answer,
+  // automatically expand supplemental information." Lightning Mode "wins"
+  // for a correct answer needs no special-casing here — when it auto-
+  // advances immediately, this view is gone before the reveal would matter.
+  const autoExpandHint = reviewUiPreferences.autoExpandInfo && feedback !== null;
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-8 py-12">
@@ -53,6 +70,8 @@ export function ReviewQuestionView({
         {!isCloze ? <p className="mt-2 text-sm text-muted-foreground">{question.directionLabel}</p> : null}
       </div>
 
+      <ReviewHint key={question.questionId} hint={question.hint} autoExpand={autoExpandHint} />
+
       {isTyped ? (
         <AnswerField
           // Remounts per question so its local input state resets naturally on
@@ -62,6 +81,7 @@ export function ReviewQuestionView({
           awaitingAdvance={awaitingAdvance}
           isPending={isPending}
           characterHelpers={characterHelpers}
+          undoAction={reviewUiPreferences.undoAction}
           onSubmit={onSubmit}
           onAdvance={onAdvance}
         />
@@ -77,7 +97,14 @@ export function ReviewQuestionView({
         />
       )}
 
-      {feedback && feedback.kind !== "empty" ? <FeedbackRegion feedback={feedback} /> : null}
+      {feedback && feedback.kind !== "empty" ? (
+        <FeedbackRegion
+          feedback={feedback}
+          autoHighlightErrors={reviewUiPreferences.autoHighlightErrors}
+          showSrsStage={reviewUiPreferences.showSrsStage}
+          completedItem={completedItem}
+        />
+      ) : null}
     </div>
   );
 }
@@ -99,11 +126,12 @@ type AnswerFieldProps = {
   awaitingAdvance: boolean;
   isPending: boolean;
   characterHelpers: readonly string[];
+  undoAction: ReviewUiPreferences["undoAction"];
   onSubmit: (answer: string) => void;
   onAdvance: () => void;
 };
 
-function AnswerField({ inputState, awaitingAdvance, isPending, characterHelpers, onSubmit, onAdvance }: AnswerFieldProps) {
+function AnswerField({ inputState, awaitingAdvance, isPending, characterHelpers, undoAction, onSubmit, onAdvance }: AnswerFieldProps) {
   const [answer, setAnswer] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -125,6 +153,12 @@ function AnswerField({ inputState, awaitingAdvance, isPending, characterHelpers,
       input.focus();
       input.setSelectionRange(start + character.length, start + character.length);
     });
+  }
+
+  function handleUndo() {
+    // Spec 20 Review UI — Undo Action.
+    setAnswer((current) => (undoAction === "clear_all_characters" ? "" : current.slice(0, -1)));
+    inputRef.current?.focus();
   }
 
   function handlePrimaryAction() {
@@ -158,14 +192,27 @@ function AnswerField({ inputState, awaitingAdvance, isPending, characterHelpers,
         <AccentHelpers characters={characterHelpers} onInsert={insertCharacter} />
       </div>
 
-      <Button
-        type="button"
-        variant="ghost"
-        onClick={handlePrimaryAction}
-        disabled={!awaitingAdvance && answer.trim().length === 0}
-      >
-        {awaitingAdvance ? "Continue" : "Submit"}
-      </Button>
+      <div className="flex items-center gap-2">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label="Undo"
+          onClick={handleUndo}
+          disabled={awaitingAdvance || isPending || answer.length === 0}
+        >
+          <Undo2 className="h-4 w-4" aria-hidden="true" />
+        </Button>
+
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={handlePrimaryAction}
+          disabled={!awaitingAdvance && answer.trim().length === 0}
+        >
+          {awaitingAdvance ? "Continue" : "Submit"}
+        </Button>
+      </div>
     </div>
   );
 }
@@ -222,12 +269,30 @@ function RevealField({ revealAnswer, revealLabel, awaitingAdvance, isPending, on
   );
 }
 
-function FeedbackRegion({ feedback }: { feedback: Exclude<ReviewAnswerFeedback, { kind: "empty" }> }) {
+function FeedbackRegion({
+  feedback,
+  autoHighlightErrors,
+  showSrsStage,
+  completedItem,
+}: {
+  feedback: Exclude<ReviewAnswerFeedback, { kind: "empty" }>;
+  autoHighlightErrors: boolean;
+  showSrsStage: boolean;
+  completedItem?: ReviewItemCompletionPreview;
+}) {
   if (feedback.kind === "correct") {
     return (
-      <div className="flex items-center gap-2 text-state-success" role="status">
-        <Check className="h-5 w-5" aria-hidden="true" />
-        <span className="text-sm font-medium">Correct!</span>
+      <div className="flex flex-col items-center gap-1" role="status">
+        <div className="flex items-center gap-2 text-state-success">
+          <Check className="h-5 w-5" aria-hidden="true" />
+          <span className="text-sm font-medium">Correct!</span>
+        </div>
+        {/* Spec 20 Review UI — Show SRS Stage: presentation only, never the actual SRS result. */}
+        {showSrsStage && completedItem ? (
+          <p className="text-xs text-muted-foreground">
+            {SRS_STAGE_LABELS[completedItem.stageBefore]} → {SRS_STAGE_LABELS[completedItem.stageAfter]}
+          </p>
+        ) : null}
       </div>
     );
   }
@@ -244,6 +309,12 @@ function FeedbackRegion({ feedback }: { feedback: Exclude<ReviewAnswerFeedback, 
     );
   }
 
+  // Spec 20 Review UI — Auto Highlight Errors: the diff already refuses to
+  // render (`highlightAnswerDiff` returns null) rather than fabricate one
+  // when the two answers are mostly unrelated — the plain "You entered" line
+  // is the fallback for exactly that case, same as when the toggle is off.
+  const highlighted = autoHighlightErrors ? highlightAnswerDiff(feedback.userAnswer, feedback.expectedAnswer) : null;
+
   return (
     <div className="flex w-full max-w-sm flex-col items-center gap-2 text-center" role="status">
       <div className="flex items-center gap-2 text-destructive">
@@ -254,7 +325,19 @@ function FeedbackRegion({ feedback }: { feedback: Exclude<ReviewAnswerFeedback, 
       <dl className="w-full text-sm">
         <div className="flex justify-between gap-2">
           <dt className="text-muted-foreground">You entered</dt>
-          <dd className="text-foreground">{feedback.userAnswer}</dd>
+          <dd className="text-foreground">
+            {highlighted ? (
+              <span>
+                {highlighted.map((segment, index) => (
+                  <span key={index} className={segment.correct ? undefined : "font-semibold text-destructive underline decoration-wavy"}>
+                    {segment.text}
+                  </span>
+                ))}
+              </span>
+            ) : (
+              feedback.userAnswer
+            )}
+          </dd>
         </div>
         <div className="flex justify-between gap-2">
           <dt className="text-muted-foreground">Expected</dt>

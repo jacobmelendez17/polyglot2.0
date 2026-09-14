@@ -162,14 +162,17 @@ every boundary before considering these done)*
 24. Delete Account — request → email-verified confirmation → 7-day pending
     window → cancel → the Vercel Cron finalize job from decision 1.
 
-**Units 1-10 are done — see their Completed entries below.** Account,
+**Units 1-11 are done — see their Completed entries below.** Account,
 General, and Lessons are fully complete; Reviews has Review Types (Cloze
-(Manual)/Cloze (Flashcard)/Flashcard), the first unit to touch
-`domains/srs`'s question-building/grading and the first `user_review_preferences`
-table. Unit 11 (Reviews — Hints & Review UI toggles) is next, extending the
-same table with hint order/mode columns and the presentation-only toggles
-(autoplay, lightning mode, focus mode, auto-highlight, show SRS stage,
-auto-expand info, undo action).
+(Manual)/Cloze (Flashcard)/Flashcard), Review Hints (Hint Order/Hint Mode),
+and Review UI (Autoplay Audio, Lightning Mode, Focus Mode, Auto Highlight
+Errors, Show SRS Stage, Auto-Expand Info, Undo Action) —
+`user_review_preferences` now has 15 columns. Unit 12 (SRS Strictness) is
+next, starting Phase E — the highest-risk phase in the spec (full unit-test
+coverage of every boundary expected before considering a unit in this phase
+done): SRS Strictness replaces `review-result.ts`'s existing WaniKani-style
+penalty function outright with the five-level model (1/2/3 Stages, Half,
+Full), configurable independently per content type.
 
 **Migration-tooling note for every future unit touching a Postgres enum**:
 `drizzle-kit migrate`'s CLI proved unreliable in this session's environment
@@ -1198,6 +1201,117 @@ writing to real `user_item_progress` rows.
 ## Completed
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
+
+- **Spec 20 unit 11 — Reviews: Hints & Review UI** (2026-09-13). Larger than
+  planned once underway: nearly every one of the eleven new settings
+  (4 Review Hints, 7 Review UI) turned out to need real new UI or logic that
+  did not exist anywhere in Reviews before this unit — confirmed by
+  investigation before writing code, not assumed. `user_review_preferences`
+  grew from 4 columns to 15.
+
+  **Review Hints' interaction model was a real design gap, put to the user
+  before writing code** (mirroring unit 10's process): the spec's wording
+  ("hint area," "first reveal action," "second reveal") implies click-
+  triggered reveals, but nothing in Reviews reveals anything progressively
+  today. **User's answer: build it as proposed** — a small Hint control
+  below the prompt on every question, gated by Hint Mode: Hide shows
+  nothing; Hint reveals the item's nuance/context note behind one button;
+  Show reveals the plain English meaning behind one button; More reveals
+  both, one at a time, in whichever order Hint Order picks (the *only* mode
+  Hint Order affects — mirrors Grammar Placement/Learning Queue's
+  established "setting B only matters under one value of setting A"
+  pattern from unit 8); Always Show Nuance shows its one piece of content
+  with no button at all. Content sources are real, already-admin-authored
+  fields (`domains/srs/review-hint.ts`'s `resolveReviewHint`): vocabulary's
+  `context` field for nuance (falling back to `creatorNotes` when absent),
+  grammar's `creatorNotes` (its only option — grammar has no `context`
+  field), and each item's plain `primaryMeaning` for the translation. Never
+  the item's actual required answer (`term`/`structure`) — the hint type is
+  a closed union where a mode that shouldn't carry a given piece of content
+  structurally cannot (`ReviewHintView`), so there is no field to leak.
+
+  **Auto-Expand Info reinterpreted, not a separate "info panel"**: the spec
+  describes auto-expanding "supplemental information" after answering, but
+  no info panel exists in Reviews, and building a second, disconnected
+  panel would contradict this spec's own "do not create a separate review
+  implementation" instruction (stated for Focus Mode, applied here by the
+  same spirit). Reused the Hint infrastructure instead: when on, the
+  question's existing Hint control(s) auto-reveal once feedback lands,
+  rather than waiting for a click — one `autoExpand` boolean threaded into
+  `ReviewHint`, no new component. Lightning Mode "winning" for a correct
+  answer (spec's own stated interaction) needed no special-casing: when
+  Lightning Mode auto-advances immediately, the view is gone before the
+  reveal would ever matter.
+
+  **The other six Review UI toggles**, each genuinely new: **Autoplay
+  Audio** reuses the exact `browserSpeechSynthesisProvider` pattern Lessons'
+  Auto Pronunciation established (unit 9) — fires once per newly-appearing
+  item (not per question; Flashcard shows the same item twice, once per
+  direction), via a new `pronunciationText` field on `ReviewQuestionView`
+  and a new `languageCode` field on `ReviewSessionResult` (both "only the
+  initial mount needs it," same precedent as Lessons'). **Lightning Mode**
+  auto-advances 600ms after a correct answer (typed or self-graded "Know")
+  via a `ReviewSessionView` effect keyed on `feedback`; incorrect/"Don't
+  Know" answers are never auto-advanced, matching the spec's explicit
+  carve-out. **Focus Mode** hides `ReviewTopBar`'s accuracy percentage —
+  the one element confidently identifiable as nonessential against the
+  spec's explicit "must not remove" list (Exit, prompt, answer controls,
+  required feedback, progress information all stay). **Auto Highlight
+  Errors** is a new pure LCS-based character diff
+  (`lib/answer-checking/highlight-diff.ts`, `highlightAnswerDiff`),
+  deliberately client-presentational only — it runs on `feedback.userAnswer`
+  vs. `feedback.expectedAnswer`, which are already resolved down to one
+  representative value upstream, so there is no multi-accepted-answer
+  ambiguity left to fabricate a mismatch from (the spec's own stated
+  concern); a confidence gate (skip the diff when under half the shorter
+  string's characters align) additionally refuses to render a highlight for
+  two mostly-unrelated strings. **Show SRS Stage** displays
+  `completedItem.stageBefore`/`stageAfter` (data the response already
+  carried, just never rendered) beside "Correct!" when an answer completes
+  an item. **Undo Action** is a real new Undo button in the typed answer
+  field (there was none before), clearing the last character or the whole
+  field per the stored preference.
+
+  **Ownership/threading decisions, recorded since they shape later units
+  too**: Review Type and Review Hints affect what `buildQuestionView`
+  computes server-side per question, so both live inside the *signed*
+  `ReviewState.reviewPreferences` (unit 10's precedent, extended) — resolved
+  once at session start, never re-fetched mid-session, per spec's own
+  "active review keeps its original settings" rule. The seven Review UI
+  toggles affect nothing server-side at all — pure client presentation — so
+  they ride once in `ReviewSessionResult.reviewUiPreferences` instead,
+  never signed into the token, avoiding needless server round-trip
+  validation for settings that carry zero grading/SRS risk either way.
+
+  **Boilerplate generalized once past the point of proof**: eleven new
+  narrow Settings mutations (one per field, per spec's "Settings Security")
+  would have meant eleven nearly-identical repository functions and eleven
+  actions. `review-preference-repository.ts`'s `savePreferenceField` and
+  `app/(app)/settings/reviews/actions.ts`'s `runSettingsAction` are single
+  generic helpers each individual exported function still delegates to —
+  each *call* still changes exactly one field, satisfying "prefer narrow
+  mutations" in substance, not just in the boilerplate that used to encode
+  it by hand. `ReviewUiToggleField`/`REVIEW_UI_TOGGLE_FIELDS` live in the
+  database-free `review-preference.ts`, not the repository file, so the
+  client Settings UI (`ReviewUiToggle`, one component parametrized by field
+  name rather than seven) can reference the field-name union through the
+  client-safe `domains/srs` barrel without reaching into `domains/srs/server.ts`.
+
+  Verified: `tsc`, `eslint .`, full `npm run test` (933 tests, no
+  regressions — new coverage for `resolveReviewHint`'s content-source
+  fallback rules, `highlightAnswerDiff`'s LCS diff and confidence gate,
+  `ReviewHint`'s five modes including auto-expand, and `ReviewQuestionView`/
+  `ReviewSessionView`'s Undo/highlight/SRS-stage/Lightning/Focus/Autoplay
+  wiring), `npm run build`, `npm run db:verify` (clean — a single plain
+  migration, three brand-new enums, no ADD VALUE, no repeat of unit 8's
+  incident). `npm run test:integration`: **373/379 passing** on a full,
+  isolated run. The 6 failures are exactly the already-documented
+  pre-existing shared-dev-branch conditions from Next Up #9/#10/#29
+  (3 unscoped audit-log queries, 1 idempotency cleanup-count flake, both
+  symptoms of the item-`y` fixture-drift family) — same identity as unit
+  10's baseline, confirming none of them are new.
+
+  **No live-browser pass** — see Current Goal / Next Up #26.
 
 - **Spec 20 unit 10 — Reviews: Review Types** (2026-09-13). The largest and
   riskiest unit so far — the first to touch `domains/srs`'s review

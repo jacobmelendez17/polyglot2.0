@@ -38,15 +38,27 @@ export { rescheduleReviewAfterIncorrect } from "./review-retry";
 export { getReviewQuestionAnswerSpec } from "./review-answer-spec";
 export type { ReviewQuestionAnswerSpec } from "./review-answer-spec";
 export {
+  DEFAULT_HINT_MODE,
+  DEFAULT_HINT_ORDER,
   DEFAULT_REVIEW_PREFERENCES,
   DEFAULT_REVIEW_TYPE,
+  DEFAULT_UNDO_ACTION,
+  HINT_MODES,
+  HINT_ORDERS,
   isClozeReviewType,
+  isHintMode,
+  isHintOrder,
   isReviewType,
+  isUndoAction,
   REVIEW_TYPES,
+  REVIEW_UI_TOGGLE_FIELDS,
+  UNDO_ACTIONS,
 } from "./review-preference";
-export type { ReviewPreferences, ReviewType } from "./review-preference";
+export type { HintMode, HintOrder, ReviewPreferences, ReviewType, ReviewUiToggleField, UndoAction } from "./review-preference";
 export { findCompatibleClozeSentence } from "./review-cloze";
 export type { ClozeSentence } from "./review-cloze";
+export { resolveReviewHint } from "./review-hint";
+export type { ReviewHintView } from "./review-hint";
 export { isTypedPresentation, resolveReviewPresentation } from "./review-presentation";
 export type { ReviewQuestionPresentation } from "./review-presentation";
 export { buildReviewItemCompletionPreview } from "./review-completion-preview";
@@ -73,6 +85,7 @@ export type {
   ReviewSessionStats,
   ReviewStartResult,
   ReviewState,
+  ReviewUiPreferences,
 } from "./review-types";
 export { calculateVacationAdjustedReview } from "./vacation-scheduling";
 export type { CalculateVacationAdjustedReviewInput } from "./vacation-scheduling";

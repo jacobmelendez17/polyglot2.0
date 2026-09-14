@@ -1,6 +1,6 @@
 "use client";
 
-import { useReducer, useState, useTransition } from "react";
+import { useEffect, useReducer, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { submitReviewAnswerAction } from "@/app/(focus)/reviews/actions";
@@ -9,7 +9,16 @@ import { ReviewErrorState } from "@/components/reviews/review-error-state";
 import { ReviewExitDialog } from "@/components/reviews/review-exit-dialog";
 import { ReviewQuestionView } from "@/components/reviews/review-question-view";
 import { ReviewTopBar } from "@/components/reviews/review-top-bar";
-import type { ReviewAnswerFeedback, ReviewQuestionView as ReviewQuestionViewData, ReviewSessionResult, ReviewSessionStats } from "@/domains/srs";
+import { DEFAULT_REVIEW_PREFERENCES } from "@/domains/srs";
+import type {
+  ReviewAnswerFeedback,
+  ReviewItemCompletionPreview,
+  ReviewQuestionView as ReviewQuestionViewData,
+  ReviewSessionResult,
+  ReviewSessionStats,
+  ReviewUiPreferences,
+} from "@/domains/srs";
+import { browserSpeechSynthesisProvider } from "@/providers/speech/speech-synthesis-provider";
 
 type ActionError = { code: string; message: string };
 
@@ -21,6 +30,8 @@ type SessionState = {
   characterHelpers: readonly string[];
   stats: ReviewSessionStats;
   feedback: ReviewAnswerFeedback | null;
+  /** Present only for the submit that just completed an item (spec 20 Review UI — Show SRS Stage) — cleared on advance, same lifetime as `feedback`. */
+  completedItem: ReviewItemCompletionPreview | null;
   /** One-shot notice for the item that was just answered correctly but whose completion was already applied elsewhere (spec 09 §11) — shown alongside the correct-answer feedback, cleared on advance. */
   staleNotice: { itemId: string } | null;
   /** Stable for the currently-displayed question; regenerated only when the question changes (spec 09 §12 — reused across retries of the same submission, not per attempt). */
@@ -48,6 +59,7 @@ function sessionReducer(state: SessionState, action: SessionAction): SessionStat
         characterHelpers: action.result.characterHelpers,
         stats: action.result.stats,
         feedback: action.result.feedback ?? null,
+        completedItem: action.result.completedItem ?? null,
         staleNotice: action.result.staleItem ?? null,
       };
     }
@@ -57,6 +69,7 @@ function sessionReducer(state: SessionState, action: SessionAction): SessionStat
         currentQuestion: state.pendingQuestion,
         pendingQuestion: null,
         feedback: null,
+        completedItem: null,
         staleNotice: null,
         idempotencyKey: crypto.randomUUID(),
       };
@@ -81,6 +94,11 @@ type ReviewSessionViewProps = {
  */
 export function ReviewSessionView({ initial }: ReviewSessionViewProps) {
   const router = useRouter();
+  // Resolved server-side once, at session start — same "only the initial
+  // mount needs it" precedent `domains/lessons`' `languageCode`/
+  // `autoPronounceLessons` established (spec 20 Lessons unit 9).
+  const languageCode = initial.languageCode ?? "";
+  const reviewUiPreferences: ReviewUiPreferences = initial.reviewUiPreferences ?? DEFAULT_REVIEW_PREFERENCES;
 
   const [state, dispatch] = useReducer(sessionReducer, {
     token: initial.token,
@@ -90,6 +108,7 @@ export function ReviewSessionView({ initial }: ReviewSessionViewProps) {
     characterHelpers: initial.characterHelpers,
     stats: initial.stats,
     feedback: null,
+    completedItem: null,
     staleNotice: null,
     idempotencyKey: crypto.randomUUID(),
     error: null,
@@ -129,6 +148,36 @@ export function ReviewSessionView({ initial }: ReviewSessionViewProps) {
     router.push("/dashboard");
   }
 
+  // Spec 20 Review UI — Autoplay Audio ("separate from Lesson auto-
+  // pronunciation"): fires once per newly-appearing item, not on every
+  // question (Flashcard shows the same item twice, for its two directions).
+  // No curriculum audio recordings exist for reviews today (unlike Lessons'
+  // fixture data), so this always uses browser speech synthesis.
+  const lastPronouncedItemId = useRef<string | null>(null);
+  useEffect(() => {
+    const question = state.currentQuestion;
+    if (!question || !reviewUiPreferences.autoplayAudio) return;
+    if (lastPronouncedItemId.current === question.itemId) return;
+    lastPronouncedItemId.current = question.itemId;
+    browserSpeechSynthesisProvider.speak({ text: question.pronunciationText, languageCode });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.currentQuestion?.itemId]);
+
+  useEffect(() => {
+    return () => browserSpeechSynthesisProvider.cancel();
+  }, []);
+
+  // Spec 20 Review UI — Lightning Mode: "correct answer -> brief feedback ->
+  // automatically advance," including for a self-graded "Know." Incorrect
+  // (and self-graded "Don't Know") answers always still require an explicit
+  // advance, matching "incorrect answers still show enough feedback to
+  // understand the mistake."
+  useEffect(() => {
+    if (!reviewUiPreferences.lightningMode || state.feedback?.kind !== "correct") return;
+    const timer = setTimeout(() => dispatch({ type: "ADVANCE_QUESTION" }), 600);
+    return () => clearTimeout(timer);
+  }, [reviewUiPreferences.lightningMode, state.feedback]);
+
   if (state.error) {
     return <ReviewErrorState error={state.error} />;
   }
@@ -155,6 +204,11 @@ export function ReviewSessionView({ initial }: ReviewSessionViewProps) {
           progressPercent={progressPercent}
           remaining={Math.max(remaining, 0)}
           accuracyPercent={accuracyPercent}
+          // Spec 20 Review UI — Focus Mode: "removes nonessential visual
+          // elements" — Exit, the prompt, answer controls, required
+          // feedback, and progress count all stay; the accuracy percentage
+          // is the one piece confidently identifiable as nonessential.
+          focusMode={reviewUiPreferences.focusMode}
         />
 
         {state.currentQuestion ? (
@@ -164,6 +218,8 @@ export function ReviewSessionView({ initial }: ReviewSessionViewProps) {
             awaitingAdvance={awaitingAdvance}
             characterHelpers={state.characterHelpers}
             isPending={isPending}
+            reviewUiPreferences={reviewUiPreferences}
+            completedItem={state.completedItem ?? undefined}
             onSubmit={handleSubmitAnswer}
             onKnowsAnswer={handleKnowsAnswer}
             onAdvance={() => dispatch({ type: "ADVANCE_QUESTION" })}

@@ -3,7 +3,10 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { ReviewQuestionView } from "@/components/reviews/review-question-view";
-import type { ReviewQuestionView as ReviewQuestionViewData } from "@/domains/srs";
+import { DEFAULT_REVIEW_PREFERENCES } from "@/domains/srs";
+import type { ReviewQuestionView as ReviewQuestionViewData, ReviewUiPreferences } from "@/domains/srs";
+
+const REVIEW_UI_PREFERENCES: ReviewUiPreferences = DEFAULT_REVIEW_PREFERENCES;
 
 const QUESTION: ReviewQuestionViewData = {
   questionId: "gato::targetToEnglish",
@@ -12,6 +15,8 @@ const QUESTION: ReviewQuestionViewData = {
   direction: "targetToEnglish",
   directionLabel: "Spanish → English",
   presentation: { kind: "typed", prompt: "gato" },
+  hint: { mode: "hide" },
+  pronunciationText: "gato",
 };
 
 const REVEAL_QUESTION: ReviewQuestionViewData = {
@@ -39,6 +44,7 @@ function renderQuestion(overrides: Partial<Parameters<typeof ReviewQuestionView>
       awaitingAdvance={false}
       characterHelpers={[]}
       isPending={false}
+      reviewUiPreferences={REVIEW_UI_PREFERENCES}
       onSubmit={() => {}}
       onKnowsAnswer={() => {}}
       onAdvance={() => {}}
@@ -230,6 +236,95 @@ describe("ReviewQuestionView", () => {
 
       expect(screen.getByText("gato")).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Know" })).toBeInTheDocument();
+    });
+  });
+
+  describe("Review UI (spec 20)", () => {
+    it("Undo clears the last character by default", async () => {
+      const user = userEvent.setup();
+      renderQuestion();
+
+      const input = screen.getByRole("textbox", { name: "Your answer" }) as HTMLInputElement;
+      await user.type(input, "hola");
+      await user.click(screen.getByRole("button", { name: "Undo" }));
+      expect(input.value).toBe("hol");
+    });
+
+    it("Undo clears everything when Undo Action is set to Clear All Characters", async () => {
+      const user = userEvent.setup();
+      renderQuestion({ reviewUiPreferences: { ...REVIEW_UI_PREFERENCES, undoAction: "clear_all_characters" } });
+
+      const input = screen.getByRole("textbox", { name: "Your answer" }) as HTMLInputElement;
+      await user.type(input, "hola");
+      await user.click(screen.getByRole("button", { name: "Undo" }));
+      expect(input.value).toBe("");
+    });
+
+    it("Undo is disabled when the field is empty", () => {
+      renderQuestion();
+      expect(screen.getByRole("button", { name: "Undo" })).toBeDisabled();
+    });
+
+    it("highlights the incorrect portion of a typed answer when Auto Highlight Errors is on", () => {
+      renderQuestion({
+        feedback: { kind: "incorrect", reason: "no_match", userAnswer: "gata", expectedAnswer: "gato" },
+        awaitingAdvance: true,
+      });
+
+      // "gat" renders as one correct segment and "a" as a separate incorrect one.
+      expect(screen.getByText("gat")).toBeInTheDocument();
+      expect(screen.getByText("a")).toBeInTheDocument();
+    });
+
+    it("shows plain text instead of a highlight when Auto Highlight Errors is off", () => {
+      renderQuestion({
+        feedback: { kind: "incorrect", reason: "no_match", userAnswer: "gata", expectedAnswer: "gato" },
+        awaitingAdvance: true,
+        reviewUiPreferences: { ...REVIEW_UI_PREFERENCES, autoHighlightErrors: false },
+      });
+
+      expect(screen.getByText("gata")).toBeInTheDocument();
+    });
+
+    it("shows the SRS stage change on a correct, completing answer when Show SRS Stage is on", () => {
+      renderQuestion({
+        feedback: { kind: "correct" },
+        awaitingAdvance: true,
+        completedItem: {
+          itemId: "gato",
+          stageBefore: "beginner_1",
+          stageAfter: "beginner_2",
+          result: "advanced",
+          nextReviewAt: new Date(),
+          reachedFluent: false,
+        },
+      });
+
+      expect(screen.getByText(/Beginner 1/)).toBeInTheDocument();
+      expect(screen.getByText(/Beginner 2/)).toBeInTheDocument();
+    });
+
+    it("does not show the SRS stage change when Show SRS Stage is off", () => {
+      renderQuestion({
+        feedback: { kind: "correct" },
+        awaitingAdvance: true,
+        reviewUiPreferences: { ...REVIEW_UI_PREFERENCES, showSrsStage: false },
+        completedItem: {
+          itemId: "gato",
+          stageBefore: "beginner_1",
+          stageAfter: "beginner_2",
+          result: "advanced",
+          nextReviewAt: new Date(),
+          reachedFluent: false,
+        },
+      });
+
+      expect(screen.queryByText(/Beginner 1/)).not.toBeInTheDocument();
+    });
+
+    it("renders the question's hint below the prompt", () => {
+      renderQuestion({ question: { ...QUESTION, hint: { mode: "always_show_nuance", nuance: "Used for pets or strays." } } });
+      expect(screen.getByText("Used for pets or strays.")).toBeInTheDocument();
     });
   });
 });
