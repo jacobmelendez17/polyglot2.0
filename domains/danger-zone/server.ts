@@ -5,7 +5,12 @@
  * See `domains/users/server.ts` for why this split exists.
  */
 export {
+  cancelAccountDeletion,
+  confirmAccountDeletion,
+  finalizeDueAccountDeletions,
+  getAccountDeletionStatus,
   getCurrentStreak,
+  requestAccountDeletion,
   resetContentTypeReviews,
   resetDismissedWarnings,
   resetEntireAccount,
@@ -16,3 +21,9 @@ export type { ResetContentTypeReviewsInput, ResetToLevelInput } from "./reset-se
 export type { GetCurrentStreakInput, SetManualStreakInput } from "./streak-service";
 export type { ResetDismissedWarningsInput } from "./notices-service";
 export type { ResetEntireAccountInput } from "./account-reset-service";
+export type {
+  AccountDeletionStatus,
+  CancelAccountDeletionInput,
+  ConfirmAccountDeletionInput,
+  RequestAccountDeletionInput,
+} from "./account-deletion-service";

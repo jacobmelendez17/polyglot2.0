@@ -250,6 +250,56 @@ export const userDismissedNotices = pgTable(
 );
 
 /**
+ * Spec 20 Delete Account. The spec's own suggested shape exactly — no
+ * token/hash columns, unlike its literal "if Polyglot must own a token,
+ * store only a secure hash" guidance, because this codebase's
+ * confirmation step does not issue a Polyglot-owned token at all (see
+ * `domains/danger-zone/account-deletion-service.ts`'s docstring for the
+ * full reasoning: no email-delivery infrastructure exists anywhere in
+ * this app, and Clerk's own reverification API is explicitly marked beta/
+ * "not recommended for production use", so confirmation is gated by a
+ * typed confirmation phrase inside an authenticated session instead,
+ * matching Reset Entire Account's own pattern — there is no secret to
+ * hash and store).
+ *
+ * `NULL` columns carry the state machine: `confirmed_at IS NULL` means
+ * still awaiting confirmation; `delete_after` is only ever set alongside
+ * `confirmed_at` (the moment "account enters pending deletion" begins);
+ * `cancelled_at`/`completed_at` are the two terminal states, mutually
+ * exclusive by construction (the service never sets both).
+ */
+export const accountDeletionRequests = pgTable(
+  "account_deletion_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    requestedAt: timestamp("requested_at", { withTimezone: true }).notNull().defaultNow(),
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+    deleteAfter: timestamp("delete_after", { withTimezone: true }),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    ...timestamps(),
+  },
+  (t) => [
+    // "The user may cancel at any time before delete_after" implies only one
+    // live request matters at a time — this is the concurrency guarantee
+    // behind that, the same partial-unique-index technique
+    // `user_vacation_periods_one_active_per_user` already uses for an
+    // analogous "only one active X per user" rule.
+    uniqueIndex("account_deletion_requests_one_active_per_user")
+      .on(t.userId)
+      .where(sql`${t.cancelledAt} IS NULL AND ${t.completedAt} IS NULL`),
+    // The Vercel Cron finalize job's own query: every confirmed, not yet
+    // cancelled/completed request whose delete_after has passed.
+    index("account_deletion_requests_due_idx")
+      .on(t.deleteAfter)
+      .where(sql`${t.confirmedAt} IS NOT NULL AND ${t.cancelledAt} IS NULL AND ${t.completedAt} IS NULL`),
+  ],
+);
+
+/**
  * Spec 20 Reviews — Review Types. `cloze_manual` is the spec's own default
  * (shown pre-selected in its mockup and listed first among the three
  * options) for both content types.

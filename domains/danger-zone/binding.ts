@@ -1,8 +1,17 @@
+import { clerkClient } from "@clerk/nextjs/server";
+
 import { db } from "@/db/client";
 import { AppError } from "@/lib/errors/app-error";
 import { getRateLimiter } from "@/providers/rate-limit";
 import type { RateLimitPolicyName } from "@/providers/rate-limit";
 
+import * as accountDeletionService from "./account-deletion-service";
+import type {
+  AccountDeletionStatus,
+  CancelAccountDeletionInput,
+  ConfirmAccountDeletionInput,
+  RequestAccountDeletionInput,
+} from "./account-deletion-service";
 import * as accountResetService from "./account-reset-service";
 import type { ResetEntireAccountInput } from "./account-reset-service";
 import * as noticesService from "./notices-service";
@@ -57,4 +66,53 @@ export async function resetDismissedWarnings(input: ResetDismissedWarningsInput)
 export async function resetEntireAccount(input: ResetEntireAccountInput): Promise<{ resetAt: string }> {
   await checkDangerZoneRateLimit(input.userId, "danger-zone-account-reset");
   return accountResetService.resetEntireAccount(db, input);
+}
+
+export async function requestAccountDeletion(input: RequestAccountDeletionInput): Promise<{ requestedAt: Date }> {
+  await checkDangerZoneRateLimit(input.userId, "danger-zone-account-reset");
+  return accountDeletionService.requestAccountDeletion(db, input);
+}
+
+export async function confirmAccountDeletion(input: ConfirmAccountDeletionInput): Promise<{ deleteAfter: Date }> {
+  await checkDangerZoneRateLimit(input.userId, "danger-zone-account-reset");
+  return accountDeletionService.confirmAccountDeletion(db, input);
+}
+
+export async function cancelAccountDeletion(input: CancelAccountDeletionInput): Promise<{ cancelled: boolean }> {
+  await checkDangerZoneRateLimit(input.userId, "danger-zone-account-reset");
+  return accountDeletionService.cancelAccountDeletion(db, input);
+}
+
+/** Not rate-limited — a plain read, not a Danger Zone mutation. */
+export async function getAccountDeletionStatus(userId: string): Promise<AccountDeletionStatus> {
+  return accountDeletionService.getAccountDeletionStatus(db, userId);
+}
+
+/** Duck-typed rather than importing Clerk's type guard: the backend SDK's error shape (`.status`) is stable across the client/server packages, and this avoids depending on an import path this codebase doesn't otherwise use. */
+function isClerkUserNotFoundError(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "status" in error && (error as { status: unknown }).status === 404;
+}
+
+/**
+ * Binds the real Clerk backend client for the Vercel Cron finalize job
+ * (spec 20 "Permanent Account Deletion") — the one Danger Zone operation
+ * with no single authenticated `userId` to rate-limit, since it processes
+ * every due request across every account. `app/api/cron/.../route.ts` is
+ * the only caller, itself protected by `CRON_SECRET`, not this rate
+ * limiter.
+ */
+export async function finalizeDueAccountDeletions(now: Date): Promise<{ processedCount: number; failedCount: number }> {
+  const client = await clerkClient();
+  return accountDeletionService.finalizeDueAccountDeletions(db, {
+    now,
+    deleteClerkUser: async (clerkUserId) => {
+      if (!clerkUserId) return;
+      try {
+        await client.users.deleteUser(clerkUserId);
+      } catch (error) {
+        if (isClerkUserNotFoundError(error)) return;
+        throw error;
+      }
+    },
+  });
 }

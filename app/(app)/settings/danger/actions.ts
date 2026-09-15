@@ -6,12 +6,16 @@ import { z } from "zod";
 import type { ContentTypeResetResult } from "@/domains/danger-zone";
 import { isResetTarget } from "@/domains/danger-zone";
 import {
+  cancelAccountDeletion,
+  confirmAccountDeletion,
+  requestAccountDeletion,
   resetContentTypeReviews,
   resetDismissedWarnings,
   resetEntireAccount,
   resetToLevel,
   setManualStreak,
 } from "@/domains/danger-zone/server";
+import type { AccountDeletionStatus } from "@/domains/danger-zone/server";
 import { requireUser } from "@/domains/users/server";
 import { AppError } from "@/lib/errors/app-error";
 
@@ -195,3 +199,64 @@ export async function resetEntireAccountAction(
     return { ok: false, error: { code: "UNKNOWN", message: "Could not reset your account. Please try again." } };
   }
 }
+
+/** Spec 20 Delete Account — the initial "Send Delete Confirmation Email" step. Idempotent: a repeat click while a request is already active returns that same request, never a duplicate. */
+export async function requestAccountDeletionAction(): Promise<ActionResult<{ requestedAt: string }>> {
+  try {
+    const user = await requireUser();
+    const result = await requestAccountDeletion({ userId: user.id });
+
+    revalidatePath("/settings/danger");
+
+    return { ok: true, data: { requestedAt: result.requestedAt.toISOString() } };
+  } catch (error) {
+    if (error instanceof AppError) {
+      return { ok: false, error: { code: error.code, message: error.message } };
+    }
+    console.error("Unexpected request account deletion action error", error);
+    return { ok: false, error: { code: "UNKNOWN", message: "Could not start account deletion. Please try again." } };
+  }
+}
+
+/**
+ * Spec 20 Delete Confirmation — moves an unconfirmed request into "pending
+ * deletion." No emailed link exists to click (see `account-deletion-
+ * service.ts`'s docstring); the authenticated session itself plus this
+ * unit's own typed-confirmation UI is the safety gate.
+ */
+export async function confirmAccountDeletionAction(): Promise<ActionResult<{ deleteAfter: string }>> {
+  try {
+    const user = await requireUser();
+    const result = await confirmAccountDeletion({ userId: user.id });
+
+    revalidatePath("/settings/danger");
+
+    return { ok: true, data: { deleteAfter: result.deleteAfter.toISOString() } };
+  } catch (error) {
+    if (error instanceof AppError) {
+      return { ok: false, error: { code: error.code, message: error.message } };
+    }
+    console.error("Unexpected confirm account deletion action error", error);
+    return { ok: false, error: { code: "UNKNOWN", message: "Could not confirm account deletion. Please try again." } };
+  }
+}
+
+/** Spec 20 Pending Deletion — "require explicit cancellation." */
+export async function cancelAccountDeletionAction(): Promise<ActionResult<{ cancelled: boolean }>> {
+  try {
+    const user = await requireUser();
+    const result = await cancelAccountDeletion({ userId: user.id });
+
+    revalidatePath("/settings/danger");
+
+    return { ok: true, data: result };
+  } catch (error) {
+    if (error instanceof AppError) {
+      return { ok: false, error: { code: error.code, message: error.message } };
+    }
+    console.error("Unexpected cancel account deletion action error", error);
+    return { ok: false, error: { code: "UNKNOWN", message: "Could not cancel account deletion. Please try again." } };
+  }
+}
+
+export type { AccountDeletionStatus };

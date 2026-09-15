@@ -17,6 +17,17 @@ const envSchema = z.object({
   REVIEW_STATE_SECRET: z.string().min(32),
   APP_ENV: z.enum(["development", "preview", "production"]),
   DATABASE_URL: z.string().min(1),
+  /**
+   * Spec 20 Permanent Account Deletion — authenticates the Vercel Cron
+   * request that finalizes due deletions (`app/api/cron/finalize-account-
+   * deletions/route.ts`). Optional, unlike every other secret here: this
+   * repo's local/test environments have no reason to run the finalize
+   * job, and requiring it would break `npm run build`/`npm test`
+   * everywhere it isn't set. Set it in the real deployment's environment
+   * variables (matching Vercel's own documented Cron Jobs authentication
+   * pattern) before the cron schedule in `vercel.json` goes live.
+   */
+  CRON_SECRET: z.string().min(32).optional(),
 });
 
 export const env = envSchema.parse({
@@ -32,4 +43,5 @@ export const env = envSchema.parse({
   REVIEW_STATE_SECRET: process.env.REVIEW_STATE_SECRET,
   APP_ENV: resolvedAppEnv,
   DATABASE_URL: process.env.DATABASE_URL,
+  CRON_SECRET: process.env.CRON_SECRET,
 });

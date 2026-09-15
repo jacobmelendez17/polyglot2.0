@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 
 import { ContentTypeResetPanel } from "@/components/settings/danger/content-type-reset-panel";
+import { DeleteAccountPanel } from "@/components/settings/danger/delete-account-panel";
 import { ManualStreakPanel } from "@/components/settings/danger/manual-streak-panel";
 import { ResetDismissedWarningsPanel } from "@/components/settings/danger/reset-dismissed-warnings-panel";
 import { ResetEntireAccountPanel } from "@/components/settings/danger/reset-entire-account-panel";
 import { ResetToLevelPanel } from "@/components/settings/danger/reset-to-level-panel";
-import { SettingsSectionPlaceholder } from "@/components/settings/settings-section-placeholder";
 import { getLevelsByLanguage } from "@/domains/curriculum/server";
-import { getCurrentStreak } from "@/domains/danger-zone/server";
+import { getAccountDeletionStatus, getCurrentStreak } from "@/domains/danger-zone/server";
 import { getUnlockedLevels } from "@/domains/progress/server";
 import { requireUser } from "@/domains/users/server";
 
@@ -17,10 +17,11 @@ export const metadata: Metadata = {
 
 export default async function DangerZoneSettingsPage() {
   const user = await requireUser();
-  const [allLevels, unlockedLevels, currentStreak] = await Promise.all([
+  const [allLevels, unlockedLevels, currentStreak, deletionStatus] = await Promise.all([
     getLevelsByLanguage(user.activeLanguageId),
     getUnlockedLevels(user.id, user.activeLanguageId),
     getCurrentStreak({ userId: user.id, languageId: user.activeLanguageId }),
+    getAccountDeletionStatus(user.id),
   ]);
 
   // Same "current Level = highest unlocked Level" computation
@@ -75,7 +76,12 @@ export default async function DangerZoneSettingsPage() {
         </div>
       </div>
 
-      <SettingsSectionPlaceholder title="More Danger Zone actions" description="Deleting your account." />
+      <div className="rounded-xl border border-destructive/40 bg-card p-6">
+        <h2 className="font-heading text-lg font-semibold text-destructive">Delete Account</h2>
+        <div className="mt-4">
+          <DeleteAccountPanel initialStatus={deletionStatus} />
+        </div>
+      </div>
     </div>
   );
 }

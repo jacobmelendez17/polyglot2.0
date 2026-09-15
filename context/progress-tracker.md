@@ -162,36 +162,50 @@ every boundary before considering these done)*
 24. Delete Account — request → email-verified confirmation → 7-day pending
     window → cancel → the Vercel Cron finalize job from decision 1.
 
-**Units 1-23 are done — see their Completed entries below.** Account,
-General, Lessons, Reviews, Appearance, Notifications, Subscription/API,
-and now every non-Delete-Account Danger Zone unit (Resets; Manual Streak &
-Reset Dismissable Warnings; Reset Entire Account) are all fully built.
-`user_review_preferences` has 26 columns; `user_item_progress` gained two
-Leech-tracking columns; one genuinely new table
-(`user_sentence_ghost_progress`) backs Ghost Reviews; a new
-`lib/appearance/` module (no database involvement at all — device-local by
-design) backs Appearance; `user_notification_preferences` (storage only,
-no delivery system) backs Notifications; `domains/danger-zone` backs unit
-21's five reset behaviors (no new tables), unit 22's two new tables
-(`user_streak_adjustments`, backing the first authoritative streak-length
-calculation this codebase has had; `user_dismissed_notices`, storage
-only), and unit 23's wholesale account wipe (no new tables — every table
-it clears already existed). **Unit 24 (Delete Account) is next — the
-second and final data-destroying unit requiring full individual
-verification**, per the 2026-09-14 user decision, and the last unit in
-spec 20's entire 24-unit plan. It is also the one unit whose design
-question was already settled *before* spec 20 began (see this file's
-"Two decisions were put to the user before starting any unit" above): a
-Vercel Cron Job for the 7-day pending-deletion finalization, since this
-codebase has no other background-job mechanism (ADR-010).
+**Spec 20 (Settings) is complete — all 24 units done, see their Completed
+entries below.** Account, General, Lessons, Reviews, Appearance,
+Notifications, Subscription/API, and all four Danger Zone units (Resets;
+Manual Streak & Reset Dismissable Warnings; Reset Entire Account; Delete
+Account) are all fully built. `user_review_preferences` has 26 columns;
+`user_item_progress` gained two Leech-tracking columns;
+`user_sentence_ghost_progress` backs Ghost Reviews; `lib/appearance/` (no
+database involvement at all — device-local by design) backs Appearance;
+`user_notification_preferences` (storage only, no delivery system) backs
+Notifications; `domains/danger-zone` backs every Danger Zone unit: unit
+21's five reset behaviors (no new tables), unit 22's
+`user_streak_adjustments` (the first authoritative streak-length
+calculation this codebase has had) and `user_dismissed_notices` (storage
+only), unit 23's wholesale account wipe (no new tables), and unit 24's
+`account_deletion_requests` plus the new `/api/cron/finalize-account-
+deletions` route and `vercel.json` cron schedule.
 
-**Real-browser verification remains skipped for every spec-20 unit**,
-unit 22 included, per the standing 2026-09-13 process decision above
-(Auto Mode's command classifier blocks the established Playwright/
-`@clerk/testing` recipe in this session) — verified by `tsc`, `eslint`,
-`npm run test`, and `npm run build` only, the same as every unit since.
-Worth a real-browser pass whenever this session's environment stops
-blocking it.
+Both design questions put to the user *before* any spec-20 unit began
+(see the original planning note above this) are now resolved in the real
+code: a Vercel Cron Job for Delete Account's 7-day finalization (unit
+24), and the `content_classification` plumbing for NSFW filtering (unit
+6). Two more decisions came up mid-spec and were put to the user in the
+same way: unit 24's real-vs-recommended confirmation mechanism for Delete
+Account (no email infrastructure exists in this codebase; chose a real
+authenticated-session confirmation step over a beta Clerk API), and the
+2026-09-14 batching approach that shaped how units 14-24 were delivered
+(back-to-back with fast checks, full integration-suite runs only at
+checkpoints and for the two account-destroying units).
+
+**What's left, not part of spec 20 itself**: (1) the shared dev/test
+database pollution tracked in unit 21's "Known gap" entry — 6 stable,
+pre-existing, already-diagnosed integration-test failures, unrelated to
+any spec-20 code, never blocking but never cleaned up this session either;
+(2) a full real-browser verification pass across every Settings section,
+skipped throughout spec 20 per the standing 2026-09-13 process decision
+(Auto Mode's command classifier blocked the established Playwright/
+`@clerk/testing` recipe in this session on two independent attempts) —
+every unit was instead verified by `tsc`, `eslint`, `npm run test`, and
+`npm run build`; (3) setting the real `CRON_SECRET` value in the
+production Vercel deployment's environment variables, a deployment step
+outside this session's access; (4) the handful of forward-pointers each
+unit's own Completed entry names (a dashboard UI for the new streak
+number, a full color-blind-assistance sweep, etc.) — real, recorded future
+work, not silent gaps.
 
 **Migration-tooling note for every future unit touching a Postgres enum**:
 `drizzle-kit migrate`'s CLI proved unreliable in this session's environment
@@ -1220,6 +1234,135 @@ writing to real `user_item_progress` rows.
 ## Completed
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
+
+- **Spec 20 unit 24 — Delete Account** (2026-09-14). **The final unit of
+  spec 20's 24-unit plan.** The second and last unit requiring full
+  individual verification (not deferred to a checkpoint).
+
+  **A real architectural fork, surfaced and put to the user before
+  writing any code**: the spec's own mockup wants "Send Delete
+  Confirmation Email → click the link → pending deletion," but this
+  codebase has zero email-delivery infrastructure anywhere (confirmed
+  explicitly while building Notifications, unit 19), and this same spec's
+  own scope section names SES/Resend/SendGrid integration as explicitly
+  out of bounds. Asked the user directly rather than guessing; they chose
+  the recommended path (a real, complete state machine, no faked email)
+  and asked that real email delivery be noted as planned future work, not
+  forgotten.
+
+  **A second, narrower discovery changed the chosen mechanism mid-build**:
+  the recommendation had been to gate the confirmation step behind
+  Clerk's native reverification/step-up API (`useReverification`,
+  `auth().has({reverification})`) as "the identity provider's own secure
+  verification mechanism." Reading its actual type definitions
+  (`@clerk/shared`) surfaced an explicit `@since` note: this feature is
+  **"currently in public beta. It is not recommended for production
+  use."** Depending on a beta API for the only safety gate on an
+  irreversible, security-sensitive account-deletion flow was judged too
+  risky — pivoted instead to the same typed-confirmation-phrase-inside-an-
+  authenticated-session pattern `ResetEntireAccountPanel` (unit 23)
+  already established, which needs no Clerk feature beyond ordinary
+  session auth. This preserves everything the user actually approved (a
+  real state machine, an authenticated confirmation step, no fake email)
+  while swapping out just the beta dependency — recorded here rather than
+  silently substituted, since it's a real deviation from what was
+  literally approved, even though it stays within its spirit.
+
+  **New table `account_deletion_requests`** — the spec's own suggested
+  shape exactly, with **no token/hash columns** despite the spec's literal
+  "if Polyglot must own a token, store only a secure hash" guidance:
+  since confirmation never leaves the authenticated session (no emailed
+  link, no Clerk-issued token), there is no secret for Polyglot to mint,
+  hash, or store at all — a smaller surface than the spec's own worst-case
+  guidance anticipated, not a shortcut around it. A partial unique index
+  (`account_deletion_requests_one_active_per_user`, mirroring
+  `user_vacation_periods`' own "only one active period" technique) is the
+  real concurrency guarantee behind "only one live request per account."
+
+  **The state machine** (`domains/danger-zone/account-deletion-repository.ts`/
+  `account-deletion-service.ts`): `requestAccountDeletion` /
+  `confirmAccountDeletion` / `cancelAccountDeletion` are each idempotent
+  by construction (a conditional `UPDATE` or an existing-row check, the
+  same shape `startVacationPeriod`/`endVacationPeriod` already use) —
+  none needed `withIdempotency`'s machinery on top, a deliberate
+  departure from every other Danger Zone mutation in this spec, reasoned
+  from precedent rather than applied automatically.
+
+  **`finalizeDueAccountDeletions`** — the Vercel Cron job's actual logic
+  (the mechanism decision 1 of 2 pre-spec-20 questions already settled,
+  see "Current Goal" above, before any spec-20 unit began): deletes the
+  Clerk identity first, then the Polyglot `users` row itself (not just
+  its data, unlike Reset Entire Account) — deleting the row directly
+  rather than replaying `account-reset-repository.ts`'s explicit
+  table-by-table list, since every real learner-owned table's foreign key
+  already cascades from `users.id`, and letting Postgres's own cascade
+  rules do the work is both simpler and more certainly complete than
+  maintaining two independent "list every table" implementations that
+  could drift apart. A `restrict`-configured table (this account having
+  once authored real admin/curriculum history) would correctly *block*
+  the deletion rather than silently erasing that provenance — a feature
+  of the schema's existing design, not a gap this unit needed to solve.
+  One request at a time, each in its own transaction, so one request's
+  failure (a network error, an unexpected `restrict` block) never blocks
+  another's — "deletion must be idempotent," so a failed request simply
+  stays due and retries on the next day's run. Clerk deletion is written
+  tolerant of an already-deleted user (a duck-typed `status === 404`
+  check, since Clerk's own type-guard exports live only in
+  client-boundary packages this server-only code shouldn't import).
+
+  **New route `app/api/cron/finalize-account-deletions/route.ts`**,
+  authenticated by a `CRON_SECRET` bearer token (Vercel's own documented
+  Cron Jobs pattern) rather than Clerk session auth — `proxy.ts`'s route
+  matcher never protects `/api/*`, so this checks its own header
+  directly. `CRON_SECRET` was added to `lib/env.ts` as the **one
+  optional** secret in that file (every other one is required): this
+  repo's local/test environments have no reason to run the finalize job,
+  and making it required would have broken `npm run build`/`npm test`
+  everywhere it isn't set — the route itself returns 501 rather than
+  silently no-op'ing when it's absent. New `vercel.json` declares the
+  actual daily cron schedule. Setting the real `CRON_SECRET` value in the
+  production deployment's environment variables remains a real,
+  outstanding deployment step for the user — this session has no access
+  to Vercel's dashboard to do that part.
+
+  Settings UI: `DeleteAccountPanel`, a single component rendering three
+  states driven entirely by server-computed `AccountDeletionStatus`
+  (`none` / `pending_confirmation` / `pending_deletion`) — never a
+  client-only flag deciding what the account's real state is. The
+  `pending_deletion` state matches the spec's own mockup text verbatim
+  ("Your account is scheduled for deletion on [date]. [Cancel Account
+  Deletion]").
+
+  Verified: `tsc`/`eslint` clean, 1028 unit tests (no change — this
+  unit's logic is entirely database/Clerk-integration-shaped), `npm run
+  build` clean (the new cron route compiles and registers correctly),
+  **17 new integration tests** across `account-deletion-repository.
+  integration.test.ts` and `account-deletion-service.integration.test.ts`
+  covering: the full request → confirm → cancel state machine and its
+  idempotent-repeat-call behavior at every step; `getDueDeletionRequests`'
+  exact filtering (excludes unconfirmed, not-yet-due, cancelled, and
+  already-completed requests); a real end-to-end finalize that cascades
+  every dependent table away via the `users` row delete and calls the
+  injected Clerk-deletion callback with the fixture's real
+  `clerkUserId`; and per-request failure isolation (one account's
+  injected Clerk-deletion failure never blocks another's). Per this
+  unit's own individual-verification requirement, a full `npm run
+  test:integration` pass was also run: **469 of 475 passed — the same 6
+  pre-existing failures already tracked in this file's "Known gap: shared
+  dev/test database pollution" entry (unit 21), in the exact same 4
+  files, unrelated to this unit** (the stale idempotency-key count grew
+  further still, purely from this session's own repeated full-suite
+  runs). A first attempt at this run failed almost entirely (378 of 475)
+  with `ECONNRESET`/"non-101 status code" errors from the Neon serverless
+  websocket driver, unrelated to any test's own logic — a transient
+  infrastructure connectivity issue, confirmed by an immediate clean
+  retry reproducing the familiar, already-understood 6-failure result
+  exactly. **Real-browser verification skipped** per the standing 2026-09-13
+  process decision (see "Current Goal" above) — **this is the last
+  spec-20 unit that gap applies to**; a full real-browser pass across
+  every Settings section, named as outstanding work since unit 1, remains
+  genuinely worthwhile future work once this session's environment stops
+  blocking it.
 
 - **Spec 20 unit 23 — Danger Zone: Reset Entire Account** (2026-09-14). The
   first of the two units the 2026-09-14 batching decision calls out for
