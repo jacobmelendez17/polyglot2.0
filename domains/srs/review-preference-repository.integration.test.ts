@@ -47,6 +47,8 @@ const DEFAULTS = {
   vocabularyFluentMode: true,
   grammarGhostMode: "on",
   vocabularyGhostMode: "on",
+  grammarMinimumLeechStage: "familiar_1",
+  vocabularyMinimumLeechStage: "familiar_1",
 } as const;
 
 describe("findReviewPreferences", () => {

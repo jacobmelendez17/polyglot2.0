@@ -5,7 +5,14 @@ import { userSentenceGhostProgress } from "@/db/schema";
 import { SENTENCE_GATO_ID, SENTENCE_Y_ID, seedTestFixtures } from "@/db/seed/test-fixtures";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
 
-import { applyGhostAnswer, applyGhostVacationSchedulingAdjustment, getDueGhosts, recordSentenceMiss } from "./ghost-repository";
+import {
+  applyGhostAnswer,
+  applyGhostVacationSchedulingAdjustment,
+  deleteGhostProgressForContentType,
+  deleteGhostProgressForLearningItems,
+  getDueGhosts,
+  recordSentenceMiss,
+} from "./ghost-repository";
 
 const NOW = new Date("2026-01-01T00:00:00Z");
 
@@ -204,6 +211,55 @@ describe("applyGhostVacationSchedulingAdjustment (spec 20 Vacation and Ghosts)",
       const row = await findGhostRow(tx, learnerId, gatoId, SENTENCE_GATO_ID);
       // 3 hours remaining, preserved past the vacation's end.
       expect(row?.nextReviewAt).toEqual(new Date("2026-01-11T04:00:00Z"));
+    });
+  });
+});
+
+describe("deleteGhostProgressForContentType (spec 20 Danger Zone — Ghost Reviews Reset)", () => {
+  it("removes only Ghost state for the given content type, never the other", async () => {
+    await withTestTransaction(async (tx) => {
+      const { learnerId, languageId, gatoId, grammarYId } = await seedTestFixtures(tx);
+      await recordSentenceMiss(tx, { userId: learnerId, languageId, learningItemId: gatoId, sentenceId: SENTENCE_GATO_ID, contentType: "vocabulary", mode: "on", now: NOW });
+      await recordSentenceMiss(tx, { userId: learnerId, languageId, learningItemId: grammarYId, sentenceId: SENTENCE_Y_ID, contentType: "grammar", mode: "on", now: NOW });
+
+      const removedCount = await deleteGhostProgressForContentType(tx, learnerId, languageId, "vocabulary");
+
+      expect(removedCount).toBe(1);
+      expect(await findGhostRow(tx, learnerId, gatoId, SENTENCE_GATO_ID)).toBeUndefined();
+      expect(await findGhostRow(tx, learnerId, grammarYId, SENTENCE_Y_ID)).toBeDefined();
+    });
+  });
+
+  it("returns 0 and deletes nothing when there is no Ghost state for that content type", async () => {
+    await withTestTransaction(async (tx) => {
+      const { learnerId, languageId } = await seedTestFixtures(tx);
+      expect(await deleteGhostProgressForContentType(tx, learnerId, languageId, "vocabulary")).toBe(0);
+    });
+  });
+});
+
+describe("deleteGhostProgressForLearningItems (spec 20 Danger Zone — Reset to Level)", () => {
+  it("removes Ghost state only for the given learning items", async () => {
+    await withTestTransaction(async (tx) => {
+      const { learnerId, languageId, gatoId, grammarYId } = await seedTestFixtures(tx);
+      await recordSentenceMiss(tx, { userId: learnerId, languageId, learningItemId: gatoId, sentenceId: SENTENCE_GATO_ID, contentType: "vocabulary", mode: "on", now: NOW });
+      await recordSentenceMiss(tx, { userId: learnerId, languageId, learningItemId: grammarYId, sentenceId: SENTENCE_Y_ID, contentType: "grammar", mode: "on", now: NOW });
+
+      await deleteGhostProgressForLearningItems(tx, learnerId, [gatoId]);
+
+      expect(await findGhostRow(tx, learnerId, gatoId, SENTENCE_GATO_ID)).toBeUndefined();
+      expect(await findGhostRow(tx, learnerId, grammarYId, SENTENCE_Y_ID)).toBeDefined();
+    });
+  });
+
+  it("is a no-op for an empty list", async () => {
+    await withTestTransaction(async (tx) => {
+      const { learnerId, languageId, gatoId } = await seedTestFixtures(tx);
+      await recordSentenceMiss(tx, { userId: learnerId, languageId, learningItemId: gatoId, sentenceId: SENTENCE_GATO_ID, contentType: "vocabulary", mode: "on", now: NOW });
+
+      await deleteGhostProgressForLearningItems(tx, learnerId, []);
+
+      expect(await findGhostRow(tx, learnerId, gatoId, SENTENCE_GATO_ID)).toBeDefined();
     });
   });
 });

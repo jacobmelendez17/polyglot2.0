@@ -2,8 +2,9 @@ import { and, asc, count, eq, gt, inArray, isNotNull, isNull, lte, sql } from "d
 
 import type { DbClient } from "@/db/client";
 import { learningItems, levels, userItemProgress, userLevelProgress } from "@/db/schema";
-import { calculateFluentMaintenanceReview } from "@/domains/srs";
-import type { SrsStage } from "@/domains/srs";
+import type { CefrLevel } from "@/db/schema";
+import { calculateFluentMaintenanceReview, calculateNextReview, DEFAULT_SRS_INTERVAL_MODE, MINIMUM_REVIEW_STAGE } from "@/domains/srs";
+import type { ReviewItemType, SrsStage } from "@/domains/srs";
 
 import type { ItemProgress, LevelProgress } from "./types";
 
@@ -421,6 +422,148 @@ export async function resetAccountProgress(db: DbClient, { userId, level1Id }: {
   await db.delete(userItemProgress).where(eq(userItemProgress.userId, userId));
   await db.delete(userLevelProgress).where(eq(userLevelProgress.userId, userId));
   await unlockLevel(db, { userId, levelId: level1Id, now: new Date() });
+}
+
+export type ResetCandidateItem = {
+  learningItemId: string;
+  levelNumber: number;
+  incorrectCount: number;
+  currentCorrectStreak: number;
+  highestSrsStageReached: SrsStage;
+};
+
+/**
+ * Spec 20 Danger Zone — every enrolled item of one content type (optionally
+ * narrowed to one CEFR band) a reset could affect. Shared by Main Reviews,
+ * Leech Reviews (whose caller further filters these candidates through
+ * `calculateLeechStatus`), and CEFR Reset — "use the same underlying reset
+ * service with item-type filters," never three separate query shapes.
+ */
+export async function getResetCandidateItems(
+  db: DbClient,
+  userId: string,
+  languageId: string,
+  itemType: ReviewItemType,
+  cefrLevel?: CefrLevel,
+): Promise<ResetCandidateItem[]> {
+  const conditions = [eq(userItemProgress.userId, userId), eq(userItemProgress.languageId, languageId), eq(learningItems.type, itemType)];
+  if (cefrLevel) conditions.push(eq(levels.cefrLevel, cefrLevel));
+
+  return db
+    .select({
+      learningItemId: userItemProgress.learningItemId,
+      levelNumber: levels.levelNumber,
+      incorrectCount: userItemProgress.incorrectCount,
+      currentCorrectStreak: userItemProgress.currentCorrectStreak,
+      highestSrsStageReached: userItemProgress.highestSrsStageReached,
+    })
+    .from(userItemProgress)
+    .innerJoin(learningItems, eq(learningItems.id, userItemProgress.learningItemId))
+    .innerJoin(levels, eq(levels.id, learningItems.levelId))
+    .where(and(...conditions));
+}
+
+/**
+ * Spec 20 Danger Zone — the "current progress reset" shared by Main
+ * Reviews, Leech Reviews, and CEFR Reset: each affected item returns to
+ * Beginner 1 with every SRS aggregate counter the spec names zeroed
+ * (correct/incorrect/review counts, current correct streak, highest SRS
+ * stage reached, Fluent maintenance schedule), and a fresh schedule from
+ * `now` computed the same way a freshly enrolled item's first review is
+ * (`domains/lessons/lesson-completion.ts`'s own `calculateNextReview` call)
+ * — so Level 1-2 acceleration still applies. Everything the spec does not
+ * name (`review_events` history, learner notes, synonyms, deck references,
+ * curriculum identity, `learnedAt`) is left untouched by construction: this
+ * only ever sets the fields listed above.
+ *
+ * One row at a time rather than a single bulk statement — this app's
+ * current curriculum scale (one language, one published level) makes the
+ * simpler, obviously-correct form the right tradeoff over a hand-written
+ * bulk `CASE` statement that would have to duplicate `calculateNextReview`'s
+ * own Level 1-2 acceleration rule in raw SQL.
+ */
+export async function resetItemProgressToBeginner(
+  db: DbClient,
+  input: { userId: string; items: { learningItemId: string; levelNumber: number }[]; now: Date },
+): Promise<void> {
+  for (const item of input.items) {
+    const nextReviewAt = calculateNextReview({
+      stage: MINIMUM_REVIEW_STAGE,
+      level: item.levelNumber,
+      mode: DEFAULT_SRS_INTERVAL_MODE,
+      now: input.now,
+    });
+    await db
+      .update(userItemProgress)
+      .set({
+        srsStage: MINIMUM_REVIEW_STAGE,
+        correctCount: 0,
+        incorrectCount: 0,
+        reviewCount: 0,
+        currentCorrectStreak: 0,
+        highestSrsStageReached: MINIMUM_REVIEW_STAGE,
+        nextReviewAt,
+        fluentAt: null,
+        updatedAt: input.now,
+      })
+      .where(and(eq(userItemProgress.userId, input.userId), eq(userItemProgress.learningItemId, item.learningItemId)));
+  }
+}
+
+/** Spec 20 Danger Zone — Reset to Level: every enrolled item whose curriculum level is above the target. */
+export async function getItemProgressAboveLevel(
+  db: DbClient,
+  userId: string,
+  languageId: string,
+  levelNumberThreshold: number,
+): Promise<{ learningItemId: string }[]> {
+  return db
+    .select({ learningItemId: userItemProgress.learningItemId })
+    .from(userItemProgress)
+    .innerJoin(learningItems, eq(learningItems.id, userItemProgress.learningItemId))
+    .innerJoin(levels, eq(levels.id, learningItems.levelId))
+    .where(
+      and(
+        eq(userItemProgress.userId, userId),
+        eq(userItemProgress.languageId, languageId),
+        gt(levels.levelNumber, levelNumberThreshold),
+      ),
+    );
+}
+
+/**
+ * Spec 20 Danger Zone — Reset to Level: fully un-enrolls the given items.
+ * Deliberately a delete, not a counter reset — the spec's own language is
+ * "removes current item progress above Level 6," not "resets," unlike Main
+ * Reviews/Leech/CEFR reset above.
+ */
+export async function deleteItemProgressByIds(db: DbClient, userId: string, learningItemIds: string[]): Promise<void> {
+  if (learningItemIds.length === 0) return;
+  await db
+    .delete(userItemProgress)
+    .where(and(eq(userItemProgress.userId, userId), inArray(userItemProgress.learningItemId, learningItemIds)));
+}
+
+/**
+ * Spec 20 Danger Zone — Reset to Level: removes every unlock above the
+ * target level, so the learner's effective current Level (the highest
+ * level number they still have an unlock row for, the same computation
+ * `dashboard-service.ts` already uses) naturally becomes the target
+ * without a separate "current level" field to update.
+ */
+export async function deleteLevelUnlocksAboveLevel(
+  db: DbClient,
+  userId: string,
+  languageId: string,
+  levelNumberThreshold: number,
+): Promise<void> {
+  const levelsAbove = await db
+    .select({ id: levels.id })
+    .from(levels)
+    .where(and(eq(levels.languageId, languageId), gt(levels.levelNumber, levelNumberThreshold)));
+  const levelIds = levelsAbove.map((level) => level.id);
+  if (levelIds.length === 0) return;
+  await db.delete(userLevelProgress).where(and(eq(userLevelProgress.userId, userId), inArray(userLevelProgress.levelId, levelIds)));
 }
 
 export type EnrollLearningItemInput = {

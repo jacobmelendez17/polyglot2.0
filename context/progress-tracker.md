@@ -162,26 +162,30 @@ every boundary before considering these done)*
 24. Delete Account — request → email-verified confirmation → 7-day pending
     window → cancel → the Vercel Cron finalize job from decision 1.
 
-**Units 1-19 are done — see their Completed entries below.** Account,
-General, Lessons, Reviews, Appearance, and now Notifications are all fully
-built. `user_review_preferences` has 26 columns; `user_item_progress`
-gained two Leech-tracking columns; one genuinely new table (`user_sentence_
-ghost_progress`) backs Ghost Reviews; a new `lib/appearance/` module (no
-database involvement at all — device-local by design) backs Appearance;
-`user_notification_preferences` (storage only, no delivery system) backs
-Notifications. Unit 20 (Subscription & API placeholders) is next — note
-both pages already exist as trivial "Coming Soon" content (built ahead of
-schedule alongside the Settings shell in unit 1), so unit 20 is mainly a
-verification pass confirming both still match the spec exactly, continuing
-**Phase G/H — the remaining, mostly independent Settings sections and
-Danger Zone**. Per the 2026-09-14 user decision, these are being
+**Units 1-21 are done — see their Completed entries below.** Account,
+General, Lessons, Reviews, Appearance, Notifications, Subscription/API, and
+now Danger Zone's Resets are all fully built. `user_review_preferences` has
+26 columns; `user_item_progress` gained two Leech-tracking columns; one
+genuinely new table (`user_sentence_ghost_progress`) backs Ghost Reviews; a
+new `lib/appearance/` module (no database involvement at all —
+device-local by design) backs Appearance; `user_notification_preferences`
+(storage only, no delivery system) backs Notifications; a new
+`domains/danger-zone` domain backs unit 21's five reset behaviors, with no
+new tables (every reset reuses `user_item_progress`/`user_level_progress`/
+`user_sentence_ghost_progress`). Unit 22 (Danger Zone — Manual Streak &
+Reset Dismissable Warnings) is next, continuing **Phase H — Danger Zone**,
+the last and highest-risk phase (depends on everything above existing).
+Per the 2026-09-14 user decision, non-account-destructive units are
 implemented back-to-back without pausing for the ~12-minute full
 `npm run test:integration` suite after every single one — fast checks
 (`tsc`, `eslint`, unit tests, `npm run build`) still run continuously after
 each unit, with one full integration-suite pass at natural checkpoints and
 again at the end — **except** the two data-destroying Danger Zone units
 (Reset Entire Account, Delete Account), which still get full individual
-verification before moving on, given what a mistake there would cost.
+verification before moving on, given what a mistake there would cost. Unit
+21 (Resets) got a full integration-suite pass anyway as a natural
+checkpoint (destructive-shaped, even though scoped per-item/per-category
+rather than account-wide) — see its Completed entry.
 
 **Real-browser verification remains skipped for every spec-20 unit**,
 Notifications included, per the standing 2026-09-13 process decision above
@@ -1218,6 +1222,183 @@ writing to real `user_item_progress` rows.
 ## Completed
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
+
+- **Spec 20 unit 21 — Danger Zone: Resets (Main/Ghost/Leech/CEFR/Reset to
+  Level)** (2026-09-14). Opens Phase H. The largest unit since Ghost
+  Reviews (unit 16) — five distinct reset behaviors sharing one service,
+  per the spec's own "use the same underlying reset service with item-type
+  filters... do not implement separate unrelated reset logic for
+  vocabulary and grammar."
+
+  **New domain `domains/danger-zone`**, following `domains/admin`'s own
+  injectable-core/binding-layer split (`account-reset-service.ts` vs
+  `admin-mutation-service.ts`) rather than the `db`-singleton-in-the-service
+  shape most of spec 20's other units used — chosen specifically so the
+  idempotency-wrapped core (`reset-service.ts`: `resetContentTypeReviews`,
+  `resetToLevel`, both taking an injected `DbClient`) is directly testable
+  against a real, rolled-back transaction the same way
+  `resetOwnAccountProgress` already is. `reset-binding.ts` adds the rate
+  limit and binds the real `db`; `server.ts` exports only the bound
+  versions. A new `danger-zone-reset` rate-limit policy (60s/5 requests) —
+  the tighter policy `policies.ts` already anticipated in a comment when
+  `account-settings`/`username-change` were added.
+
+  **Main Reviews Reset** zeros exactly the fields the spec names (correct/
+  incorrect/review counts, current correct streak, highest SRS stage
+  reached, Fluent maintenance schedule) and schedules a fresh Beginner 1
+  review using the *same* `calculateNextReview` call
+  `lesson-completion.ts` uses for a brand-new enrollment — so Level 1-2
+  acceleration still applies on reset. Everything the spec does not name
+  (`review_events`, notes, synonyms, deck references, curriculum identity,
+  `learnedAt`) is left untouched by construction: the new
+  `resetItemProgressToBeginner` (`domains/progress/repository.ts`) only
+  ever sets the named columns. One row at a time rather than a bulk `CASE`
+  statement — a deliberate simplicity tradeoff at this app's current
+  curriculum scale (one language, one published level), see that
+  function's own docstring.
+
+  **Ghost Reviews Reset** — the piece explicitly deferred from unit 16 —
+  is a full row delete (`deleteGhostProgressForContentType`,
+  `domains/srs/ghost-repository.ts`), matching the spec's "removes"
+  language, and never touches `user_item_progress` (verified by a test
+  mirroring the spec's own worked example: a Master Vocabulary item stays
+  Master after its Ghost is reset).
+
+  **Leech Reviews Reset** reuses the same candidate-item query as Main/CEFR
+  (`getResetCandidateItems`) and filters it through `calculateLeechStatus`
+  in the caller — Leech classification was always meant to be computed, not
+  stored, so this is the natural reuse rather than a new query shape.
+
+  **CEFR Reset** filters `getResetCandidateItems` by the curriculum's own
+  `levels.cefr_level` column, never a hardcoded Spanish-specific level-ID
+  list, per the spec's explicit instruction.
+
+  **Reset to Level** is a genuinely different operation from the other
+  four — a hard delete of `user_item_progress`/`user_level_progress` rows
+  above the target Level (the spec's own "removes," not "resets"), plus
+  any Ghost state tied to the removed items. The learner's effective
+  current Level is never a stored field to update — deleting the unlocks
+  above the target makes `Math.max(unlocked level numbers)` (the same
+  computation `dashboard-service.ts` already uses) resolve to the target
+  automatically. Server-side re-validates the target is an already-
+  unlocked, strictly-earlier Level (`RESET_TARGET_INVALID`, a new
+  `AppError` code) — "server-side confirmation remains authoritative,"
+  never trusting the dropdown's own client-side "never offer a future
+  locked Level" behavior.
+
+  **A real, useful discovery while writing this unit's integration
+  tests**: the shared dev/test database's committed `ITEM_ROJO_ID` fixture
+  row (`db/seed/test-fixtures.ts`) has a stale `level_id` pointing at the
+  *real* Level 1 rather than the fixture's own second level — a leftover
+  from before the 2026-09-09 fixture-level migration that file's own
+  comments describe, never corrected because the in-transaction seed's
+  `onConflictDoUpdate` only re-asserts `status`, not `level_id`. Every new
+  test that needed `rojo` on the fixture's second level corrects this
+  in-transaction (rolled back, so it never touches the real committed row)
+  with a comment explaining why. Not fixed at the source in this unit — an
+  unrelated pre-existing data-hygiene gap, out of this unit's scope, and a
+  direct write to the real committed row would need the user's explicit
+  confirmation first (the standing rule on manual database writes) — worth
+  a deliberate cleanup pass later, recorded here rather than silently
+  worked around.
+
+  Settings UI: `ContentTypeResetPanel` (one shared component for both
+  "Reset Grammar" and "Reset Vocabulary," parameterized by `contentType`,
+  matching the service's own one-implementation design) and
+  `ResetToLevelPanel`, both using the existing `Dialog`
+  confirmation-modal pattern (`components/decks/delete-deck-dialog.tsx`'s
+  precedent) — every dialog states what will be reset and what is retained
+  before confirming, per the spec's Accessibility section. `/settings/
+  danger` now renders these two real sections above the still-placeholder
+  remainder (Manual Streak, Reset Dismissable Warnings, Reset Entire
+  Account, Delete Account — units 22-24).
+
+  Verified: `tsc`/`eslint` clean, 1011 unit tests (no change — this unit's
+  logic is entirely database-integration-shaped, not pure), `npm run build`
+  clean, plus **60 new integration tests** across three files
+  (`domains/progress/progress-repository.integration.test.ts`,
+  `domains/srs/ghost-repository.integration.test.ts`,
+  `domains/danger-zone/reset-service.integration.test.ts` — the latter
+  covering all five reset targets end-to-end plus idempotency and both
+  `resetToLevel` rejection paths), all passing repeatably in isolation.
+  **Real-browser verification skipped** per the standing 2026-09-13 process
+  decision (see "Current Goal" above).
+
+  **A full `npm run test:integration` pass this unit's checkpoint ran was
+  NOT fully clean, but for reasons unrelated to this unit's own code** —
+  see the "Known gap: shared dev/test database pollution" entry immediately
+  below for the full account, including a mistake made while running it
+  (two full suites briefly ran concurrently against the same shared
+  database). Every one of the 6 failing tests lives in a file this unit
+  never touched (`curriculum-repository`, `usage-contexts`,
+  `with-idempotency`, `audit-repository` integration tests); this unit's
+  own 3 new test files were re-run in isolation, repeatedly, and passed
+  cleanly every time. **User decision (2026-09-14):** commit this unit now
+  rather than block on unrelated pre-existing database pollution; track and
+  fix that pollution as a separate follow-up.
+
+- **Known gap: shared dev/test database pollution** (discovered
+  2026-09-14, during unit 21's checkpoint integration run). This session's
+  `TEST_DATABASE_URL` points at the same database as `DATABASE_URL`
+  (`test-fixtures.ts`'s own documented tradeoff), and several integration
+  tests deliberately **commit** rather than roll back (the concurrency
+  tests `test-fixtures.ts` names, plus any `seedTestFixtures(db, {
+  committed: true })` caller) — real rows that accumulate across sessions
+  rather than test runs cleaning up after themselves. Two concrete symptoms
+  found this session:
+  1. `idempotency_keys` has **111+ leftover rows** (`cleanupExpiredIdempotencyKeys`
+     expects to find exactly 1 expired key in a fresh scenario and instead
+     finds all of them) — accumulated committed rows from the concurrency
+     tests across many past sessions, not from any one run.
+  2. The real committed grammar item "Y" (`ITEM_Y_ID`,
+     `40000000-0000-0000-0000-000000000004`) has drifted out of the shape
+     `curriculum-repository.integration.test.ts`/`usage-contexts.integration.test.ts`
+     expect (missing from `getLevelItems`, no longer refusing a
+     usage-context create) — the same category of problem
+     `test-fixtures.ts`'s own comments describe happening once before
+     ("quietly re-published demo items an admin had archived"). Likely the
+     same root cause as this session's other finding, `ITEM_ROJO_ID`'s
+     stale `level_id` (recorded in unit 21's own Completed entry above) —
+     committed fixture rows silently drifting from what the fixture
+     constants assume, uncorrected because a "committed" seed call only
+     ever does `onConflictDoNothing`/re-asserts `status`, never fully
+     re-syncs a row to the fixture's intended shape.
+
+  **A contributing mistake, made and owned this session**: attempting to
+  stop a backgrounded `npm run test:integration` run with `kill %1` before
+  starting a second one — the job reference didn't resolve in the new shell
+  context, so the kill silently failed and briefly left two full suites
+  running concurrently against the same shared database, which is exactly
+  the kind of interference the "three concurrency tests need genuinely
+  committed rows" design is fragile against. Re-running the 4 affected
+  files in isolation afterward, with nothing else running, reproduced the
+  same 6 failures identically — confirming this is *persistent* accumulated
+  pollution, not a transient race from that one incident alone.
+
+  **Not fixed this session** — cleaning it up means real `DELETE`s against
+  the shared committed dev/test database (stale `idempotency_keys` rows)
+  and/or correcting real curriculum content state (`ITEM_Y_ID`'s status/
+  level, `ITEM_ROJO_ID`'s `level_id`), both outside the standing "ask
+  before direct/manual database writes" rule and outside Danger Zone
+  Resets' own scope. **User decision (2026-09-14):** track this here and
+  fix it separately, rather than block spec 20 on it. Whoever picks this up
+  next should: confirm exactly which committed rows are stale (cross-check
+  against `test-fixtures.ts`'s intended IDs/shapes), get the user's
+  explicit go-ahead for the actual writes, then re-run
+  `npm run test:integration` once as confirmation.
+
+- **Spec 20 unit 20 — Subscription & API placeholders** (2026-09-14). No
+  implementation work — both `/settings/subscription` and `/settings/api`
+  were already built ahead of schedule alongside the Settings shell in unit
+  1 (`app/(app)/settings/subscription/page.tsx`,
+  `app/(app)/settings/api/page.tsx`), and both were re-checked line-by-line
+  against the spec's "Subscription"/"API"/"Subscription / Notifications /
+  API Scope" sections this unit: each shows only a heading plus "Coming
+  Soon", with no plan/renewal/trial/usage/billing data, no API keys/
+  secrets/scopes/usage tables, and no Stripe-specific schema anywhere in
+  the codebase. `SETTINGS_NAV_ITEMS` already lists both. This unit exists
+  in the tracker only so the sequence's own numbering stays honest about
+  what was verified and when — no files changed, no commit.
 
 - **Spec 20 unit 19 — Notifications** (2026-09-14). Opens Phase G's second
   unit; the smallest and most mechanical unit since unit 5 (Timezone) —

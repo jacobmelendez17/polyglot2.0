@@ -9,7 +9,8 @@ export type RateLimitPolicyName =
   | "onboarding-complete"
   | "curriculum-preference"
   | "account-settings"
-  | "username-change";
+  | "username-change"
+  | "danger-zone-reset";
 
 export type RateLimitPolicy = {
   windowSeconds: number;

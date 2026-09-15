@@ -12,7 +12,7 @@ import {
   users,
   userSynonyms,
 } from "@/db/schema";
-import { seedTestFixtures } from "@/db/seed/test-fixtures";
+import { FIXTURE_LEVEL_NUMBER, FIXTURE_NEXT_LEVEL_NUMBER, seedTestFixtures } from "@/db/seed/test-fixtures";
 import { testDb } from "@/db/test/test-client";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
 import { getStageIndex } from "@/domains/srs";
@@ -22,16 +22,21 @@ import {
   countLevelGatingItems,
   countProgressForItems,
   countUserItemsAtOrAboveStageInLevel,
+  deleteItemProgressByIds,
+  deleteLevelUnlocksAboveLevel,
   getDueReviewItems,
   getItemProgress,
+  getItemProgressAboveLevel,
   getLevelProgress,
   getNextUpcomingReviewAt,
+  getResetCandidateItems,
   getUnlockedLevels,
   getUpcomingReviewForecast,
   getUserProgressForLanguage,
   hasItemProgress,
   lockItemProgressForReview,
   reconcileFluentSchedules,
+  resetItemProgressToBeginner,
   unlockLevel,
 } from "./repository";
 
@@ -659,6 +664,145 @@ describe("reconcileFluentSchedules (spec 20 Fluent Mode)", () => {
       const afterSecond = (await getItemProgress(tx, learnerId, casaId))?.nextReviewAt;
 
       expect(afterSecond).toEqual(afterFirst);
+    });
+  });
+});
+
+describe("progress repository — Danger Zone Resets (spec 20 unit 21)", () => {
+  describe("getResetCandidateItems", () => {
+    it("returns only enrolled items of the requested content type, with the item's level number", async () => {
+      await withTestTransaction(async (tx) => {
+        const { learnerId, languageId, gatoId, grammarYId, casaId } = await seedTestFixtures(tx);
+        // gato already has progress from the fixture; enroll casa too and give grammarY progress, to prove the type filter excludes it.
+        await tx.insert(userItemProgress).values({ userId: learnerId, learningItemId: casaId, languageId, srsStage: "beginner_1" });
+        await tx.insert(userItemProgress).values({ userId: learnerId, learningItemId: grammarYId, languageId, srsStage: "beginner_1" });
+
+        const vocabularyCandidates = await getResetCandidateItems(tx, learnerId, languageId, "vocabulary");
+        expect(vocabularyCandidates.map((item) => item.learningItemId).sort()).toEqual([casaId, gatoId].sort());
+        expect(vocabularyCandidates.every((item) => item.levelNumber === FIXTURE_LEVEL_NUMBER)).toBe(true);
+
+        const grammarCandidates = await getResetCandidateItems(tx, learnerId, languageId, "grammar");
+        expect(grammarCandidates.map((item) => item.learningItemId)).toEqual([grammarYId]);
+      });
+    });
+
+    it("narrows to one CEFR band when given one", async () => {
+      await withTestTransaction(async (tx) => {
+        const { learnerId, languageId, gatoId, level1Id, level2Id, rojoId } = await seedTestFixtures(tx);
+        // The shared dev/test database's committed `rojo` row predates the fixture level migration noted in
+        // `test-fixtures.ts` and still points at the real Level 1, not `level2Id` — corrected here, scoped to this
+        // rolled-back transaction only, so this test's CEFR-band assertion reflects the fixture's own intended shape.
+        await tx.update(learningItems).set({ levelId: level2Id }).where(eq(learningItems.id, rojoId));
+        await tx.update(levels).set({ cefrLevel: "A1" }).where(eq(levels.id, level1Id));
+        await tx.update(levels).set({ cefrLevel: "A2" }).where(eq(levels.id, level2Id));
+        await tx.insert(userItemProgress).values({ userId: learnerId, learningItemId: rojoId, languageId, srsStage: "beginner_1" });
+
+        const a1Candidates = await getResetCandidateItems(tx, learnerId, languageId, "vocabulary", "A1");
+        expect(a1Candidates.map((item) => item.learningItemId)).toEqual([gatoId]);
+
+        const a2Candidates = await getResetCandidateItems(tx, learnerId, languageId, "vocabulary", "A2");
+        expect(a2Candidates.map((item) => item.learningItemId)).toEqual([rojoId]);
+      });
+    });
+  });
+
+  describe("resetItemProgressToBeginner", () => {
+    it("zeros every named SRS aggregate, schedules a fresh Beginner 1 review, and leaves everything else untouched", async () => {
+      await withTestTransaction(async (tx) => {
+        const { learnerId, gatoId } = await seedTestFixtures(tx);
+        const now = new Date("2026-06-01T12:00:00Z");
+        await tx
+          .update(userItemProgress)
+          .set({
+            srsStage: "master",
+            correctCount: 9,
+            incorrectCount: 3,
+            reviewCount: 12,
+            currentCorrectStreak: 5,
+            highestSrsStageReached: "master",
+            fluentAt: new Date("2026-01-01T00:00:00Z"),
+            lastReviewedAt: new Date("2026-05-01T00:00:00Z"),
+          })
+          .where(and(eq(userItemProgress.userId, learnerId), eq(userItemProgress.learningItemId, gatoId)));
+
+        await resetItemProgressToBeginner(tx, { userId: learnerId, items: [{ learningItemId: gatoId, levelNumber: FIXTURE_LEVEL_NUMBER }], now });
+
+        const progress = await getItemProgress(tx, learnerId, gatoId);
+        expect(progress?.srsStage).toBe("beginner_1");
+        expect(progress?.correctCount).toBe(0);
+        expect(progress?.incorrectCount).toBe(0);
+        expect(progress?.reviewCount).toBe(0);
+        expect(progress?.currentCorrectStreak).toBe(0);
+        expect(progress?.highestSrsStageReached).toBe("beginner_1");
+        expect(progress?.fluentAt).toBeNull();
+        // Fixture level 90 is not one of the Level 1-2 accelerated levels, so the standard 4-hour Beginner 1 interval applies.
+        expect(progress?.nextReviewAt).toEqual(new Date(now.getTime() + 4 * 60 * 60 * 1000));
+        // Not named by the spec's reset field list — left exactly as it was.
+        expect(progress?.lastReviewedAt).toEqual(new Date("2026-05-01T00:00:00Z"));
+
+        // Durable history/notes/synonyms/enrollment are never touched by this function.
+        const [note] = await tx.select().from(userNotes).where(and(eq(userNotes.userId, learnerId), eq(userNotes.learningItemId, gatoId)));
+        expect(note).toBeDefined();
+        const [synonym] = await tx
+          .select()
+          .from(userSynonyms)
+          .where(and(eq(userSynonyms.userId, learnerId), eq(userSynonyms.learningItemId, gatoId)));
+        expect(synonym).toBeDefined();
+      });
+    });
+
+    it("applies the Level 1-2 accelerated interval when the item's level is 1 or 2", async () => {
+      await withTestTransaction(async (tx) => {
+        const { learnerId, gatoId } = await seedTestFixtures(tx);
+        const now = new Date("2026-06-01T12:00:00Z");
+
+        await resetItemProgressToBeginner(tx, { userId: learnerId, items: [{ learningItemId: gatoId, levelNumber: 1 }], now });
+
+        const progress = await getItemProgress(tx, learnerId, gatoId);
+        expect(progress?.nextReviewAt).toEqual(new Date(now.getTime() + 2 * 60 * 60 * 1000));
+      });
+    });
+  });
+
+  describe("Reset to Level primitives", () => {
+    it("getItemProgressAboveLevel finds only items whose level is strictly above the threshold", async () => {
+      await withTestTransaction(async (tx) => {
+        const { learnerId, languageId, rojoId, level2Id } = await seedTestFixtures(tx);
+        // See the CEFR-band test above for why this correction is needed.
+        await tx.update(learningItems).set({ levelId: level2Id }).where(eq(learningItems.id, rojoId));
+        await tx.insert(userItemProgress).values({ userId: learnerId, learningItemId: rojoId, languageId, srsStage: "beginner_1" });
+
+        // gato (fixture's default progress row) sits at the fixture level itself, not above it — excluded either way.
+        const above = await getItemProgressAboveLevel(tx, learnerId, languageId, FIXTURE_LEVEL_NUMBER);
+        expect(above.map((item) => item.learningItemId)).toEqual([rojoId]);
+
+        const aboveEverything = await getItemProgressAboveLevel(tx, learnerId, languageId, FIXTURE_NEXT_LEVEL_NUMBER);
+        expect(aboveEverything).toEqual([]);
+      });
+    });
+
+    it("deleteItemProgressByIds removes exactly the given rows and nothing else", async () => {
+      await withTestTransaction(async (tx) => {
+        const { learnerId, languageId, gatoId, rojoId } = await seedTestFixtures(tx);
+        await tx.insert(userItemProgress).values({ userId: learnerId, learningItemId: rojoId, languageId, srsStage: "beginner_1" });
+
+        await deleteItemProgressByIds(tx, learnerId, [rojoId]);
+
+        expect(await getItemProgress(tx, learnerId, rojoId)).toBeNull();
+        expect(await getItemProgress(tx, learnerId, gatoId)).not.toBeNull();
+      });
+    });
+
+    it("deleteLevelUnlocksAboveLevel removes only unlocks for Levels above the threshold", async () => {
+      await withTestTransaction(async (tx) => {
+        const { learnerId, languageId, level1Id, level2Id } = await seedTestFixtures(tx);
+        await unlockLevel(tx, { userId: learnerId, levelId: level2Id, now: new Date() });
+
+        await deleteLevelUnlocksAboveLevel(tx, learnerId, languageId, FIXTURE_LEVEL_NUMBER);
+
+        const unlocked = await getUnlockedLevels(tx, learnerId, languageId);
+        expect(unlocked.map((progress) => progress.levelId)).toEqual([level1Id]);
+      });
     });
   });
 });

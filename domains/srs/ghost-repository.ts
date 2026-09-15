@@ -1,4 +1,4 @@
-import { and, eq, isNotNull, lte, sql } from "drizzle-orm";
+import { and, count, eq, inArray, isNotNull, lte, sql } from "drizzle-orm";
 
 import type { DbClient } from "@/db/client";
 import { userSentenceGhostProgress } from "@/db/schema";
@@ -240,6 +240,50 @@ export async function getDueGhosts(db: DbClient, userId: string, languageId: str
  * this codebase's JS date math, so there's no cross-implementation drift
  * risk to avoid by doing it in JS instead.
  */
+/**
+ * Spec 20 Danger Zone — Ghost Reviews Reset. "Removes the learner's active/
+ * dormant Ghost Review state for that selected content type" — a full row
+ * delete, not a field clear, matching the spec's own "removes" language.
+ * Never touches `user_item_progress` (the spec's own example: a Vocabulary
+ * item stays Master after its Ghost is reset) — this table has no foreign
+ * key back to normal SRS state to cascade through.
+ */
+export async function deleteGhostProgressForContentType(
+  db: DbClient,
+  userId: string,
+  languageId: string,
+  contentType: ReviewItemType,
+): Promise<number> {
+  const [row] = await db
+    .select({ value: count() })
+    .from(userSentenceGhostProgress)
+    .where(
+      and(
+        eq(userSentenceGhostProgress.userId, userId),
+        eq(userSentenceGhostProgress.languageId, languageId),
+        eq(userSentenceGhostProgress.contentType, contentType),
+      ),
+    );
+  await db
+    .delete(userSentenceGhostProgress)
+    .where(
+      and(
+        eq(userSentenceGhostProgress.userId, userId),
+        eq(userSentenceGhostProgress.languageId, languageId),
+        eq(userSentenceGhostProgress.contentType, contentType),
+      ),
+    );
+  return row?.value ?? 0;
+}
+
+/** Spec 20 Danger Zone — Reset to Level: "removes Ghost state tied to removed progress." */
+export async function deleteGhostProgressForLearningItems(db: DbClient, userId: string, learningItemIds: string[]): Promise<void> {
+  if (learningItemIds.length === 0) return;
+  await db
+    .delete(userSentenceGhostProgress)
+    .where(and(eq(userSentenceGhostProgress.userId, userId), inArray(userSentenceGhostProgress.learningItemId, learningItemIds)));
+}
+
 export async function applyGhostVacationSchedulingAdjustment(db: DbClient, userId: string, vacationStartedAt: Date, vacationEndedAt: Date): Promise<void> {
   const waitStartedAt = userSentenceGhostProgress.updatedAt;
 

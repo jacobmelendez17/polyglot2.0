@@ -107,4 +107,16 @@ export const RATE_LIMIT_POLICIES: Record<RateLimitPolicyName, RateLimitPolicy> =
     maxRequests: 5,
     failOpen: false,
   },
+  // Spec 20 Danger Zone — the tighter policy this file already anticipated
+  // ("resets, account deletion get their own tighter policy"). Covers every
+  // Reset Grammar/Vocabulary variant (Main/Ghost/Leech/CEFR), Reset to
+  // Level, Manual Streak, and Reset Dismissable Warnings — all genuinely
+  // destructive, all gated behind their own confirmation dialog already, so
+  // this exists purely as the server-side backstop against a compromised
+  // session looping the action, not against normal interactive use.
+  "danger-zone-reset": {
+    windowSeconds: 60,
+    maxRequests: 5,
+    failOpen: false,
+  },
 };

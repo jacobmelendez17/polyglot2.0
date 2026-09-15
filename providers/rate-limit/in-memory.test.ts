@@ -99,6 +99,7 @@ describe("InMemoryRateLimiter", () => {
         "curriculum-preference": { windowSeconds: 60, maxRequests: 5, failOpen: true },
         "account-settings": { windowSeconds: 60, maxRequests: 5, failOpen: true },
         "username-change": { windowSeconds: 60, maxRequests: 5, failOpen: true },
+        "danger-zone-reset": { windowSeconds: 60, maxRequests: 5, failOpen: true },
       },
     });
 
