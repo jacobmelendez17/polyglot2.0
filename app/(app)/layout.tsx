@@ -4,6 +4,7 @@ import { MotionConfig } from "motion/react";
 
 import { AppHeader } from "@/components/shared/app-header";
 import { AppNavMobile } from "@/components/shared/app-nav-mobile";
+import { Footer } from "@/components/shared/footer";
 import { SandboxViewBanner } from "@/components/shared/sandbox-view-banner";
 import { isCurriculumChoiceRequired, isOnboardingRequired } from "@/domains/users";
 import { getLanguageSettings, resolveCurrentUser } from "@/domains/users/server";
@@ -40,9 +41,13 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     <MotionConfig reducedMotion="user">
       {user?.isSandbox ? <SandboxViewBanner /> : null}
       <AppHeader />
-      <main id="main" className="flex-1 pb-20 md:pb-0">
+      <main id="main" className="flex-1">
         {children}
       </main>
+      {/* Mobile's bottom nav is `fixed`, so the footer needs the same
+          clearance `main` used to carry alone — otherwise the nav covers
+          the footer's last row on short pages. */}
+      <Footer className="pb-20 md:pb-0" />
       <AppNavMobile />
     </MotionConfig>
   );
