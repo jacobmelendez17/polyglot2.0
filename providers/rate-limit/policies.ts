@@ -119,4 +119,16 @@ export const RATE_LIMIT_POLICIES: Record<RateLimitPolicyName, RateLimitPolicy> =
     maxRequests: 5,
     failOpen: false,
   },
+  // Spec 20 Danger Zone — Reset Entire Account (and Delete Account's own
+  // request step, once it ships). The same "sensitive/destructive settings
+  // require stronger rate limits" escalation "username-change" already
+  // gets over "account-settings" — this is the single most destructive
+  // per-account operation short of deletion itself, so it gets the
+  // tightest budget in this file rather than sharing "danger-zone-reset"'s
+  // with the five narrower, per-category reset operations.
+  "danger-zone-account-reset": {
+    windowSeconds: 60,
+    maxRequests: 2,
+    failOpen: false,
+  },
 };

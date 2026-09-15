@@ -10,7 +10,8 @@ export type RateLimitPolicyName =
   | "curriculum-preference"
   | "account-settings"
   | "username-change"
-  | "danger-zone-reset";
+  | "danger-zone-reset"
+  | "danger-zone-account-reset";
 
 export type RateLimitPolicy = {
   windowSeconds: number;

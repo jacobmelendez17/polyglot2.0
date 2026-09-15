@@ -162,29 +162,28 @@ every boundary before considering these done)*
 24. Delete Account — request → email-verified confirmation → 7-day pending
     window → cancel → the Vercel Cron finalize job from decision 1.
 
-**Units 1-22 are done — see their Completed entries below.** Account,
-General, Lessons, Reviews, Appearance, Notifications, Subscription/API, and
-now both of Danger Zone's non-account-wide units (Resets; Manual Streak &
-Reset Dismissable Warnings) are all fully built. `user_review_preferences`
-has 26 columns; `user_item_progress` gained two Leech-tracking columns;
-one genuinely new table (`user_sentence_ghost_progress`) backs Ghost
-Reviews; a new `lib/appearance/` module (no database involvement at all —
-device-local by design) backs Appearance; `user_notification_preferences`
-(storage only, no delivery system) backs Notifications; `domains/danger-zone`
-backs unit 21's five reset behaviors (no new tables there) plus unit 22's
-two new tables, `user_streak_adjustments` (backing a brand-new
-authoritative streak-length calculation,
-`domains/dashboard/dashboard-aggregation.ts`'s `calculateCurrentStreakLength`,
-that did not exist before unit 22) and `user_dismissed_notices` (storage
-only, no consumer yet). Unit 23 (Danger Zone — Reset Entire Account) is
-next — the first of the two data-destroying units that get full individual
-verification before moving on, per the 2026-09-14 user decision, given
-what a mistake there would cost. Non-account-destructive units before it
-(including both of Danger Zone's own — Resets and Manual Streak/Dismissed
-Warnings) were implemented back-to-back with fast checks only
-(`tsc`, `eslint`, unit tests, `npm run build`), one full
-`npm run test:integration` pass at natural checkpoints (unit 21) rather
-than after every single one.
+**Units 1-23 are done — see their Completed entries below.** Account,
+General, Lessons, Reviews, Appearance, Notifications, Subscription/API,
+and now every non-Delete-Account Danger Zone unit (Resets; Manual Streak &
+Reset Dismissable Warnings; Reset Entire Account) are all fully built.
+`user_review_preferences` has 26 columns; `user_item_progress` gained two
+Leech-tracking columns; one genuinely new table
+(`user_sentence_ghost_progress`) backs Ghost Reviews; a new
+`lib/appearance/` module (no database involvement at all — device-local by
+design) backs Appearance; `user_notification_preferences` (storage only,
+no delivery system) backs Notifications; `domains/danger-zone` backs unit
+21's five reset behaviors (no new tables), unit 22's two new tables
+(`user_streak_adjustments`, backing the first authoritative streak-length
+calculation this codebase has had; `user_dismissed_notices`, storage
+only), and unit 23's wholesale account wipe (no new tables — every table
+it clears already existed). **Unit 24 (Delete Account) is next — the
+second and final data-destroying unit requiring full individual
+verification**, per the 2026-09-14 user decision, and the last unit in
+spec 20's entire 24-unit plan. It is also the one unit whose design
+question was already settled *before* spec 20 began (see this file's
+"Two decisions were put to the user before starting any unit" above): a
+Vercel Cron Job for the 7-day pending-deletion finalization, since this
+codebase has no other background-job mechanism (ADR-010).
 
 **Real-browser verification remains skipped for every spec-20 unit**,
 unit 22 included, per the standing 2026-09-13 process decision above
@@ -1221,6 +1220,113 @@ writing to real `user_item_progress` rows.
 ## Completed
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
+
+- **Spec 20 unit 23 — Danger Zone: Reset Entire Account** (2026-09-14). The
+  first of the two units the 2026-09-14 batching decision calls out for
+  full *individual* verification, not deferred to a checkpoint — the
+  highest-consequence operation in spec 20 so far, short of Delete
+  Account itself.
+
+  **A complete schema audit came before any code**: every table with a
+  foreign key to `users.id` was enumerated (`grep`'d directly against
+  `db/schema/*.ts`) and sorted into "this learner's own application data"
+  (13 tables: `review_events`, `user_sentence_ghost_progress`,
+  `user_item_progress`, `user_level_progress`, `user_language_settings`,
+  `user_review_preferences`, `user_notification_preferences`,
+  `user_preferences`, `decks` [owner], `user_notes`, `user_synonyms`,
+  `user_vacation_periods`, `user_streak_adjustments`,
+  `user_dismissed_notices` — 14 counting `decks`) versus "records of what
+  an admin/writer *did*, not this learner's own state"
+  (`curriculum_item_drafts.editedByUserId`, `curriculum_imports.
+  importedByUserId`/`archivedByUserId`, `vocabulary_dictionary_mappings.
+  mappedByUserId`, `vocabulary_selected_senses.selectedByUserId`,
+  `admin_audit_events.actorUserId` — several deliberately `restrict`/
+  `set null` rather than `cascade`, precisely so they survive
+  independently of the account that made them). `idempotency_keys` was
+  deliberately left alone too — an operational safety record, not learner
+  application data. `deck_items` needed no entry of its own: its foreign
+  key to `decks` cascades, so deleting a learner's personal decks removes
+  their membership rows for free (confirmed by reading `db/schema/
+  decks.ts` directly, not assumed).
+
+  **"private examples"**, one line in the spec's own removal list, has no
+  corresponding table or feature anywhere in this codebase — no
+  learner-submitted-example-sentence feature has ever been built. Nothing
+  was invented to give this line something to point at; that would be the
+  same scope creep this spec's "storage only, no consumer yet" precedent
+  (Notifications, Reset Dismissable Warnings) argues against. Recorded
+  here as a real, checked absence, not a silent gap.
+
+  **Three deliberate scoping calls beyond the spec's literal text**,
+  each reasoned from what a "fresh Polyglot account" already means
+  elsewhere in this codebase:
+  1. `users.timezone`/`active_language_id` reset to `provisionUser`'s own
+     literal defaults (`"UTC"`, the configured default language) — not
+     named by the spec's list, but a stale timezone/language surviving
+     the reset would contradict "the learner should effectively return to
+     a fresh Polyglot account."
+  2. `users.display_name` reset to `NULL` — "internal provisioning may
+     repopulate identity-derived fields... after reset" turned out to
+     already be true by construction: `provisionUser` itself never
+     auto-populates this from Clerk either, so `NULL` here matches a
+     freshly provisioned account exactly, no separate repopulation
+     mechanism needed.
+  3. **Reuses `provisionUser`'s exact composition** (default language →
+     Level 1 lookup → unlock) to re-establish Level 1, rather than
+     approximating it, so "fresh account" is the literal same starting
+     point a brand-new signup reaches, not a close copy of it.
+
+  **A dedicated, tighter rate-limit policy** (`danger-zone-account-reset`,
+  60s/2 requests) rather than reusing unit 21/22's `danger-zone-reset` —
+  the same "sensitive/destructive settings require stronger rate limits"
+  escalation `username-change` already gets over `account-settings`,
+  applied here because this is the single most destructive per-account
+  operation short of deletion itself.
+
+  **A typed-confirmation dialog** (type `RESET` to enable the confirm
+  button) on top of the ordinary confirm/cancel pattern every other
+  Danger Zone action in this spec uses — a deliberately stronger
+  client-side bar than the spec's literal "use a strong confirmation
+  dialog" strictly requires, chosen for an operation this irreversible;
+  server-side re-validation remains the actual authority regardless
+  ("server-side confirmation remains authoritative").
+
+  `domains/danger-zone` gained `account-reset-repository.ts`
+  (`deleteAllLearnerApplicationData`, `resetUserIdentityFields` — direct
+  schema-table statements, not composed from ten other domains'
+  repositories, since this is a wholesale wipe with no per-domain
+  business logic to reuse) and `account-reset-service.ts`
+  (`resetEntireAccount`, one transaction, idempotency-wrapped). After a
+  successful reset, `ResetEntireAccountPanel` routes to `/onboarding`
+  directly — the `(app)` layout's own `isOnboardingRequired` routing
+  guard would send any subsequent page load there anyway, since
+  `onboarding_completed_at` is now `NULL`, but the explicit `router.push`
+  avoids one redundant round trip.
+
+  Verified: `tsc`/`eslint` clean, 1028 unit tests (no change — this
+  unit's logic is entirely database-integration-shaped), `npm run build`
+  clean, **5 new integration tests** in `domains/danger-zone/
+  account-reset-service.integration.test.ts` covering: every one of the
+  13 tables actually empties; every identity/onboarding field resets to
+  its exact fresh-account value while `clerkUserId`/`role`/`id` stay
+  untouched; Level 1 (the real application one, not either of the
+  fixture's own two fixture-only levels) is the *only* unlock left;
+  another user's rows in the same tables are never touched; and a
+  retried call with the same idempotency key replays the original result
+  rather than re-running (or erroring) against an already-empty account.
+  Per this unit's own individual-verification requirement (not deferred),
+  a full `npm run test:integration` pass was also run: **452 of 458 passed
+  — the same 6 pre-existing failures already tracked in this file's "Known
+  gap: shared dev/test database pollution" entry (unit 21), in the exact
+  same 4 files, with the idempotency-key count grown further (104 → 111 →
+  112) purely from this session's own repeated full-suite runs against the
+  shared database.** No new failures, and this unit's own 5 tests passed
+  cleanly both here and in an earlier isolated run. Confirms the pollution
+  is stable, persistent, and unrelated to any spec-20 code — not
+  reinvestigated further this unit, per the same 2026-09-14 user decision
+  that pollution entry already records. **Real-browser verification
+  skipped** per the standing 2026-09-13 process decision (see "Current
+  Goal" above).
 
 - **Spec 20 unit 22 — Danger Zone: Manual Streak & Reset Dismissable
   Warnings** (2026-09-14). Continues Phase H. Manual Streak required

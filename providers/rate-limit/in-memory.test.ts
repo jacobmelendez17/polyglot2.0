@@ -100,6 +100,7 @@ describe("InMemoryRateLimiter", () => {
         "account-settings": { windowSeconds: 60, maxRequests: 5, failOpen: true },
         "username-change": { windowSeconds: 60, maxRequests: 5, failOpen: true },
         "danger-zone-reset": { windowSeconds: 60, maxRequests: 5, failOpen: true },
+        "danger-zone-account-reset": { windowSeconds: 60, maxRequests: 5, failOpen: true },
       },
     });
 

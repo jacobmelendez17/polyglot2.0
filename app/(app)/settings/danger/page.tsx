@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { ContentTypeResetPanel } from "@/components/settings/danger/content-type-reset-panel";
 import { ManualStreakPanel } from "@/components/settings/danger/manual-streak-panel";
 import { ResetDismissedWarningsPanel } from "@/components/settings/danger/reset-dismissed-warnings-panel";
+import { ResetEntireAccountPanel } from "@/components/settings/danger/reset-entire-account-panel";
 import { ResetToLevelPanel } from "@/components/settings/danger/reset-to-level-panel";
 import { SettingsSectionPlaceholder } from "@/components/settings/settings-section-placeholder";
 import { getLevelsByLanguage } from "@/domains/curriculum/server";
@@ -67,10 +68,14 @@ export default async function DangerZoneSettingsPage() {
         </div>
       </div>
 
-      <SettingsSectionPlaceholder
-        title="More Danger Zone actions"
-        description="Resetting your entire account and deleting your account."
-      />
+      <div className="rounded-xl border border-destructive/40 bg-card p-6">
+        <h2 className="font-heading text-lg font-semibold text-destructive">Reset Entire Account</h2>
+        <div className="mt-4">
+          <ResetEntireAccountPanel />
+        </div>
+      </div>
+
+      <SettingsSectionPlaceholder title="More Danger Zone actions" description="Deleting your account." />
     </div>
   );
 }

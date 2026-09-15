@@ -5,7 +5,13 @@ import { z } from "zod";
 
 import type { ContentTypeResetResult } from "@/domains/danger-zone";
 import { isResetTarget } from "@/domains/danger-zone";
-import { resetContentTypeReviews, resetDismissedWarnings, resetToLevel, setManualStreak } from "@/domains/danger-zone/server";
+import {
+  resetContentTypeReviews,
+  resetDismissedWarnings,
+  resetEntireAccount,
+  resetToLevel,
+  setManualStreak,
+} from "@/domains/danger-zone/server";
 import { requireUser } from "@/domains/users/server";
 import { AppError } from "@/lib/errors/app-error";
 
@@ -150,5 +156,42 @@ export async function resetDismissedWarningsAction(
     }
     console.error("Unexpected reset dismissed warnings action error", error);
     return { ok: false, error: { code: "UNKNOWN", message: "Could not reset warnings. Please try again." } };
+  }
+}
+
+const resetEntireAccountInputSchema = z.object({
+  idempotencyKey: z.string().min(1),
+});
+
+/**
+ * Spec 20 Danger Zone — Reset Entire Account. The single most destructive
+ * per-account operation short of Delete Account — the "strong confirmation
+ * dialog" the spec asks for is enforced client-side (typed confirmation
+ * phrase) before this is ever called, but that is a UX convenience, not
+ * the authoritative gate: this action itself is the actual barrier
+ * ("server-side confirmation remains authoritative").
+ */
+export async function resetEntireAccountAction(
+  input: z.infer<typeof resetEntireAccountInputSchema>,
+): Promise<ActionResult<{ resetAt: string }>> {
+  try {
+    const parsed = resetEntireAccountInputSchema.parse(input);
+    const user = await requireUser();
+
+    const result = await resetEntireAccount({ userId: user.id, idempotencyKey: parsed.idempotencyKey });
+
+    // Every page a stale value from this account could still be showing.
+    revalidatePath("/", "layout");
+
+    return { ok: true, data: result };
+  } catch (error) {
+    if (error instanceof AppError) {
+      return { ok: false, error: { code: error.code, message: error.message } };
+    }
+    if (error instanceof z.ZodError) {
+      return { ok: false, error: { code: "VALIDATION_FAILED", message: error.issues[0]?.message ?? "That request isn't valid." } };
+    }
+    console.error("Unexpected reset entire account action error", error);
+    return { ok: false, error: { code: "UNKNOWN", message: "Could not reset your account. Please try again." } };
   }
 }
