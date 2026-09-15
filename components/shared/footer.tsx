@@ -37,9 +37,9 @@ export function Footer({ className }: { className?: string }) {
 
   return (
     <footer className={cn("border-t border-border bg-background", className)}>
-      <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
-        <div className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-4 sm:gap-8">
-          <div className="col-span-2 sm:col-span-1">
+      <div className="mx-auto max-w-6xl px-2 py-12 sm:px-3 lg:px-4">
+        <div className="flex flex-col gap-10 sm:flex-row sm:items-start sm:justify-between">
+          <div>
             <Link
               href="/"
               className="flex items-center gap-2 font-heading text-lg font-semibold text-foreground"
@@ -50,12 +50,19 @@ export function Footer({ className }: { className?: string }) {
             <p className="mt-2 max-w-[22ch] text-sm text-muted-foreground">{APP_TAGLINE}</p>
           </div>
 
-          <FooterNavColumn title="Product" links={PRODUCT_LINKS} />
-          <FooterNavColumn title="Resources" links={RESOURCE_LINKS} />
-          <FooterNavColumn title="Legal" links={LEGAL_LINKS} />
+          <div className="grid grid-cols-2 gap-x-10 gap-y-8 sm:flex sm:justify-end sm:gap-x-16">
+            <FooterNavColumn title="Product" links={PRODUCT_LINKS} />
+            <FooterNavColumn title="Resources" links={RESOURCE_LINKS} />
+            <FooterNavColumn title="Legal" links={LEGAL_LINKS} />
+          </div>
         </div>
+      </div>
 
-        <div className="mt-10 border-t border-border pt-6 text-sm text-muted-foreground">
+      {/* Full-bleed divider — deliberately outside the padded/max-width
+          container above so it spans the whole footer, not just the
+          content column. */}
+      <div className="border-t border-border">
+        <div className="mx-auto max-w-6xl px-2 py-6 text-sm text-muted-foreground sm:px-3 lg:px-4">
           <p>
             &copy; {year} {APP_NAME} &middot; {APP_VERSION_LABEL}
           </p>
