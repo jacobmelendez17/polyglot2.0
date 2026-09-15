@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { UserButton } from "@clerk/nextjs";
-import { Settings } from "lucide-react";
 
 import { LevelsDropdown } from "@/components/shared/levels-dropdown";
 
@@ -37,12 +36,8 @@ export function AppHeader() {
             ))}
           </nav>
 
-          <UserButton>
-            {/* Spec 20 "Routes": Settings is added to the existing account menu rather than a new top-level nav link. */}
-            <UserButton.MenuItems>
-              <UserButton.Link label="Settings" href="/settings" labelIcon={<Settings className="h-4 w-4" aria-hidden="true" />} />
-            </UserButton.MenuItems>
-          </UserButton>
+          {/* Spec 20 "Routes": Settings lives in the existing account menu rather than a new top-level nav link — "Manage account" itself now opens this app's own /settings/account instead of Clerk's hosted profile UI, so there is one entry point, not two. */}
+          <UserButton userProfileUrl="/settings/account" userProfileMode="navigation" />
         </div>
       </div>
     </header>
