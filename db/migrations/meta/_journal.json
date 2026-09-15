@@ -260,6 +260,13 @@
       "when": 1789428940332,
       "tag": "0036_far_landau",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1789434844959,
+      "tag": "0037_bored_boomer",
+      "breakpoints": true
     }
   ]
 }

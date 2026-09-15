@@ -5,7 +5,7 @@ import { z } from "zod";
 
 import type { ContentTypeResetResult } from "@/domains/danger-zone";
 import { isResetTarget } from "@/domains/danger-zone";
-import { resetContentTypeReviews, resetToLevel } from "@/domains/danger-zone/server";
+import { resetContentTypeReviews, resetDismissedWarnings, resetToLevel, setManualStreak } from "@/domains/danger-zone/server";
 import { requireUser } from "@/domains/users/server";
 import { AppError } from "@/lib/errors/app-error";
 
@@ -90,5 +90,65 @@ export async function resetToLevelAction(
     }
     console.error("Unexpected reset to level action error", error);
     return { ok: false, error: { code: "UNKNOWN", message: "Could not complete the reset. Please try again." } };
+  }
+}
+
+const setManualStreakInputSchema = z.object({
+  value: z.number().int().min(0).max(100000),
+  idempotencyKey: z.string().min(1),
+});
+
+/** Spec 20 Danger Zone — Manually Set Streak. */
+export async function setManualStreakAction(
+  input: z.infer<typeof setManualStreakInputSchema>,
+): Promise<ActionResult<{ value: number }>> {
+  try {
+    const parsed = setManualStreakInputSchema.parse(input);
+    const user = await requireUser();
+
+    const result = await setManualStreak({ userId: user.id, value: parsed.value, idempotencyKey: parsed.idempotencyKey });
+
+    revalidatePath("/settings/danger");
+    revalidatePath("/dashboard");
+
+    return { ok: true, data: result };
+  } catch (error) {
+    if (error instanceof AppError) {
+      return { ok: false, error: { code: error.code, message: error.message } };
+    }
+    if (error instanceof z.ZodError) {
+      return { ok: false, error: { code: "VALIDATION_FAILED", message: error.issues[0]?.message ?? "That request isn't valid." } };
+    }
+    console.error("Unexpected set manual streak action error", error);
+    return { ok: false, error: { code: "UNKNOWN", message: "Could not save the streak. Please try again." } };
+  }
+}
+
+const resetDismissedWarningsInputSchema = z.object({
+  idempotencyKey: z.string().min(1),
+});
+
+/** Spec 20 Danger Zone — Reset Dismissable Warnings. */
+export async function resetDismissedWarningsAction(
+  input: z.infer<typeof resetDismissedWarningsInputSchema>,
+): Promise<ActionResult<{ affectedItemCount: number }>> {
+  try {
+    const parsed = resetDismissedWarningsInputSchema.parse(input);
+    const user = await requireUser();
+
+    const result = await resetDismissedWarnings({ userId: user.id, idempotencyKey: parsed.idempotencyKey });
+
+    revalidatePath("/settings/danger");
+
+    return { ok: true, data: result };
+  } catch (error) {
+    if (error instanceof AppError) {
+      return { ok: false, error: { code: error.code, message: error.message } };
+    }
+    if (error instanceof z.ZodError) {
+      return { ok: false, error: { code: "VALIDATION_FAILED", message: error.issues[0]?.message ?? "That request isn't valid." } };
+    }
+    console.error("Unexpected reset dismissed warnings action error", error);
+    return { ok: false, error: { code: "UNKNOWN", message: "Could not reset warnings. Please try again." } };
   }
 }

@@ -1,3 +1,5 @@
+import { previousDateKey } from "@/lib/time/zoned-date";
+
 import type { ForecastBucket, ReviewHistoryPoint, StreakDay } from "./dashboard-types";
 
 /**
@@ -99,4 +101,84 @@ export function buildStreak(now: Date, reviewTimestamps: Date[]): StreakDay[] {
       isToday: daysAgo === 0,
     };
   });
+}
+
+/**
+ * A manual streak adjustment's effect, anchored to the calendar date (in the
+ * learner's timezone) it was set on — spec 20 Danger Zone's "current manual
+ * streak adjustment". `setOnDate` is a `YYYY-MM-DD` key from
+ * `lib/time/zoned-date.ts`'s `dateKeyInTimeZone`, matching the keys in
+ * `calculateCurrentStreakLength`'s date sets.
+ */
+export type StreakAdjustmentAnchor = { value: number; setOnDate: string };
+
+/**
+ * Spec 20 Danger Zone — the authoritative current-streak-length
+ * calculation ("Streak calculation must remain centralized in the
+ * authoritative streak domain/read model. Do not calculate the final
+ * streak independently in dashboard React components."). Distinct from
+ * `buildStreak` above: that renders a fixed Monday-Sunday display row,
+ * this walks backward from today counting the actual current unbroken
+ * run — the number the spec's "Manually Set Streak"/"Streak Persistence"
+ * sections describe.
+ *
+ * Combines exactly the three things "Streak Persistence" names — "actual
+ * qualifying learning/review days + vacation-neutral periods + current
+ * manual streak adjustment" — via one backward walk over calendar-date
+ * keys (`YYYY-MM-DD`, already resolved to the learner's timezone by the
+ * caller):
+ *
+ * - `today` not yet in `qualifyingDates` is treated as *pending*, not a
+ *   miss, on the walk's first day only — a day that hasn't happened yet
+ *   cannot break the streak, mirroring Vacation's own "do not break"
+ *   framing applied to "not yet".
+ * - A date in `vacationNeutralDates` never increments the count and never
+ *   stops the walk ("do not increase streak, do not break streak").
+ * - Reaching `manualAdjustment.setOnDate` (if given) with no break so far
+ *   adds its `value` and stops immediately — the day it was set folds the
+ *   value in whole, so the very next qualifying day is `value + 1`
+ *   (spec's own worked example: set to 20, "next qualifying active day →
+ *   21, following qualifying day → 22").
+ * - Any other non-qualifying, non-neutral date stops the walk — a genuine
+ *   break, discarding whatever the manual adjustment would have
+ *   contributed beyond it (spec: "if the learner later genuinely breaks
+ *   their streak → 0" — the days accumulated *after* the break still
+ *   count, a fresh run starting from 0 at the break).
+ *
+ * Bounded to ~3 years of walking so an account with no adjustment and no
+ * gap in its (hypothetically very long) history terminates rather than
+ * looping forever; not reachable by any account this app has today.
+ */
+export function calculateCurrentStreakLength({
+  today,
+  qualifyingDates,
+  vacationNeutralDates,
+  manualAdjustment,
+}: {
+  today: string;
+  qualifyingDates: Set<string>;
+  vacationNeutralDates: Set<string>;
+  manualAdjustment: StreakAdjustmentAnchor | null;
+}): number {
+  let count = 0;
+  let cursor = today;
+
+  for (let daysWalked = 0; daysWalked < 3 * 366; daysWalked++) {
+    if (manualAdjustment && cursor === manualAdjustment.setOnDate) {
+      count += manualAdjustment.value;
+      break;
+    }
+    if (qualifyingDates.has(cursor)) {
+      count += 1;
+    } else if (vacationNeutralDates.has(cursor)) {
+      // Neutral — neither counted nor a break.
+    } else if (daysWalked === 0) {
+      // Today, pending — hasn't happened yet, doesn't break.
+    } else {
+      break; // A genuine miss.
+    }
+    cursor = previousDateKey(cursor);
+  }
+
+  return count;
 }

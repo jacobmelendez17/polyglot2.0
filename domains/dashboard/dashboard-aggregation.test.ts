@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildForecastBuckets, buildReviewHistoryBuckets, buildStreak } from "./dashboard-aggregation";
+import { buildForecastBuckets, buildReviewHistoryBuckets, buildStreak, calculateCurrentStreakLength } from "./dashboard-aggregation";
 import type { ForecastSourceItem } from "./dashboard-aggregation";
 
 const NOW = new Date("2026-08-30T12:00:00.000Z"); // a Sunday
@@ -87,5 +87,119 @@ describe("buildStreak", () => {
   it("marks every day inactive when there is no history", () => {
     const streak = buildStreak(NOW, []);
     expect(streak.every((day) => !day.isActive)).toBe(true);
+  });
+});
+
+describe("calculateCurrentStreakLength", () => {
+  it("counts consecutive qualifying days ending today", () => {
+    const streak = calculateCurrentStreakLength({
+      today: "2026-08-30",
+      qualifyingDates: new Set(["2026-08-28", "2026-08-29", "2026-08-30"]),
+      vacationNeutralDates: new Set(),
+      manualAdjustment: null,
+    });
+    expect(streak).toBe(3);
+  });
+
+  it("does not break the streak when today has no activity yet — it's pending, not a miss", () => {
+    const streak = calculateCurrentStreakLength({
+      today: "2026-08-30",
+      qualifyingDates: new Set(["2026-08-28", "2026-08-29"]),
+      vacationNeutralDates: new Set(),
+      manualAdjustment: null,
+    });
+    expect(streak).toBe(2);
+  });
+
+  it("stops at the first genuine miss before today", () => {
+    const streak = calculateCurrentStreakLength({
+      today: "2026-08-30",
+      // 8-26 is a miss between 8-25 and 8-27/8-28/8-29 — only the unbroken run ending today counts.
+      qualifyingDates: new Set(["2026-08-25", "2026-08-27", "2026-08-28", "2026-08-29"]),
+      vacationNeutralDates: new Set(),
+      manualAdjustment: null,
+    });
+    expect(streak).toBe(3);
+  });
+
+  it("returns 0 when today is pending and yesterday was already a miss", () => {
+    const streak = calculateCurrentStreakLength({
+      today: "2026-08-30",
+      qualifyingDates: new Set(["2026-08-27"]),
+      vacationNeutralDates: new Set(),
+      manualAdjustment: null,
+    });
+    expect(streak).toBe(0);
+  });
+
+  it("spec's own vacation worked example: Mon/Tue active, Wed-Fri vacation, Sat active — the streak continues across the vacation", () => {
+    const streak = calculateCurrentStreakLength({
+      today: "2026-08-29", // Saturday
+      qualifyingDates: new Set(["2026-08-24", "2026-08-25", "2026-08-29"]), // Mon, Tue, Sat
+      vacationNeutralDates: new Set(["2026-08-26", "2026-08-27", "2026-08-28"]), // Wed, Thu, Fri
+      manualAdjustment: null,
+    });
+    expect(streak).toBe(3);
+  });
+
+  it("vacation days never increment the count, even with no other activity", () => {
+    const streak = calculateCurrentStreakLength({
+      today: "2026-08-28",
+      qualifyingDates: new Set(),
+      vacationNeutralDates: new Set(["2026-08-26", "2026-08-27", "2026-08-28"]),
+      manualAdjustment: null,
+    });
+    expect(streak).toBe(0);
+  });
+
+  it("spec's own worked example: manual streak set to 20, the day it's set", () => {
+    const streak = calculateCurrentStreakLength({
+      today: "2026-08-24",
+      qualifyingDates: new Set(),
+      vacationNeutralDates: new Set(),
+      manualAdjustment: { value: 20, setOnDate: "2026-08-24" },
+    });
+    expect(streak).toBe(20);
+  });
+
+  it("spec's own worked example: the next qualifying day after a manual set is value + 1", () => {
+    const streak = calculateCurrentStreakLength({
+      today: "2026-08-25",
+      qualifyingDates: new Set(["2026-08-25"]),
+      vacationNeutralDates: new Set(),
+      manualAdjustment: { value: 20, setOnDate: "2026-08-24" },
+    });
+    expect(streak).toBe(21);
+  });
+
+  it("spec's own worked example: the following qualifying day is value + 2", () => {
+    const streak = calculateCurrentStreakLength({
+      today: "2026-08-26",
+      qualifyingDates: new Set(["2026-08-25", "2026-08-26"]),
+      vacationNeutralDates: new Set(),
+      manualAdjustment: { value: 20, setOnDate: "2026-08-24" },
+    });
+    expect(streak).toBe(22);
+  });
+
+  it("a genuine break after the manual set discards its value — a fresh run starts from 0", () => {
+    const streak = calculateCurrentStreakLength({
+      today: "2026-08-26", // Wednesday
+      // Set 20 on Monday (8-24); Tuesday (8-25) is a genuine miss; Wednesday (8-26) is fresh.
+      qualifyingDates: new Set(["2026-08-26"]),
+      vacationNeutralDates: new Set(),
+      manualAdjustment: { value: 20, setOnDate: "2026-08-24" },
+    });
+    expect(streak).toBe(1);
+  });
+
+  it("mid-pending-day, an unbroken manual streak still reads at its set value", () => {
+    const streak = calculateCurrentStreakLength({
+      today: "2026-08-25", // Tuesday, nothing done yet today
+      qualifyingDates: new Set(),
+      vacationNeutralDates: new Set(),
+      manualAdjustment: { value: 20, setOnDate: "2026-08-24" },
+    });
+    expect(streak).toBe(20);
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { startOfDayInTimeZone } from "./zoned-date";
+import { dateKeyInTimeZone, previousDateKey, startOfDayInTimeZone } from "./zoned-date";
 
 describe("startOfDayInTimeZone", () => {
   it("matches spec 20's own worked example: Sept 18 3:40 PM America/Phoenix -> Sept 18 12:00 AM Phoenix", () => {
@@ -24,5 +24,35 @@ describe("startOfDayInTimeZone", () => {
   it("does not move a timestamp that is already exactly local midnight", () => {
     const result = startOfDayInTimeZone(new Date("2026-09-18T07:00:00Z"), "America/Phoenix");
     expect(result).toEqual(new Date("2026-09-18T07:00:00Z"));
+  });
+});
+
+describe("dateKeyInTimeZone", () => {
+  it("matches the same instant's calendar date in the given zone", () => {
+    // 2026-09-18T22:40:00Z is 2026-09-18 15:40 in America/Phoenix.
+    expect(dateKeyInTimeZone(new Date("2026-09-18T22:40:00Z"), "America/Phoenix")).toBe("2026-09-18");
+  });
+
+  it("crosses a UTC calendar-date boundary for a zone ahead of UTC", () => {
+    // 2026-01-15T20:00:00Z is already 2026-01-16 01:30 in Asia/Kolkata.
+    expect(dateKeyInTimeZone(new Date("2026-01-15T20:00:00Z"), "Asia/Kolkata")).toBe("2026-01-16");
+  });
+});
+
+describe("previousDateKey", () => {
+  it("steps back one calendar day", () => {
+    expect(previousDateKey("2026-09-18")).toBe("2026-09-17");
+  });
+
+  it("crosses a month boundary", () => {
+    expect(previousDateKey("2026-09-01")).toBe("2026-08-31");
+  });
+
+  it("crosses a year boundary", () => {
+    expect(previousDateKey("2026-01-01")).toBe("2025-12-31");
+  });
+
+  it("crosses a leap-day boundary correctly", () => {
+    expect(previousDateKey("2028-03-01")).toBe("2028-02-29");
   });
 });

@@ -45,3 +45,23 @@ export function startOfDayInTimeZone(date: Date, timeZone: string): Date {
   const { year, month, day } = getZonedDateParts(date, timeZone);
   return localMidnightToUtc(year, month, day, timeZone);
 }
+
+/**
+ * The calendar-date key (`YYYY-MM-DD`) `date` falls on as seen in
+ * `timeZone` (spec 20 Danger Zone — Manual Streak: "timezone determines
+ * calendar-day boundaries"). The day-boundary primitive
+ * `calculateCurrentStreakLength` (`domains/dashboard/dashboard-aggregation.ts`)
+ * walks backward over.
+ */
+export function dateKeyInTimeZone(date: Date, timeZone: string): string {
+  const { year, month, day } = getZonedDateParts(date, timeZone);
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+/** The calendar-date key one day before `dateKey`. Pure string arithmetic — `dateKey` is already timezone-resolved, so no `timeZone` is needed here. */
+export function previousDateKey(dateKey: string): string {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() - 1);
+  return date.toISOString().slice(0, 10);
+}

@@ -1,8 +1,16 @@
 /**
- * Server-only entry point for `domains/danger-zone`. `./reset-binding.ts`
+ * Server-only entry point for `domains/danger-zone`. `./binding.ts`
  * transitively imports `db/client.ts` — import from here only in
  * server-only files (Server Actions), never a `"use client"` component.
  * See `domains/users/server.ts` for why this split exists.
  */
-export { resetContentTypeReviews, resetToLevel } from "./reset-binding";
+export {
+  getCurrentStreak,
+  resetContentTypeReviews,
+  resetDismissedWarnings,
+  resetToLevel,
+  setManualStreak,
+} from "./binding";
 export type { ResetContentTypeReviewsInput, ResetToLevelInput } from "./reset-service";
+export type { GetCurrentStreakInput, SetManualStreakInput } from "./streak-service";
+export type { ResetDismissedWarningsInput } from "./notices-service";

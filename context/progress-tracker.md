@@ -162,37 +162,36 @@ every boundary before considering these done)*
 24. Delete Account — request → email-verified confirmation → 7-day pending
     window → cancel → the Vercel Cron finalize job from decision 1.
 
-**Units 1-21 are done — see their Completed entries below.** Account,
+**Units 1-22 are done — see their Completed entries below.** Account,
 General, Lessons, Reviews, Appearance, Notifications, Subscription/API, and
-now Danger Zone's Resets are all fully built. `user_review_preferences` has
-26 columns; `user_item_progress` gained two Leech-tracking columns; one
-genuinely new table (`user_sentence_ghost_progress`) backs Ghost Reviews; a
-new `lib/appearance/` module (no database involvement at all —
+now both of Danger Zone's non-account-wide units (Resets; Manual Streak &
+Reset Dismissable Warnings) are all fully built. `user_review_preferences`
+has 26 columns; `user_item_progress` gained two Leech-tracking columns;
+one genuinely new table (`user_sentence_ghost_progress`) backs Ghost
+Reviews; a new `lib/appearance/` module (no database involvement at all —
 device-local by design) backs Appearance; `user_notification_preferences`
-(storage only, no delivery system) backs Notifications; a new
-`domains/danger-zone` domain backs unit 21's five reset behaviors, with no
-new tables (every reset reuses `user_item_progress`/`user_level_progress`/
-`user_sentence_ghost_progress`). Unit 22 (Danger Zone — Manual Streak &
-Reset Dismissable Warnings) is next, continuing **Phase H — Danger Zone**,
-the last and highest-risk phase (depends on everything above existing).
-Per the 2026-09-14 user decision, non-account-destructive units are
-implemented back-to-back without pausing for the ~12-minute full
-`npm run test:integration` suite after every single one — fast checks
-(`tsc`, `eslint`, unit tests, `npm run build`) still run continuously after
-each unit, with one full integration-suite pass at natural checkpoints and
-again at the end — **except** the two data-destroying Danger Zone units
-(Reset Entire Account, Delete Account), which still get full individual
-verification before moving on, given what a mistake there would cost. Unit
-21 (Resets) got a full integration-suite pass anyway as a natural
-checkpoint (destructive-shaped, even though scoped per-item/per-category
-rather than account-wide) — see its Completed entry.
+(storage only, no delivery system) backs Notifications; `domains/danger-zone`
+backs unit 21's five reset behaviors (no new tables there) plus unit 22's
+two new tables, `user_streak_adjustments` (backing a brand-new
+authoritative streak-length calculation,
+`domains/dashboard/dashboard-aggregation.ts`'s `calculateCurrentStreakLength`,
+that did not exist before unit 22) and `user_dismissed_notices` (storage
+only, no consumer yet). Unit 23 (Danger Zone — Reset Entire Account) is
+next — the first of the two data-destroying units that get full individual
+verification before moving on, per the 2026-09-14 user decision, given
+what a mistake there would cost. Non-account-destructive units before it
+(including both of Danger Zone's own — Resets and Manual Streak/Dismissed
+Warnings) were implemented back-to-back with fast checks only
+(`tsc`, `eslint`, unit tests, `npm run build`), one full
+`npm run test:integration` pass at natural checkpoints (unit 21) rather
+than after every single one.
 
 **Real-browser verification remains skipped for every spec-20 unit**,
-Notifications included, per the standing 2026-09-13 process decision above
+unit 22 included, per the standing 2026-09-13 process decision above
 (Auto Mode's command classifier blocks the established Playwright/
-`@clerk/testing` recipe in this session) — Unit 19 is verified by `tsc`,
-`eslint`, `npm run test`, and `npm run build` only, the same as every unit
-since. Worth a real-browser pass whenever this session's environment stops
+`@clerk/testing` recipe in this session) — verified by `tsc`, `eslint`,
+`npm run test`, and `npm run build` only, the same as every unit since.
+Worth a real-browser pass whenever this session's environment stops
 blocking it.
 
 **Migration-tooling note for every future unit touching a Postgres enum**:
@@ -1222,6 +1221,114 @@ writing to real `user_item_progress` rows.
 ## Completed
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
+
+- **Spec 20 unit 22 — Danger Zone: Manual Streak & Reset Dismissable
+  Warnings** (2026-09-14). Continues Phase H. Manual Streak required
+  building something that did not exist anywhere in this codebase before
+  today: a genuine numeric "current streak length," not the dashboard's
+  existing `buildStreak` (which only ever renders a fixed Monday-Sunday
+  activity row, `StreakDay[]`, never a running count). The spec's own
+  "Streak calculation must remain centralized in the authoritative streak
+  domain/read model" language assumes this concept already exists to be
+  extended — it didn't, so this unit designed and built it from scratch,
+  worked example by worked example.
+
+  **`calculateCurrentStreakLength`** (`domains/dashboard/
+  dashboard-aggregation.ts`, alongside `buildStreak` — the established home
+  for streak concepts, extended rather than duplicated into a new domain)
+  walks backward from today over `YYYY-MM-DD` calendar-date keys (via two
+  new `lib/time/zoned-date.ts` helpers, `dateKeyInTimeZone`/
+  `previousDateKey`, extending unit 14's timezone-safe day-boundary work),
+  combining exactly the three things "Streak Persistence" names:
+
+  1. **Today, if not yet qualifying, is *pending*, not a miss** — a day
+     that hasn't happened yet cannot break the streak, the same "do not
+     break" framing Vacation Mode already uses applied to "not yet."
+  2. **A vacation-neutral date never increments the count and never stops
+     the walk** ("do not increase streak, do not break streak") —
+     required a new `getVacationPeriodsForUser` in
+     `domains/users/vacation-repository.ts` (every period a learner has
+     ever had, not just the active one every other function there reads).
+  3. **Reaching the manual adjustment's set-on date (if any), with no
+     break so far, adds its `value` and stops** — verified byte-for-byte
+     against the spec's own worked example (set to 20 → next qualifying
+     day → 21 → following day → 22) as both a pure unit test and a real,
+     database-composed integration test.
+  4. **Any other non-qualifying, non-neutral date stops the walk** — a
+     genuine break. Days accumulated *after* a break still count (a fresh
+     run starting at 0 the moment of the break, per the spec's own "if the
+     learner later genuinely breaks their streak → 0") — the manual
+     adjustment's value is simply never reached, discarded by construction
+     rather than requiring an explicit invalidation step (this app has no
+     background-job system, ADR-010, so the read-time walk *is* the
+     mechanism — nothing ever has to notice a break happened and write
+     anything down).
+
+  New table `user_streak_adjustments` (append-only history, an `id`
+  primary key rather than one row per user, matching the spec's own
+  suggested shape and Danger Zone's audit-trail spirit — only the most
+  recent row is ever read for the "current" anchor). `domains/danger-zone`
+  gained `streak-repository.ts`/`streak-service.ts` (injectable core:
+  `setManualStreak`, `getCurrentStreak`) composing `domains/dashboard`'s
+  pure calculation with `domains/srs`'s real review activity and
+  `domains/users`'s vacation history/timezone — the same "reach into
+  another domain's repository file directly" composition style unit 21's
+  `resetToLevel` established. `binding.ts` replaces unit 21's
+  `reset-binding.ts` (renamed, since it now binds streak and notices
+  operations too, not only resets) and reuses the existing
+  `danger-zone-reset` rate-limit policy, whose comment already
+  anticipated covering "Manual Streak, and Reset Dismissable Warnings"
+  when it was added last unit.
+
+  **Reset Dismissable Warnings** is the far smaller half of this unit,
+  matching Notifications' (unit 19) "storage only, no consumer yet"
+  pattern exactly: new table `user_dismissed_notices`
+  (`UNIQUE(user_id, notice_key)`, stable semantic keys like
+  `VACATION_LESSON_WARNING`, never English UI copy, per the spec's
+  explicit instruction), but **no code anywhere in this app writes a
+  dismissal yet** — no "Don't show this message again" warning exists to
+  dismiss. Only the table and the reset (`deleteDismissedNotices`, a
+  correct no-op against every real account today) were built; the
+  write-on-dismiss flow is real future work for whichever warning ships
+  first, not invented speculatively here.
+
+  **Scoping decision**: no new dashboard UI surfaces the numeric streak.
+  `ManualStreakPanel` shows/seeds from `getCurrentStreak`'s real value so
+  the Danger Zone confirmation itself is honest, but the existing
+  `StreakRow`/`buildStreak` weekly display was deliberately left
+  untouched — redesigning dashboard streak *display* is out of this
+  Settings unit's scope (the same reasoning as Appearance's Color-Blind
+  Assistance sweep, unit 18: a real, recorded boundary, not a silent gap).
+  A future dashboard-facing spec is the natural place to surface this
+  number for real.
+
+  Settings UI: `ManualStreakPanel` (current value, number input,
+  confirmation dialog stating "does not insert fake review activity"),
+  `ResetDismissedWarningsPanel` (confirmation dialog, count-of-reset
+  feedback) — both added to `/settings/danger`, which now leaves only
+  Reset Entire Account and Delete Account (units 23-24) as placeholder.
+
+  Verified: `tsc`/`eslint` clean, 1028 unit tests (17 new:
+  `calculateCurrentStreakLength`'s 10 cases tracing every one of the
+  spec's worked examples by hand, plus 4 new `zoned-date.ts` cases),
+  `npm run build` clean, plus **27 new integration tests** across 6 files
+  (`domains/danger-zone/streak-repository`, `notices-repository`,
+  `streak-service` — including the worked example end-to-end against real
+  `review_events`/`user_vacation_periods` rows, not just the pure
+  function — `notices-service`, and `domains/users/
+  vacation-repository.integration.test.ts`'s new `getVacationPeriodsForUser`
+  case). Per the 2026-09-14 batching decision, the full
+  `npm run test:integration` suite was not re-run for this unit
+  specifically (unit 21 was the most recent checkpoint) — all new
+  integration tests were run directly and pass. **A real bug caught while
+  writing the streak-service integration tests**: using the identical
+  `Date` instance for both a seeded review event's timestamp and the
+  query's `now` silently excluded that review, since
+  `getReviewTimestampsInWindow`'s `until` bound is exclusive (consistent
+  with every other window query in this codebase) — fixed in the test
+  data, not the production window semantics, which are correct and match
+  established convention. **Real-browser verification skipped** per the
+  standing 2026-09-13 process decision (see "Current Goal" above).
 
 - **Spec 20 unit 21 — Danger Zone: Resets (Main/Ghost/Leech/CEFR/Reset to
   Level)** (2026-09-14). Opens Phase H. The largest unit since Ghost

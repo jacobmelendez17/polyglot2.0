@@ -9,7 +9,7 @@ import { withTestTransaction, type TestTx } from "@/db/test/with-test-transactio
 
 import { getDefaultLanguageCode } from "./provisioning-config";
 import { provisionUser } from "./user-repository";
-import { endVacationPeriod, findActiveVacationPeriod, startVacationPeriod } from "./vacation-repository";
+import { endVacationPeriod, findActiveVacationPeriod, getVacationPeriodsForUser, startVacationPeriod } from "./vacation-repository";
 
 /** Same minimal §38 prerequisite as `user-repository.integration.test.ts` — see that file for the full reasoning. */
 async function seedDefaultLanguageAndLevel1(tx: TestTx) {
@@ -76,6 +76,23 @@ describe("vacation-repository", () => {
       // Spec 20 Vacation Concurrency: disabling twice must not shift dates twice — signaled by returning null.
       const secondClose = await endVacationPeriod(tx, user.id, new Date("2026-02-11T00:00:00Z"));
       expect(secondClose).toBeNull();
+    });
+  });
+
+  it("getVacationPeriodsForUser returns every period, past and active, newest first", async () => {
+    await withTestTransaction(async (tx) => {
+      await seedDefaultLanguageAndLevel1(tx);
+      const user = await provisionUser(tx, "clerk-vacation-history");
+
+      await startVacationPeriod(tx, user.id, new Date("2026-01-01T00:00:00Z"));
+      await endVacationPeriod(tx, user.id, new Date("2026-01-05T00:00:00Z"));
+      const active = await startVacationPeriod(tx, user.id, new Date("2026-02-01T00:00:00Z"));
+
+      const periods = await getVacationPeriodsForUser(tx, user.id);
+      expect(periods.map((period) => period.id)).toEqual([active.id, periods[1].id]);
+      expect(periods).toHaveLength(2);
+      expect(periods[1].endedAt).toEqual(new Date("2026-01-05T00:00:00Z"));
+      expect(periods[0].endedAt).toBeNull();
     });
   });
 

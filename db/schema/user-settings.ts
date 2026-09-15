@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, check, foreignKey, index, integer, pgEnum, pgTable, primaryKey, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { boolean, check, foreignKey, index, integer, pgEnum, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
 import { timestamps } from "./columns";
 import { vocabularyGroups } from "./curriculum";
@@ -197,6 +197,56 @@ export const userVacationPeriods = pgTable(
     uniqueIndex("user_vacation_periods_one_active_per_user").on(t.userId).where(sql`${t.endedAt} IS NULL`),
     index("user_vacation_periods_user_id_started_at_idx").on(t.userId, t.startedAt.desc()),
   ],
+);
+
+/**
+ * Spec 20 Danger Zone — Manually Set Streak. Append-only history (an `id`
+ * primary key, not `user_id`) rather than one upserted row per user — the
+ * spec's own suggested shape, and matching Danger Zone's other operations'
+ * audit-trail spirit. Only the most recent row per user is ever read for
+ * the "current manual streak adjustment" (`domains/dashboard/
+ * dashboard-aggregation.ts`'s `calculateCurrentStreakLength` reads it as a
+ * `StreakAdjustmentAnchor`, keyed by the calendar date this row's
+ * `created_at` falls on in the learner's timezone) — older rows are kept
+ * only as a record of what was set and when, never replayed or summed.
+ * "Do not insert fake review events" — this is the entire mechanism;
+ * nothing here ever touches `review_events`.
+ */
+export const userStreakAdjustments = pgTable(
+  "user_streak_adjustments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    value: integer("value").notNull(),
+    ...timestamps(),
+  },
+  (t) => [index("user_streak_adjustments_user_id_created_at_idx").on(t.userId, t.createdAt.desc())],
+);
+
+/**
+ * Spec 20 Danger Zone — Reset Dismissable Warnings. Storage only, matching
+ * this spec's own repeated "store the preference now, the delivery/consumer
+ * doesn't exist yet" pattern (Notifications, unit 19): no code anywhere in
+ * this app yet writes a dismissal, since no "Don't show this message
+ * again" warning exists to dismiss. `noticeKey` is a stable semantic
+ * identifier the spec explicitly requires ("do not use the English UI copy
+ * itself as the identifier" — e.g. `VACATION_LESSON_WARNING`), never a
+ * free-text message; a future warning's dismiss control writes here using
+ * that same key, and Danger Zone's Reset action (already built this unit)
+ * deletes every row for the authenticated user regardless of key.
+ */
+export const userDismissedNotices = pgTable(
+  "user_dismissed_notices",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    noticeKey: text("notice_key").notNull(),
+    dismissedAt: timestamp("dismissed_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.noticeKey] })],
 );
 
 /**

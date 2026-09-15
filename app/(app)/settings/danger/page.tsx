@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 
 import { ContentTypeResetPanel } from "@/components/settings/danger/content-type-reset-panel";
+import { ManualStreakPanel } from "@/components/settings/danger/manual-streak-panel";
+import { ResetDismissedWarningsPanel } from "@/components/settings/danger/reset-dismissed-warnings-panel";
 import { ResetToLevelPanel } from "@/components/settings/danger/reset-to-level-panel";
 import { SettingsSectionPlaceholder } from "@/components/settings/settings-section-placeholder";
 import { getLevelsByLanguage } from "@/domains/curriculum/server";
+import { getCurrentStreak } from "@/domains/danger-zone/server";
 import { getUnlockedLevels } from "@/domains/progress/server";
 import { requireUser } from "@/domains/users/server";
 
@@ -13,9 +16,10 @@ export const metadata: Metadata = {
 
 export default async function DangerZoneSettingsPage() {
   const user = await requireUser();
-  const [allLevels, unlockedLevels] = await Promise.all([
+  const [allLevels, unlockedLevels, currentStreak] = await Promise.all([
     getLevelsByLanguage(user.activeLanguageId),
     getUnlockedLevels(user.id, user.activeLanguageId),
+    getCurrentStreak({ userId: user.id, languageId: user.activeLanguageId }),
   ]);
 
   // Same "current Level = highest unlocked Level" computation
@@ -49,9 +53,23 @@ export default async function DangerZoneSettingsPage() {
         </div>
       </div>
 
+      <div className="rounded-xl border border-destructive/40 bg-card p-6">
+        <h2 className="font-heading text-lg font-semibold text-destructive">Streak</h2>
+        <div className="mt-4">
+          <ManualStreakPanel currentStreak={currentStreak} />
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-destructive/40 bg-card p-6">
+        <h2 className="font-heading text-lg font-semibold text-destructive">Warnings</h2>
+        <div className="mt-4">
+          <ResetDismissedWarningsPanel />
+        </div>
+      </div>
+
       <SettingsSectionPlaceholder
         title="More Danger Zone actions"
-        description="Manual streak adjustment, resetting dismissed warnings, resetting your entire account, and deleting your account."
+        description="Resetting your entire account and deleting your account."
       />
     </div>
   );

@@ -14,6 +14,19 @@ function toVacationPeriod(row: typeof userVacationPeriods.$inferSelect): Vacatio
   return { id: row.id, userId: row.userId, startedAt: row.startedAt, endedAt: row.endedAt };
 }
 
+/**
+ * Every vacation period a learner has ever had, past and active alike —
+ * spec 20 "Vacation and Streaks" ("vacation days are neutral... the
+ * learner's streak continues across the vacation") needs the *whole*
+ * history to mark old vacation-neutral calendar days, not just whether one
+ * is active right now, unlike every other vacation-repository function
+ * here.
+ */
+export async function getVacationPeriodsForUser(db: DbClient, userId: string): Promise<VacationPeriod[]> {
+  const rows = await db.select().from(userVacationPeriods).where(eq(userVacationPeriods.userId, userId)).orderBy(desc(userVacationPeriods.startedAt));
+  return rows.map(toVacationPeriod);
+}
+
 /** The learner's currently active vacation period, or `null` when not on vacation. */
 export async function findActiveVacationPeriod(db: DbClient, userId: string): Promise<VacationPeriod | null> {
   const [row] = await db
