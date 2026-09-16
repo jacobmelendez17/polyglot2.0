@@ -12,7 +12,7 @@ import {
   vocabularyGroups,
   vocabularyItems,
 } from "@/db/schema";
-import { FIXTURE_NEXT_LEVEL_NUMBER, SENTENCE_GATO_ID, SENTENCE_Y_ID, seedTestFixtures } from "@/db/seed/test-fixtures";
+import { FIXTURE_LEVEL_NUMBER, FIXTURE_NEXT_LEVEL_NUMBER, SENTENCE_GATO_ID, SENTENCE_Y_ID, seedTestFixtures } from "@/db/seed/test-fixtures";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
 import { getDefaultLanguageCode } from "@/domains/users";
 
@@ -61,9 +61,14 @@ describe("curriculum repository", () => {
 
   it("enforces level uniqueness within a language", async () => {
     await withTestTransaction(async (tx) => {
+      // Uses the fixture's own level number rather than a literal `1` —
+      // this language's real levelNumber-1 row does not exist on an
+      // isolated test database, only on a shared branch that happens to
+      // already have real curriculum imported (spec 22's "remove
+      // shared-database assumptions").
       const { languageId } = await seedTestFixtures(tx);
       await expect(
-        tx.insert(levels).values({ languageId, levelNumber: 1, name: "Duplicate Level 1" }),
+        tx.insert(levels).values({ languageId, levelNumber: FIXTURE_LEVEL_NUMBER, name: "Duplicate Fixture Level" }),
       ).rejects.toThrow();
     });
   });

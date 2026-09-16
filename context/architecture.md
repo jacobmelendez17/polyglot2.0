@@ -1697,6 +1697,17 @@ Rules:
 - Environment configuration is resolved through the typed configuration module described in `code-standards.md`. No environment branching on hostname or on `NODE_ENV` inside domain code.
 - A single `APP_ENV` value identifies the environment to application code. `NODE_ENV` is not sufficient, because preview and production are both production builds.
 
+## Test and E2E Database Isolation
+
+Local automated testing uses two further Neon branches, both distinct from `development`'s and from each other (spec 22):
+
+| Target | Env var | Purpose |
+| --- | --- | --- |
+| `polyglot-test` | `TEST_DATABASE_URL` | `npm run test:integration` — migrated to schema head, nothing seeded; every test builds the fixture state it needs |
+| `polyglot-e2e` | `E2E_DATABASE_URL` | `npm run test:e2e` — reset and seeded with a deterministic `es-MX` fixture curriculum by `npm run e2e:setup` before a run |
+
+`db/test/db-safety-guard.ts` fails closed before any migration, seed, or test run against either: the target env var must exist, must not equal `DATABASE_URL` (or, for the E2E branch, `TEST_DATABASE_URL`), and `APP_ENV` must not be `production`. Neither is ever the real launch curriculum — the E2E fixture is authored through the same `domains/admin` services the real Admin UI uses, but lives entirely on its own branch. CI's ephemeral per-run Neon branch (below) remains the integration story for pull requests; these two are the permanent local-development counterparts.
+
 ---
 
 # CI/CD Pipeline
@@ -2098,6 +2109,8 @@ The codebase must never violate the following rules:
 60. Importing the same completed source snapshot at the same scope again produces no new lexical records.
 61. Raw imported source objects are never exposed to learners and never parsed on a normal page load.
 62. Dictionary source locations are configured server-side. No administrative interface may supply an arbitrary file path or remote fetch URL.
+63. `TEST_DATABASE_URL` and `E2E_DATABASE_URL` are never equal to `DATABASE_URL`, to each other, or reachable when `APP_ENV` is production — enforced by a fail-closed guard, not by convention.
+64. The committed E2E suite never authors, edits, or publishes the real launch curriculum; its curriculum fixture lives entirely on the `polyglot-e2e` branch.
 
 ---
 

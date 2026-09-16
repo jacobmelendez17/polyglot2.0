@@ -3,10 +3,11 @@ import { eq } from "drizzle-orm";
 
 import { DEVELOPER_ID, FIXTURE_LEVEL_NUMBER, seedTestFixtures } from "@/db/seed/test-fixtures";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
-import { learningItems, vocabularyDictionaryMappings, vocabularyItems } from "@/db/schema";
+import { learningItems, lexicalSources, vocabularyDictionaryMappings, vocabularyItems } from "@/db/schema";
 import { bulkImportVocabulary } from "@/domains/admin/bulk-import-service";
 import { confirmCurriculumImport, createCurriculumImport, resolveCurriculumImportRow } from "@/domains/admin/curriculum-import-service";
 import { getCurriculumImportById, listCurriculumImportRows } from "@/domains/admin/curriculum-import-repository";
+import { LEXICAL_SOURCE_DEFINITIONS, WIKTIONARY_ES_SOURCE_CODE } from "@/domains/lexicon/lexical-source-registry";
 import { curriculumImportObjectKey } from "@/providers/storage/curriculum-import-object-key";
 import type { CurriculumImportStorage, PresignedUpload } from "@/providers/storage/types";
 
@@ -62,6 +63,14 @@ describe("runCommitJob (spec 19 §11/§12/§14/§15)", () => {
   it("commits a clean, unresolved-free import and creates the vocabulary item", async () => {
     await withTestTransaction(async (tx) => {
       const { languageId } = await seedTestFixtures(tx);
+      // Post-commit dictionary matching (spec 19 §17) fails loudly and is
+      // swallowed when no dictionary source has ever been imported for the
+      // language (domains/lexicon/lexicon-mapping-service.ts's
+      // resolveDictionarySourceId) — real on a shared dev branch that
+      // happens to already have one, but not on an isolated test database
+      // (spec 22's "remove shared-database assumptions"). Seed the minimal
+      // real source row so matching actually runs and records an outcome.
+      await tx.insert(lexicalSources).values(LEXICAL_SOURCE_DEFINITIONS[WIKTIONARY_ES_SOURCE_CODE]!);
       const csv = `word,translation,level,group\ncommitcreate,commit create,${LEVEL_NUMBER},${GROUP_NUMBER}\n`;
       const { importId, storage } = await createAndPreview(tx, languageId, csv);
 

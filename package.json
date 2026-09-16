@@ -10,6 +10,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.mts",
+    "test:e2e": "playwright test",
+    "e2e:setup": "tsx scripts/e2e-reset.ts",
+    "e2e:server": "tsx scripts/e2e-server.ts",
     "sprites:build": "node scripts/build-sprites.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
@@ -50,6 +53,8 @@
     "zod": "^4.5.4"
   },
   "devDependencies": {
+    "@clerk/testing": "^2.2.36",
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^7.0.1",

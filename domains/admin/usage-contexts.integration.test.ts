@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import { DEVELOPER_ID, ITEM_GATO_ID, ITEM_Y_ID, seedTestFixtures } from "@/db/seed/test-fixtures";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
 import { getItemExamples, getUsageContexts } from "@/domains/curriculum/curriculum-mutation-repository";
-import { AdminError } from "@/lib/errors/admin-errors";
 
 import { mutateItemExample, mutateUsageContext } from "./publication-service";
 
@@ -93,17 +92,19 @@ describe("usage contexts", () => {
     });
   });
 
-  it("refuses a grammar item — grammar has no inflected forms to group by", async () => {
+  it("creates a usage context on a grammar item (spec 18 widened usage contexts beyond vocabulary)", async () => {
     await withTestTransaction(async (tx) => {
       await seedTestFixtures(tx);
-      await expect(
-        mutateUsageContext(tx, {
-          learningItemId: ITEM_Y_ID,
-          actorUserId: DEVELOPER_ID,
-          idempotencyKey: key(),
-          mutation: { kind: "create", learningItemId: ITEM_Y_ID, label: "nope" },
-        }),
-      ).rejects.toBeInstanceOf(AdminError);
+      const { usageContextId } = await mutateUsageContext(tx, {
+        learningItemId: ITEM_Y_ID,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: key(),
+        mutation: { kind: "create", learningItemId: ITEM_Y_ID, label: "conjunctions" },
+      });
+
+      const contexts = await getUsageContexts(tx, ITEM_Y_ID);
+      expect(contexts.map((context) => context.label)).toEqual(["conjunctions"]);
+      expect(usageContextId).toBeTruthy();
     });
   });
 });

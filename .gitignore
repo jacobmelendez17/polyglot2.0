@@ -13,8 +13,15 @@
 # testing
 /coverage
 
+# Playwright (spec 22) — generated auth state and run artifacts, never committed.
+/playwright/.auth/
+/test-results/
+/playwright-report/
+/blob-report/
+
 # next.js
 /.next/
+/.next-e2e/
 /out/
 
 # production

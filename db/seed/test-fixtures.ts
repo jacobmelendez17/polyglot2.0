@@ -60,6 +60,19 @@ export const LEVEL_1_ID = "20000000-0000-0000-0000-000000000001";
 
 export const LEVEL_2_ID = "20000000-0000-0000-0000-000000000091";
 export const VOCAB_GROUP_ID = "30000000-0000-0000-0000-000000000090";
+/**
+ * A second Level 1 group, for rojo (below). rojo must never share Level 1's
+ * `VOCAB_GROUP_ID` with gato/casa/agua, or a query that joins through the
+ * group (e.g. sibling navigation) treats them as being in the same theme.
+ * Deliberately still scoped to Level 1, not Level 2: several
+ * `bulk-import-service` tests rely on Level 2 having zero vocabulary groups
+ * at all ("an otherwise-real level" with no group 1 yet), and rojo's own
+ * `learningItems.levelId` already disagrees with its group's level (it is a
+ * Level 2 item pointing at a Level 1 group) — an existing, deliberate
+ * fixture quirk several other tests already correct for in-transaction
+ * (search `levelId: level2Id`), not something this fix should remove.
+ */
+export const VOCAB_GROUP_2_ID = "30000000-0000-0000-0000-000000000091";
 export const ITEM_GATO_ID = "40000000-0000-0000-0000-000000000001";
 export const ITEM_CASA_ID = "40000000-0000-0000-0000-000000000002";
 export const ITEM_AGUA_ID = "40000000-0000-0000-0000-000000000003";
@@ -133,6 +146,13 @@ export async function seedTestFixtures(db: DbClient, options: SeedTestFixturesOp
     .values({ id: VOCAB_GROUP_ID, levelId: level1Id, languageId, name: "Home & Basics", position: 1, status: "published" })
     .onConflictDoNothing({ target: vocabularyGroups.id });
 
+  // rojo's own group — see VOCAB_GROUP_2_ID's docstring for why this stays
+  // on Level 1 rather than Level 2.
+  await db
+    .insert(vocabularyGroups)
+    .values({ id: VOCAB_GROUP_2_ID, levelId: level1Id, languageId, name: "Colors", position: 2, status: "published" })
+    .onConflictDoNothing({ target: vocabularyGroups.id });
+
   // Level 1 vocabulary: a plain noun, an article-requiring noun, and an
   // irregular-article noun — mirrors spec 07's fixture curriculum's
   // deliberate coverage, per §37's "exercising the actual schema" guidance.
@@ -190,7 +210,7 @@ export async function seedTestFixtures(db: DbClient, options: SeedTestFixturesOp
       },
       {
         learningItemId: ITEM_ROJO_ID,
-        vocabularyGroupId: VOCAB_GROUP_ID,
+        vocabularyGroupId: VOCAB_GROUP_2_ID,
         term: "rojo",
         primaryMeaning: "red",
         partOfSpeech: "adjective",
