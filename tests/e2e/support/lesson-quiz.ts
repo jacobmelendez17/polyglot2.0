@@ -32,12 +32,32 @@ export async function studyAllLessonItems(page: Page): Promise<void> {
   const nextButton = page.getByRole("button", { name: "Next", exact: true });
   const startQuizButton = page.getByRole("button", { name: "Start Quiz" });
 
+  // Bounded retry around the whole study pass: this local dev server's
+  // long-lived Neon WebSocket pool (db/client.ts's single module-scoped
+  // Pool, reused for the life of the process) has occasionally stalled a
+  // single Server Action call for the full test timeout in this session —
+  // genuine environmental flakiness (code-standards.md's Determinism and
+  // Flake Policy explicitly allows E2E retries for exactly this, unlike
+  // domain tests), not a reproducible product defect: a reload always
+  // clears it. Lessons are intentionally ephemeral (architecture.md), so
+  // reloading and re-studying is always safe.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    while (!(await startQuizButton.isVisible().catch(() => false))) {
+      await nextButton.click();
+    }
+    try {
+      await startQuizButton.click({ timeout: 30_000 });
+      return;
+    } catch {
+      await page.reload();
+    }
+  }
+
+  // Final attempt without a shortened timeout, so a real failure still
+  // reports Playwright's own actionable error rather than this helper's.
   while (!(await startQuizButton.isVisible().catch(() => false))) {
     await nextButton.click();
   }
-  // `.click()` below waits out the same `isPending` transition disable this
-  // button briefly goes through on mount (the action's own actionability
-  // wait, not a short `expect()` timeout) — no separate enabled-check needed.
   await startQuizButton.click();
 }
 

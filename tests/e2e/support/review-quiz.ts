@@ -1,13 +1,28 @@
 import { type Page } from "@playwright/test";
 
-const REVIEW_ANSWERS: Record<string, { toEnglish: string; toSpanish: string }> = {
-  gato: { toEnglish: "cat", toSpanish: "el gato" },
-  casa: { toEnglish: "house", toSpanish: "la casa" },
-  agua: { toEnglish: "water", toSpanish: "el agua" },
-  rojo: { toEnglish: "red", toSpanish: "rojo" },
-  azul: { toEnglish: "blue", toSpanish: "azul" },
-  verde: { toEnglish: "green", toSpanish: "verde" },
-};
+/**
+ * Unlike the lesson quiz (which keeps the Spanish term as the heading and
+ * only swaps a direction label), a review's prompt itself flips to the
+ * *source* language of the direction being tested: "Spanish -> English"
+ * shows the Spanish term and expects the English answer, while
+ * "English -> Spanish" shows the English meaning and expects the Spanish
+ * answer (with its article). Both the term and the meaning must resolve to
+ * an answer, since either can be the visible prompt.
+ */
+const REVIEW_TERMS = [
+  { term: "gato", meaning: "cat", toEnglish: "cat", toSpanish: "el gato" },
+  { term: "casa", meaning: "house", toEnglish: "house", toSpanish: "la casa" },
+  { term: "agua", meaning: "water", toEnglish: "water", toSpanish: "el agua" },
+  { term: "rojo", meaning: "red", toEnglish: "red", toSpanish: "rojo" },
+  { term: "azul", meaning: "blue", toEnglish: "blue", toSpanish: "azul" },
+  { term: "verde", meaning: "green", toEnglish: "green", toSpanish: "verde" },
+] as const;
+
+const REVIEW_ANSWERS: Record<string, { toEnglish: string; toSpanish: string }> = {};
+for (const { term, meaning, toEnglish, toSpanish } of REVIEW_TERMS) {
+  REVIEW_ANSWERS[term] = { toEnglish, toSpanish };
+  REVIEW_ANSWERS[meaning] = { toEnglish, toSpanish };
+}
 
 /**
  * Answers every due review question correctly until the session is

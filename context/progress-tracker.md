@@ -8,6 +8,207 @@ Implementation / feature specs
 
 ## Current Goal
 
+**Spec 22 (Test Isolation & Critical E2E) is complete as of 2026-09-15.** Its
+whole premise was Next Up item A below (now resolved) and the "shared
+dev/test database pollution" gap spec 20 unit 21 left open: `TEST_DATABASE_URL`
+had always equaled `DATABASE_URL`, and there was no E2E database or committed
+Playwright suite at all — every prior "real-browser pass" gap recorded across
+specs 07, 11, 14, 15, and every spec-20 unit was ad hoc, uninstalled
+Playwright against whatever the dev database happened to contain.
+
+**Infrastructure created, all via the real Neon API (no `neonctl` available
+in this environment — the user supplied a Neon API key mid-session after two
+false starts: a plain Postgres connection string, then a Management-API key
+scoped to exactly this project):**
+
+- **`polyglot-test`** (branch `br-floral-king-a6bv9jmt`) → `TEST_DATABASE_URL`.
+  Migrated to schema head, nothing seeded — every integration test still
+  builds its own fixture state.
+- **`polyglot-e2e`** (branch `br-bitter-resonance-a69o3lx7`) → `E2E_DATABASE_URL`.
+  Reset and reseeded by `npm run e2e:setup` (`scripts/e2e-reset.ts`) before a
+  full E2E run: drops and recreates the `public` **and** `drizzle` schemas
+  (the migration-tracking table survives a `public`-only reset because a
+  fresh branch copies it from its parent at creation time, so
+  `drizzle-kit migrate` sees history it did not actually apply and silently
+  no-ops — cost real time to find), migrates to head, then seeds the E2E
+  curriculum fixture.
+- Both branches were forked from the real dev branch (Neon has no
+  "create truly empty" primitive, same as ADR-012's ephemeral-branch note)
+  and their `public`/`drizzle` schemas were dropped and rebuilt immediately
+  after creation, so neither ever carried real curriculum or user data.
+- **`db/test/db-safety-guard.ts`** — `assertSafeIntegrationDatabaseUrl`/
+  `assertSafeE2EDatabaseUrl`, fail-closed (missing var, equal to
+  `DATABASE_URL`/each other, or `APP_ENV === "production"`), never logs a
+  connection string. Wired into `db/test/global-setup.ts`,
+  `db/test/test-client.ts`, `scripts/e2e-reset.ts`, and
+  `tests/e2e/support/e2e-db.ts`.
+- **Two permanent, non-production Clerk identities** (`clerk users create`,
+  development instance): `nerdalert46+e2e-learner@gmail.com` /
+  `nerdalert46+e2e-admin@gmail.com` (plus-addressed under the real account
+  owner's inbox — Clerk rejects `.test`-TLD addresses as invalid). Their
+  Clerk user ids are `E2E_LEARNER_CLERK_USER_ID`/`E2E_ADMIN_CLERK_USER_ID` in
+  `.env.local`/`.env.example`. `db/seed/e2e-fixtures.ts` provisions their
+  internal `users` rows **directly** (not through
+  `domains/users/user-repository.ts`'s `provisionUser`, which requires Level
+  1 to already exist — a real chicken-and-egg, since curriculum authorship
+  needs an existing user id to attribute audit events to). The admin
+  identity's role is set directly too — the same bootstrap pattern every
+  prior spec's throwaway admin elevation already used.
+- **E2E curriculum fixture** (`db/seed/e2e-fixtures.ts`) — seeded through the
+  **real** `domains/admin/publication-service.ts` functions
+  (`createLevel`/`createVocabularyGroup`/`createItem`/`publishItem`/
+  `updateLevel`), not raw SQL: es-MX Level 1, two vocabulary groups (gato/
+  casa/agua, rojo/azul/verde), two grammar items (y/pero), and one
+  deliberately unpublished "Admin Test Content" item (amarillo) for the
+  publication flow. Real domain validation, real audit events, real
+  idempotency — proven against real schema/domain assumptions rather than a
+  parallel representation.
+- **Playwright**, committed as a normal dependency (`@playwright/test`,
+  `@clerk/testing`, Chromium only installed). `playwright.config.ts`: a
+  `setup` project (`tests/e2e/specs/auth.setup.ts`) generating
+  `playwright/.auth/{learner,admin}.json` via `@clerk/testing`'s
+  `emailAddress` sign-in (the established recipe, confirmed working for the
+  first time in a real committed suite rather than an ad hoc scratch
+  script); `chromium` (desktop, depends on `setup`); `mobile-chromium`
+  (390×844, `mobile.smoke.spec.ts` only). Workers: 1. Retries: 0. Trace/
+  screenshot/video retained on failure only. `npm run test:e2e` /
+  `npm run e2e:setup` / `npm run e2e:server` are the new scripts.
+- **`scripts/e2e-server.ts`** runs `next dev` with `DATABASE_URL` overridden
+  to `E2E_DATABASE_URL` — never a new `APP_ENV` value (`lib/env.ts`'s schema
+  only recognizes development/preview/production; widening it is an
+  architecture change this spec doesn't need). `next.config.ts` gives it a
+  separate `distDir` (`.next-e2e`, gated on an `E2E_SERVER` env var) so it
+  can run alongside a normal `next dev` session in the same working
+  directory — Next's dev-server singleton lock lives inside `distDir`, and
+  sharing the default `.next` made the second instance refuse to start.
+
+**Ten committed spec files under `tests/e2e/specs/`**: `auth.setup.ts`,
+`auth.spec.ts`, `onboarding.spec.ts`, `lesson-srs.spec.ts`,
+`review-progress.spec.ts`, `progress-persistence.spec.ts`,
+`settings-persistence.spec.ts`, `reset-account.spec.ts`,
+`delete-account.spec.ts`, `admin-publication.spec.ts`, `mobile.smoke.spec.ts`
+— covering every flow spec 22's Verification section lists. Shared helpers
+under `tests/e2e/support/`: `e2e-db.ts` (guarded per-call `Pool`),
+`e2e-state.ts` (onboarding/progress/due-review direct-DB setup, and reading
+the fixture's own real UUIDs back out rather than hardcoding them),
+`lesson-quiz.ts`/`review-quiz.ts` (answer the seeded fixture's real Spanish
+correctly, including the required article on the English→Spanish direction),
+`rate-limit.ts` (see below).
+
+**Real, non-obvious bugs found and fixed along the way — every one exposed
+specifically by using an actually-isolated database instead of the shared
+dev branch, exactly as spec 22 predicted:**
+
+1. **`db/seed/test-fixtures.ts`'s "rojo" fixture item was structurally
+   inconsistent**: `learningItems.levelId` pointed at the fixture's Level 2,
+   but its `vocabularyItems.vocabularyGroupId` pointed at Level 1's group —
+   invisible on the old shared branch because nothing had ever exercised
+   `getSiblingItemIds`'s group-based (not level-based) sibling query against
+   it. Fixed by giving rojo its own second Level-1 group (`VOCAB_GROUP_2_ID`)
+   rather than moving it to Level 2, which would have broken two
+   `bulk-import-service` tests that specifically rely on Level 2 having
+   **zero** vocabulary groups ("an otherwise-real level" with no group 1 yet).
+2. `curriculum-repository.integration.test.ts`'s "enforces level uniqueness"
+   test asserted against the literal `levelNumber: 1` — true only because the
+   real Level 1 already existed on the shared branch. Fixed to use the
+   fixture's own `FIXTURE_LEVEL_NUMBER`.
+3. `aws/lambda/curriculum-import/commit-job.integration.test.ts`'s dictionary-
+   matching assertion depended on a real Wiktionary source having been
+   imported at some point into the shared branch; `domains/lexicon`'s
+   `resolveDictionarySourceId` fails loudly (by design) with no source
+   configured. Fixed by seeding the real `WIKTIONARY_ES_SOURCE_CODE` source
+   row in the test itself.
+4. `domains/sandbox/sandbox-service.integration.test.ts` — four tests
+   anchor a sandbox persona to the **application's real Level 1**
+   (`findLevel1Id` resolves level number 1 deliberately, not the fixture's
+   level 90), which only ever existed because the shared branch had real
+   curriculum. Fixed with a local `seedApplicationLevel1` helper —
+   `onConflictDoNothing`, because `user-repository.integration.test.ts`'s own
+   real-concurrency test (`provisionUser` needs Level 1 to exist for real,
+   so it deliberately commits one) may have already created it.
+5. `domains/admin/usage-contexts.integration.test.ts`'s "refuses a grammar
+   item" test was simply stale (already flagged in Next Up #24): spec 18
+   widened usage contexts to grammar and the test was never updated. Rewrote
+   it to assert the current, correct behavior.
+
+None of these were pollution *accumulating* during this session — resetting
+the schema and re-running immediately reproduced each one, confirming they
+were latent bugs the shared branch had been masking, not new breakage.
+
+**A real, non-obvious testing-infrastructure bug found and fixed**:
+Playwright's `Locator.isVisible()` does not wait or retry — it checks
+immediately and returns. `tests/e2e/support/rate-limit.ts`'s first version
+used `isVisible({ timeout })`, which silently ignored the timeout and always
+returned `false` a few milliseconds after the triggering click, before the
+Server Action's response had even landed — making the whole rate-limit-aware
+retry dead code. Fixed with `locator.waitFor({ state: "visible", timeout })`,
+which actually polls. Worth remembering generally: `isVisible`/`isEnabled`/
+`isChecked` are instant, non-waiting checks; `waitFor`/`expect(...).toBe*()`
+are the polling primitives.
+
+**A real product behavior, not a bug, that cost time to understand**: a
+review's prompt flips to the *source* language of the direction under test —
+"Spanish → English" shows the Spanish term (answer in English); "English →
+Spanish" shows the **English meaning** (answer in Spanish, with its article).
+The lesson quiz does the opposite: the Spanish term stays the heading and
+only a direction label changes. `tests/e2e/support/review-quiz.ts` needed a
+lookup keyed by *both* the term and the meaning; `lesson-quiz.ts` only ever
+needed the term.
+
+**Danger Zone's tightest rate-limit policy** (`danger-zone-account-reset`,
+2 requests/60s — covers Reset Entire Account and every step of Delete
+Account) is real and deliberately tight (`providers/rate-limit/policies.ts`'s
+own comment: "the single most destructive per-account operation short of
+deletion itself"). `delete-account.spec.ts`'s own request→confirm→cancel
+sequence spends that budget by its third call, and a neighboring spec
+sharing the one permanent E2E learner can leave it exhausted too
+(`reset-account.spec.ts` runs right after it). Both specs now detect the
+`RATE_LIMITED` banner and wait out the real window rather than the test
+loosening a real security control — see `tests/e2e/support/rate-limit.ts`.
+
+**Known gap, not resolved this session**: `lesson-srs.spec.ts`'s two tests
+(the fullest interaction in the suite — study 6 items, then a real 10-
+question quiz) intermittently stall on the "Start Quiz" transition for
+minutes, in a way that additional timeout does not reliably fix (5 minutes
+of patience was tried and still failed). Ruled out concretely during
+diagnosis: `startQuiz`/`openLessonItem` carry no rate limit at all (only
+`completeLesson` does); a raw `psql` query against the E2E branch returns in
+under a second (not Neon cold-start latency); reordering this session's own
+direct-DB helper calls away from immediately before the interaction made no
+difference. The one suggestive piece of system evidence gathered mid-session
+(`top`: load average 3–6, ~85MB of ~8GB RAM free, heavy swap-compressor use)
+points at ordinary local memory pressure during a very long interactive
+session degrading `next dev`'s on-demand compilation specifically for the
+heaviest route, rather than a product or test defect — the same interaction
+succeeded repeatedly in earlier, less-loaded manual runs this same session,
+and the underlying domain logic (lesson batch selection, atomic SRS
+enrollment) is fully covered by the integration suite's three clean
+consecutive runs. Recorded per spec 22's own Flake Policy rather than
+silently retried or skipped. **Follow-up**: re-run this one spec file on a
+freshly-restarted machine/session before trusting it either way, and revisit
+once the CI/CD spec runs this suite against a real built preview deployment
+(`next build`/`next start` has none of `next dev`'s per-route on-demand
+compilation, which is the leading theory) rather than local `next dev`.
+
+**Verification**: `npm run test:integration` — **three consecutive clean
+runs, 475/475 tests, 47/47 files** (fixed vitest.config.mts too: its
+`exclude` list didn't cover `tests/e2e/**`, so `npm run test` was trying,
+and failing, to run Playwright spec files directly as Vitest files).
+`npm run test` — 1032/1032. `npm run build` — passing (see below). E2E: of
+17 test cases across 11 files (10 spec files + mobile smoke), 15 pass
+reliably across repeated full runs (confirmed clean together at least once);
+`lesson-srs.spec.ts`'s 2 are the known gap above. `npx tsc --noEmit` and
+`npx eslint` clean across every touched file.
+
+**Explicitly out of scope for this spec, per its own Scope Limits section,
+and left for the CI/CD spec**: `e2e.yml` (a workflow exists as a stub name
+only), GitHub branch protection, running this suite against a Vercel
+preview, and any decision about CI retry count (spec 22 fixes local retries
+at 0; CI may allow 1 for genuine environment flakiness, but that is the next
+spec's call).
+
+---
+
 **Spec 20 (Settings) is now the current goal, started 2026-09-13.** It is the
 largest spec attempted so far — larger than spec 19 — and touches nearly
 every domain in the app (`users`, `lessons`, `srs`, `progress`, `dashboard`)
@@ -4563,23 +4764,14 @@ unit had and these do not; their UI is verified by component tests and
 the existing numbering (referred to as "#9", "#10", "#22" elsewhere in this
 file) does not shift.
 
-- **A. The integration suite shares one database with the running
-  application** — `TEST_DATABASE_URL === DATABASE_URL` in `.env.local`. That
-  was a documented, tolerable tradeoff while the only curriculum was five
-  demo rows. It is not tolerable now: spec 16's import broke 15 tests that
-  were quietly asserting the size of the curriculum, and a seed helper
-  briefly un-archived real curriculum rows as a side effect of running the
-  suite. All of that is fixed, but the underlying condition is unchanged and
-  will bite again on the next import. **It already has** (2026-09-09, found
-  during spec 18 unit 1): the fixture grammar item `y` has been moved out of
-  the fixture level into the real Level 1 and the seed cannot move it back,
-  because its `ON CONFLICT (id)` clause re-asserts only `status` — see that
-  unit's Completed entry for the full diagnosis and the two possible fixes. **The real fix is a dedicated Neon test
-  branch** pointed at by `TEST_DATABASE_URL` — a branch created in the Neon
-  console and one env var changed. It would also retire #9 and #10 below (the
-  accumulated audit log and the idempotency cleanup count), which have
-  exactly the same cause. An infrastructure decision, so it is recorded here
-  rather than taken unilaterally.
+- ~~**A. The integration suite shares one database with the running
+  application**~~ — **done 2026-09-15** as spec 22. `TEST_DATABASE_URL` now
+  points at a dedicated, permanently isolated `polyglot-test` Neon branch
+  (never `DATABASE_URL`, enforced by a fail-closed guard). This also retired
+  #9 and #10 below, which had exactly this cause — see spec 22's Current
+  Goal entry for the full list of latent bugs the old shared branch had been
+  masking (the fixture grammar item `y`/rojo drift mentioned below among
+  them) and how each was actually fixed rather than just isolated away.
 - **C. `¿cómo estás?` is the one vocabulary item the real dictionary cannot
   match.** `deriveDictionaryLookups` derives lookup forms by stripping
   articles, but not surrounding punctuation, so it searches for the literal
@@ -4608,8 +4800,8 @@ file) does not shift.
 6. Custom lesson item selection, deck reviews, and the four practice experiences (`/practice/{speaking,listening,reading,writing}`) — spec 07 explicitly scoped these out (§89) and spec 09 explicitly scoped deck reviews/practice out too (§3); the *normal* SRS review session itself is done (spec 09).
 7. Unit 8's CI workflows (`.github/workflows/ci.yml`, `migrate.yml`) are unverified — need `NEON_API_KEY`, `NEON_PROJECT_ID`, `NEON_TEST_PARENT_BRANCH`, and CI-specific Clerk/lesson-state secrets configured in the GitHub repo before they can run for real. See the spec 08 Completed entry for the full list.
 8. Leech detection — spec 09 explicitly captured the data (`review_events.incorrect_adjustment_count`) needed for this but deferred actual classification thresholds/UI (§3's explicit scope boundary).
-9. The pre-existing, unrelated `domains/idempotency` cleanup-count test flake, observed consistently (not intermittently) across four separate full-integration-suite runs during spec 09 — see that spec's Unit 2/3/4 entries. Worth a dedicated look.
-10. **`domains/admin/audit-repository.integration.test.ts`'s unscoped-query tests now reliably fail** (three of them as of 2026-09-06, up from two — the dev audit log keeps growing, most recently from spec 12's own verification run) against the accumulated real dev-DB audit log (31 rows and growing) — see the Levels/Groups management UI Completed entry above for the full diagnosis. Fix is small (scope both tests' `getAuditEvents` calls to a filter unique to that test run, matching every other test in the same file already does) but is Unit 2's file, out of this session's scope per `ai-workflow-rules.md`. Distinct from item 9's idempotency flake — different root cause, same underlying "shared real dev DB" condition.
+9. ~~The pre-existing, unrelated `domains/idempotency` cleanup-count test flake~~ — **resolved 2026-09-15** as a side effect of spec 22's dedicated `polyglot-test` branch: with no accumulated real committed rows to interfere, this stopped reproducing (confirmed across three consecutive clean `npm run test:integration` runs, 475/475 each).
+10. ~~**`domains/admin/audit-repository.integration.test.ts`'s unscoped-query tests now reliably fail**~~ — **resolved 2026-09-15**, same cause and same fix as #9: the dedicated test branch has no accumulated audit log to leak between tests.
 11. ~~**Learner-facing status gating is a no-op**~~ — **fixed 2026-09-07** alongside spec 07 unit 6. Reads default to published-only; admin and sandbox opt in explicitly. See the Completed entry for the archived-item rule.
 12. **No UI exists yet for `learning_items.lesson_priority`**, a real column `domains/lessons/lesson-batch.ts` already sorts by to decide lesson-batch order — currently always equal to `position` at creation and never independently editable by anything (reordering deliberately leaves it alone). Whether/how these two should ever diverge on purpose has no established answer yet; see the Curriculum Ordering Completed entry (2026-09-06) for the full reasoning behind leaving it flagged rather than inventing a mechanic here.
 
@@ -4626,12 +4818,12 @@ file) does not shift.
 21. **Real-browser pass for spec 14 (Decks)** — the one gap in an otherwise fully verified unit. Follow the scratch-Playwright + `@clerk/testing/playwright` approach the CSV-import and spec 11 entries describe. Worth covering: the create-deck picker (which requires an account with real `user_item_progress` rows — a brand-new account will correctly show nothing to add), the reorder Save flow, removing down to the last item, and a full Know / Don't Know session through to the grouped summary.
 22. **`curriculum-admin-repository.integration.test.ts` fails on shared-dev-branch drift** (observed 2026-09-08, during spec 14's verification — unrelated to decks). "lists every item for a language, ordered by level then curriculum position" asserts the seeded group `30000000-…-0001` is named "Home & Basics"; the dev branch actually has it as "Numbers" (confirmed by direct query). `seedTestFixtures` uses `onConflictDoNothing`, so it never corrects a renamed committed row. Fix it the way spec 11 fixed the equivalent level-targets breakage: have the test create the group it asserts on rather than depending on a shared row. Brings the known-failing integration baseline to 5.
 23. **Real-browser pass for spec 15 (Onboarding)** — same gap as #21. Fastest route in is Admin → Sandbox → **Replay Onboarding**, which needs no throwaway account and can be repeated freely. Worth covering: transition direction differing between Back and Next, the `Start Now!` inflate/shrink emphasis (it replays whenever slide 5 becomes active again after going Back — that is spec 15's "once when Slide 5 becomes active", not a bug), mobile layout with the sticky controls, and `prefers-reduced-motion` actually stilling every loop.
-24. **`usage-contexts.integration.test.ts`'s "refuses a grammar item" test is stale, not flaky** (found 2026-09-12, during spec 19 unit 3's integration verification). It asserts `mutateUsageContext` rejects a grammar item with `AdminError`, but spec 18 later widened usage contexts to grammar (`architecture.md`'s Architecture Decisions entry, 2026-09-09) — `mutateUsageContext` was updated for that, and this one test in `publication-service.ts`'s own spec-17 coverage was not. Reproduces deterministically in isolation, unrelated to spec 19. Fix is to replace the test with one asserting the current (correct) behavior — a grammar item's usage context is created successfully — not to weaken or delete it.
+24. ~~**`usage-contexts.integration.test.ts`'s "refuses a grammar item" test is stale, not flaky"**~~ — **fixed 2026-09-15** as spec 22: replaced with a test asserting the current, correct behavior (a grammar item's usage context is created successfully). Was: (found 2026-09-12, during spec 19 unit 3's integration verification). It asserts `mutateUsageContext` rejects a grammar item with `AdminError`, but spec 18 later widened usage contexts to grammar (`architecture.md`'s Architecture Decisions entry, 2026-09-09) — `mutateUsageContext` was updated for that, and this one test in `publication-service.ts`'s own spec-17 coverage was not. Reproduces deterministically in isolation, unrelated to spec 19. Fix is to replace the test with one asserting the current (correct) behavior — a grammar item's usage context is created successfully — not to weaken or delete it.
 25. **`components/admin/logs/audit-log-filters.test.tsx` flaked twice under the full `npm run test` suite** (found 2026-09-12/13, during spec 19 units 12-13's final verification) — one `userEvent`-driven test failed on one full-suite run, a different one in the same file failed on the next, while the whole file passed cleanly (5/5) both times it was run in isolation. Unrelated to spec 19 — this file wasn't touched this session, and both failures point at timing sensitivity in `userEvent` simulated interaction under jsdom, most likely aggravated by this session's unusually heavy concurrent load (Terraform applies, a real Lambda's worth of AWS SDK calls, and a Playwright browser all running alongside the suite). Worth a dedicated look at whether the test needs explicit `await waitFor(...)` around its assertions rather than relying on `userEvent`'s own timing, but not chased further here per code-standards.md's rule against papering over flakiness with retries.
 26. **Real-browser pass needed for every spec 20 (Settings) unit**, starting with unit 1 (2026-09-13) — same gap as #21/#23, but for a different reason: Auto Mode's command classifier blocked the `npx playwright` + `@clerk/testing` verification flow this session (confirmed on two independent attempts, including trying to self-configure a permission rule), and the user chose to skip live-browser checks for the rest of this spec rather than keep retrying — see Current Goal. Each spec-20 unit is verified by `tsc`/`eslint`/`npm run test`/`npm run build` only. Worth a real-browser pass across all of Settings once this session's classifier restriction is lifted (a permission rule added outside the session, or a future session without the restriction) — desktop sidebar + mobile sheet navigation, every section's rendered state, and eventually every interactive control as each unit ships one.
 27. **`architecture.md`'s "index creation on a populated table uses `CREATE INDEX CONCURRENTLY`" was not followed for `users_username_lower_key`** (2026-09-13, spec 20 unit 3) — Drizzle's `db:generate` has no built-in option for it, and a search of this codebase's 21-migration history found zero prior uses of `CONCURRENTLY` anywhere, so there's no established pattern to follow, and it's unverified whether `drizzle-kit migrate`'s transaction-per-file execution can even run a statement that must execute outside a transaction without a runner change. Shipped as an ordinary (locking) index creation instead, on the reasoning that the `users` table's actual row count at this stage of the beta makes the real lock risk negligible — but the underlying gap (no concurrent-index capability exists in this project's migration tooling at all) is real and will recur for every future index added to a populated table, not just this one. Worth a dedicated infrastructure unit: confirm whether `drizzle-kit migrate` supports a non-transactional statement, and if not, decide the mechanism (hand-written migration outside the generator, a split migration step, etc.) before a genuinely large table needs a new index.
 28. **NSFW filtering is real but only wired into lesson-item selection** (2026-09-13, spec 20 unit 6) — `domains/curriculum`'s `getLevelItems`/`CurriculumVisibility` gained the same `includeNsfw` gate `getEligibleLessonItems` uses, but no caller resolves a learner's real preference for it yet: the level page, item detail, and dashboard counts all still pass the safe default rather than `getEffectiveContentPreferences`. Zero current impact (nothing in the curriculum is classified `nsfw`), but a learner who opts into NSFW today would still not see it on those surfaces. Also out of scope entirely: `domains/lexicon` dictionary-content classification (a separate, large domain) and any Admin authoring UI to mark content NSFW in the first place (deliberate decision at the start of this spec, not an oversight). Worth its own follow-up unit once real NSFW content exists to test against.
-29. **Pre-existing, unrelated integration-test failure found while verifying spec 20 unit 6** — `curriculum-repository.integration.test.ts`'s "returns every item in a level via getLevelItems, ordered by position" fails on its own, independent of any spec 20 change: `seedTestFixtures()`'s `level1Id` (`20000000-…-0001`) no longer matches fixture grammar item `y`'s (`grammarYId`) actual stored `level_id` (`d08bbb5e-…`, confirmed by direct query against the real dev/test database) — the same underlying drift as the spec-18-era note about item `y` having moved out of its fixture level into the real Level 1 (see that Completed entry and Next Up #A). Confirmed by running the test in isolation (still fails) before touching anything. Not fixed here, matching this file's established handling of every other instance of this drift family — worth the same dedicated Neon test-branch fix #A already proposes. **A second confirmed symptom of the same item-`y` drift, found during spec 20 unit 9's full `test:integration` run**: `domains/admin/usage-contexts.integration.test.ts`'s "refuses a grammar item — grammar has no inflected forms to group by" test expects `ITEM_Y_ID` to still be a grammar item on the shared branch, and the mutation no longer refuses — same root cause, not a second issue to track separately.
+29. ~~**Pre-existing, unrelated integration-test failure found while verifying spec 20 unit 6**~~ — **resolved 2026-09-15**: the dedicated `polyglot-test` branch has no drifted-Level-1 pollution, so `getLevelItems`'s ordering test and the equivalent `usage-contexts.integration.test.ts` symptom (fixed separately as #24) both stopped reproducing. Was: `curriculum-repository.integration.test.ts`'s "returns every item in a level via getLevelItems, ordered by position" failed because `seedTestFixtures()`'s `level1Id` no longer matched fixture grammar item `y`'s actual stored `level_id` on the shared dev/test branch.
 
 30. **`/feedback`'s `mailto:` address is a placeholder** (`feedback@polyglot.app`, spec 21, 2026-09-15) — no real, monitored inbox is established anywhere in the codebase or context files. Flagged with a `TODO(21-footer)` comment in `app/(marketing)/feedback/page.tsx`. Swap in the real address (a one-line change) before treating the Feedback link as genuinely usable. If feedback volume ever justifies more than a `mailto:` (a real form, spam protection, storage), that is new scope — see `architecture.md`'s abuse-surface table, which already lists support/feedback forms as a spam vector.
 31. **`/privacy` and `/terms` (spec 21, 2026-09-15) are Beta-stage placeholders, not reviewed legal copy.** Both pages say so explicitly on their face ("will be replaced by a formal policy/agreement before general availability") and are grounded only in behavior already true elsewhere in the codebase — nothing was invented, but nothing was reviewed by counsel either. Revisit before general availability, not before.
@@ -4651,8 +4843,10 @@ All are now specified in `architecture.md` and `code-standards.md`.
 | Health endpoints | Not started |
 | Sentry and PostHog wiring | Not started |
 | Backup and restore drill | Not started |
-| Integration test database harness | Implemented (spec 08 units 1-3, `db/test/` + `vitest.integration.config.mts`) — real Neon via `TEST_DATABASE_URL`, transaction-per-test rollback; CI ephemeral-branch wiring (spec 08 unit 8) still pending |
-| Playwright authentication strategy | Validated manually (see Environment Notes), not wired into a real suite — no `e2e.yml` yet |
+| Integration test database harness | Implemented (spec 08 units 1-3, spec 22) — real Neon via `TEST_DATABASE_URL`, now a **dedicated, permanently isolated `polyglot-test` branch** (never `DATABASE_URL`, fail-closed guard), transaction-per-test rollback; three consecutive clean runs, 475/475. CI ephemeral-branch wiring (spec 08 unit 8) still pending/unverified |
+| E2E test database and fixture | Implemented (spec 22) — dedicated, permanently isolated `polyglot-e2e` Neon branch (`E2E_DATABASE_URL`, fail-closed guard), reset/reseeded by `npm run e2e:setup` through real `domains/admin` services |
+| Playwright committed suite | Implemented (spec 22) — `tests/e2e/`, `playwright.config.ts`, `npm run test:e2e`; Chromium + one mobile-Chromium smoke path; 15/17 test cases reliable across repeated full runs, `lesson-srs.spec.ts` a recorded known gap (see Current Goal) |
+| Clerk E2E test identities and auth-state generation | Implemented (spec 22) — two permanent, non-production identities; `@clerk/testing`'s `emailAddress` sign-in confirmed working in a real committed suite (previously only validated in ad hoc scratch scripts) |
 
 ## Open Questions
 
@@ -4681,7 +4875,7 @@ short investigation — log a sample of rejection reasons behind a flag — woul
 say whether more real vocabulary is being dropped silently.
 
 
-- **Playwright authentication.** `@clerk/testing/playwright`'s `clerkSetup()` + `clerk.signIn({ page, emailAddress })`/`clerk.signOut()` worked cleanly for a real signed-in session in manual verification (2026-08-29) — see Environment Notes. Leaning toward that over a stored-auth-state file, but the real suite (`e2e.yml`, fixture/seed strategy for the test user) still doesn't exist. Decide when building the first end-to-end test.
+- ~~**Playwright authentication.**~~ — **resolved 2026-09-15** as spec 22: `@clerk/testing/playwright`'s `clerkSetup()` + `clerk.signIn({ page, emailAddress })` generates stored `playwright/.auth/{learner,admin}.json` in `tests/e2e/specs/auth.setup.ts`, exactly the manually-validated recipe from 2026-08-29, now in a real committed suite. `e2e.yml`'s real CI wiring is still the next spec's job.
 - **Free-tier level count in marketing copy.** `architecture.md` configures free Levels 1–3, premium Level 4+. Spec 03 instructed that no level count appear in landing copy pending confirmation that the access-tier config is also the public promise. Resolve before the pricing or about pages are written.
 - **New-user vs. returning-user dashboard state.** `getDashboardData` always returns `createPopulatedDashboardFixture` — it has no way to detect a genuinely new user yet (that requires the deferred `progress` domain from Next Up #3/#4). `createNewUserDashboardFixture` exists and is exercised by `dashboard-view.test.tsx`, but nothing in the live route ever serves it. Wire this up once real progress data exists, rather than adding a temporary heuristic now. **No longer blocked as of 2026-09-07** — `domains/progress` is real; this is now a concrete design question for spec 13 unit 2 (what "new" means precisely — no enrolled items at all? no completed lessons? — is not yet defined anywhere and should be resolved as part of that unit's plan, not improvised).
 - **`Reveal` hydration mismatch under real reduced-motion.** `components/shared/reveal.tsx`'s `resolveInitialVisibility()` reads `matchMedia` directly inside its `useState` initializer, which runs once during SSR (`window` undefined → `false`) and again on the client's very first hydration render (`window` defined → `true` when the OS/browser genuinely has `prefers-reduced-motion` set). React logs a hydration-mismatch warning and does not patch the affected className, leaving every `Reveal`-wrapped section — not just the hero — stuck at `opacity-0`/`translate-y-4` (invisible) for real reduced-motion users. Discovered 2026-08-30 during spec 05's browser verification, using Playwright's `reducedMotion: "reduce"` context emulation; confirmed it is not a spec 05 regression by reproducing the same mismatch on every other `Reveal` instance on the page (Srs/Pillars/ReviewPreview/Practice/Closing sections). Predates this unit — `reveal.test.tsx`'s mock-based unit tests mock `matchMedia` only after render and never exercise a real SSR-then-hydrate pass, so it went unnoticed. Left unfixed pending confirmation, since the fix touches a component shared by every landing section rather than anything spec 05 owns. Likely fix: initialize state to the SSR-safe `false` unconditionally and flip it in a `useLayoutEffect` after mount instead of inside the `useState` initializer.

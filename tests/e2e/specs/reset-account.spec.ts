@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 import { ensureLearnerOnboarded, getLearnerId, makeVocabularyItemDue } from "../support/e2e-state";
 import { withE2EDb } from "../support/e2e-db";
+import { clickRespectingDangerZoneRateLimit } from "../support/rate-limit";
 import { userItemProgress, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
@@ -23,7 +24,10 @@ test.describe("Reset Entire Account", () => {
     await page.goto("/settings/danger");
     await page.getByRole("button", { name: "Reset Account" }).click();
     await page.getByLabel(/Type RESET to confirm/).fill("RESET");
-    await page.getByRole("dialog").getByRole("button", { name: "Reset Account" }).click();
+    // Shares Danger Zone's tightest rate-limit budget with Delete Account's
+    // request/confirm/cancel (see rate-limit.ts) — a neighboring spec using
+    // the same permanent E2E learner can leave it exhausted.
+    await clickRespectingDangerZoneRateLimit(page, page.getByRole("dialog").getByRole("button", { name: "Reset Account" }));
 
     await expect(page).toHaveURL(/\/onboarding/, { timeout: 15_000 });
 

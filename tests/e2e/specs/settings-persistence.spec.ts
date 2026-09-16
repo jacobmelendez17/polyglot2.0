@@ -20,7 +20,10 @@ test.describe("Settings persistence", () => {
     await page.goto("/settings/general");
 
     await page.getByRole("combobox", { name: /Timezone/ }).click();
-    await page.getByLabel("Search timezones").fill("Mexico City");
+    // The list is searched against the raw IANA identifier text (e.g.
+    // "America/Mexico_City"), which has no space — "Mexico City" would
+    // match nothing.
+    await page.getByLabel("Search timezones").fill("Mexico_City");
     await page.getByRole("option", { name: /America\/Mexico_City/ }).click();
     await expect(page.getByText("Saved")).toBeVisible();
 

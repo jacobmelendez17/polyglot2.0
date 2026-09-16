@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 import { ensureLearnerOnboarded } from "../support/e2e-state";
+import { clickRespectingDangerZoneRateLimit } from "../support/rate-limit";
 
 /**
  * Spec 22's "Critical Flow — Delete Account Request". The repeatable E2E
@@ -27,7 +28,12 @@ test.describe("Delete Account request and cancellation", () => {
 
     await expect(page.getByRole("button", { name: "Cancel Account Deletion" })).toBeVisible();
 
-    await page.getByRole("button", { name: "Cancel Account Deletion" }).click();
+    // Request/confirm/cancel share Danger Zone's tightest rate-limit policy
+    // (2 requests/60s) — this flow's own request+confirm already spends
+    // that budget, so the third (cancel) call is expected to be rejected
+    // once. See rate-limit.ts for why this waits rather than loosening it.
+    await clickRespectingDangerZoneRateLimit(page, page.getByRole("button", { name: "Cancel Account Deletion" }));
+
     await expect(page.getByRole("button", { name: "Start Account Deletion" })).toBeVisible();
   });
 });

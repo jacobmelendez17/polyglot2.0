@@ -41,6 +41,11 @@ export default defineConfig({
   // `next start` preview server (the future CI/CD spec) pays this cost once
   // at build time instead, not per route on first visit.
   timeout: 90_000,
+  // `expect()`'s own default (5s) is too short for an assertion that
+  // follows a mutating Server Action on this local dev server (see
+  // `timeout` above) — 15s gives real state changes room to land without
+  // papering over a genuine hang, which would still exceed this.
+  expect: { timeout: 15_000 },
   reporter: [["list"], ["html", { open: "never", outputFolder: "playwright-report" }]],
   use: {
     baseURL,

@@ -16,6 +16,10 @@ export default defineConfig(({ mode }) => ({
     // Database integration tests (spec 08 §43) live in a separate Vitest
     // project (vitest.integration.config.mts, `npm run test:integration`) so
     // this normal fast suite never requires a real database connection.
-    exclude: ["**/node_modules/**", "**/*.integration.test.ts"],
+    // The Playwright E2E suite (spec 22, `npm run test:e2e`) lives under
+    // tests/e2e/ and uses `@playwright/test`'s own `test`/`expect`, which
+    // are not Vitest constructs — Vitest's default `*.spec.ts` pattern would
+    // otherwise also try (and fail) to run them directly.
+    exclude: ["**/node_modules/**", "**/*.integration.test.ts", "tests/e2e/**"],
   },
 }));

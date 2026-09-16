@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { getFixtureIds } from "../support/e2e-state";
+import { ensureLearnerOnboarded, getFixtureIds } from "../support/e2e-state";
 
 /**
  * Spec 22's "Critical Flow — Admin Publication": Pending -> explicit
@@ -9,6 +9,7 @@ import { getFixtureIds } from "../support/e2e-state";
  */
 test.describe("Admin curriculum publication", () => {
   test("admin publishes a pending item and it becomes visible to the learner", async ({ browser }) => {
+    await ensureLearnerOnboarded();
     const fixture = await getFixtureIds();
 
     const adminContext = await browser.newContext({ storageState: "playwright/.auth/admin.json" });

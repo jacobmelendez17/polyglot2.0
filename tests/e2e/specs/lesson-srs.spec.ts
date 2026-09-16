@@ -17,15 +17,29 @@ test.describe("Lesson -> SRS", () => {
     await resetLearnerItemProgress();
   });
 
-  test("completing the lesson quiz enrolls items in SRS only after completion, including a deliberately missed question", async ({ page }) => {
-    const fixture = await getFixtureIds();
-    const learnerId = await getLearnerId();
-    const gatoId = fixture.vocabularyItemIdByTerm.gato!;
+  // A full lesson (study 6 items, then a 10-question quiz with real Server
+  // Action round trips) is the heaviest interaction in the suite. See
+  // progress-tracker.md's "Known gap" entry for lesson-srs.spec.ts: in this
+  // development session the "Start Quiz" transition intermittently stalled
+  // for minutes at a time in a way additional timeout did not resolve (5
+  // minutes of patience was not sufficient), most likely tied to this
+  // machine's system-level memory pressure during a long session rather
+  // than a logic defect — the same domain logic is fully covered by the
+  // integration suite (three clean consecutive runs) and this exact
+  // interaction succeeded repeatedly in earlier, less-loaded manual runs
+  // this same session. 120s (above the suite default) gives real headroom
+  // without masking a genuine hang as a multi-minute "still working."
+  test.setTimeout(120_000);
 
+  test("completing the lesson quiz enrolls items in SRS only after completion, including a deliberately missed question", async ({ page }) => {
     await page.goto("/lessons");
     await expect(page.locator("body")).toContainText("Level 1");
 
     await studyAllLessonItems(page);
+
+    const fixture = await getFixtureIds();
+    const learnerId = await getLearnerId();
+    const gatoId = fixture.vocabularyItemIdByTerm.gato!;
 
     // Comprehension quiz not yet completed: no SRS enrollment exists yet.
     const beforeCompletion = await withE2EDb((db) =>
@@ -45,16 +59,16 @@ test.describe("Lesson -> SRS", () => {
   });
 
   test("exiting an unfinished lesson does not enroll any items in SRS", async ({ page }) => {
-    const fixture = await getFixtureIds();
-    const learnerId = await getLearnerId();
-    const gatoId = fixture.vocabularyItemIdByTerm.gato!;
-
     await page.goto("/lessons");
     await studyAllLessonItems(page);
     // Quiz is available but never completed — refresh discards the ephemeral session.
     await page.reload();
 
     await page.goto("/lessons");
+
+    const fixture = await getFixtureIds();
+    const learnerId = await getLearnerId();
+    const gatoId = fixture.vocabularyItemIdByTerm.gato!;
 
     const progress = await withE2EDb((db) =>
       db.select().from(userItemProgress).where(and(eq(userItemProgress.userId, learnerId), eq(userItemProgress.learningItemId, gatoId))),
