@@ -17,19 +17,13 @@ test.describe("Lesson -> SRS", () => {
     await resetLearnerItemProgress();
   });
 
-  // A full lesson (study 6 items, then a 10-question quiz with real Server
-  // Action round trips) is the heaviest interaction in the suite. See
-  // progress-tracker.md's "Known gap" entry for lesson-srs.spec.ts: in this
-  // development session the "Start Quiz" transition intermittently stalled
-  // for minutes at a time in a way additional timeout did not resolve (5
-  // minutes of patience was not sufficient), most likely tied to this
-  // machine's system-level memory pressure during a long session rather
-  // than a logic defect — the same domain logic is fully covered by the
-  // integration suite (three clean consecutive runs) and this exact
-  // interaction succeeded repeatedly in earlier, less-loaded manual runs
-  // this same session. 120s (above the suite default) gives real headroom
-  // without masking a genuine hang as a multi-minute "still working."
-  test.setTimeout(120_000);
+  // A full lesson (study 6 items, then a 10-question quiz) is the heaviest
+  // interaction in the suite. Kept above the 90s suite default as headroom
+  // for it specifically — see lesson-quiz.ts's `studyAllLessonItems` for
+  // the diagnosed root cause of the intermittent stalls this test used to
+  // hit (a Playwright actionability quirk on the "Start Quiz" click, not a
+  // server or domain defect) and why a forced click resolved it.
+  test.setTimeout(60_000);
 
   test("completing the lesson quiz enrolls items in SRS only after completion, including a deliberately missed question", async ({ page }) => {
     await page.goto("/lessons");
@@ -49,6 +43,8 @@ test.describe("Lesson -> SRS", () => {
 
     await completeLessonQuiz(page, { missTermOnce: "gato" });
 
+    await expect(page.getByRole("heading", { name: "Lesson Complete!" })).toBeVisible();
+    await page.getByRole("link", { name: "Return to Dashboard" }).click();
     await expect(page).toHaveURL(/\/dashboard/, { timeout: 15_000 });
 
     const afterCompletion = await withE2EDb((db) =>

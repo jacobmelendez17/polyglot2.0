@@ -32,16 +32,33 @@ for (const { term, meaning, toEnglish, toSpanish } of REVIEW_TERMS) {
  */
 export async function completeAllDueReviews(page: Page): Promise<void> {
   const answerInput = page.getByLabel("Your answer");
+  const completeHeading = page.getByRole("heading", { name: "Session complete!" });
 
   for (let attempt = 0; attempt < 20; attempt++) {
-    if (!(await answerInput.isVisible().catch(() => false))) return; // session complete
+    // `isVisible()` is an instant, non-waiting check — right after the
+    // previous iteration's "Continue" click, neither the next question nor
+    // the completion screen has necessarily mounted yet, so it can read as
+    // "session complete" mid-transition and return early (the calling spec
+    // then sees neither a due review nor "Session complete!"). Wait for
+    // whichever of the two real end states actually appears instead.
+    const state = await Promise.race([
+      answerInput.waitFor({ state: "visible", timeout: 15_000 }).then(() => "question" as const),
+      completeHeading.waitFor({ state: "visible", timeout: 15_000 }).then(() => "complete" as const),
+    ]);
+    if (state === "complete") return;
 
     const text = await page.locator("body").innerText();
-    const promptLine = text.split("\n").map((line) => line.trim()).find((line, index, lines) => index > 0 && lines[index - 1] === "" && line.length > 0 && !line.includes("Exit"));
-    const term = (promptLine ?? "").toLowerCase();
+    // Positively identify the prompt line by checking it against the known
+    // set of terms/meanings, rather than trying to exclude every other
+    // piece of UI chrome on this screen (session stats, "N left", etc.) —
+    // more robust than an exclusion list, and than a positional index,
+    // since this screen's exact line layout isn't fixed the way the lesson
+    // quiz's is.
+    const lines = text.split("\n").map((line) => line.trim().toLowerCase());
+    const term = lines.find((line) => line in REVIEW_ANSWERS);
     const direction: "toEnglish" | "toSpanish" = text.includes("Spanish → English") ? "toEnglish" : "toSpanish";
-    const answer = REVIEW_ANSWERS[term]?.[direction];
-    if (!answer) throw new Error(`No known review answer for prompt "${term}" (${direction}). Body: ${text.slice(0, 300)}`);
+    const answer = term ? REVIEW_ANSWERS[term]?.[direction] : undefined;
+    if (!term || !answer) throw new Error(`No known review prompt found (${direction}). Body: ${text.slice(0, 300)}`);
 
     await answerInput.fill(answer);
     await page.getByRole("button", { name: "Submit" }).click();

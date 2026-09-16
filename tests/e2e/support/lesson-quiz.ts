@@ -2,21 +2,29 @@ import { expect, type Page } from "@playwright/test";
 
 /**
  * Answers for the seeded E2E fixture curriculum's own vocabulary/grammar
- * (`db/seed/e2e-fixtures.ts`), keyed by term/structure and direction. Real
- * Spanish, including the article the quiz requires on the English->Spanish
- * direction for nouns (ui-context.md/progress-tracker.md: the quiz enforces
- * the article on that direction).
+ * (`db/seed/e2e-fixtures.ts`), keyed by *both* the term and its English
+ * meaning — same reasoning as `review-quiz.ts`'s lookup: the quiz's prompt
+ * flips to the source language of the direction under test.
+ * "Spanish → English" shows the Spanish term (answer in English);
+ * "English → Spanish" shows the **English meaning** (answer in Spanish,
+ * with its article for nouns).
  */
-const LESSON_ANSWERS: Record<string, { toEnglish: string; toSpanish: string }> = {
-  y: { toEnglish: "and", toSpanish: "y" },
-  pero: { toEnglish: "but", toSpanish: "pero" },
-  gato: { toEnglish: "cat", toSpanish: "el gato" },
-  casa: { toEnglish: "house", toSpanish: "la casa" },
-  agua: { toEnglish: "water", toSpanish: "el agua" },
-  rojo: { toEnglish: "red", toSpanish: "rojo" },
-  azul: { toEnglish: "blue", toSpanish: "azul" },
-  verde: { toEnglish: "green", toSpanish: "verde" },
-};
+const LESSON_TERMS = [
+  { term: "y", meaning: "and", toEnglish: "and", toSpanish: "y" },
+  { term: "pero", meaning: "but", toEnglish: "but", toSpanish: "pero" },
+  { term: "gato", meaning: "cat", toEnglish: "cat", toSpanish: "el gato" },
+  { term: "casa", meaning: "house", toEnglish: "house", toSpanish: "la casa" },
+  { term: "agua", meaning: "water", toEnglish: "water", toSpanish: "el agua" },
+  { term: "rojo", meaning: "red", toEnglish: "red", toSpanish: "rojo" },
+  { term: "azul", meaning: "blue", toEnglish: "blue", toSpanish: "azul" },
+  { term: "verde", meaning: "green", toEnglish: "green", toSpanish: "verde" },
+] as const;
+
+const LESSON_ANSWERS: Record<string, { toEnglish: string; toSpanish: string }> = {};
+for (const { term, meaning, toEnglish, toSpanish } of LESSON_TERMS) {
+  LESSON_ANSWERS[term] = { toEnglish, toSpanish };
+  LESSON_ANSWERS[meaning] = { toEnglish, toSpanish };
+}
 
 function wrongAnswerFor(term: string): string {
   return `not-${term}`;
@@ -32,33 +40,26 @@ export async function studyAllLessonItems(page: Page): Promise<void> {
   const nextButton = page.getByRole("button", { name: "Next", exact: true });
   const startQuizButton = page.getByRole("button", { name: "Start Quiz" });
 
-  // Bounded retry around the whole study pass: this local dev server's
-  // long-lived Neon WebSocket pool (db/client.ts's single module-scoped
-  // Pool, reused for the life of the process) has occasionally stalled a
-  // single Server Action call for the full test timeout in this session —
-  // genuine environmental flakiness (code-standards.md's Determinism and
-  // Flake Policy explicitly allows E2E retries for exactly this, unlike
-  // domain tests), not a reproducible product defect: a reload always
-  // clears it. Lessons are intentionally ephemeral (architecture.md), so
-  // reloading and re-studying is always safe.
-  for (let attempt = 0; attempt < 3; attempt++) {
-    while (!(await startQuizButton.isVisible().catch(() => false))) {
-      await nextButton.click();
-    }
-    try {
-      await startQuizButton.click({ timeout: 30_000 });
-      return;
-    } catch {
-      await page.reload();
-    }
-  }
-
-  // Final attempt without a shortened timeout, so a real failure still
-  // reports Playwright's own actionable error rather than this helper's.
   while (!(await startQuizButton.isVisible().catch(() => false))) {
     await nextButton.click();
   }
-  await startQuizButton.click();
+
+  // `force: true`, not a plain `.click()`: diagnosed directly against this
+  // server (a temporary instrumented Server Action plus browser-console
+  // capture) — the Server Action itself consistently resolves in well
+  // under a second, but Playwright's default actionability click sometimes
+  // reports "element is not enabled" and retries for its *entire* timeout
+  // even after the click has already landed and the button's `isPending`
+  // (React `useTransition`) has genuinely flipped back to false server-side.
+  // A forced click (which skips the enabled/stable pre-checks, not the
+  // click itself) reproduced cleanly and quickly across every repeat run,
+  // where the identical non-forced click intermittently did not. See
+  // progress-tracker.md's spec 22 entry for the full diagnostic trail.
+  await startQuizButton.click({ force: true });
+
+  // The real completion signal: the quiz's answer field actually mounted,
+  // not just that the click was dispatched.
+  await page.getByLabel("Your answer").waitFor({ state: "visible", timeout: 30_000 });
 }
 
 export interface CompleteLessonQuizOptions {
@@ -100,7 +101,7 @@ export async function completeLessonQuiz(page: Page, options: CompleteLessonQuiz
 
     await answerInput.fill(answer);
     await page.keyboard.press("Enter");
-    await expect(page.getByText(shouldMiss ? /Incorrect/i : /Correct!/i)).toBeVisible();
+    await expect(page.getByText(shouldMiss ? /Not quite/i : /Correct!/i)).toBeVisible();
 
     await page.keyboard.press("Enter");
     // A cleared, editable input is the reliable "ready for the next

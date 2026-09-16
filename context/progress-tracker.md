@@ -166,39 +166,111 @@ sharing the one permanent E2E learner can leave it exhausted too
 `RATE_LIMITED` banner and wait out the real window rather than the test
 loosening a real security control — see `tests/e2e/support/rate-limit.ts`.
 
-**Known gap, not resolved this session**: `lesson-srs.spec.ts`'s two tests
-(the fullest interaction in the suite — study 6 items, then a real 10-
-question quiz) intermittently stall on the "Start Quiz" transition for
-minutes, in a way that additional timeout does not reliably fix (5 minutes
-of patience was tried and still failed). Ruled out concretely during
-diagnosis: `startQuiz`/`openLessonItem` carry no rate limit at all (only
-`completeLesson` does); a raw `psql` query against the E2E branch returns in
-under a second (not Neon cold-start latency); reordering this session's own
-direct-DB helper calls away from immediately before the interaction made no
-difference. The one suggestive piece of system evidence gathered mid-session
-(`top`: load average 3–6, ~85MB of ~8GB RAM free, heavy swap-compressor use)
-points at ordinary local memory pressure during a very long interactive
-session degrading `next dev`'s on-demand compilation specifically for the
-heaviest route, rather than a product or test defect — the same interaction
-succeeded repeatedly in earlier, less-loaded manual runs this same session,
-and the underlying domain logic (lesson batch selection, atomic SRS
-enrollment) is fully covered by the integration suite's three clean
-consecutive runs. Recorded per spec 22's own Flake Policy rather than
-silently retried or skipped. **Follow-up**: re-run this one spec file on a
-freshly-restarted machine/session before trusting it either way, and revisit
-once the CI/CD spec runs this suite against a real built preview deployment
-(`next build`/`next start` has none of `next dev`'s per-route on-demand
-compilation, which is the leading theory) rather than local `next dev`.
+**`lesson-srs.spec.ts`'s two-test flake — root-caused and fixed, not a system-
+load artifact as first (incorrectly) hypothesized.** The user asked for a
+real investigation rather than leaving it as a documented gap. Diagnosis:
+(a) a standalone script calling `startQuiz`/`openLessonItem` directly against
+the E2E DB, bypassing Next.js entirely, proved the domain logic itself
+resolves in well under a second (437ms/125ms/69ms); (b) temporary
+`console.error` instrumentation inside the real `startQuizAction` Server
+Action (added, verified, then removed — `app/(focus)/lessons/actions.ts` is
+back to its pre-debug state) proved the server consistently resolves in
+~500ms, even on the runs Playwright reported as hung; (c) side-by-side probe
+tests comparing a forced vs. non-forced Playwright `.click()` on the "Start
+Quiz" button reproduced the hang cleanly and repeatedly on the non-forced
+click alone. Root cause: Playwright's default click performs its own
+actionability pre-checks (visible/stable/enabled) before dispatching, and on
+this specific button it intermittently kept reporting "element is not
+enabled" and retrying for the click's *entire* timeout — even after the
+underlying click had already been dispatched, the Server Action had resolved,
+and React's `isPending` (`useTransition`) had genuinely flipped back to
+`false` server-side. Fixed in `tests/e2e/support/lesson-quiz.ts` by giving
+the "Start Quiz" click `{ force: true }` (skips only the actionability
+pre-checks, not the click itself) and replacing "trust the click resolved"
+with waiting for the real completion signal — the quiz's `getByLabel("Your
+answer")` field actually mounting. Verified 3 consecutive clean isolated
+runs, then confirmed again inside a full 17/17-clean suite run.
 
-**Verification**: `npm run test:integration` — **three consecutive clean
-runs, 475/475 tests, 47/47 files** (fixed vitest.config.mts too: its
-`exclude` list didn't cover `tests/e2e/**`, so `npm run test` was trying,
-and failing, to run Playwright spec files directly as Vitest files).
-`npm run test` — 1032/1032. `npm run build` — passing (see below). E2E: of
-17 test cases across 11 files (10 spec files + mobile smoke), 15 pass
-reliably across repeated full runs (confirmed clean together at least once);
-`lesson-srs.spec.ts`'s 2 are the known gap above. `npx tsc --noEmit` and
-`npx eslint` clean across every touched file.
+Fixing the hang exposed the quiz for the first time in a genuinely
+reachable, repeatable way, which in turn surfaced three smaller pre-existing
+test-script bugs (not product bugs) in the same file's helpers, all fixed:
+`completeLessonQuiz` was matching UI text `/Incorrect/i`, but the real
+feedback string is "Not quite"; `LESSON_ANSWERS` was keyed only by the
+Spanish term, but — like reviews (see the prompt-flip note above) — the
+lesson quiz's prompt also flips to the English meaning for the
+English→Spanish direction, so the lookup needed keying by both; and the test
+assumed an automatic redirect to `/dashboard` after the last question, but
+the real flow shows a "Lesson Complete!" summary screen with an explicit
+"Return to Dashboard" link.
+
+**`review-progress.spec.ts` regression, found only once the above fix let
+the suite reach further into real usage**: `completeAllDueReviews`'s old
+"first non-blank, non-chrome line" heuristic for locating the prompt text
+occasionally matched a stats line like "1 left" instead of the actual
+prompt. Fixed in `tests/e2e/support/review-quiz.ts` by switching to positive
+matching — checking each line of the page's text against the known set of
+term/meaning keys — rather than trying to maintain an exclusion list for
+every piece of session-stats chrome. Verified 3 consecutive clean isolated
+runs, then confirmed again inside a full 17/17-clean suite run.
+
+**`reset-account.spec.ts`, found during final-verification full-suite runs
+(run 2 of 3 failed 16/17, this test's the one failure)**: a genuine, if
+intermittent, Clerk hydration mismatch — `[browser] Uncaught Error:
+Hydration failed...` in the dev server log, confirmed present in the exact
+run that produced this test's timeout and absent from the clean run.
+`AppHeader` (mounted on every authenticated page) renders Clerk's
+`<UserButton>`; in this E2E setup, `@clerk/testing`'s dev-browser JWT is
+activated client-side, so a fresh `page.goto()` can have its SSR pass render
+before that session is recognized, then React "regenerates" the whole
+`AppLayout` subtree client-side once Clerk resolves the real signed-in state
+— a one-time recovery, not a recurring one. Every other spec's first
+post-`goto` interaction is a polling `expect(...).toBeVisible()` (which
+absorbs this transparently); `reset-account.spec.ts` was the one spec that
+went straight from `page.goto()` to a bare `.click()` on the dialog-opening
+"Reset Account" button, so an unlucky remount mid-click could tear down the
+very button just clicked. Fixed by clicking, waiting up to 5s for the dialog
+to open, and clicking once more only if it didn't — not a weakened
+assertion, just tolerance for a documented one-time remount. `settings-
+persistence.spec.ts` has the same `goto`-then-immediate-`.click()` shape and
+hasn't been observed to fail, but is structurally exposed to the same race;
+left as-is since it's unproven, flagged here for future attention rather
+than touched speculatively.
+
+**A second `isVisible()`-doesn't-wait bug, same footgun as `rate-limit.ts`'s
+earlier one, found during the reset-account re-verification's full-suite
+run**: `completeAllDueReviews`'s loop (`tests/e2e/support/review-quiz.ts`,
+used by both `review-progress.spec.ts` and `progress-persistence.spec.ts`)
+checked `answerInput.isVisible()` — an instant, non-waiting snapshot — right
+after clicking "Continue" to decide whether the review session had ended.
+Since neither the next question nor the "Session complete!" screen is
+guaranteed to have mounted yet at that instant, the loop could read a
+mid-transition frame as "done" and return early, well before the real
+completion screen ever appeared — the calling spec's own
+`expect(...).toBeVisible())` then timed out waiting for a heading that was
+never going to show up, because the session was quietly abandoned partway
+through. Fixed by racing two real `waitFor({state: "visible"})` polls (the
+next question's answer field vs. the completion heading) instead of an
+instant check. Verified 3 consecutive clean isolated runs of both callers.
+
+**A real, if minor, ESLint-config gap from spec 22's own `next.config.ts`
+change**: the E2E dev server's separate `distDir` (`.next-e2e/`, added so it
+can run alongside the normal dev server) was never added to
+`eslint.config.mjs`'s `globalIgnores`, unlike the default `.next/**`. Its
+generated route-type validator file was consequently linted as if it were
+hand-written source, producing ~13,800 false-positive problems the moment
+that directory existed on disk. Fixed by adding `.next-e2e/**` alongside the
+existing `.next/**` ignore.
+
+**Verification — spec 22's full bar, all met**: 3 consecutive clean full E2E
+suite runs, **17/17 passing every time** (`npx tsx scripts/e2e-reset.ts` +
+`npx playwright test --project=setup --project=chromium
+--project=mobile-chromium`, ~3.5-4.8 min each). `npm run test:integration` —
+3 consecutive clean runs, 475/475 tests, 47/47 files (fixed
+`vitest.config.mts` too: its `exclude` list didn't cover `tests/e2e/**`, so
+`npm run test` was trying, and failing, to run Playwright spec files
+directly as Vitest files). `npm run test` — 1032/1032. `npx tsc --noEmit` —
+clean. `npm run lint` — clean (after the `.next-e2e/**` ignore fix above).
+`npm run build` — clean. Zero known E2E or integration flakes remain.
 
 **Explicitly out of scope for this spec, per its own Scope Limits section,
 and left for the CI/CD spec**: `e2e.yml` (a workflow exists as a stub name
@@ -4845,7 +4917,7 @@ All are now specified in `architecture.md` and `code-standards.md`.
 | Backup and restore drill | Not started |
 | Integration test database harness | Implemented (spec 08 units 1-3, spec 22) — real Neon via `TEST_DATABASE_URL`, now a **dedicated, permanently isolated `polyglot-test` branch** (never `DATABASE_URL`, fail-closed guard), transaction-per-test rollback; three consecutive clean runs, 475/475. CI ephemeral-branch wiring (spec 08 unit 8) still pending/unverified |
 | E2E test database and fixture | Implemented (spec 22) — dedicated, permanently isolated `polyglot-e2e` Neon branch (`E2E_DATABASE_URL`, fail-closed guard), reset/reseeded by `npm run e2e:setup` through real `domains/admin` services |
-| Playwright committed suite | Implemented (spec 22) — `tests/e2e/`, `playwright.config.ts`, `npm run test:e2e`; Chromium + one mobile-Chromium smoke path; 15/17 test cases reliable across repeated full runs, `lesson-srs.spec.ts` a recorded known gap (see Current Goal) |
+| Playwright committed suite | Implemented (spec 22) — `tests/e2e/`, `playwright.config.ts`, `npm run test:e2e`; Chromium + one mobile-Chromium smoke path; all 17/17 test cases reliable, confirmed across 3 consecutive clean full-suite runs (`lesson-srs.spec.ts`, `review-progress.spec.ts`/`progress-persistence.spec.ts`, `reset-account.spec.ts` all root-caused and fixed, see Current Goal) |
 | Clerk E2E test identities and auth-state generation | Implemented (spec 22) — two permanent, non-production identities; `@clerk/testing`'s `emailAddress` sign-in confirmed working in a real committed suite (previously only validated in ad hoc scratch scripts) |
 
 ## Open Questions
