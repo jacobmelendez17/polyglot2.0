@@ -58,7 +58,10 @@ export type QuestionAnswerSpec = {
  * question. Only ever called server-side (spec 07 §29) — the accepted
  * answers this returns must never be sent to the client ahead of grading.
  */
-export function getQuestionAnswerSpec(item: LearningItem, direction: QuizQuestionDirection): QuestionAnswerSpec {
+export function getQuestionAnswerSpec(
+  item: LearningItem,
+  direction: QuizQuestionDirection,
+): QuestionAnswerSpec {
   if (item.type === "vocabulary") {
     if (direction === "targetToEnglish") {
       return {
@@ -69,19 +72,31 @@ export function getQuestionAnswerSpec(item: LearningItem, direction: QuizQuestio
     }
 
     const targetForms = [item.word, ...item.targetVariants];
-    const acceptedAnswers = item.article ? targetForms.map((form) => `${item.article} ${form}`) : targetForms;
+    const acceptedAnswers = item.article
+      ? targetForms.map((form) => `${item.article} ${form}`)
+      : targetForms;
 
     return {
       acceptedAnswers,
-      articleRequirement: item.article ? { article: item.article, bareAnswers: targetForms } : undefined,
+      articleRequirement: item.article
+        ? { article: item.article, bareAnswers: targetForms }
+        : undefined,
       expectedAnswerDisplay: acceptedAnswers[0],
       prompt: item.meanings[0],
     };
   }
 
   if (direction === "targetToEnglish") {
-    return { acceptedAnswers: [item.meaning], expectedAnswerDisplay: item.meaning, prompt: item.structure };
+    return {
+      acceptedAnswers: [item.meaning],
+      expectedAnswerDisplay: item.meaning,
+      prompt: item.structure,
+    };
   }
 
-  return { acceptedAnswers: [item.structure], expectedAnswerDisplay: item.structure, prompt: item.meaning };
+  return {
+    acceptedAnswers: [item.structure],
+    expectedAnswerDisplay: item.structure,
+    prompt: item.meaning,
+  };
 }

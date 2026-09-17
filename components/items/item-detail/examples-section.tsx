@@ -15,20 +15,37 @@ type ExamplesSectionProps = {
  * organized by form. The duplication is intentional: Context answers "how is
  * this form used?", Examples answers "show me every sentence".
  */
-export function ExamplesSection({ examples, languageCode }: ExamplesSectionProps) {
+export function ExamplesSection({
+  examples,
+  languageCode,
+}: ExamplesSectionProps) {
   if (examples.length === 0) {
-    return <p className="text-base text-muted-foreground">No example sentences for this item yet.</p>;
+    return (
+      <p className="text-base text-muted-foreground">
+        No example sentences for this item yet.
+      </p>
+    );
   }
 
   return (
     <ul className="flex flex-col gap-3">
       {examples.map((example) => (
-        <li key={example.id} className="flex items-start justify-between gap-3 rounded-xl bg-muted/30 px-4 py-3 ring-1 ring-foreground/5">
+        <li
+          key={example.id}
+          className="flex items-start justify-between gap-3 rounded-xl bg-muted/30 px-4 py-3 ring-1 ring-foreground/5"
+        >
           <div className="min-w-0">
             <p className="text-lg text-foreground">{example.targetText}</p>
-            <p className="mt-1 text-base text-muted-foreground">{example.translation}</p>
+            <p className="mt-1 text-base text-muted-foreground">
+              {example.translation}
+            </p>
           </div>
-          <PronunciationButton text={example.spokenText} languageCode={languageCode} label={example.targetText} size="sm" />
+          <PronunciationButton
+            text={example.spokenText}
+            languageCode={languageCode}
+            label={example.targetText}
+            size="sm"
+          />
         </li>
       ))}
     </ul>

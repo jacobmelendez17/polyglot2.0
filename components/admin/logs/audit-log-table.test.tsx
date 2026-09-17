@@ -44,13 +44,20 @@ describe("AuditLogTable", () => {
 
   it("shows a designed empty state, not a blank table, when nothing matches", () => {
     render(<AuditLogTable events={[]} actorNamesById={{}} />);
-    expect(screen.getByText("No audit events match these filters.")).toBeInTheDocument();
+    expect(
+      screen.getByText("No audit events match these filters."),
+    ).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
 
   it("expands and collapses a row's before/after detail on demand", async () => {
     const user = userEvent.setup();
-    render(<AuditLogTable events={[event({ afterData: { term: "gato" } })]} actorNamesById={{}} />);
+    render(
+      <AuditLogTable
+        events={[event({ afterData: { term: "gato" } })]}
+        actorNamesById={{}}
+      />,
+    );
 
     expect(screen.queryByText(/"term"/)).not.toBeInTheDocument();
 
@@ -63,7 +70,14 @@ describe("AuditLogTable", () => {
   });
 
   it("shows no expand toggle when there's no before/after data to show", () => {
-    render(<AuditLogTable events={[event({ beforeData: null, afterData: null })]} actorNamesById={{}} />);
-    expect(screen.queryByRole("button", { name: "Show details" })).not.toBeInTheDocument();
+    render(
+      <AuditLogTable
+        events={[event({ beforeData: null, afterData: null })]}
+        actorNamesById={{}}
+      />,
+    );
+    expect(
+      screen.queryByRole("button", { name: "Show details" }),
+    ).not.toBeInTheDocument();
   });
 });

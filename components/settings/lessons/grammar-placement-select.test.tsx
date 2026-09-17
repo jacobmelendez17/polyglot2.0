@@ -23,11 +23,16 @@ describe("GrammarPlacementSelect", () => {
   });
 
   it("saves the new placement and shows Saved", async () => {
-    mockAction.mockResolvedValueOnce({ ok: true, data: { grammarPlacement: "first" } });
+    mockAction.mockResolvedValueOnce({
+      ok: true,
+      data: { grammarPlacement: "first" },
+    });
     const user = userEvent.setup();
     render(<GrammarPlacementSelect initialValue="no_preference" />);
 
-    await user.click(screen.getByRole("combobox", { name: "Grammar Placement" }));
+    await user.click(
+      screen.getByRole("combobox", { name: "Grammar Placement" }),
+    );
     await user.click(screen.getByRole("option", { name: "First" }));
 
     expect(mockAction).toHaveBeenCalledWith({ grammarPlacement: "first" });
@@ -35,14 +40,21 @@ describe("GrammarPlacementSelect", () => {
   });
 
   it("reverts to the previous value and shows the error when the save fails", async () => {
-    mockAction.mockResolvedValueOnce({ ok: false, error: { code: "UNKNOWN", message: "Could not save setting." } });
+    mockAction.mockResolvedValueOnce({
+      ok: false,
+      error: { code: "UNKNOWN", message: "Could not save setting." },
+    });
     const user = userEvent.setup();
     render(<GrammarPlacementSelect initialValue="no_preference" />);
 
-    await user.click(screen.getByRole("combobox", { name: "Grammar Placement" }));
+    await user.click(
+      screen.getByRole("combobox", { name: "Grammar Placement" }),
+    );
     await user.click(screen.getByRole("option", { name: "Last" }));
 
-    expect(await screen.findByText("Could not save setting.")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Could not save setting."),
+    ).toBeInTheDocument();
     expect(screen.getByText("No Preference")).toBeInTheDocument();
   });
 });

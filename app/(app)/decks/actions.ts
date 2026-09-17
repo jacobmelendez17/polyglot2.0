@@ -34,9 +34,13 @@ import { DeckError } from "@/lib/errors/deck-errors";
  * `app/(focus)/reviews/actions.ts`'s `ActionResult` shape.
  */
 
-export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: { code: string; message: string } };
+export type ActionResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: { code: string; message: string } };
 
-async function runDeckAction<T>(fn: () => Promise<T>): Promise<ActionResult<T>> {
+async function runDeckAction<T>(
+  fn: () => Promise<T>,
+): Promise<ActionResult<T>> {
   try {
     return { ok: true, data: await fn() };
   } catch (error) {
@@ -47,15 +51,29 @@ async function runDeckAction<T>(fn: () => Promise<T>): Promise<ActionResult<T>> 
       return { ok: false, error: { code: error.code, message: error.message } };
     }
     if (error instanceof z.ZodError) {
-      return { ok: false, error: { code: "DECK_VALIDATION_FAILED", message: "That request could not be understood." } };
+      return {
+        ok: false,
+        error: {
+          code: "DECK_VALIDATION_FAILED",
+          message: "That request could not be understood.",
+        },
+      };
     }
     // Never log deck contents or the learner's private notes/synonyms.
     console.error("Unexpected deck action error", error);
-    return { ok: false, error: { code: "UNKNOWN", message: "Something went wrong. Please try again." } };
+    return {
+      ok: false,
+      error: {
+        code: "UNKNOWN",
+        message: "Something went wrong. Please try again.",
+      },
+    };
   }
 }
 
-const createDeckActionSchema = createPersonalDeckSchema.extend({ idempotencyKey: z.string().min(1) });
+const createDeckActionSchema = createPersonalDeckSchema.extend({
+  idempotencyKey: z.string().min(1),
+});
 
 export async function createDeckAction(
   input: z.input<typeof createDeckActionSchema>,
@@ -112,11 +130,17 @@ export async function addDeckItemsAction(
   });
 }
 
-export async function removeDeckItemAction(input: z.input<typeof deckItemSchema>): Promise<ActionResult<null>> {
+export async function removeDeckItemAction(
+  input: z.input<typeof deckItemSchema>,
+): Promise<ActionResult<null>> {
   return runDeckAction(async () => {
     const parsed = deckItemSchema.parse(input);
     const user = await requireUser();
-    await removePersonalDeckItem({ userId: user.id, deckId: parsed.deckId, learningItemId: parsed.learningItemId });
+    await removePersonalDeckItem({
+      userId: user.id,
+      deckId: parsed.deckId,
+      learningItemId: parsed.learningItemId,
+    });
     revalidatePath(`/decks/${parsed.deckId}`);
     revalidatePath("/decks");
     return null;
@@ -139,7 +163,9 @@ export async function reorderDeckItemsAction(
   });
 }
 
-export async function deleteDeckAction(input: z.input<typeof deckIdSchema>): Promise<ActionResult<null>> {
+export async function deleteDeckAction(
+  input: z.input<typeof deckIdSchema>,
+): Promise<ActionResult<null>> {
   return runDeckAction(async () => {
     const parsed = deckIdSchema.parse(input);
     const user = await requireUser();
@@ -149,7 +175,9 @@ export async function deleteDeckAction(input: z.input<typeof deckIdSchema>): Pro
   });
 }
 
-const searchItemsActionSchema = z.object({ search: z.string().max(120).optional() });
+const searchItemsActionSchema = z.object({
+  search: z.string().max(120).optional(),
+});
 
 /** Powers the "add items" picker. Read-only, and scoped server-side to what this learner has actually learned. */
 export async function searchEligibleDeckItemsAction(
@@ -158,6 +186,10 @@ export async function searchEligibleDeckItemsAction(
   return runDeckAction(async () => {
     const parsed = searchItemsActionSchema.parse(input);
     const user = await requireUser();
-    return listEligibleDeckItems({ userId: user.id, languageId: user.activeLanguageId, search: parsed.search });
+    return listEligibleDeckItems({
+      userId: user.id,
+      languageId: user.activeLanguageId,
+      search: parsed.search,
+    });
   });
 }

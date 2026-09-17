@@ -18,7 +18,8 @@ const completeLessonAction = vi.fn();
 vi.mock("@/app/(focus)/lessons/actions", () => ({
   openLessonItemAction: (...args: unknown[]) => openLessonItemAction(...args),
   startQuizAction: (...args: unknown[]) => startQuizAction(...args),
-  submitQuizAnswerAction: (...args: unknown[]) => submitQuizAnswerAction(...args),
+  submitQuizAnswerAction: (...args: unknown[]) =>
+    submitQuizAnswerAction(...args),
   completeLessonAction: (...args: unknown[]) => completeLessonAction(...args),
 }));
 
@@ -106,7 +107,15 @@ beforeEach(() => {
 describe("LessonSessionView", () => {
   it("keeps the primary action as Next until every item has been viewed, then offers Start Quiz", async () => {
     openLessonItemAction.mockImplementation(({ itemId }: { itemId: string }) =>
-      Promise.resolve({ ok: true, data: { token: "t2", viewedItemIds: ["vocab-gato", "vocab-perro"].filter((id) => id === "vocab-gato" || id === itemId) } }),
+      Promise.resolve({
+        ok: true,
+        data: {
+          token: "t2",
+          viewedItemIds: ["vocab-gato", "vocab-perro"].filter(
+            (id) => id === "vocab-gato" || id === itemId,
+          ),
+        },
+      }),
     );
 
     const user = userEvent.setup();
@@ -119,7 +128,9 @@ describe("LessonSessionView", () => {
     // is still in flight, so clicking too early is a silent no-op.
     const nextButton = screen.getByRole("button", { name: "Next" });
     await waitFor(() => expect(nextButton).toBeEnabled(), { timeout: 3000 });
-    expect(screen.queryByRole("button", { name: "Start Quiz" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Start Quiz" }),
+    ).not.toBeInTheDocument();
 
     openLessonItemAction.mockResolvedValueOnce({
       ok: true,
@@ -128,13 +139,24 @@ describe("LessonSessionView", () => {
 
     await user.click(nextButton);
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "Start Quiz" })).toBeInTheDocument(), { timeout: 3000 });
+    await waitFor(
+      () =>
+        expect(
+          screen.getByRole("button", { name: "Start Quiz" }),
+        ).toBeInTheDocument(),
+      { timeout: 3000 },
+    );
   });
 
   it("exposes an accessible exit control throughout the study phase", () => {
-    openLessonItemAction.mockResolvedValue({ ok: true, data: { token: "t2", viewedItemIds: ["vocab-gato"] } });
+    openLessonItemAction.mockResolvedValue({
+      ok: true,
+      data: { token: "t2", viewedItemIds: ["vocab-gato"] },
+    });
     render(<LessonSessionView initial={INITIAL} />);
-    expect(screen.getByRole("button", { name: "Exit lesson" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Exit lesson" }),
+    ).toBeInTheDocument();
   });
 
   it("transitions into the quiz once Start Quiz is requested", async () => {
@@ -152,18 +174,31 @@ describe("LessonSessionView", () => {
         viewedItemIds: ["vocab-gato", "vocab-perro"],
         currentQuestion: QUESTION,
         characterHelpers: [],
-      itemStates: { "vocab-gato": "current", "vocab-perro": "not-started" },
-        quizStats: { requiredCount: 4, satisfiedCount: 0, attempts: 0, correctAttempts: 0 },
+        itemStates: { "vocab-gato": "current", "vocab-perro": "not-started" },
+        quizStats: {
+          requiredCount: 4,
+          satisfiedCount: 0,
+          attempts: 0,
+          correctAttempts: 0,
+        },
       },
     });
 
     const user = userEvent.setup();
     render(<LessonSessionView initial={INITIAL} />);
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "Start Quiz" })).toBeEnabled(), { timeout: 3000 });
+    await waitFor(
+      () =>
+        expect(
+          screen.getByRole("button", { name: "Start Quiz" }),
+        ).toBeEnabled(),
+      { timeout: 3000 },
+    );
     await user.click(screen.getByRole("button", { name: "Start Quiz" }));
 
-    await waitFor(() => expect(screen.getByText("gato")).toBeInTheDocument(), { timeout: 3000 });
+    await waitFor(() => expect(screen.getByText("gato")).toBeInTheDocument(), {
+      timeout: 3000,
+    });
     expect(screen.getByText("Spanish → English")).toBeInTheDocument();
   });
 
@@ -173,7 +208,12 @@ describe("LessonSessionView", () => {
       phase: "quiz",
       currentQuestion: QUESTION,
       itemStates: { "vocab-gato": "current", "vocab-perro": "not-started" },
-      quizStats: { requiredCount: 4, satisfiedCount: 0, attempts: 0, correctAttempts: 0 },
+      quizStats: {
+        requiredCount: 4,
+        satisfiedCount: 0,
+        attempts: 0,
+        correctAttempts: 0,
+      },
     };
 
     submitQuizAnswerAction.mockResolvedValue({
@@ -195,7 +235,12 @@ describe("LessonSessionView", () => {
           directionLabel: "Spanish → English",
         },
         itemStates: { "vocab-gato": "complete", "vocab-perro": "current" },
-        quizStats: { requiredCount: 4, satisfiedCount: 1, attempts: 1, correctAttempts: 1 },
+        quizStats: {
+          requiredCount: 4,
+          satisfiedCount: 1,
+          attempts: 1,
+          correctAttempts: 1,
+        },
         feedback: { kind: "correct" },
       },
     });
@@ -203,8 +248,13 @@ describe("LessonSessionView", () => {
     const user = userEvent.setup();
     render(<LessonSessionView initial={QUIZ_INITIAL} />);
 
-    await user.type(screen.getByRole("textbox", { name: "Your answer" }), "cat{Enter}");
-    await waitFor(() => expect(screen.getByText("Correct!")).toBeInTheDocument());
+    await user.type(
+      screen.getByRole("textbox", { name: "Your answer" }),
+      "cat{Enter}",
+    );
+    await waitFor(() =>
+      expect(screen.getByText("Correct!")).toBeInTheDocument(),
+    );
 
     // Still showing gato's prompt, and quizStats should still read the
     // pre-answer values (0/4, no accuracy yet) — not the server's already-
@@ -220,21 +270,52 @@ describe("LessonSessionView", () => {
 
   describe("Auto Pronunciation (spec 20 Lessons)", () => {
     it("pronounces the first vocabulary item on introduction when enabled", async () => {
-      openLessonItemAction.mockResolvedValue({ ok: true, data: { token: "t2", viewedItemIds: ["vocab-gato"] } });
+      openLessonItemAction.mockResolvedValue({
+        ok: true,
+        data: { token: "t2", viewedItemIds: ["vocab-gato"] },
+      });
 
-      render(<LessonSessionView initial={{ ...INITIAL, languageCode: "es-MX", autoPronounceLessons: true }} />);
+      render(
+        <LessonSessionView
+          initial={{
+            ...INITIAL,
+            languageCode: "es-MX",
+            autoPronounceLessons: true,
+          }}
+        />,
+      );
 
       await waitFor(() => expect(speak).toHaveBeenCalledTimes(1));
-      expect(speak).toHaveBeenCalledWith({ text: "gato", languageCode: "es-MX" });
+      expect(speak).toHaveBeenCalledWith({
+        text: "gato",
+        languageCode: "es-MX",
+      });
     });
 
     it("pronounces the next item only once it's actually introduced, not before", async () => {
-      openLessonItemAction.mockImplementation(({ itemId }: { itemId: string }) =>
-        Promise.resolve({ ok: true, data: { token: "t2", viewedItemIds: ["vocab-gato", "vocab-perro"].filter((id) => id === "vocab-gato" || id === itemId) } }),
+      openLessonItemAction.mockImplementation(
+        ({ itemId }: { itemId: string }) =>
+          Promise.resolve({
+            ok: true,
+            data: {
+              token: "t2",
+              viewedItemIds: ["vocab-gato", "vocab-perro"].filter(
+                (id) => id === "vocab-gato" || id === itemId,
+              ),
+            },
+          }),
       );
 
       const user = userEvent.setup();
-      render(<LessonSessionView initial={{ ...INITIAL, languageCode: "es-MX", autoPronounceLessons: true }} />);
+      render(
+        <LessonSessionView
+          initial={{
+            ...INITIAL,
+            languageCode: "es-MX",
+            autoPronounceLessons: true,
+          }}
+        />,
+      );
 
       await waitFor(() => expect(speak).toHaveBeenCalledTimes(1));
 
@@ -243,22 +324,47 @@ describe("LessonSessionView", () => {
       await user.click(nextButton);
 
       await waitFor(() => expect(speak).toHaveBeenCalledTimes(2));
-      expect(speak).toHaveBeenLastCalledWith({ text: "perro", languageCode: "es-MX" });
+      expect(speak).toHaveBeenLastCalledWith({
+        text: "perro",
+        languageCode: "es-MX",
+      });
     });
 
     it("never pronounces anything when the preference is off", async () => {
-      openLessonItemAction.mockResolvedValue({ ok: true, data: { token: "t2", viewedItemIds: ["vocab-gato"] } });
+      openLessonItemAction.mockResolvedValue({
+        ok: true,
+        data: { token: "t2", viewedItemIds: ["vocab-gato"] },
+      });
 
-      render(<LessonSessionView initial={{ ...INITIAL, languageCode: "es-MX", autoPronounceLessons: false }} />);
+      render(
+        <LessonSessionView
+          initial={{
+            ...INITIAL,
+            languageCode: "es-MX",
+            autoPronounceLessons: false,
+          }}
+        />,
+      );
 
       await waitFor(() => expect(openLessonItemAction).toHaveBeenCalled());
       expect(speak).not.toHaveBeenCalled();
     });
 
     it("cancels any in-flight speech when the session unmounts", async () => {
-      openLessonItemAction.mockResolvedValue({ ok: true, data: { token: "t2", viewedItemIds: ["vocab-gato"] } });
+      openLessonItemAction.mockResolvedValue({
+        ok: true,
+        data: { token: "t2", viewedItemIds: ["vocab-gato"] },
+      });
 
-      const { unmount } = render(<LessonSessionView initial={{ ...INITIAL, languageCode: "es-MX", autoPronounceLessons: true }} />);
+      const { unmount } = render(
+        <LessonSessionView
+          initial={{
+            ...INITIAL,
+            languageCode: "es-MX",
+            autoPronounceLessons: true,
+          }}
+        />,
+      );
       await waitFor(() => expect(speak).toHaveBeenCalledTimes(1));
 
       unmount();

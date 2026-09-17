@@ -44,7 +44,8 @@ export type QuizQuestionView = {
   directionLabel: string;
 };
 
-export type ItemSegmentState = "current" | "complete" | "partial" | "not-started";
+export type ItemSegmentState =
+  "current" | "complete" | "partial" | "not-started";
 
 export type QuizAnswerFeedback =
   | { kind: "empty" }
@@ -103,7 +104,11 @@ export type LessonSessionResult = {
  * two mean opposite things — "nothing left to learn" versus "tell me which
  * part you want next".
  */
-export type LessonThemeChoice = { id: string; name: string; remainingCount: number };
+export type LessonThemeChoice = {
+  id: string;
+  name: string;
+  remainingCount: number;
+};
 
 export type LessonStartResult =
   | { kind: "empty" }

@@ -6,7 +6,11 @@ import { Check, ChevronsUpDown } from "lucide-react";
 import { updateTimezoneAction } from "@/app/(app)/settings/general/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { getSupportedTimezones } from "@/lib/time/timezones";
 import { cn } from "@/lib/utils";
 
@@ -35,7 +39,9 @@ export function TimezoneSelect({ initialTimezone }: TimezoneSelectProps) {
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     if (!normalized) return ALL_TIMEZONES;
-    return ALL_TIMEZONES.filter((timezone) => timezone.toLowerCase().includes(normalized));
+    return ALL_TIMEZONES.filter((timezone) =>
+      timezone.toLowerCase().includes(normalized),
+    );
   }, [query]);
 
   async function handleSelect(timezone: string) {
@@ -85,7 +91,10 @@ export function TimezoneSelect({ initialTimezone }: TimezoneSelectProps) {
               disabled={state === "saving"}
             >
               {savedTimezone}
-              <ChevronsUpDown className="h-4 w-4 opacity-50" aria-hidden="true" />
+              <ChevronsUpDown
+                className="h-4 w-4 opacity-50"
+                aria-hidden="true"
+              />
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-72 p-0" align="start">
@@ -98,9 +107,15 @@ export function TimezoneSelect({ initialTimezone }: TimezoneSelectProps) {
                 aria-label="Search timezones"
               />
             </div>
-            <div role="listbox" aria-label="Timezone" className="max-h-64 overflow-y-auto p-1">
+            <div
+              role="listbox"
+              aria-label="Timezone"
+              className="max-h-64 overflow-y-auto p-1"
+            >
               {filtered.length === 0 ? (
-                <p className="px-2 py-4 text-center text-sm text-muted-foreground">No timezones match.</p>
+                <p className="px-2 py-4 text-center text-sm text-muted-foreground">
+                  No timezones match.
+                </p>
               ) : (
                 filtered.map((timezone) => (
                   <button
@@ -111,11 +126,17 @@ export function TimezoneSelect({ initialTimezone }: TimezoneSelectProps) {
                     onClick={() => handleSelect(timezone)}
                     className={cn(
                       "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted",
-                      timezone === savedTimezone && "font-semibold text-foreground",
+                      timezone === savedTimezone &&
+                        "font-semibold text-foreground",
                     )}
                   >
                     <Check
-                      className={cn("h-4 w-4 shrink-0", timezone === savedTimezone ? "opacity-100" : "opacity-0")}
+                      className={cn(
+                        "h-4 w-4 shrink-0",
+                        timezone === savedTimezone
+                          ? "opacity-100"
+                          : "opacity-0",
+                      )}
                       aria-hidden="true"
                     />
                     {timezone}
@@ -127,9 +148,15 @@ export function TimezoneSelect({ initialTimezone }: TimezoneSelectProps) {
         </Popover>
       </div>
       <p className="mt-2 text-sm" aria-live="polite">
-        {state === "saving" && <span className="text-muted-foreground">Saving…</span>}
+        {state === "saving" && (
+          <span className="text-muted-foreground">Saving…</span>
+        )}
         {state === "saved" && <span className="text-state-success">Saved</span>}
-        {state === "error" && <span className="text-destructive">{errorMessage ?? "Could not save setting."}</span>}
+        {state === "error" && (
+          <span className="text-destructive">
+            {errorMessage ?? "Could not save setting."}
+          </span>
+        )}
       </p>
     </div>
   );

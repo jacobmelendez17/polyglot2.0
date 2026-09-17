@@ -12,7 +12,10 @@ type StackedBarChartProps = {
 };
 
 export function StackedBarChart({ buckets }: StackedBarChartProps) {
-  const maxCount = Math.max(1, ...buckets.map((bucket) => bucket.vocabularyCount + bucket.grammarCount));
+  const maxCount = Math.max(
+    1,
+    ...buckets.map((bucket) => bucket.vocabularyCount + bucket.grammarCount),
+  );
 
   return (
     <div className="flex flex-col gap-2">
@@ -21,12 +24,17 @@ export function StackedBarChart({ buckets }: StackedBarChartProps) {
         style={{ height: CHART_HEIGHT_PX }}
         role="img"
         aria-label={`Upcoming review items by time. ${buckets
-          .map((bucket) => `${bucket.label}: ${bucket.vocabularyCount + bucket.grammarCount} items`)
+          .map(
+            (bucket) =>
+              `${bucket.label}: ${bucket.vocabularyCount + bucket.grammarCount} items`,
+          )
           .join(", ")}`}
       >
         {buckets.map((bucket, index) => {
-          const vocabHeight = (bucket.vocabularyCount / maxCount) * CHART_HEIGHT_PX;
-          const grammarHeight = (bucket.grammarCount / maxCount) * CHART_HEIGHT_PX;
+          const vocabHeight =
+            (bucket.vocabularyCount / maxCount) * CHART_HEIGHT_PX;
+          const grammarHeight =
+            (bucket.grammarCount / maxCount) * CHART_HEIGHT_PX;
 
           return (
             <div
@@ -59,7 +67,10 @@ export function StackedBarChart({ buckets }: StackedBarChartProps) {
 
       <div className="flex gap-2 sm:gap-3" aria-hidden="true">
         {buckets.map((bucket) => (
-          <span key={bucket.timestamp} className="flex-1 text-center text-xs text-muted-foreground">
+          <span
+            key={bucket.timestamp}
+            className="flex-1 text-center text-xs text-muted-foreground"
+          >
             {bucket.label}
           </span>
         ))}

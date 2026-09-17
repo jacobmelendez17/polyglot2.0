@@ -1,9 +1,20 @@
 import { describe, expect, it } from "vitest";
 
 import { userItemProgress } from "@/db/schema";
-import { DEVELOPER_ID, ITEM_AGUA_ID, ITEM_CASA_ID, ITEM_GATO_ID, VOCAB_GROUP_ID, seedTestFixtures } from "@/db/seed/test-fixtures";
+import {
+  DEVELOPER_ID,
+  ITEM_AGUA_ID,
+  ITEM_CASA_ID,
+  ITEM_GATO_ID,
+  VOCAB_GROUP_ID,
+  seedTestFixtures,
+} from "@/db/seed/test-fixtures";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
-import { getDraft, getVocabularyDictionaryFields, lockLearningItemForEdit } from "@/domains/curriculum/curriculum-mutation-repository";
+import {
+  getDraft,
+  getVocabularyDictionaryFields,
+  lockLearningItemForEdit,
+} from "@/domains/curriculum/curriculum-mutation-repository";
 import { AdminError } from "@/lib/errors/admin-errors";
 import { eq } from "drizzle-orm";
 
@@ -49,7 +60,13 @@ describe("createItem", () => {
       expect(locked?.status).toBe("pending");
 
       const audit = await getAuditEvents(tx, { limit: 10 });
-      expect(audit.items.some((e) => e.action === "CURRICULUM_ITEM_CREATED" && e.resourceId === learningItemId)).toBe(true);
+      expect(
+        audit.items.some(
+          (e) =>
+            e.action === "CURRICULUM_ITEM_CREATED" &&
+            e.resourceId === learningItemId,
+        ),
+      ).toBe(true);
     });
   });
 
@@ -88,7 +105,13 @@ describe("createItem", () => {
         actorUserId: DEVELOPER_ID,
         idempotencyKey: crypto.randomUUID(),
         type: "vocabulary",
-        fields: { vocabularyGroupId: VOCAB_GROUP_ID, term: "fíxtura", primaryMeaning: "fixture (accented)", partOfSpeech: "noun", acceptedAnswers: [] },
+        fields: {
+          vocabularyGroupId: VOCAB_GROUP_ID,
+          term: "fíxtura",
+          primaryMeaning: "fixture (accented)",
+          partOfSpeech: "noun",
+          acceptedAnswers: [],
+        },
       });
 
       // The unaccented spelling is a different word and must not be blocked.
@@ -98,7 +121,13 @@ describe("createItem", () => {
         actorUserId: DEVELOPER_ID,
         idempotencyKey: crypto.randomUUID(),
         type: "vocabulary",
-        fields: { vocabularyGroupId: VOCAB_GROUP_ID, term: "fixtura", primaryMeaning: "fixture (plain)", partOfSpeech: "noun", acceptedAnswers: [] },
+        fields: {
+          vocabularyGroupId: VOCAB_GROUP_ID,
+          term: "fixtura",
+          primaryMeaning: "fixture (plain)",
+          partOfSpeech: "noun",
+          acceptedAnswers: [],
+        },
       });
       expect(await lockLearningItemForEdit(tx, learningItemId)).not.toBeNull();
     });
@@ -118,8 +147,13 @@ describe("createItem", () => {
         fields: vocabFields("gato", "slang for a sly person"),
       });
 
-      const audit = await getAuditEvents(tx, { action: "DUPLICATE_APPROVED", limit: 10 });
-      expect(audit.items.some((e) => e.resourceId === learningItemId)).toBe(true);
+      const audit = await getAuditEvents(tx, {
+        action: "DUPLICATE_APPROVED",
+        limit: 10,
+      });
+      expect(audit.items.some((e) => e.resourceId === learningItemId)).toBe(
+        true,
+      );
     });
   });
 
@@ -140,7 +174,11 @@ describe("createItem", () => {
       const second = await createItem(tx, input);
       expect(second.learningItemId).toBe(first.learningItemId);
 
-      const audit = await getAuditEvents(tx, { action: "CURRICULUM_ITEM_CREATED", resourceId: first.learningItemId, limit: 10 });
+      const audit = await getAuditEvents(tx, {
+        action: "CURRICULUM_ITEM_CREATED",
+        resourceId: first.learningItemId,
+        limit: 10,
+      });
       expect(audit.items).toHaveLength(1);
     });
   });
@@ -193,7 +231,11 @@ describe("updateItem", () => {
   it("rejects editing an archived item", async () => {
     await withTestTransaction(async (tx) => {
       await seedTestFixtures(tx);
-      await archiveItem(tx, { learningItemId: ITEM_CASA_ID, actorUserId: DEVELOPER_ID, idempotencyKey: crypto.randomUUID() });
+      await archiveItem(tx, {
+        learningItemId: ITEM_CASA_ID,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+      });
 
       await expect(
         updateItem(tx, {
@@ -222,7 +264,12 @@ describe("publishItem", () => {
       });
       const before = await lockLearningItemForEdit(tx, learningItemId);
 
-      await publishItem(tx, { learningItemId, actorUserId: DEVELOPER_ID, expectedVersion: before!.version, idempotencyKey: crypto.randomUUID() });
+      await publishItem(tx, {
+        learningItemId,
+        actorUserId: DEVELOPER_ID,
+        expectedVersion: before!.version,
+        idempotencyKey: crypto.randomUUID(),
+      });
 
       const after = await lockLearningItemForEdit(tx, learningItemId);
       expect(after?.status).toBe("published");
@@ -233,15 +280,32 @@ describe("publishItem", () => {
   it("rejects a stale expectedVersion with ADMIN_EDIT_CONFLICT, exactly the spec's example", async () => {
     await withTestTransaction(async (tx) => {
       await seedTestFixtures(tx);
-      const staleVersion = (await lockLearningItemForEdit(tx, ITEM_AGUA_ID))!.version;
+      const staleVersion = (await lockLearningItemForEdit(tx, ITEM_AGUA_ID))!
+        .version;
 
       // Admin B publishes first (a draft, via update then publish).
-      await updateItem(tx, { learningItemId: ITEM_AGUA_ID, actorUserId: DEVELOPER_ID, idempotencyKey: crypto.randomUUID(), type: "vocabulary", fields: vocabFields("agua", "water (edited)") });
-      await publishItem(tx, { learningItemId: ITEM_AGUA_ID, actorUserId: DEVELOPER_ID, expectedVersion: staleVersion, idempotencyKey: crypto.randomUUID() });
+      await updateItem(tx, {
+        learningItemId: ITEM_AGUA_ID,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+        type: "vocabulary",
+        fields: vocabFields("agua", "water (edited)"),
+      });
+      await publishItem(tx, {
+        learningItemId: ITEM_AGUA_ID,
+        actorUserId: DEVELOPER_ID,
+        expectedVersion: staleVersion,
+        idempotencyKey: crypto.randomUUID(),
+      });
 
       // Admin A, still holding the pre-publish version, tries to publish against it.
       await expect(
-        publishItem(tx, { learningItemId: ITEM_AGUA_ID, actorUserId: DEVELOPER_ID, expectedVersion: staleVersion, idempotencyKey: crypto.randomUUID() }),
+        publishItem(tx, {
+          learningItemId: ITEM_AGUA_ID,
+          actorUserId: DEVELOPER_ID,
+          expectedVersion: staleVersion,
+          idempotencyKey: crypto.randomUUID(),
+        }),
       ).rejects.toMatchObject({ code: "ADMIN_EDIT_CONFLICT" });
     });
   });
@@ -251,8 +315,19 @@ describe("publishItem", () => {
       await seedTestFixtures(tx);
       const before = await lockLearningItemForEdit(tx, ITEM_GATO_ID);
 
-      await updateItem(tx, { learningItemId: ITEM_GATO_ID, actorUserId: DEVELOPER_ID, idempotencyKey: crypto.randomUUID(), type: "vocabulary", fields: vocabFields("gato", "cat (v2)") });
-      await publishItem(tx, { learningItemId: ITEM_GATO_ID, actorUserId: DEVELOPER_ID, expectedVersion: before!.version, idempotencyKey: crypto.randomUUID() });
+      await updateItem(tx, {
+        learningItemId: ITEM_GATO_ID,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+        type: "vocabulary",
+        fields: vocabFields("gato", "cat (v2)"),
+      });
+      await publishItem(tx, {
+        learningItemId: ITEM_GATO_ID,
+        actorUserId: DEVELOPER_ID,
+        expectedVersion: before!.version,
+        idempotencyKey: crypto.randomUUID(),
+      });
 
       const after = await lockLearningItemForEdit(tx, ITEM_GATO_ID);
       expect(after?.status).toBe("published");
@@ -275,7 +350,11 @@ describe("deleteItem", () => {
         fields: vocabFields("nube", "cloud"),
       });
 
-      const result = await deleteItem(tx, { learningItemId, actorUserId: DEVELOPER_ID, idempotencyKey: crypto.randomUUID() });
+      const result = await deleteItem(tx, {
+        learningItemId,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+      });
       expect(result.outcome).toBe("deleted");
       expect(await lockLearningItemForEdit(tx, learningItemId)).toBeNull();
     });
@@ -288,17 +367,34 @@ describe("deleteItem", () => {
       // The audit log is append-only and never rolled back, so real archive
       // events for this fixture item accumulate in the shared database. The
       // assertion below is a delta, not an absolute count.
-      const archivedBefore = (await getAuditEvents(tx, { action: "CURRICULUM_ITEM_ARCHIVED", resourceId: ITEM_GATO_ID, limit: 10 })).items.length;
+      const archivedBefore = (
+        await getAuditEvents(tx, {
+          action: "CURRICULUM_ITEM_ARCHIVED",
+          resourceId: ITEM_GATO_ID,
+          limit: 10,
+        })
+      ).items.length;
 
-      const result = await deleteItem(tx, { learningItemId: ITEM_GATO_ID, actorUserId: DEVELOPER_ID, idempotencyKey: crypto.randomUUID() });
+      const result = await deleteItem(tx, {
+        learningItemId: ITEM_GATO_ID,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+      });
       expect(result.outcome).toBe("archived");
 
       const locked = await lockLearningItemForEdit(tx, ITEM_GATO_ID);
       expect(locked?.status).toBe("archived");
-      const [progress] = await tx.select().from(userItemProgress).where(eq(userItemProgress.learningItemId, ITEM_GATO_ID));
+      const [progress] = await tx
+        .select()
+        .from(userItemProgress)
+        .where(eq(userItemProgress.learningItemId, ITEM_GATO_ID));
       expect(progress).toBeDefined(); // learner progress survived
 
-      const audit = await getAuditEvents(tx, { action: "CURRICULUM_ITEM_ARCHIVED", resourceId: ITEM_GATO_ID, limit: 10 });
+      const audit = await getAuditEvents(tx, {
+        action: "CURRICULUM_ITEM_ARCHIVED",
+        resourceId: ITEM_GATO_ID,
+        limit: 10,
+      });
       expect(audit.items.length).toBe(archivedBefore + 1);
     });
   });
@@ -308,9 +404,18 @@ describe("moveItem and reorderItems", () => {
   it("moves an item and records CURRICULUM_ITEM_MOVED with before/after level", async () => {
     await withTestTransaction(async (tx) => {
       const { level1Id } = await seedTestFixtures(tx);
-      await moveItem(tx, { learningItemId: ITEM_CASA_ID, actorUserId: DEVELOPER_ID, idempotencyKey: crypto.randomUUID(), levelId: level1Id });
+      await moveItem(tx, {
+        learningItemId: ITEM_CASA_ID,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+        levelId: level1Id,
+      });
 
-      const audit = await getAuditEvents(tx, { action: "CURRICULUM_ITEM_MOVED", resourceId: ITEM_CASA_ID, limit: 10 });
+      const audit = await getAuditEvents(tx, {
+        action: "CURRICULUM_ITEM_MOVED",
+        resourceId: ITEM_CASA_ID,
+        limit: 10,
+      });
       expect(audit.items).toHaveLength(1);
     });
   });
@@ -326,15 +431,25 @@ describe("moveItem and reorderItems", () => {
         orderedLearningItemIds: [ITEM_CASA_ID, ITEM_GATO_ID, ITEM_AGUA_ID],
       });
 
-      expect((await lockLearningItemForEdit(tx, ITEM_CASA_ID))?.position).toBe(1);
-      const audit = await getAuditEvents(tx, { action: "CURRICULUM_ITEM_REORDERED", resourceId: level1Id, limit: 10 });
+      expect((await lockLearningItemForEdit(tx, ITEM_CASA_ID))?.position).toBe(
+        1,
+      );
+      const audit = await getAuditEvents(tx, {
+        action: "CURRICULUM_ITEM_REORDERED",
+        resourceId: level1Id,
+        limit: 10,
+      });
       expect(audit.items).toHaveLength(1);
     });
   });
 });
 
 describe("applyDictionaryFieldsToItem", () => {
-  const dictionaryFields = { partOfSpeech: "noun", definition: "a domesticated feline", ipa: "/ˈɡa.to/" };
+  const dictionaryFields = {
+    partOfSpeech: "noun",
+    definition: "a domesticated feline",
+    ipa: "/ˈɡa.to/",
+  };
 
   it("fills a pending item's blank fields in place, and records what it replaced", async () => {
     await withTestTransaction(async (tx) => {
@@ -347,7 +462,13 @@ describe("applyDictionaryFieldsToItem", () => {
         actorUserId: DEVELOPER_ID,
         idempotencyKey: crypto.randomUUID(),
         type: "vocabulary",
-        fields: { vocabularyGroupId: VOCAB_GROUP_ID, term: "gatito", primaryMeaning: "kitten", partOfSpeech: "", acceptedAnswers: [] },
+        fields: {
+          vocabularyGroupId: VOCAB_GROUP_ID,
+          term: "gatito",
+          primaryMeaning: "kitten",
+          partOfSpeech: "",
+          acceptedAnswers: [],
+        },
       });
 
       const result = await applyDictionaryFieldsToItem(tx, {
@@ -364,8 +485,16 @@ describe("applyDictionaryFieldsToItem", () => {
       expect(stored?.primaryMeaning).toBe("kitten");
       expect(stored?.term).toBe("gatito");
 
-      const audit = await getAuditEvents(tx, { action: "CURRICULUM_ITEM_UPDATED", resourceId: learningItemId, limit: 10 });
-      expect(audit.items[0]?.beforeData).toMatchObject({ partOfSpeech: "", definition: null, ipa: null });
+      const audit = await getAuditEvents(tx, {
+        action: "CURRICULUM_ITEM_UPDATED",
+        resourceId: learningItemId,
+        limit: 10,
+      });
+      expect(audit.items[0]?.beforeData).toMatchObject({
+        partOfSpeech: "",
+        definition: null,
+        ipa: null,
+      });
     });
   });
 
@@ -386,7 +515,10 @@ describe("applyDictionaryFieldsToItem", () => {
       expect(live?.definition).not.toBe(dictionaryFields.definition);
 
       const draft = await getDraft(tx, ITEM_GATO_ID);
-      expect(draft?.data).toMatchObject({ type: "vocabulary", fields: { ...dictionaryFields, term: "gato", primaryMeaning: "cat" } });
+      expect(draft?.data).toMatchObject({
+        type: "vocabulary",
+        fields: { ...dictionaryFields, term: "gato", primaryMeaning: "cat" },
+      });
     });
   });
 
@@ -399,14 +531,25 @@ describe("applyDictionaryFieldsToItem", () => {
         actorUserId: DEVELOPER_ID,
         idempotencyKey: crypto.randomUUID(),
         type: "vocabulary",
-        fields: { vocabularyGroupId: VOCAB_GROUP_ID, term: "gatuno", primaryMeaning: "feline", partOfSpeech: "adjective", creatorNotes: "authored note", acceptedAnswers: [] },
+        fields: {
+          vocabularyGroupId: VOCAB_GROUP_ID,
+          term: "gatuno",
+          primaryMeaning: "feline",
+          partOfSpeech: "adjective",
+          creatorNotes: "authored note",
+          acceptedAnswers: [],
+        },
       });
 
       await applyDictionaryFieldsToItem(tx, {
         learningItemId,
         actorUserId: DEVELOPER_ID,
         idempotencyKey: crypto.randomUUID(),
-        fields: { partOfSpeech: null, definition: "of or relating to cats", ipa: null },
+        fields: {
+          partOfSpeech: null,
+          definition: "of or relating to cats",
+          ipa: null,
+        },
       });
 
       const stored = await getVocabularyDictionaryFields(tx, learningItemId);
@@ -425,7 +568,13 @@ describe("applyDictionaryFieldsToItem", () => {
         actorUserId: DEVELOPER_ID,
         idempotencyKey: crypto.randomUUID(),
         type: "vocabulary",
-        fields: { vocabularyGroupId: VOCAB_GROUP_ID, term: "gatear", primaryMeaning: "to crawl", partOfSpeech: "verb", acceptedAnswers: [] },
+        fields: {
+          vocabularyGroupId: VOCAB_GROUP_ID,
+          term: "gatear",
+          primaryMeaning: "to crawl",
+          partOfSpeech: "verb",
+          acceptedAnswers: [],
+        },
       });
 
       const result = await applyDictionaryFieldsToItem(tx, {
@@ -436,7 +585,11 @@ describe("applyDictionaryFieldsToItem", () => {
       });
 
       expect(result).toEqual({ applied: false, savedAsDraft: false });
-      const audit = await getAuditEvents(tx, { action: "CURRICULUM_ITEM_UPDATED", resourceId: learningItemId, limit: 10 });
+      const audit = await getAuditEvents(tx, {
+        action: "CURRICULUM_ITEM_UPDATED",
+        resourceId: learningItemId,
+        limit: 10,
+      });
       expect(audit.items).toHaveLength(0);
     });
   });
@@ -457,9 +610,16 @@ describe("applyDictionaryFieldsToItem", () => {
 });
 
 describe("manual overrides of dictionary-supplied fields (spec 17)", () => {
-  const dictionaryFields = { partOfSpeech: "noun", definition: "a domesticated feline", ipa: "/ˈɡa.to/" };
+  const dictionaryFields = {
+    partOfSpeech: "noun",
+    definition: "a domesticated feline",
+    ipa: "/ˈɡa.to/",
+  };
 
-  async function pendingItem(tx: Parameters<Parameters<typeof withTestTransaction>[0]>[0], term: string) {
+  async function pendingItem(
+    tx: Parameters<Parameters<typeof withTestTransaction>[0]>[0],
+    term: string,
+  ) {
     const { languageId, level1Id } = await seedTestFixtures(tx);
     const { learningItemId } = await createItem(tx, {
       languageId,
@@ -467,27 +627,56 @@ describe("manual overrides of dictionary-supplied fields (spec 17)", () => {
       actorUserId: DEVELOPER_ID,
       idempotencyKey: crypto.randomUUID(),
       type: "vocabulary",
-      fields: { vocabularyGroupId: VOCAB_GROUP_ID, term, primaryMeaning: "meaning", partOfSpeech: "", acceptedAnswers: [] },
+      fields: {
+        vocabularyGroupId: VOCAB_GROUP_ID,
+        term,
+        primaryMeaning: "meaning",
+        partOfSpeech: "",
+        acceptedAnswers: [],
+      },
     });
-    await applyDictionaryFieldsToItem(tx, { learningItemId, actorUserId: DEVELOPER_ID, idempotencyKey: crypto.randomUUID(), fields: dictionaryFields });
+    await applyDictionaryFieldsToItem(tx, {
+      learningItemId,
+      actorUserId: DEVELOPER_ID,
+      idempotencyKey: crypto.randomUUID(),
+      fields: dictionaryFields,
+    });
     return learningItemId;
   }
 
   /** Saves the editor form with one dictionary-backed field changed. */
-  async function editTeachingMeaning(tx: Parameters<Parameters<typeof withTestTransaction>[0]>[0], learningItemId: string, term: string, definition: string) {
+  async function editTeachingMeaning(
+    tx: Parameters<Parameters<typeof withTestTransaction>[0]>[0],
+    learningItemId: string,
+    term: string,
+    definition: string,
+  ) {
     await updateItem(tx, {
       learningItemId,
       actorUserId: DEVELOPER_ID,
       idempotencyKey: crypto.randomUUID(),
       type: "vocabulary",
-      fields: { vocabularyGroupId: VOCAB_GROUP_ID, term, primaryMeaning: "meaning", partOfSpeech: "noun", ipa: "/ˈɡa.to/", definition, acceptedAnswers: [] },
+      fields: {
+        vocabularyGroupId: VOCAB_GROUP_ID,
+        term,
+        primaryMeaning: "meaning",
+        partOfSpeech: "noun",
+        ipa: "/ˈɡa.to/",
+        definition,
+        acceptedAnswers: [],
+      },
     });
   }
 
   it("marks only the field an author actually changed", async () => {
     await withTestTransaction(async (tx) => {
       const learningItemId = await pendingItem(tx, "gatito-override");
-      await editTeachingMeaning(tx, learningItemId, "gatito-override", "a small cat, taught this way on purpose");
+      await editTeachingMeaning(
+        tx,
+        learningItemId,
+        "gatito-override",
+        "a small cat, taught this way on purpose",
+      );
 
       const stored = await getVocabularyDictionaryFields(tx, learningItemId);
       expect(stored?.dictionaryFieldOverrides).toEqual(["definition"]);
@@ -499,7 +688,12 @@ describe("manual overrides of dictionary-supplied fields (spec 17)", () => {
   it("does not mark a field when the form is saved unchanged", async () => {
     await withTestTransaction(async (tx) => {
       const learningItemId = await pendingItem(tx, "gatito-unchanged");
-      await editTeachingMeaning(tx, learningItemId, "gatito-unchanged", dictionaryFields.definition);
+      await editTeachingMeaning(
+        tx,
+        learningItemId,
+        "gatito-unchanged",
+        dictionaryFields.definition,
+      );
 
       const stored = await getVocabularyDictionaryFields(tx, learningItemId);
       expect(stored?.dictionaryFieldOverrides).toEqual([]);
@@ -509,7 +703,12 @@ describe("manual overrides of dictionary-supplied fields (spec 17)", () => {
   it("never lets a later promotion overwrite an authored field", async () => {
     await withTestTransaction(async (tx) => {
       const learningItemId = await pendingItem(tx, "gatito-protected");
-      await editTeachingMeaning(tx, learningItemId, "gatito-protected", "authored meaning");
+      await editTeachingMeaning(
+        tx,
+        learningItemId,
+        "gatito-protected",
+        "authored meaning",
+      );
 
       // The admin changes the selected sense, so promotion runs again with a
       // different gloss — and an IPA the author never touched.
@@ -517,7 +716,11 @@ describe("manual overrides of dictionary-supplied fields (spec 17)", () => {
         learningItemId,
         actorUserId: DEVELOPER_ID,
         idempotencyKey: crypto.randomUUID(),
-        fields: { partOfSpeech: "noun", definition: "a completely different sense", ipa: "/ˈɡa.to.NEW/" },
+        fields: {
+          partOfSpeech: "noun",
+          definition: "a completely different sense",
+          ipa: "/ˈɡa.to.NEW/",
+        },
       });
 
       const stored = await getVocabularyDictionaryFields(tx, learningItemId);
@@ -529,7 +732,12 @@ describe("manual overrides of dictionary-supplied fields (spec 17)", () => {
   it("reset hands the field back, so the next promotion writes it again", async () => {
     await withTestTransaction(async (tx) => {
       const learningItemId = await pendingItem(tx, "gatito-reset");
-      await editTeachingMeaning(tx, learningItemId, "gatito-reset", "authored meaning");
+      await editTeachingMeaning(
+        tx,
+        learningItemId,
+        "gatito-reset",
+        "authored meaning",
+      );
 
       await resetDictionaryFieldOverride(tx, {
         learningItemId,
@@ -537,7 +745,10 @@ describe("manual overrides of dictionary-supplied fields (spec 17)", () => {
         actorUserId: DEVELOPER_ID,
         idempotencyKey: crypto.randomUUID(),
       });
-      expect((await getVocabularyDictionaryFields(tx, learningItemId))?.dictionaryFieldOverrides).toEqual([]);
+      expect(
+        (await getVocabularyDictionaryFields(tx, learningItemId))
+          ?.dictionaryFieldOverrides,
+      ).toEqual([]);
 
       await applyDictionaryFieldsToItem(tx, {
         learningItemId,
@@ -545,7 +756,9 @@ describe("manual overrides of dictionary-supplied fields (spec 17)", () => {
         idempotencyKey: crypto.randomUUID(),
         fields: dictionaryFields,
       });
-      expect((await getVocabularyDictionaryFields(tx, learningItemId))?.definition).toBe(dictionaryFields.definition);
+      expect(
+        (await getVocabularyDictionaryFields(tx, learningItemId))?.definition,
+      ).toBe(dictionaryFields.definition);
     });
   });
 

@@ -1,6 +1,10 @@
 import type { CurriculumLearningItem } from "@/domains/curriculum";
 import type { ReviewQuestionDirection } from "@/domains/srs";
-import { buildReviewQuestions, getReviewQuestionAnswerSpec, interleaveReviewQuestions } from "@/domains/srs";
+import {
+  buildReviewQuestions,
+  getReviewQuestionAnswerSpec,
+  interleaveReviewQuestions,
+} from "@/domains/srs";
 
 import type { DeckPracticeQuestion, DeckPracticeVerdict } from "./deck-types";
 
@@ -25,8 +29,13 @@ import type { DeckPracticeQuestion, DeckPracticeVerdict } from "./deck-types";
  * entirely, so there is nothing left for a retry to gate.
  */
 
-function directionLabel(languageName: string, direction: ReviewQuestionDirection): string {
-  return direction === "targetToEnglish" ? `${languageName} → English` : `English → ${languageName}`;
+function directionLabel(
+  languageName: string,
+  direction: ReviewQuestionDirection,
+): string {
+  return direction === "targetToEnglish"
+    ? `${languageName} → English`
+    : `English → ${languageName}`;
 }
 
 /** How an item is named in the Know / Don't Know summary, where a bare prompt would be ambiguous. */
@@ -44,28 +53,33 @@ export function deckItemLabel(item: CurriculumLearningItem): string {
  * deliberately absent from the result — the browser receives prompts only,
  * and the server grades (`gradeDeckPracticeAnswer`).
  */
-export function buildDeckPracticeQuestions(items: CurriculumLearningItem[], languageName: string): DeckPracticeQuestion[] {
+export function buildDeckPracticeQuestions(
+  items: CurriculumLearningItem[],
+  languageName: string,
+): DeckPracticeQuestion[] {
   const itemById = new Map(items.map((item) => [item.id, item]));
 
-  return interleaveReviewQuestions(buildReviewQuestions(items)).flatMap((question) => {
-    const item = itemById.get(question.itemId);
-    if (!item) return [];
-    // Synonyms only widen the accepted-answer set; the prompt itself never
-    // depends on them, so an empty list here is correct rather than a
-    // shortcut. Grading loads the learner's real synonyms separately.
-    const spec = getReviewQuestionAnswerSpec(item, question.direction, []);
-    return [
-      {
-        questionId: question.id,
-        learningItemId: question.itemId,
-        itemType: question.itemType,
-        direction: question.direction,
-        prompt: spec.prompt,
-        directionLabel: directionLabel(languageName, question.direction),
-        itemLabel: deckItemLabel(item),
-      },
-    ];
-  });
+  return interleaveReviewQuestions(buildReviewQuestions(items)).flatMap(
+    (question) => {
+      const item = itemById.get(question.itemId);
+      if (!item) return [];
+      // Synonyms only widen the accepted-answer set; the prompt itself never
+      // depends on them, so an empty list here is correct rather than a
+      // shortcut. Grading loads the learner's real synonyms separately.
+      const spec = getReviewQuestionAnswerSpec(item, question.direction, []);
+      return [
+        {
+          questionId: question.id,
+          learningItemId: question.itemId,
+          itemType: question.itemType,
+          direction: question.direction,
+          prompt: spec.prompt,
+          directionLabel: directionLabel(languageName, question.direction),
+          itemLabel: deckItemLabel(item),
+        },
+      ];
+    },
+  );
 }
 
 export type DeckPracticeClassification = {
@@ -91,7 +105,9 @@ export type DeckPracticeSummary = {
  * The last verdict for an item wins, so re-classifying an item during a
  * session never double-counts it.
  */
-export function summarizeDeckPractice(classifications: DeckPracticeClassification[]): DeckPracticeSummary {
+export function summarizeDeckPractice(
+  classifications: DeckPracticeClassification[],
+): DeckPracticeSummary {
   const latestByItem = new Map<string, DeckPracticeClassification>();
   for (const classification of classifications) {
     latestByItem.set(classification.learningItemId, classification);
@@ -104,5 +120,10 @@ export function summarizeDeckPractice(classifications: DeckPracticeClassificatio
     else dontKnow.push(classification);
   }
 
-  return { knowCount: know.length, dontKnowCount: dontKnow.length, know, dontKnow };
+  return {
+    knowCount: know.length,
+    dontKnowCount: dontKnow.length,
+    know,
+    dontKnow,
+  };
 }

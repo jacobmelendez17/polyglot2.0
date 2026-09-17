@@ -12,7 +12,10 @@ import type { PolyglotUser } from "./user-types";
  * sandbox persona owned by *that* actor — not merely any sandbox, and never
  * a real learner.
  */
-export function canViewSandboxAs(actor: Pick<PolyglotUser, "id" | "role">, target: Pick<PolyglotUser, "isSandbox" | "sandboxOwnerUserId">): boolean {
+export function canViewSandboxAs(
+  actor: Pick<PolyglotUser, "id" | "role">,
+  target: Pick<PolyglotUser, "isSandbox" | "sandboxOwnerUserId">,
+): boolean {
   if (!hasRole(actor, ["admin", "developer"])) return false;
   if (!target.isSandbox) return false;
   return target.sandboxOwnerUserId === actor.id;

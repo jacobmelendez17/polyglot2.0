@@ -12,7 +12,11 @@ export async function getNote(userId: string, learningItemId: string) {
   return repository.getNote(db, userId, learningItemId);
 }
 
-export async function createNote(input: { userId: string; learningItemId: string; body: string }) {
+export async function createNote(input: {
+  userId: string;
+  learningItemId: string;
+  body: string;
+}) {
   return repository.createNote(db, input);
 }
 

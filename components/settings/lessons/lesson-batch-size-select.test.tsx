@@ -20,20 +20,31 @@ describe("LessonBatchSizeSelect", () => {
     const user = userEvent.setup();
     render(<LessonBatchSizeSelect initialValue={6} />);
 
-    expect(screen.getByRole("combobox", { name: "Lesson Batch Size" })).toHaveTextContent("6");
+    expect(
+      screen.getByRole("combobox", { name: "Lesson Batch Size" }),
+    ).toHaveTextContent("6");
 
-    await user.click(screen.getByRole("combobox", { name: "Lesson Batch Size" }));
+    await user.click(
+      screen.getByRole("combobox", { name: "Lesson Batch Size" }),
+    );
     for (const size of [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]) {
-      expect(screen.getByRole("option", { name: String(size) })).toBeInTheDocument();
+      expect(
+        screen.getByRole("option", { name: String(size) }),
+      ).toBeInTheDocument();
     }
   });
 
   it("saves the new size as a number and shows Saved", async () => {
-    mockAction.mockResolvedValueOnce({ ok: true, data: { lessonBatchSize: 10 } });
+    mockAction.mockResolvedValueOnce({
+      ok: true,
+      data: { lessonBatchSize: 10 },
+    });
     const user = userEvent.setup();
     render(<LessonBatchSizeSelect initialValue={6} />);
 
-    await user.click(screen.getByRole("combobox", { name: "Lesson Batch Size" }));
+    await user.click(
+      screen.getByRole("combobox", { name: "Lesson Batch Size" }),
+    );
     await user.click(screen.getByRole("option", { name: "10" }));
 
     expect(mockAction).toHaveBeenCalledWith({ lessonBatchSize: 10 });
@@ -41,14 +52,23 @@ describe("LessonBatchSizeSelect", () => {
   });
 
   it("reverts to the previous value and shows the error when the save fails", async () => {
-    mockAction.mockResolvedValueOnce({ ok: false, error: { code: "UNKNOWN", message: "Could not save setting." } });
+    mockAction.mockResolvedValueOnce({
+      ok: false,
+      error: { code: "UNKNOWN", message: "Could not save setting." },
+    });
     const user = userEvent.setup();
     render(<LessonBatchSizeSelect initialValue={6} />);
 
-    await user.click(screen.getByRole("combobox", { name: "Lesson Batch Size" }));
+    await user.click(
+      screen.getByRole("combobox", { name: "Lesson Batch Size" }),
+    );
     await user.click(screen.getByRole("option", { name: "12" }));
 
-    expect(await screen.findByText("Could not save setting.")).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "Lesson Batch Size" })).toHaveTextContent("6");
+    expect(
+      await screen.findByText("Could not save setting."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: "Lesson Batch Size" }),
+    ).toHaveTextContent("6");
   });
 });

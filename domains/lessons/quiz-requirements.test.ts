@@ -53,13 +53,21 @@ const y: GrammarItem = {
 describe("buildQuizQuestions", () => {
   it("produces both required directions for vocabulary", () => {
     const questions = buildQuizQuestions([gato]);
-    expect(questions.map((q) => q.direction).sort()).toEqual(["englishToTarget", "targetToEnglish"]);
+    expect(questions.map((q) => q.direction).sort()).toEqual([
+      "englishToTarget",
+      "targetToEnglish",
+    ]);
   });
 
   it("uses the grammar concept's configured requirements", () => {
     const questions = buildQuizQuestions([y]);
     expect(questions).toEqual([
-      { id: "grammar-y::targetToEnglish", itemId: "grammar-y", itemType: "grammar", direction: "targetToEnglish" },
+      {
+        id: "grammar-y::targetToEnglish",
+        itemId: "grammar-y",
+        itemType: "grammar",
+        direction: "targetToEnglish",
+      },
     ]);
   });
 
@@ -73,7 +81,10 @@ describe("getQuestionAnswerSpec", () => {
   it("requires the article for English to Spanish", () => {
     const spec = getQuestionAnswerSpec(gato, "englishToTarget");
     expect(spec.acceptedAnswers).toEqual(["el gato"]);
-    expect(spec.articleRequirement).toEqual({ article: "el", bareAnswers: ["gato"] });
+    expect(spec.articleRequirement).toEqual({
+      article: "el",
+      bareAnswers: ["gato"],
+    });
   });
 
   it("does not require an article for Spanish to English", () => {

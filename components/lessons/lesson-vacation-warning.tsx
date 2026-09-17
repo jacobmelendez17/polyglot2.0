@@ -15,11 +15,16 @@ import { Button } from "@/components/ui/button";
 export function LessonVacationWarning() {
   return (
     <div className="mx-auto flex min-h-svh max-w-md flex-col items-center justify-center gap-4 px-4 text-center">
-      <h1 className="font-heading text-xl font-semibold text-foreground">You&apos;re currently in Vacation Mode.</h1>
+      <h1 className="font-heading text-xl font-semibold text-foreground">
+        You&apos;re currently in Vacation Mode.
+      </h1>
       <p className="text-sm text-muted-foreground">
-        New items can still be learned, but their review scheduling will remain frozen until Vacation Mode ends.
+        New items can still be learned, but their review scheduling will remain
+        frozen until Vacation Mode ends.
       </p>
-      <p className="text-sm font-medium text-foreground">Are you sure you want to start a lesson?</p>
+      <p className="text-sm font-medium text-foreground">
+        Are you sure you want to start a lesson?
+      </p>
       <div className="mt-2 flex gap-3">
         <Button asChild variant="outline">
           <Link href="/dashboard">Cancel</Link>

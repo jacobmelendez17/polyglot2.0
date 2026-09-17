@@ -11,10 +11,15 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
       <div className="flex flex-col gap-10 px-4 py-12 sm:px-6 lg:justify-center lg:px-16">
-        <Link href="/" className="font-heading text-lg font-semibold text-foreground">
+        <Link
+          href="/"
+          className="font-heading text-lg font-semibold text-foreground"
+        >
           Polyglot
         </Link>
-        <div className="flex flex-1 items-center justify-center lg:flex-none">{children}</div>
+        <div className="flex flex-1 items-center justify-center lg:flex-none">
+          {children}
+        </div>
       </div>
 
       <div className="hidden flex-col justify-center gap-6 border-l border-border bg-secondary px-16 py-12 lg:flex">

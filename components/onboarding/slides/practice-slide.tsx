@@ -20,18 +20,28 @@ const WAVE_BARS = [
 
 export function PracticeSlide() {
   return (
-    <div aria-hidden="true" className="flex h-56 w-full flex-col items-center justify-center gap-4 sm:h-72 sm:gap-5">
+    <div
+      aria-hidden="true"
+      className="flex h-56 w-full flex-col items-center justify-center gap-4 sm:h-72 sm:gap-5"
+    >
       <div className="flex w-full max-w-sm items-center gap-3 rounded-xl bg-card px-4 py-3 ring-1 ring-foreground/10">
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-learning-vocabulary/20">
           <Volume2 className="h-4 w-4 text-learning-vocabulary" />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-sm font-semibold text-foreground">&ldquo;¿Dónde está el agua?&rdquo;</span>
-          <span className="block text-xs text-muted-foreground">Listen, then say it back</span>
+          <span className="block text-sm font-semibold text-foreground">
+            &ldquo;¿Dónde está el agua?&rdquo;
+          </span>
+          <span className="block text-xs text-muted-foreground">
+            Listen, then say it back
+          </span>
         </span>
       </div>
 
-      <div className="flex items-end justify-center gap-1.5" role="presentation">
+      <div
+        className="flex items-end justify-center gap-1.5"
+        role="presentation"
+      >
         {WAVE_BARS.map((bar, index) => (
           <span
             key={index}

@@ -4,7 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { cn } from "@/lib/utils";
-import { SETTINGS_NAV_ITEMS, isSettingsNavItemCurrent } from "./settings-nav-items";
+import {
+  SETTINGS_NAV_ITEMS,
+  isSettingsNavItemCurrent,
+} from "./settings-nav-items";
 
 /**
  * Persistent desktop Settings navigation (spec 20 "Layout"), rendered
@@ -28,7 +31,10 @@ export function SettingsSidebarNav() {
               item.destructive
                 ? "mt-4 border-t border-border pt-4 text-destructive hover:text-destructive"
                 : "text-muted-foreground hover:text-foreground",
-              isCurrent && (item.destructive ? "bg-muted font-semibold" : "bg-muted font-semibold text-foreground"),
+              isCurrent &&
+                (item.destructive
+                  ? "bg-muted font-semibold"
+                  : "bg-muted font-semibold text-foreground"),
             )}
           >
             {item.label}

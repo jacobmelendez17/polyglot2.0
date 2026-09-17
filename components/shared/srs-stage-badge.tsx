@@ -35,7 +35,9 @@ export function SrsStageBadge({ stage, className }: SrsStageBadgeProps) {
     <span
       className={cn(
         "inline-flex shrink-0 items-center rounded-md px-2 py-0.5 text-xs font-medium",
-        stage === null ? "bg-muted text-muted-foreground" : STAGE_CLASSES[stage],
+        stage === null
+          ? "bg-muted text-muted-foreground"
+          : STAGE_CLASSES[stage],
         className,
       )}
     >

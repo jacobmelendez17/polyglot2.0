@@ -36,7 +36,10 @@ const DEVELOPER_TOOLS_NAV: AdminNavItem[] = [
  * lives in exactly one place — same reasoning as `LevelLink` being shared
  * between the header dropdown and the mobile sheet in spec 10.
  */
-export function getAdminNavItems(canManageCurriculum: boolean, canUseDeveloperTools = true): AdminNavItem[] {
+export function getAdminNavItems(
+  canManageCurriculum: boolean,
+  canUseDeveloperTools = true,
+): AdminNavItem[] {
   return [
     { label: "Overview", href: "/admin" },
     ...(canManageCurriculum ? CURRICULUM_ONLY_NAV : []),
@@ -53,8 +56,20 @@ export function getAdminNavItems(canManageCurriculum: boolean, canUseDeveloperTo
  * falls back to "Curriculum" correctly. "Overview"'s `/admin` needs its own
  * exact-match rule regardless, since every other route is prefixed by it.
  */
-export function isAdminNavItemCurrent(item: AdminNavItem, pathname: string, allItems: AdminNavItem[] = [item]): boolean {
-  const matches = (href: string) => (href === "/admin" ? pathname === "/admin" : pathname === href || pathname.startsWith(`${href}/`));
+export function isAdminNavItemCurrent(
+  item: AdminNavItem,
+  pathname: string,
+  allItems: AdminNavItem[] = [item],
+): boolean {
+  const matches = (href: string) =>
+    href === "/admin"
+      ? pathname === "/admin"
+      : pathname === href || pathname.startsWith(`${href}/`);
   if (!matches(item.href)) return false;
-  return !allItems.some((other) => other.href !== item.href && other.href.length > item.href.length && matches(other.href));
+  return !allItems.some(
+    (other) =>
+      other.href !== item.href &&
+      other.href.length > item.href.length &&
+      matches(other.href),
+  );
 }

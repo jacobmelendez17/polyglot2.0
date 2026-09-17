@@ -1,5 +1,8 @@
 import { getLexicalLanguageProvider } from "../lexical-language-provider";
-import { normalizeLexicalForm, normalizePartOfSpeech } from "../lexical-normalization";
+import {
+  normalizeLexicalForm,
+  normalizePartOfSpeech,
+} from "../lexical-normalization";
 import type { DictionaryRelationType } from "../lexicon-types";
 
 import { hashSourceValue } from "./source-hash";
@@ -25,7 +28,10 @@ import type { WiktextractRecord } from "./wiktextract-schema";
  */
 
 /** Wiktextract's own field names for relationships, mapped onto Polyglot's `dictionary_relation_type`. */
-const RELATION_FIELDS: readonly (readonly [keyof WiktextractRecord, DictionaryRelationType])[] = [
+const RELATION_FIELDS: readonly (readonly [
+  keyof WiktextractRecord,
+  DictionaryRelationType,
+])[] = [
   ["synonyms", "synonym"],
   ["antonyms", "antonym"],
   ["related", "related"],
@@ -87,13 +93,21 @@ function projectForms(record: WiktextractRecord): ProjectedForm[] {
     const fingerprint = hashSourceValue({ form: value, tags });
     if (seen.has(fingerprint)) continue;
     seen.add(fingerprint);
-    forms.push({ form: value, normalizedForm: normalizeLexicalForm(value), tags, sourceFingerprint: fingerprint });
+    forms.push({
+      form: value,
+      normalizedForm: normalizeLexicalForm(value),
+      tags,
+      sourceFingerprint: fingerprint,
+    });
   }
 
   return forms;
 }
 
-function projectPronunciations(record: WiktextractRecord, languageCode: string): ProjectedPronunciation[] {
+function projectPronunciations(
+  record: WiktextractRecord,
+  languageCode: string,
+): ProjectedPronunciation[] {
   const provider = getLexicalLanguageProvider(languageCode);
   const pronunciations: ProjectedPronunciation[] = [];
   const seen = new Set<string>();
@@ -104,11 +118,24 @@ function projectPronunciations(record: WiktextractRecord, languageCode: string):
     // to show a learner.
     if (!sound.ipa && !audioUrl) continue;
     const tags = sound.tags ?? [];
-    const regionCode = tags.map((tag) => provider.regionCodeForSourceLabel(tag)).find((code) => code !== null) ?? null;
-    const fingerprint = hashSourceValue({ ipa: sound.ipa ?? null, tags, audioUrl });
+    const regionCode =
+      tags
+        .map((tag) => provider.regionCodeForSourceLabel(tag))
+        .find((code) => code !== null) ?? null;
+    const fingerprint = hashSourceValue({
+      ipa: sound.ipa ?? null,
+      tags,
+      audioUrl,
+    });
     if (seen.has(fingerprint)) continue;
     seen.add(fingerprint);
-    pronunciations.push({ ipa: sound.ipa ?? null, regionCode, tags, audioUrl, sourceFingerprint: fingerprint });
+    pronunciations.push({
+      ipa: sound.ipa ?? null,
+      regionCode,
+      tags,
+      audioUrl,
+      sourceFingerprint: fingerprint,
+    });
   }
 
   return pronunciations;
@@ -122,7 +149,10 @@ function projectRelations(record: WiktextractRecord): ProjectedRelation[] {
     const entries = record[field];
     if (!Array.isArray(entries)) continue;
     for (const entry of entries) {
-      const targetLemma = typeof entry === "object" && entry !== null && "word" in entry ? String(entry.word).trim() : "";
+      const targetLemma =
+        typeof entry === "object" && entry !== null && "word" in entry
+          ? String(entry.word).trim()
+          : "";
       if (targetLemma.length === 0) continue;
       const normalizedTargetLemma = normalizeLexicalForm(targetLemma);
       const dedupeKey = `${relationType}:${normalizedTargetLemma}`;
@@ -142,7 +172,10 @@ function projectRelations(record: WiktextractRecord): ProjectedRelation[] {
  * simply being absent from a regional word list — spec 12 is explicit that
  * absence must never be treated as proof.
  */
-function projectRestrictedRegionCodes(record: WiktextractRecord, languageCode: string): string[] {
+function projectRestrictedRegionCodes(
+  record: WiktextractRecord,
+  languageCode: string,
+): string[] {
   const provider = getLexicalLanguageProvider(languageCode);
   const codes = new Set<string>();
   for (const sense of record.senses ?? []) {
@@ -153,7 +186,6 @@ function projectRestrictedRegionCodes(record: WiktextractRecord, languageCode: s
   }
   return [...codes].sort();
 }
-
 
 /**
  * Makes entry keys unique across one import run.
@@ -179,7 +211,9 @@ function projectRestrictedRegionCodes(record: WiktextractRecord, languageCode: s
  * that keeps the unsuffixed key. State lives in the returned closure rather
  * than the module, so imports never leak keys into one another.
  */
-export function createEntryKeyDisambiguator(): (sourceEntryKey: string) => string {
+export function createEntryKeyDisambiguator(): (
+  sourceEntryKey: string,
+) => string {
   const occurrences = new Map<string, number>();
   return (sourceEntryKey: string): string => {
     const seen = occurrences.get(sourceEntryKey) ?? 0;
@@ -194,7 +228,9 @@ export function createEntryKeyDisambiguator(): (sourceEntryKey: string) => strin
  * no glossed sense at all — so the caller counts it as rejected rather than
  * storing a half-meaningful entry that would later pollute matching.
  */
-export function projectWiktextractRecord(record: WiktextractRecord): ProjectedDictionaryRecord | null {
+export function projectWiktextractRecord(
+  record: WiktextractRecord,
+): ProjectedDictionaryRecord | null {
   const partOfSpeech = normalizePartOfSpeech(record.pos);
   if (partOfSpeech === null) return null;
 
@@ -214,7 +250,11 @@ export function projectWiktextractRecord(record: WiktextractRecord): ProjectedDi
   // runs these keys through `createEntryKeyDisambiguator` before writing —
   // see that function for why the uniqueness cannot be decided from a single
   // record.
-  const sourceEntryKey = [normalizedLemma, partOfSpeech, record.etymology_number ?? 0].join("#");
+  const sourceEntryKey = [
+    normalizedLemma,
+    partOfSpeech,
+    record.etymology_number ?? 0,
+  ].join("#");
   const senses = projectSenses(record);
   if (senses.length === 0) return null;
 
@@ -228,7 +268,10 @@ export function projectWiktextractRecord(record: WiktextractRecord): ProjectedDi
     forms: projectForms(record),
     pronunciations: projectPronunciations(record, record.lang_code),
     relations: projectRelations(record),
-    restrictedRegionCodes: projectRestrictedRegionCodes(record, record.lang_code),
+    restrictedRegionCodes: projectRestrictedRegionCodes(
+      record,
+      record.lang_code,
+    ),
     rawData: record,
     sourceHash: hashSourceValue(record),
   };

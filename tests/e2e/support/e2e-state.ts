@@ -1,9 +1,22 @@
 import { and, eq } from "drizzle-orm";
 
-import { grammarItems, languages, learningItems, levels, userItemProgress, userLanguageSettings, userLevelProgress, users, vocabularyItems } from "@/db/schema";
+import {
+  grammarItems,
+  languages,
+  learningItems,
+  levels,
+  userItemProgress,
+  userLanguageSettings,
+  userLevelProgress,
+  users,
+  vocabularyItems,
+} from "@/db/schema";
 import type { SrsStage } from "@/domains/srs";
 import { getDefaultLanguageCode } from "@/domains/users";
-import { completeOnboarding, saveCurriculumPreference } from "@/domains/users/user-repository";
+import {
+  completeOnboarding,
+  saveCurriculumPreference,
+} from "@/domains/users/user-repository";
 
 import { withE2EDb } from "./e2e-db";
 
@@ -21,15 +34,25 @@ import { withE2EDb } from "./e2e-db";
 
 function requiredEnv(name: string): string {
   const value = process.env[name];
-  if (!value) throw new Error(`${name} is required for E2E tests. Set it in .env.local — see .env.example.`);
+  if (!value)
+    throw new Error(
+      `${name} is required for E2E tests. Set it in .env.local — see .env.example.`,
+    );
   return value;
 }
 
 export async function getLearnerId(): Promise<string> {
   return withE2EDb(async (db) => {
     const clerkUserId = requiredEnv("E2E_LEARNER_CLERK_USER_ID");
-    const [row] = await db.select({ id: users.id }).from(users).where(eq(users.clerkUserId, clerkUserId)).limit(1);
-    if (!row) throw new Error("No E2E learner row found — run `npm run e2e:setup` first.");
+    const [row] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.clerkUserId, clerkUserId))
+      .limit(1);
+    if (!row)
+      throw new Error(
+        "No E2E learner row found — run `npm run e2e:setup` first.",
+      );
     return row.id;
   });
 }
@@ -46,25 +69,45 @@ export interface E2EFixtureLookup {
 export async function getFixtureIds(): Promise<E2EFixtureLookup> {
   return withE2EDb(async (db) => {
     const languageCode = getDefaultLanguageCode();
-    const [language] = await db.select({ id: languages.id }).from(languages).where(eq(languages.code, languageCode)).limit(1);
-    if (!language) throw new Error("No E2E language row found — run `npm run e2e:setup` first.");
+    const [language] = await db
+      .select({ id: languages.id })
+      .from(languages)
+      .where(eq(languages.code, languageCode))
+      .limit(1);
+    if (!language)
+      throw new Error(
+        "No E2E language row found — run `npm run e2e:setup` first.",
+      );
 
     const [level] = await db
       .select({ id: levels.id })
       .from(levels)
       .where(and(eq(levels.languageId, language.id), eq(levels.levelNumber, 1)))
       .limit(1);
-    if (!level) throw new Error("No E2E Level 1 row found — run `npm run e2e:setup` first.");
+    if (!level)
+      throw new Error(
+        "No E2E Level 1 row found — run `npm run e2e:setup` first.",
+      );
 
     const vocabRows = await db
-      .select({ id: learningItems.id, term: vocabularyItems.term, status: learningItems.status })
+      .select({
+        id: learningItems.id,
+        term: vocabularyItems.term,
+        status: learningItems.status,
+      })
       .from(learningItems)
-      .innerJoin(vocabularyItems, eq(vocabularyItems.learningItemId, learningItems.id))
+      .innerJoin(
+        vocabularyItems,
+        eq(vocabularyItems.learningItemId, learningItems.id),
+      )
       .where(eq(learningItems.levelId, level.id));
     const grammarRows = await db
       .select({ id: learningItems.id, structure: grammarItems.structure })
       .from(learningItems)
-      .innerJoin(grammarItems, eq(grammarItems.learningItemId, learningItems.id))
+      .innerJoin(
+        grammarItems,
+        eq(grammarItems.learningItemId, learningItems.id),
+      )
       .where(eq(learningItems.levelId, level.id));
 
     const vocabularyItemIdByTerm: Record<string, string> = {};
@@ -74,9 +117,16 @@ export async function getFixtureIds(): Promise<E2EFixtureLookup> {
       if (row.status === "pending") pendingItemId = row.id;
     }
     const grammarItemIdByStructure: Record<string, string> = {};
-    for (const row of grammarRows) grammarItemIdByStructure[row.structure] = row.id;
+    for (const row of grammarRows)
+      grammarItemIdByStructure[row.structure] = row.id;
 
-    return { languageId: language.id, levelId: level.id, vocabularyItemIdByTerm, grammarItemIdByStructure, pendingItemId };
+    return {
+      languageId: language.id,
+      levelId: level.id,
+      vocabularyItemIdByTerm,
+      grammarItemIdByStructure,
+      pendingItemId,
+    };
   });
 }
 
@@ -91,19 +141,38 @@ export async function getFixtureIds(): Promise<E2EFixtureLookup> {
 export async function resetLearnerToNewAccountState(): Promise<void> {
   const learnerId = await getLearnerId();
   await withE2EDb(async (db) => {
-    await db.update(users).set({ onboardingCompletedAt: null }).where(eq(users.id, learnerId));
-    await db.delete(userLanguageSettings).where(eq(userLanguageSettings.userId, learnerId));
-    await db.delete(userItemProgress).where(eq(userItemProgress.userId, learnerId));
-    await db.delete(userLevelProgress).where(eq(userLevelProgress.userId, learnerId));
+    await db
+      .update(users)
+      .set({ onboardingCompletedAt: null })
+      .where(eq(users.id, learnerId));
+    await db
+      .delete(userLanguageSettings)
+      .where(eq(userLanguageSettings.userId, learnerId));
+    await db
+      .delete(userItemProgress)
+      .where(eq(userItemProgress.userId, learnerId));
+    await db
+      .delete(userLevelProgress)
+      .where(eq(userLevelProgress.userId, learnerId));
 
     const languageCode = getDefaultLanguageCode();
-    const [language] = await db.select({ id: languages.id }).from(languages).where(eq(languages.code, languageCode)).limit(1);
+    const [language] = await db
+      .select({ id: languages.id })
+      .from(languages)
+      .where(eq(languages.code, languageCode))
+      .limit(1);
     const [level] = await db
       .select({ id: levels.id })
       .from(levels)
-      .where(and(eq(levels.languageId, language!.id), eq(levels.levelNumber, 1)))
+      .where(
+        and(eq(levels.languageId, language!.id), eq(levels.levelNumber, 1)),
+      )
       .limit(1);
-    await db.insert(userLevelProgress).values({ userId: learnerId, levelId: level!.id, unlockedAt: new Date() });
+    await db.insert(userLevelProgress).values({
+      userId: learnerId,
+      levelId: level!.id,
+      unlockedAt: new Date(),
+    });
   });
 }
 
@@ -119,8 +188,16 @@ export async function ensureLearnerOnboarded(): Promise<void> {
     await completeOnboarding(db, learnerId, new Date());
 
     const languageCode = getDefaultLanguageCode();
-    const [language] = await db.select({ id: languages.id }).from(languages).where(eq(languages.code, languageCode)).limit(1);
-    await saveCurriculumPreference(db, { userId: learnerId, languageId: language!.id, curriculumMode: "default_order" });
+    const [language] = await db
+      .select({ id: languages.id })
+      .from(languages)
+      .where(eq(languages.code, languageCode))
+      .limit(1);
+    await saveCurriculumPreference(db, {
+      userId: learnerId,
+      languageId: language!.id,
+      curriculumMode: "default_order",
+    });
   });
 }
 
@@ -128,16 +205,22 @@ export async function ensureLearnerOnboarded(): Promise<void> {
 export async function resetLearnerItemProgress(): Promise<void> {
   const learnerId = await getLearnerId();
   await withE2EDb(async (db) => {
-    await db.delete(userItemProgress).where(eq(userItemProgress.userId, learnerId));
+    await db
+      .delete(userItemProgress)
+      .where(eq(userItemProgress.userId, learnerId));
   });
 }
 
 /** Makes one vocabulary item due for review right now, bypassing the real SRS interval wait (spec 22's "Do not wait for real SRS time to pass"). */
-export async function makeVocabularyItemDue(term: string, stage: SrsStage = "beginner_2"): Promise<void> {
+export async function makeVocabularyItemDue(
+  term: string,
+  stage: SrsStage = "beginner_2",
+): Promise<void> {
   const learnerId = await getLearnerId();
   const fixture = await getFixtureIds();
   const learningItemId = fixture.vocabularyItemIdByTerm[term];
-  if (!learningItemId) throw new Error(`No fixture vocabulary item for term "${term}".`);
+  if (!learningItemId)
+    throw new Error(`No fixture vocabulary item for term "${term}".`);
 
   await withE2EDb(async (db) => {
     const dueAt = new Date(Date.now() - 60_000);

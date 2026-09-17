@@ -21,13 +21,26 @@ describe("withIdempotency", () => {
 
       const result = await withIdempotency(
         tx,
-        { userId: learnerId, operation: "test.note", key, payload: { learningItemId: casaId } },
-        (innerTx) => createNote(innerTx, { userId: learnerId, learningItemId: casaId, body: "First call" }),
+        {
+          userId: learnerId,
+          operation: "test.note",
+          key,
+          payload: { learningItemId: casaId },
+        },
+        (innerTx) =>
+          createNote(innerTx, {
+            userId: learnerId,
+            learningItemId: casaId,
+            body: "First call",
+          }),
       );
 
       expect(result.body).toBe("First call");
 
-      const [row] = await tx.select().from(idempotencyKeys).where(eq(idempotencyKeys.key, key));
+      const [row] = await tx
+        .select()
+        .from(idempotencyKeys)
+        .where(eq(idempotencyKeys.key, key));
       expect(row.status).toBe("succeeded");
       expect(row.userId).toBe(learnerId);
       expect(row.operation).toBe("test.note");
@@ -41,9 +54,18 @@ describe("withIdempotency", () => {
       let executions = 0;
       const fn = (innerTx: DbClient) => {
         executions += 1;
-        return createNote(innerTx, { userId: learnerId, learningItemId: casaId, body: "Replay body" });
+        return createNote(innerTx, {
+          userId: learnerId,
+          learningItemId: casaId,
+          body: "Replay body",
+        });
       };
-      const input = { userId: learnerId, operation: "test.note", key, payload: { learningItemId: casaId } };
+      const input = {
+        userId: learnerId,
+        operation: "test.note",
+        key,
+        payload: { learningItemId: casaId },
+      };
 
       const first = await withIdempotency(tx, input, fn);
       const second = await withIdempotency(tx, input, fn);
@@ -52,9 +74,14 @@ describe("withIdempotency", () => {
       // A replay round-trips through jsonb, so Date fields come back as ISO
       // strings rather than Date instances — compare the JSON-stable shape,
       // not strict object identity. See with-idempotency.ts's docstring.
-      expect(JSON.parse(JSON.stringify(second))).toEqual(JSON.parse(JSON.stringify(first)));
+      expect(JSON.parse(JSON.stringify(second))).toEqual(
+        JSON.parse(JSON.stringify(first)),
+      );
 
-      const notes = await tx.select().from(userNotes).where(eq(userNotes.learningItemId, casaId));
+      const notes = await tx
+        .select()
+        .from(userNotes)
+        .where(eq(userNotes.learningItemId, casaId));
       expect(notes).toHaveLength(1);
     });
   });
@@ -66,17 +93,39 @@ describe("withIdempotency", () => {
 
       await withIdempotency(
         tx,
-        { userId: learnerId, operation: "test.note", key, payload: { learningItemId: casaId } },
-        (innerTx) => createNote(innerTx, { userId: learnerId, learningItemId: casaId, body: "Original" }),
+        {
+          userId: learnerId,
+          operation: "test.note",
+          key,
+          payload: { learningItemId: casaId },
+        },
+        (innerTx) =>
+          createNote(innerTx, {
+            userId: learnerId,
+            learningItemId: casaId,
+            body: "Original",
+          }),
       );
 
       await expect(
         withIdempotency(
           tx,
-          { userId: learnerId, operation: "test.note", key, payload: { learningItemId: aguaId } },
-          (innerTx) => createNote(innerTx, { userId: learnerId, learningItemId: aguaId, body: "Different" }),
+          {
+            userId: learnerId,
+            operation: "test.note",
+            key,
+            payload: { learningItemId: aguaId },
+          },
+          (innerTx) =>
+            createNote(innerTx, {
+              userId: learnerId,
+              learningItemId: aguaId,
+              body: "Different",
+            }),
         ),
-      ).rejects.toThrow(expect.objectContaining({ code: "IDEMPOTENCY_KEY_PAYLOAD_MISMATCH" }));
+      ).rejects.toThrow(
+        expect.objectContaining({ code: "IDEMPOTENCY_KEY_PAYLOAD_MISMATCH" }),
+      );
     });
   });
 
@@ -89,16 +138,34 @@ describe("withIdempotency", () => {
       // second one inside fn forces a real failure after casa's note would
       // otherwise have been written.
       await expect(
-        withIdempotency(tx, { userId: learnerId, operation: "test.note-fail", key, payload: {} }, async (innerTx) => {
-          await createNote(innerTx, { userId: learnerId, learningItemId: casaId, body: "Should not persist" });
-          await createNote(innerTx, { userId: learnerId, learningItemId: gatoId, body: "Forces failure" });
-        }),
+        withIdempotency(
+          tx,
+          { userId: learnerId, operation: "test.note-fail", key, payload: {} },
+          async (innerTx) => {
+            await createNote(innerTx, {
+              userId: learnerId,
+              learningItemId: casaId,
+              body: "Should not persist",
+            });
+            await createNote(innerTx, {
+              userId: learnerId,
+              learningItemId: gatoId,
+              body: "Forces failure",
+            });
+          },
+        ),
       ).rejects.toThrow();
 
-      const casaNotes = await tx.select().from(userNotes).where(eq(userNotes.learningItemId, casaId));
+      const casaNotes = await tx
+        .select()
+        .from(userNotes)
+        .where(eq(userNotes.learningItemId, casaId));
       expect(casaNotes).toHaveLength(0);
 
-      const [keyRow] = await tx.select().from(idempotencyKeys).where(eq(idempotencyKeys.key, key));
+      const [keyRow] = await tx
+        .select()
+        .from(idempotencyKeys)
+        .where(eq(idempotencyKeys.key, key));
       expect(keyRow).toBeUndefined();
     });
   });
@@ -111,12 +178,22 @@ describe("withIdempotency", () => {
       const learnerResult = await withIdempotency(
         tx,
         { userId: learnerId, operation: "test.note", key, payload: {} },
-        (innerTx) => createNote(innerTx, { userId: learnerId, learningItemId: casaId, body: "Learner note" }),
+        (innerTx) =>
+          createNote(innerTx, {
+            userId: learnerId,
+            learningItemId: casaId,
+            body: "Learner note",
+          }),
       );
       const developerResult = await withIdempotency(
         tx,
         { userId: developerId, operation: "test.note", key, payload: {} },
-        (innerTx) => createNote(innerTx, { userId: developerId, learningItemId: casaId, body: "Developer note" }),
+        (innerTx) =>
+          createNote(innerTx, {
+            userId: developerId,
+            learningItemId: casaId,
+            body: "Developer note",
+          }),
       );
 
       expect(learnerResult.body).toBe("Learner note");
@@ -132,12 +209,22 @@ describe("withIdempotency", () => {
       const first = await withIdempotency(
         tx,
         { userId: learnerId, operation: "test.note-a", key, payload: {} },
-        (innerTx) => createNote(innerTx, { userId: learnerId, learningItemId: casaId, body: "Operation A" }),
+        (innerTx) =>
+          createNote(innerTx, {
+            userId: learnerId,
+            learningItemId: casaId,
+            body: "Operation A",
+          }),
       );
       const second = await withIdempotency(
         tx,
         { userId: learnerId, operation: "test.note-b", key, payload: {} },
-        (innerTx) => createNote(innerTx, { userId: learnerId, learningItemId: aguaId, body: "Operation B" }),
+        (innerTx) =>
+          createNote(innerTx, {
+            userId: learnerId,
+            learningItemId: aguaId,
+            body: "Operation B",
+          }),
       );
 
       expect(first.body).toBe("Operation A");
@@ -152,9 +239,18 @@ describe("withIdempotency", () => {
 
       await withIdempotency(
         tx,
-        { userId: learnerId, operation: "test.note-safe", key, payload: { learningItemId: casaId } },
+        {
+          userId: learnerId,
+          operation: "test.note-safe",
+          key,
+          payload: { learningItemId: casaId },
+        },
         async (innerTx) => {
-          await createNote(innerTx, { userId: learnerId, learningItemId: casaId, body: "Sensitive learner content" });
+          await createNote(innerTx, {
+            userId: learnerId,
+            learningItemId: casaId,
+            body: "Sensitive learner content",
+          });
           // A real consumer (e.g. a future spec 07 unit 6) is responsible
           // for returning a safe projection here — withIdempotency stores
           // it verbatim and never inspects or supplements it.
@@ -162,9 +258,14 @@ describe("withIdempotency", () => {
         },
       );
 
-      const [row] = await tx.select().from(idempotencyKeys).where(eq(idempotencyKeys.key, key));
+      const [row] = await tx
+        .select()
+        .from(idempotencyKeys)
+        .where(eq(idempotencyKeys.key, key));
       expect(row.responseSnapshot).toEqual({ noteCreated: true });
-      expect(JSON.stringify(row.responseSnapshot)).not.toContain("Sensitive learner content");
+      expect(JSON.stringify(row.responseSnapshot)).not.toContain(
+        "Sensitive learner content",
+      );
     });
   });
 
@@ -194,8 +295,14 @@ describe("withIdempotency", () => {
       const deletedCount = await cleanupExpiredIdempotencyKeys(tx);
       expect(deletedCount).toBe(1);
 
-      const [expiredRow] = await tx.select().from(idempotencyKeys).where(eq(idempotencyKeys.key, expiredKey));
-      const [freshRow] = await tx.select().from(idempotencyKeys).where(eq(idempotencyKeys.key, freshKey));
+      const [expiredRow] = await tx
+        .select()
+        .from(idempotencyKeys)
+        .where(eq(idempotencyKeys.key, expiredKey));
+      const [freshRow] = await tx
+        .select()
+        .from(idempotencyKeys)
+        .where(eq(idempotencyKeys.key, freshKey));
       expect(expiredRow).toBeUndefined();
       expect(freshRow).toBeDefined();
     });
@@ -203,48 +310,88 @@ describe("withIdempotency", () => {
 });
 
 describe("withIdempotency concurrency (real, independently-committed transactions)", () => {
-  it(
-    "executes the operation exactly once under two concurrent calls with the same key",
-    async () => {
-      const { learnerId, casaId } = await seedTestFixtures(testDb, { committed: true });
-      const key = randomUUID();
-      let executions = 0;
+  it("executes the operation exactly once under two concurrent calls with the same key", async () => {
+    const { learnerId, casaId } = await seedTestFixtures(testDb, {
+      committed: true,
+    });
+    const key = randomUUID();
+    let executions = 0;
 
-      const slowFn = async (innerTx: DbClient) => {
-        executions += 1;
-        await new Promise((resolve) => setTimeout(resolve, 800));
-        return createNote(innerTx, { userId: learnerId, learningItemId: casaId, body: "Concurrent" });
-      };
+    const slowFn = async (innerTx: DbClient) => {
+      executions += 1;
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      return createNote(innerTx, {
+        userId: learnerId,
+        learningItemId: casaId,
+        body: "Concurrent",
+      });
+    };
 
-      try {
-        const results = await Promise.allSettled([
-          withIdempotency(testDb, { userId: learnerId, operation: "test.concurrent-note", key, payload: {} }, slowFn, {
+    try {
+      const results = await Promise.allSettled([
+        withIdempotency(
+          testDb,
+          {
+            userId: learnerId,
+            operation: "test.concurrent-note",
+            key,
+            payload: {},
+          },
+          slowFn,
+          {
             lockTimeoutMs: 200,
-          }),
-          withIdempotency(testDb, { userId: learnerId, operation: "test.concurrent-note", key, payload: {} }, slowFn, {
+          },
+        ),
+        withIdempotency(
+          testDb,
+          {
+            userId: learnerId,
+            operation: "test.concurrent-note",
+            key,
+            payload: {},
+          },
+          slowFn,
+          {
             lockTimeoutMs: 200,
+          },
+        ),
+      ]);
+
+      expect(executions).toBe(1);
+      const succeeded = results.filter(
+        (result) => result.status === "fulfilled",
+      );
+      const failed = results.filter((result) => result.status === "rejected");
+      expect(succeeded).toHaveLength(1);
+      expect(failed).toHaveLength(1);
+      if (failed[0]?.status === "rejected") {
+        expect(failed[0].reason).toEqual(
+          expect.objectContaining({
+            code: "IDEMPOTENCY_OPERATION_IN_PROGRESS",
           }),
-        ]);
-
-        expect(executions).toBe(1);
-        const succeeded = results.filter((result) => result.status === "fulfilled");
-        const failed = results.filter((result) => result.status === "rejected");
-        expect(succeeded).toHaveLength(1);
-        expect(failed).toHaveLength(1);
-        if (failed[0]?.status === "rejected") {
-          expect(failed[0].reason).toEqual(expect.objectContaining({ code: "IDEMPOTENCY_OPERATION_IN_PROGRESS" }));
-        }
-
-        const notes = await testDb
-          .select()
-          .from(userNotes)
-          .where(and(eq(userNotes.userId, learnerId), eq(userNotes.learningItemId, casaId)));
-        expect(notes).toHaveLength(1);
-      } finally {
-        await testDb.delete(userNotes).where(and(eq(userNotes.userId, learnerId), eq(userNotes.learningItemId, casaId)));
-        await testDb.delete(idempotencyKeys).where(eq(idempotencyKeys.key, key));
+        );
       }
-    },
-    15_000,
-  );
+
+      const notes = await testDb
+        .select()
+        .from(userNotes)
+        .where(
+          and(
+            eq(userNotes.userId, learnerId),
+            eq(userNotes.learningItemId, casaId),
+          ),
+        );
+      expect(notes).toHaveLength(1);
+    } finally {
+      await testDb
+        .delete(userNotes)
+        .where(
+          and(
+            eq(userNotes.userId, learnerId),
+            eq(userNotes.learningItemId, casaId),
+          ),
+        );
+      await testDb.delete(idempotencyKeys).where(eq(idempotencyKeys.key, key));
+    }
+  }, 15_000);
 });

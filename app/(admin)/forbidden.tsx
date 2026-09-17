@@ -24,11 +24,17 @@ import Link from "next/link";
 export default function AdminForbidden() {
   return (
     <div className="flex min-h-svh flex-col items-center justify-center gap-3 bg-background px-4 text-center">
-      <h1 className="text-2xl font-semibold text-foreground">You don&apos;t have access to this page</h1>
+      <h1 className="text-2xl font-semibold text-foreground">
+        You don&apos;t have access to this page
+      </h1>
       <p className="max-w-md text-sm text-muted-foreground">
-        This area of Polyglot is restricted to authorized administrative accounts.
+        This area of Polyglot is restricted to authorized administrative
+        accounts.
       </p>
-      <Link href="/dashboard" className="mt-2 text-sm font-medium text-primary underline-offset-4 hover:underline">
+      <Link
+        href="/dashboard"
+        className="mt-2 text-sm font-medium text-primary underline-offset-4 hover:underline"
+      >
         Return to dashboard
       </Link>
     </div>

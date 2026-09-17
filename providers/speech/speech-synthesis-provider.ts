@@ -22,12 +22,17 @@ import { baseLanguageSubtag } from "@/lib/language-code";
 export interface SpeechSynthesisProvider {
   isSupported(): boolean;
   /** Speaks `text` in `languageCode`, cancelling anything already speaking. */
-  speak(input: { text: string; languageCode: string; onEnd?: () => void }): void;
+  speak(input: {
+    text: string;
+    languageCode: string;
+    onEnd?: () => void;
+  }): void;
   cancel(): void;
 }
 
 function getSynthesis(): SpeechSynthesis | null {
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) return null;
+  if (typeof window === "undefined" || !("speechSynthesis" in window))
+    return null;
   return window.speechSynthesis;
 }
 
@@ -39,7 +44,10 @@ function getSynthesis(): SpeechSynthesis | null {
  * picks one from `utterance.lang` itself. Voices also load asynchronously in
  * several browsers, so an early call legitimately sees an empty list.
  */
-function findVoice(synthesis: SpeechSynthesis, languageCode: string): SpeechSynthesisVoice | null {
+function findVoice(
+  synthesis: SpeechSynthesis,
+  languageCode: string,
+): SpeechSynthesisVoice | null {
   const voices = synthesis.getVoices();
   if (voices.length === 0) return null;
 

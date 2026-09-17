@@ -2,7 +2,11 @@ import type { DbClient } from "@/db/client";
 import { getEnrolledItemIds } from "@/domains/curriculum/lesson-curriculum-repository";
 import { withIdempotency } from "@/domains/idempotency";
 import { enrollLearningItems } from "@/domains/progress/repository";
-import { calculateNextReview, DEFAULT_SRS_INTERVAL_MODE, MINIMUM_REVIEW_STAGE } from "@/domains/srs";
+import {
+  calculateNextReview,
+  DEFAULT_SRS_INTERVAL_MODE,
+  MINIMUM_REVIEW_STAGE,
+} from "@/domains/srs";
 import { LessonError } from "@/lib/errors/lesson-errors";
 
 import type { LessonCurriculumReader } from "./lesson-curriculum-reader";
@@ -61,7 +65,11 @@ export type LessonCompletionResult = LessonCompletionSummary & {
  * every required question was satisfied and no retry is pending (§41).
  */
 function assertQuizCompleted(state: LessonState): void {
-  if (state.phase !== "complete" || !state.quiz || state.quiz.queue.length > 0) {
+  if (
+    state.phase !== "complete" ||
+    !state.quiz ||
+    state.quiz.queue.length > 0
+  ) {
     throw new LessonError("LESSON_QUIZ_NOT_READY");
   }
 }
@@ -73,7 +81,10 @@ function accuracyFrom(state: LessonState): number {
   return attempts === 0 ? 100 : Math.round((correct / attempts) * 100);
 }
 
-export async function completeLesson(db: DbClient, input: CompleteLessonInput): Promise<LessonCompletionResult> {
+export async function completeLesson(
+  db: DbClient,
+  input: CompleteLessonInput,
+): Promise<LessonCompletionResult> {
   const now = input.now ?? new Date();
   const state = await verifyLessonState({
     token: input.token,
@@ -94,7 +105,10 @@ export async function completeLesson(db: DbClient, input: CompleteLessonInput): 
       // The batch identity is the payload. A replay with the same key and the
       // same batch returns the original result; a reused key with a different
       // batch is rejected by `withIdempotency` rather than enrolling anything.
-      payload: { languageId: input.languageId, itemIds: [...batchItemIds].sort() },
+      payload: {
+        languageId: input.languageId,
+        itemIds: [...batchItemIds].sort(),
+      },
     },
     async (tx) => {
       // §44 — revalidate against authoritative state, not the token.
@@ -110,12 +124,18 @@ export async function completeLesson(db: DbClient, input: CompleteLessonInput): 
 
       // §44's "Already-Enrolled Batches": reject the whole completion rather
       // than enrolling the remainder or silently skipping duplicates.
-      const alreadyEnrolled = await getEnrolledItemIds(tx, input.userId, batchItemIds);
+      const alreadyEnrolled = await getEnrolledItemIds(
+        tx,
+        input.userId,
+        batchItemIds,
+      );
       if (alreadyEnrolled.length > 0) {
         throw new LessonError("LESSON_ALREADY_ENROLLED");
       }
 
-      const orderedItems = batchItemIds.map((itemId) => items.find((item) => item.id === itemId)!);
+      const orderedItems = batchItemIds.map((itemId) =>
+        items.find((item) => item.id === itemId)!,
+      );
 
       await enrollLearningItems(
         tx,
@@ -131,7 +151,12 @@ export async function completeLesson(db: DbClient, input: CompleteLessonInput): 
           // Beginner 1's interval is fixed (4 hours) under every mode — a
           // freshly enrolled item has no review-session context to resolve
           // a real preference from anyway, so this is never a live choice.
-          nextReviewAt: calculateNextReview({ stage: MINIMUM_REVIEW_STAGE, level: item.levelNumber, mode: DEFAULT_SRS_INTERVAL_MODE, now }),
+          nextReviewAt: calculateNextReview({
+            stage: MINIMUM_REVIEW_STAGE,
+            level: item.levelNumber,
+            mode: DEFAULT_SRS_INTERVAL_MODE,
+            now,
+          }),
         })),
       );
 
@@ -139,7 +164,10 @@ export async function completeLesson(db: DbClient, input: CompleteLessonInput): 
         items: orderedItems.map((item) => ({
           id: item.id,
           label: item.type === "vocabulary" ? item.word : item.structure,
-          meaning: item.type === "vocabulary" ? (item.meanings[0] ?? "") : item.meaning,
+          meaning:
+            item.type === "vocabulary"
+              ? (item.meanings[0] ?? "")
+              : item.meaning,
         })),
         newStage: MINIMUM_REVIEW_STAGE,
         accuracy: accuracyFrom(state),

@@ -11,7 +11,10 @@ import type { Locator, Page } from "@playwright/test";
  * the one permanent E2E learner) trips it, the right response is to wait
  * out the real window and retry, never to weaken the limit.
  */
-export async function clickRespectingDangerZoneRateLimit(page: Page, button: Locator): Promise<void> {
+export async function clickRespectingDangerZoneRateLimit(
+  page: Page,
+  button: Locator,
+): Promise<void> {
   await button.click();
   const rateLimited = page.getByText(/slow down and try again in (\d+)s/i);
   // `isVisible()` checks immediately and never waits (unlike `expect`/

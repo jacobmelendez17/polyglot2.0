@@ -20,7 +20,10 @@ export function baseLanguageSubtag(languageCode: string): string {
  * Resolves a value keyed by language code, trying the full code first so a
  * region can override, then the base subtag.
  */
-export function resolveByLanguageCode<T>(table: Record<string, T>, languageCode: string): T | undefined {
+export function resolveByLanguageCode<T>(
+  table: Record<string, T>,
+  languageCode: string,
+): T | undefined {
   const normalized = languageCode.toLowerCase();
   return table[normalized] ?? table[baseLanguageSubtag(normalized)];
 }

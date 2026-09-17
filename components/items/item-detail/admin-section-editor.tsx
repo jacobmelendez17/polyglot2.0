@@ -5,7 +5,14 @@ import type { ReactNode } from "react";
 import { Pencil } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 type AdminSectionEditorProps = {
   /** The control's label and the dialog's title — name the section it edits, e.g. "Edit item fields". */
@@ -29,7 +36,11 @@ type AdminSectionEditorProps = {
  * `canManageCurriculum` server-side regardless — hiding a button has never
  * been a permission check.
  */
-export function AdminSectionEditor({ title, description, children }: AdminSectionEditorProps) {
+export function AdminSectionEditor({
+  title,
+  description,
+  children,
+}: AdminSectionEditorProps) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -43,7 +54,9 @@ export function AdminSectionEditor({ title, description, children }: AdminSectio
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          {description ? <DialogDescription>{description}</DialogDescription> : null}
+          {description ? (
+            <DialogDescription>{description}</DialogDescription>
+          ) : null}
         </DialogHeader>
         {children}
       </DialogContent>

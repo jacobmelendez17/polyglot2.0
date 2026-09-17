@@ -14,10 +14,18 @@ import {
 } from "@/domains/curriculum/server";
 import { requireUser } from "@/domains/users/server";
 
-export async function generateMetadata({ params }: { params: Promise<{ levelId: string }> }): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ levelId: string }>;
+}): Promise<Metadata> {
   const { levelId } = await params;
   const level = await getLevelById(levelId);
-  return { title: level ? `Level ${level.levelNumber} — Polyglot Admin` : "Level — Polyglot Admin" };
+  return {
+    title: level
+      ? `Level ${level.levelNumber} — Polyglot Admin`
+      : "Level — Polyglot Admin",
+  };
 }
 
 /**
@@ -30,7 +38,11 @@ export async function generateMetadata({ params }: { params: Promise<{ levelId: 
  * *decide* what to publish, so a pending item that has never been live is
  * exactly what needs to be visible here.
  */
-export default async function LevelDetailPage({ params }: { params: Promise<{ levelId: string }> }) {
+export default async function LevelDetailPage({
+  params,
+}: {
+  params: Promise<{ levelId: string }>;
+}) {
   const user = await requireUser();
   if (!canManageCurriculum(user)) forbidden();
 
@@ -42,7 +54,11 @@ export default async function LevelDetailPage({ params }: { params: Promise<{ le
     getLevelContentCounts(levelId),
     // A level's whole contents, not a page of them: this view is the level's
     // running order, and an order with a page break in it is not an order.
-    getAdminCurriculumItems({ languageId: level.languageId, levelId, limit: 100 }),
+    getAdminCurriculumItems({
+      languageId: level.languageId,
+      levelId,
+      limit: 100,
+    }),
     getLevelsByLanguage(level.languageId),
     getVocabularyGroupsByLanguage(level.languageId),
   ]);
@@ -54,14 +70,27 @@ export default async function LevelDetailPage({ params }: { params: Promise<{ le
           title={`Level ${level.levelNumber}${level.name ? ` — ${level.name}` : ""}`}
           description="Edit level properties, and arrange everything it teaches."
         />
-        <LevelEditForm levelId={level.id} name={level.name} status={level.status} cefrLevel={level.cefrLevel} counts={counts} />
+        <LevelEditForm
+          levelId={level.id}
+          name={level.name}
+          status={level.status}
+          cefrLevel={level.cefrLevel}
+          counts={counts}
+        />
       </div>
 
       <LevelItemBoard
         levelId={level.id}
         items={itemsPage.items}
-        levels={levels.map((option) => ({ id: option.id, levelNumber: option.levelNumber }))}
-        groups={groups.map((group) => ({ id: group.id, name: group.name, levelId: group.levelId }))}
+        levels={levels.map((option) => ({
+          id: option.id,
+          levelNumber: option.levelNumber,
+        }))}
+        groups={groups.map((group) => ({
+          id: group.id,
+          name: group.name,
+          levelId: group.levelId,
+        }))}
       />
     </div>
   );

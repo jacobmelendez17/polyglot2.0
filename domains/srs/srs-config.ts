@@ -56,7 +56,10 @@ export const SRS_STAGE_LABELS: Record<SrsStage, string> = {
  * number of days — spec 20's own "Duration Semantics": "September 12 + 3
  * months = December 12, not September 12 + 90 days."
  */
-const STANDARD_INTERVALS_BY_MODE: Record<SrsIntervalMode, Record<SrsStage, SrsInterval | null>> = {
+const STANDARD_INTERVALS_BY_MODE: Record<
+  SrsIntervalMode,
+  Record<SrsStage, SrsInterval | null>
+> = {
   shortest: {
     beginner_1: { unit: "hours", amount: 4 },
     beginner_2: { unit: "hours", amount: 8 },
@@ -146,7 +149,11 @@ const MS_PER_UNIT: Record<Exclude<IntervalUnit, "months">, number> = {
  * — see `ACCELERATED_BEGINNER_INTERVALS`'s docstring). `null` means terminal
  * (no further review).
  */
-export function getConfiguredInterval(stage: SrsStage, level: number, mode: SrsIntervalMode): SrsInterval | null {
+export function getConfiguredInterval(
+  stage: SrsStage,
+  level: number,
+  mode: SrsIntervalMode,
+): SrsInterval | null {
   if (ACCELERATED_LEVELS.has(level)) {
     const accelerated = ACCELERATED_BEGINNER_INTERVALS[stage];
     if (accelerated) return accelerated;
@@ -161,6 +168,8 @@ export function getConfiguredInterval(stage: SrsStage, level: number, mode: SrsI
  * go through `addCalendarMonths` instead (`srs-rules.ts`'s
  * `calculateNextReview`), since a month has no fixed duration.
  */
-export function intervalToMs(interval: SrsInterval & { unit: Exclude<IntervalUnit, "months"> }): number {
+export function intervalToMs(
+  interval: SrsInterval & { unit: Exclude<IntervalUnit, "months"> },
+): number {
   return interval.amount * MS_PER_UNIT[interval.unit];
 }

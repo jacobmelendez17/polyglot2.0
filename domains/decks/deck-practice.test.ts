@@ -2,10 +2,19 @@ import { describe, expect, it } from "vitest";
 
 import type { CurriculumLearningItem } from "@/domains/curriculum";
 
-import { buildDeckPracticeQuestions, deckItemLabel, summarizeDeckPractice } from "./deck-practice";
+import {
+  buildDeckPracticeQuestions,
+  deckItemLabel,
+  summarizeDeckPractice,
+} from "./deck-practice";
 import type { DeckPracticeClassification } from "./deck-practice";
 
-function vocabulary(id: string, term: string, meaning: string, article: string | null = null): CurriculumLearningItem {
+function vocabulary(
+  id: string,
+  term: string,
+  meaning: string,
+  article: string | null = null,
+): CurriculumLearningItem {
   return {
     id,
     languageId: "lang-1",
@@ -55,14 +64,19 @@ function grammar(
       category: null,
       creatorNotes: null,
       register: null,
-      requiredQuestions: directions.map((direction) => ({ format: "translation" as const, direction })),
+      requiredQuestions: directions.map((direction) => ({
+        format: "translation" as const,
+        direction,
+      })),
     },
   };
 }
 
 describe("deckItemLabel", () => {
   it("includes the article for a vocabulary item that requires one", () => {
-    expect(deckItemLabel(vocabulary("v1", "gato", "cat", "el"))).toBe("el gato");
+    expect(deckItemLabel(vocabulary("v1", "gato", "cat", "el"))).toBe(
+      "el gato",
+    );
     expect(deckItemLabel(vocabulary("v2", "correr", "to run"))).toBe("correr");
   });
 
@@ -73,12 +87,21 @@ describe("deckItemLabel", () => {
 
 describe("buildDeckPracticeQuestions", () => {
   it("asks vocabulary in both directions, matching normal review behavior", () => {
-    const questions = buildDeckPracticeQuestions([vocabulary("v1", "gato", "cat", "el")], "Spanish");
-    expect(questions.map((question) => question.direction).sort()).toEqual(["englishToTarget", "targetToEnglish"]);
+    const questions = buildDeckPracticeQuestions(
+      [vocabulary("v1", "gato", "cat", "el")],
+      "Spanish",
+    );
+    expect(questions.map((question) => question.direction).sort()).toEqual([
+      "englishToTarget",
+      "targetToEnglish",
+    ]);
   });
 
   it("asks grammar in exactly its configured directions, never an assumed pair", () => {
-    const questions = buildDeckPracticeQuestions([grammar("g1", "y", "and")], "Spanish");
+    const questions = buildDeckPracticeQuestions(
+      [grammar("g1", "y", "and")],
+      "Spanish",
+    );
     expect(questions).toHaveLength(1);
     expect(questions[0].direction).toBe("targetToEnglish");
 
@@ -90,15 +113,27 @@ describe("buildDeckPracticeQuestions", () => {
   });
 
   it("lets vocabulary and grammar coexist in one session", () => {
-    const questions = buildDeckPracticeQuestions([vocabulary("v1", "gato", "cat"), grammar("g1", "y", "and")], "Spanish");
-    expect(questions.map((question) => question.itemType)).toContain("vocabulary");
+    const questions = buildDeckPracticeQuestions(
+      [vocabulary("v1", "gato", "cat"), grammar("g1", "y", "and")],
+      "Spanish",
+    );
+    expect(questions.map((question) => question.itemType)).toContain(
+      "vocabulary",
+    );
     expect(questions.map((question) => question.itemType)).toContain("grammar");
   });
 
   it("prompts in the right direction and labels it with the real language name", () => {
-    const questions = buildDeckPracticeQuestions([vocabulary("v1", "gato", "cat", "el")], "Spanish");
-    const targetToEnglish = questions.find((question) => question.direction === "targetToEnglish")!;
-    const englishToTarget = questions.find((question) => question.direction === "englishToTarget")!;
+    const questions = buildDeckPracticeQuestions(
+      [vocabulary("v1", "gato", "cat", "el")],
+      "Spanish",
+    );
+    const targetToEnglish = questions.find(
+      (question) => question.direction === "targetToEnglish",
+    )!;
+    const englishToTarget = questions.find(
+      (question) => question.direction === "englishToTarget",
+    )!;
 
     expect(targetToEnglish.prompt).toBe("gato");
     expect(targetToEnglish.directionLabel).toBe("Spanish → English");
@@ -107,7 +142,10 @@ describe("buildDeckPracticeQuestions", () => {
   });
 
   it("never ships an accepted answer to the browser", () => {
-    const questions = buildDeckPracticeQuestions([vocabulary("v1", "gato", "cat", "el")], "Spanish");
+    const questions = buildDeckPracticeQuestions(
+      [vocabulary("v1", "gato", "cat", "el")],
+      "Spanish",
+    );
     for (const question of questions) {
       expect(Object.keys(question)).not.toContain("acceptedAnswers");
       expect(Object.keys(question)).not.toContain("expectedAnswer");
@@ -139,8 +177,13 @@ describe("summarizeDeckPractice", () => {
     const summary = summarizeDeckPractice(classifications);
     expect(summary.knowCount).toBe(2);
     expect(summary.dontKnowCount).toBe(1);
-    expect(summary.know.map((entry) => entry.learningItemId)).toEqual(["v1", "g1"]);
-    expect(summary.dontKnow.map((entry) => entry.learningItemId)).toEqual(["v2"]);
+    expect(summary.know.map((entry) => entry.learningItemId)).toEqual([
+      "v1",
+      "g1",
+    ]);
+    expect(summary.dontKnow.map((entry) => entry.learningItemId)).toEqual([
+      "v2",
+    ]);
   });
 
   it("counts an item once, using its latest verdict", () => {
@@ -153,6 +196,11 @@ describe("summarizeDeckPractice", () => {
   });
 
   it("returns empty groups for a session with no classifications", () => {
-    expect(summarizeDeckPractice([])).toEqual({ knowCount: 0, dontKnowCount: 0, know: [], dontKnow: [] });
+    expect(summarizeDeckPractice([])).toEqual({
+      knowCount: 0,
+      dontKnowCount: 0,
+      know: [],
+      dontKnow: [],
+    });
   });
 });

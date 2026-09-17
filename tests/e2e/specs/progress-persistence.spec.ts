@@ -1,7 +1,11 @@
 import { clerk } from "@clerk/testing/playwright";
 import { expect, test } from "@playwright/test";
 
-import { ensureLearnerOnboarded, makeVocabularyItemDue, resetLearnerItemProgress } from "../support/e2e-state";
+import {
+  ensureLearnerOnboarded,
+  makeVocabularyItemDue,
+  resetLearnerItemProgress,
+} from "../support/e2e-state";
 import { completeAllDueReviews } from "../support/review-quiz";
 
 /**
@@ -17,17 +21,23 @@ test.describe("Progress persistence", () => {
     await resetLearnerItemProgress();
   });
 
-  test("earned review progress survives refresh, navigation, and sign-out/sign-in", async ({ page }) => {
+  test("earned review progress survives refresh, navigation, and sign-out/sign-in", async ({
+    page,
+  }) => {
     await makeVocabularyItemDue("gato", "beginner_2");
     await page.goto("/reviews");
     await completeAllDueReviews(page);
-    await expect(page.getByRole("heading", { name: "Session complete!" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Session complete!" }),
+    ).toBeVisible();
 
     await page.goto("/dashboard");
     const dashboardText = await page.locator("body").innerText();
 
     await page.reload();
-    await expect(page.locator("body")).toContainText(dashboardText.split("\n")[0] ?? "");
+    await expect(page.locator("body")).toContainText(
+      dashboardText.split("\n")[0] ?? "",
+    );
 
     await page.goto("/lessons");
     await page.goto("/dashboard");

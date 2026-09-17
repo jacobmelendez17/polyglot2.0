@@ -7,13 +7,20 @@ import {
   markCurriculumImportStarted,
   revertCurriculumImportForRevalidation,
 } from "@/domains/admin/curriculum-import-service";
-import { getCurriculumImportById, listCurriculumImportRows } from "@/domains/admin/curriculum-import-repository";
+import {
+  getCurriculumImportById,
+  listCurriculumImportRows,
+} from "@/domains/admin/curriculum-import-repository";
 import type { CurriculumImportRowRecord } from "@/domains/admin/curriculum-import-types";
 import { matchImportedVocabularyItems } from "@/domains/lexicon/lexicon-mapping-service";
 import type { CurriculumImportStorage } from "@/providers/storage/types";
 
 import { detectMaterialChange } from "./material-change";
-import { describeErrorChain, errorCode, resolveFreshImport } from "./import-resolution";
+import {
+  describeErrorChain,
+  errorCode,
+  resolveFreshImport,
+} from "./import-resolution";
 
 /**
  * The commit job (spec 19 §11/§14/§48 step 15) — reused, never
@@ -28,11 +35,18 @@ import { describeErrorChain, errorCode, resolveFreshImport } from "./import-reso
 export type CommitJobInput = { importId: string; actorUserId: string };
 
 /** Commit needs every row to compare against, not one page — `curriculum_imports` caps at 5,000 rows (spec 19 §4), so this is bounded. */
-async function loadAllRows(db: DbClient, importId: string): Promise<CurriculumImportRowRecord[]> {
+async function loadAllRows(
+  db: DbClient,
+  importId: string,
+): Promise<CurriculumImportRowRecord[]> {
   const all: CurriculumImportRowRecord[] = [];
   let cursor: string | null = null;
   do {
-    const page = await listCurriculumImportRows(db, { importId, cursor, limit: 500 });
+    const page = await listCurriculumImportRows(db, {
+      importId,
+      cursor,
+      limit: 500,
+    });
     all.push(...page.items);
     cursor = page.nextCursor;
   } while (cursor);
@@ -68,26 +82,45 @@ export async function runCommitJob(
   // other way to distinguish "a fresh redelivery" from "an admin's manual
   // retry" — both look identical from here, which is fine, since either one
   // retrying is exactly the desired behavior.
-  if (importRecord.status === "completed" || importRecord.status === "needs_review" || importRecord.status === "ready_to_import") return;
+  if (
+    importRecord.status === "completed" ||
+    importRecord.status === "needs_review" ||
+    importRecord.status === "ready_to_import"
+  )
+    return;
 
   try {
     const fileExtension = importRecord.fileExtension as "csv" | "tsv";
     const [{ previews, rowInputs }, storedRows] = await Promise.all([
-      resolveFreshImport(db, storage, { key: importRecord.s3Key, fileExtension, languageId: importRecord.languageId }),
+      resolveFreshImport(db, storage, {
+        key: importRecord.s3Key,
+        fileExtension,
+        languageId: importRecord.languageId,
+      }),
       loadAllRows(db, importId),
     ]);
 
     if (detectMaterialChange(storedRows, rowInputs)) {
       // Spec 19 §12/§13 — abort. No curriculum write happens on this path.
-      await revertCurriculumImportForRevalidation(db, { importId, rows: rowInputs, sourceSha256: importRecord.sourceSha256 ?? undefined });
+      await revertCurriculumImportForRevalidation(db, {
+        importId,
+        rows: rowInputs,
+        sourceSha256: importRecord.sourceSha256 ?? undefined,
+      });
       return;
     }
 
     await markCurriculumImportStarted(db, importId); // queued_for_import -> importing, attempt_count++
 
-    const skippedRowNumbers = new Set(storedRows.filter((row) => row.adminDisposition === "skip").map((row) => row.rowNumber));
+    const skippedRowNumbers = new Set(
+      storedRows
+        .filter((row) => row.adminDisposition === "skip")
+        .map((row) => row.rowNumber),
+    );
     const decisions: ImportRowDecision[] = previews
-      .filter((row) => row.fields !== null && !skippedRowNumbers.has(row.rowNumber))
+      .filter(
+        (row) => row.fields !== null && !skippedRowNumbers.has(row.rowNumber),
+      )
       .map((row) => ({ fields: row.fields!, decision: "import" as const }));
 
     if (decisions.length > 0) {
@@ -96,7 +129,12 @@ export async function runCommitJob(
       // the same commit (spec 19 §21's "curriculum-import:{importId}:commit:v1"
       // in spirit — the idempotency table's own (userId, operation, key)
       // uniqueness is what actually enforces it).
-      const outcome = await bulkImportVocabulary(db, { languageId: importRecord.languageId, actorUserId, idempotencyKey: importId, rows: decisions });
+      const outcome = await bulkImportVocabulary(db, {
+        languageId: importRecord.languageId,
+        actorUserId,
+        idempotencyKey: importId,
+        rows: decisions,
+      });
 
       // Spec 19 §17 — dictionary matching follows successful curriculum
       // creation/update, vocabulary only, exactly like the old synchronous
@@ -109,17 +147,28 @@ export async function runCommitJob(
       // send an already-committed row through fresh resolution again, where
       // it now resolves as `unchanged` instead of `create` and trips
       // `detectMaterialChange` for no real reason.
-      const vocabularyItemIds = [...outcome.createdVocabularyItemIds, ...outcome.updatedVocabularyItemIds];
+      const vocabularyItemIds = [
+        ...outcome.createdVocabularyItemIds,
+        ...outcome.updatedVocabularyItemIds,
+      ];
       if (vocabularyItemIds.length > 0) {
-        await matchImportedVocabularyItems(db, vocabularyItemIds).catch(() => {});
+        await matchImportedVocabularyItems(db, vocabularyItemIds).catch(
+          () => {},
+        );
       }
     }
 
-    await markCurriculumImportCompleted(db, importId, { skippedCount: skippedRowNumbers.size });
+    await markCurriculumImportCompleted(db, importId, {
+      skippedCount: skippedRowNumbers.size,
+    });
   } catch (error) {
     const fullMessage = describeErrorChain(error);
     const summary = errorCode(fullMessage);
-    await markCurriculumImportFailed(db, { importId, errorCode: "IMPORT_TRANSACTION_FAILED", errorSummary: summary }).catch(() => {});
+    await markCurriculumImportFailed(db, {
+      importId,
+      errorCode: "IMPORT_TRANSACTION_FAILED",
+      errorSummary: summary,
+    }).catch(() => {});
     throw new Error(fullMessage);
   }
 }

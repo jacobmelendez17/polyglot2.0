@@ -6,7 +6,11 @@ import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { CreateLevelDialog } from "@/components/admin/curriculum/create-level-dialog";
 import { CurriculumStatusBadge } from "@/components/admin/curriculum/curriculum-status-badge";
 import { canManageCurriculum } from "@/domains/admin";
-import { getLanguages, getLevelsByLanguage, getLevelContentCounts } from "@/domains/curriculum/server";
+import {
+  getLanguages,
+  getLevelsByLanguage,
+  getLevelContentCounts,
+} from "@/domains/curriculum/server";
 import { requireUser } from "@/domains/users/server";
 
 export const metadata: Metadata = {
@@ -21,7 +25,11 @@ type SearchParams = { language?: string };
  * admin can see at a glance which levels are publish-ready without opening
  * each one (§"Show curriculum counts").
  */
-export default async function AdminLevelsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+export default async function AdminLevelsPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
   const user = await requireUser();
   if (!canManageCurriculum(user)) forbidden();
 
@@ -31,32 +39,52 @@ export default async function AdminLevelsPage({ searchParams }: { searchParams: 
   if (languages.length === 0) {
     return (
       <div>
-        <AdminPageHeader title="Levels" description="Manage level properties, ordering, and publication." />
-        <p className="text-sm text-muted-foreground">No languages are configured yet.</p>
+        <AdminPageHeader
+          title="Levels"
+          description="Manage level properties, ordering, and publication."
+        />
+        <p className="text-sm text-muted-foreground">
+          No languages are configured yet.
+        </p>
       </div>
     );
   }
 
-  const languageId = languages.some((l) => l.id === params.language) ? params.language! : languages[0]!.id;
+  const languageId = languages.some((l) => l.id === params.language)
+    ? params.language!
+    : languages[0]!.id;
   const levels = await getLevelsByLanguage(languageId);
-  const contentCounts = await Promise.all(levels.map((level) => getLevelContentCounts(level.id)));
+  const contentCounts = await Promise.all(
+    levels.map((level) => getLevelContentCounts(level.id)),
+  );
 
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <AdminPageHeader title="Levels" description="Manage level properties, ordering, and publication." />
+        <AdminPageHeader
+          title="Levels"
+          description="Manage level properties, ordering, and publication."
+        />
         <CreateLevelDialog languageId={languageId} />
       </div>
 
       {levels.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No levels yet for this language.</p>
+        <p className="text-sm text-muted-foreground">
+          No levels yet for this language.
+        </p>
       ) : (
         <ul className="space-y-3">
           {levels.map((level, index) => (
-            <li key={level.id} className="rounded-xl border border-border bg-card p-4">
+            <li
+              key={level.id}
+              className="rounded-xl border border-border bg-card p-4"
+            >
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <Link href={`/admin/curriculum/levels/${level.id}`} className="font-semibold text-foreground hover:underline">
+                  <Link
+                    href={`/admin/curriculum/levels/${level.id}`}
+                    className="font-semibold text-foreground hover:underline"
+                  >
                     Level {level.levelNumber}
                     {level.name ? ` — ${level.name}` : ""}
                   </Link>
@@ -65,8 +93,10 @@ export default async function AdminLevelsPage({ searchParams }: { searchParams: 
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  {contentCounts[index]!.vocabularyItems} vocabulary · {contentCounts[index]!.grammarItems} grammar ·{" "}
-                  {contentCounts[index]!.vocabularyGroups} group{contentCounts[index]!.vocabularyGroups === 1 ? "" : "s"}
+                  {contentCounts[index]!.vocabularyItems} vocabulary ·{" "}
+                  {contentCounts[index]!.grammarItems} grammar ·{" "}
+                  {contentCounts[index]!.vocabularyGroups} group
+                  {contentCounts[index]!.vocabularyGroups === 1 ? "" : "s"}
                 </p>
               </div>
             </li>

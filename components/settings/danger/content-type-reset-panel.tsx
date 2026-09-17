@@ -13,7 +13,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { RESET_TARGET_LABELS, RESET_TARGETS } from "@/domains/danger-zone";
 import type { ResetTarget } from "@/domains/danger-zone";
 
@@ -33,7 +39,10 @@ const CONTENT_TYPE_LABELS: Record<"grammar" | "vocabulary", string> = {
  * filter" design ("do not implement separate unrelated reset logic for
  * vocabulary and grammar").
  */
-function describeResetTarget(contentType: "grammar" | "vocabulary", target: ResetTarget): { what: string; retains: string } {
+function describeResetTarget(
+  contentType: "grammar" | "vocabulary",
+  target: ResetTarget,
+): { what: string; retains: string } {
   const label = CONTENT_TYPE_LABELS[contentType];
   if (target === "ghost") {
     return {
@@ -44,13 +53,15 @@ function describeResetTarget(contentType: "grammar" | "vocabulary", target: Rese
   if (target === "leech") {
     return {
       what: `Resets your Leech-classified ${label} items to Beginner 1.`,
-      retains: "Review history is kept. Items not currently classified as Leeches are not affected.",
+      retains:
+        "Review history is kept. Items not currently classified as Leeches are not affected.",
     };
   }
   if (target === "main") {
     return {
       what: `Resets all of your ${label} progress to Beginner 1.`,
-      retains: "Review history, enrollment, notes, synonyms, and deck references are kept.",
+      retains:
+        "Review history, enrollment, notes, synonyms, and deck references are kept.",
     };
   }
   return {
@@ -59,7 +70,9 @@ function describeResetTarget(contentType: "grammar" | "vocabulary", target: Rese
   };
 }
 
-export function ContentTypeResetPanel({ contentType }: ContentTypeResetPanelProps) {
+export function ContentTypeResetPanel({
+  contentType,
+}: ContentTypeResetPanelProps) {
   const [target, setTarget] = useState<ResetTarget>("main");
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -72,7 +85,11 @@ export function ContentTypeResetPanel({ contentType }: ContentTypeResetPanelProp
   function handleReset() {
     setError(null);
     startTransition(async () => {
-      const result = await resetContentTypeReviewsAction({ contentType, target, idempotencyKey: crypto.randomUUID() });
+      const result = await resetContentTypeReviewsAction({
+        contentType,
+        target,
+        idempotencyKey: crypto.randomUUID(),
+      });
       if (!result.ok) {
         setError(result.error.message);
         return;
@@ -121,7 +138,9 @@ export function ContentTypeResetPanel({ contentType }: ContentTypeResetPanelProp
               <DialogDescription>{description.what}</DialogDescription>
             </DialogHeader>
 
-            <p className="text-sm text-muted-foreground">{description.retains}</p>
+            <p className="text-sm text-muted-foreground">
+              {description.retains}
+            </p>
 
             {error ? (
               <p role="alert" className="text-sm text-state-error">
@@ -133,7 +152,11 @@ export function ContentTypeResetPanel({ contentType }: ContentTypeResetPanelProp
               <Button variant="outline" onClick={() => setOpen(false)}>
                 Cancel
               </Button>
-              <Button variant="destructive" onClick={handleReset} disabled={isPending}>
+              <Button
+                variant="destructive"
+                onClick={handleReset}
+                disabled={isPending}
+              >
                 Confirm Reset
               </Button>
             </DialogFooter>
@@ -142,7 +165,9 @@ export function ContentTypeResetPanel({ contentType }: ContentTypeResetPanelProp
       </div>
 
       <p className="mt-1 text-sm" aria-live="polite">
-        {successMessage ? <span className="text-state-success">{successMessage}</span> : null}
+        {successMessage ? (
+          <span className="text-state-success">{successMessage}</span>
+        ) : null}
       </p>
     </div>
   );

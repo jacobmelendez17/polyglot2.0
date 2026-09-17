@@ -18,6 +18,8 @@ describe("normalizeForComparison", () => {
   });
 
   it("is deterministic", () => {
-    expect(normalizeForComparison("El Gato")).toBe(normalizeForComparison("el gato"));
+    expect(normalizeForComparison("El Gato")).toBe(
+      normalizeForComparison("el gato"),
+    );
   });
 });

@@ -25,8 +25,14 @@ const tagList = z.array(shortText).max(MAX_ARRAY_ITEMS).optional();
 const senseSchema = z
   .object({
     id: shortText.optional(),
-    glosses: z.array(z.string().max(MAX_GLOSS_TEXT)).max(MAX_ARRAY_ITEMS).optional(),
-    raw_glosses: z.array(z.string().max(MAX_GLOSS_TEXT)).max(MAX_ARRAY_ITEMS).optional(),
+    glosses: z
+      .array(z.string().max(MAX_GLOSS_TEXT))
+      .max(MAX_ARRAY_ITEMS)
+      .optional(),
+    raw_glosses: z
+      .array(z.string().max(MAX_GLOSS_TEXT))
+      .max(MAX_ARRAY_ITEMS)
+      .optional(),
     tags: tagList,
     topics: tagList,
   })
@@ -56,7 +62,10 @@ const relatedWordSchema = z
   })
   .loose();
 
-const relatedWordList = z.array(relatedWordSchema).max(MAX_ARRAY_ITEMS).optional();
+const relatedWordList = z
+  .array(relatedWordSchema)
+  .max(MAX_ARRAY_ITEMS)
+  .optional();
 
 export const wiktextractRecordSchema = z
   .object({

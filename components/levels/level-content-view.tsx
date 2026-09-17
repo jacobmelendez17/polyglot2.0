@@ -6,14 +6,22 @@ import { LevelContentSection } from "@/components/levels/level-content-section";
 import { LevelEmptyState } from "@/components/levels/level-empty-state";
 import { LevelItemGrid } from "@/components/levels/level-item-grid";
 import { LevelItemList } from "@/components/levels/level-item-list";
-import { LevelViewControls, type LevelViewMode } from "@/components/levels/level-view-controls";
+import {
+  LevelViewControls,
+  type LevelViewMode,
+} from "@/components/levels/level-view-controls";
 import type { LevelCardItem } from "@/domains/curriculum";
 
 const VIEW_MODE_STORAGE_KEY = "polyglot:levels-view-mode";
 const DEFAULT_VIEW_MODE: LevelViewMode = "normal";
 
 function isLevelViewMode(value: unknown): value is LevelViewMode {
-  return value === "large" || value === "normal" || value === "compact" || value === "list";
+  return (
+    value === "large" ||
+    value === "normal" ||
+    value === "compact" ||
+    value === "list"
+  );
 }
 
 /**
@@ -87,8 +95,15 @@ type LevelContentViewProps = {
  * the primitive React provides for exactly this case and handles the
  * server/client reconciliation without a mismatch warning.
  */
-export function LevelContentView({ grammar, vocabulary }: LevelContentViewProps) {
-  const viewMode = useSyncExternalStore(subscribeToViewMode, getViewModeSnapshot, getViewModeServerSnapshot);
+export function LevelContentView({
+  grammar,
+  vocabulary,
+}: LevelContentViewProps) {
+  const viewMode = useSyncExternalStore(
+    subscribeToViewMode,
+    getViewModeSnapshot,
+    getViewModeServerSnapshot,
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -115,7 +130,13 @@ export function LevelContentView({ grammar, vocabulary }: LevelContentViewProps)
   );
 }
 
-function LevelContentCollection({ items, viewMode }: { items: LevelCardItem[]; viewMode: LevelViewMode }) {
+function LevelContentCollection({
+  items,
+  viewMode,
+}: {
+  items: LevelCardItem[];
+  viewMode: LevelViewMode;
+}) {
   if (viewMode === "list") return <LevelItemList items={items} />;
   return <LevelItemGrid items={items} density={viewMode} />;
 }

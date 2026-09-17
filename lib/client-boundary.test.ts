@@ -46,7 +46,9 @@ function isClientModule(contents: string): boolean {
 /** Exported functions/consts whose names start lowercase — i.e. not React components. Types are ignored: `export type` is erased at build time. */
 function callableExports(contents: string): Set<string> {
   const names = new Set<string>();
-  for (const match of contents.matchAll(/^export\s+(?:async\s+)?(?:function|const)\s+([a-z][A-Za-z0-9_]*)/gm)) {
+  for (const match of contents.matchAll(
+    /^export\s+(?:async\s+)?(?:function|const)\s+([a-z][A-Za-z0-9_]*)/gm,
+  )) {
     names.add(match[1]!);
   }
   return names;
@@ -61,7 +63,12 @@ function resolveImport(fromFile: string, specifier: string): string | null {
       : null;
   if (!base) return null;
 
-  for (const candidate of [`${base}.ts`, `${base}.tsx`, path.join(base, "index.ts"), path.join(base, "index.tsx")]) {
+  for (const candidate of [
+    `${base}.ts`,
+    `${base}.tsx`,
+    path.join(base, "index.ts"),
+    path.join(base, "index.tsx"),
+  ]) {
     try {
       if (statSync(candidate).isFile()) return candidate;
     } catch {
@@ -75,7 +82,9 @@ type Violation = { importer: string; clientModule: string; imported: string[] };
 
 function findViolations(): Violation[] {
   const files = ROOTS.flatMap(sourceFiles);
-  const contentsByFile = new Map(files.map((file) => [file, readFileSync(file, "utf8")]));
+  const contentsByFile = new Map(
+    files.map((file) => [file, readFileSync(file, "utf8")]),
+  );
   const violations: Violation[] = [];
 
   for (const [file, contents] of contentsByFile) {
@@ -83,7 +92,9 @@ function findViolations(): Violation[] {
 
     // Named value imports only. `import type { … }` is erased, and so is a
     // `type` specifier inside a mixed import, so both are stripped first.
-    for (const match of contents.matchAll(/^import\s+(?!type\s)\{([^}]+)\}\s+from\s+["']([^"']+)["']/gm)) {
+    for (const match of contents.matchAll(
+      /^import\s+(?!type\s)\{([^}]+)\}\s+from\s+["']([^"']+)["']/gm,
+    )) {
       const target = resolveImport(file, match[2]!);
       if (!target) continue;
 
@@ -93,8 +104,16 @@ function findViolations(): Violation[] {
       const exported = callableExports(targetContents);
       const imported = match[1]!
         .split(",")
-        .map((specifier) => specifier.trim().split(/\s+as\s+/)[0]!.trim())
-        .filter((name) => name.length > 0 && !name.startsWith("type ") && exported.has(name));
+        .map((specifier) =>
+          specifier
+            .trim()
+            .split(/\s+as\s+/)[0]!
+            .trim(),
+        )
+        .filter(
+          (name) =>
+            name.length > 0 && !name.startsWith("type ") && exported.has(name),
+        );
 
       if (imported.length > 0) {
         violations.push({
@@ -117,7 +136,10 @@ describe("client/server boundary", () => {
     // "move that helper into a plain module beside the client component", and
     // the message should say which helper and where.
     expect(
-      violations.map((violation) => `${violation.importer} imports ${violation.imported.join(", ")} from "use client" module ${violation.clientModule}`),
+      violations.map(
+        (violation) =>
+          `${violation.importer} imports ${violation.imported.join(", ")} from "use client" module ${violation.clientModule}`,
+      ),
     ).toEqual([]);
   });
 });

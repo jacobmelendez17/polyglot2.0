@@ -11,7 +11,12 @@ vi.mock("@clerk/nextjs", () => ({
 
 const mockUseUser = vi.mocked(useUser);
 
-function buildPendingEmailAddress(overrides: Partial<{ prepareVerification: ReturnType<typeof vi.fn>; attemptVerification: ReturnType<typeof vi.fn> }> = {}) {
+function buildPendingEmailAddress(
+  overrides: Partial<{
+    prepareVerification: ReturnType<typeof vi.fn>;
+    attemptVerification: ReturnType<typeof vi.fn>;
+  }> = {},
+) {
   return {
     id: "email_new",
     emailAddress: "new@example.com",
@@ -56,25 +61,45 @@ describe("EmailField", () => {
 
   it("sends a verification code, then verifies it and makes the new address primary", async () => {
     const pending = buildPendingEmailAddress();
-    const user = buildMockUser({ createEmailAddress: vi.fn().mockResolvedValue(pending) });
+    const user = buildMockUser({
+      createEmailAddress: vi.fn().mockResolvedValue(pending),
+    });
     // @ts-expect-error - partial mock
     mockUseUser.mockReturnValue({ isLoaded: true, user });
     const testUser = userEvent.setup();
     render(<EmailField />);
 
     await testUser.click(screen.getByRole("button", { name: "Edit" }));
-    await testUser.type(screen.getByLabelText("New email address"), "new@example.com");
-    await testUser.click(screen.getByRole("button", { name: "Send Verification Code" }));
+    await testUser.type(
+      screen.getByLabelText("New email address"),
+      "new@example.com",
+    );
+    await testUser.click(
+      screen.getByRole("button", { name: "Send Verification Code" }),
+    );
 
-    expect(user.createEmailAddress).toHaveBeenCalledWith({ email: "new@example.com" });
-    expect(await screen.findByLabelText(/Verification code sent to/)).toBeInTheDocument();
-    expect(pending.prepareVerification).toHaveBeenCalledWith({ strategy: "email_code" });
+    expect(user.createEmailAddress).toHaveBeenCalledWith({
+      email: "new@example.com",
+    });
+    expect(
+      await screen.findByLabelText(/Verification code sent to/),
+    ).toBeInTheDocument();
+    expect(pending.prepareVerification).toHaveBeenCalledWith({
+      strategy: "email_code",
+    });
 
-    await testUser.type(screen.getByLabelText(/Verification code sent to/), "123456");
+    await testUser.type(
+      screen.getByLabelText(/Verification code sent to/),
+      "123456",
+    );
     await testUser.click(screen.getByRole("button", { name: "Verify" }));
 
-    expect(pending.attemptVerification).toHaveBeenCalledWith({ code: "123456" });
-    expect(user.update).toHaveBeenCalledWith({ primaryEmailAddressId: "email_new" });
+    expect(pending.attemptVerification).toHaveBeenCalledWith({
+      code: "123456",
+    });
+    expect(user.update).toHaveBeenCalledWith({
+      primaryEmailAddressId: "email_new",
+    });
     expect(user.reload).toHaveBeenCalled();
     expect(await screen.findByText("Saved")).toBeInTheDocument();
   });
@@ -89,10 +114,17 @@ describe("EmailField", () => {
     render(<EmailField />);
 
     await testUser.click(screen.getByRole("button", { name: "Edit" }));
-    await testUser.type(screen.getByLabelText("New email address"), "new@example.com");
-    await testUser.click(screen.getByRole("button", { name: "Send Verification Code" }));
+    await testUser.type(
+      screen.getByLabelText("New email address"),
+      "new@example.com",
+    );
+    await testUser.click(
+      screen.getByRole("button", { name: "Send Verification Code" }),
+    );
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Could not send a verification code. Please try again.");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Could not send a verification code. Please try again.",
+    );
     expect(screen.getByLabelText("New email address")).toBeInTheDocument();
   });
 

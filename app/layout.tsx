@@ -33,7 +33,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Polyglot",
-  description: "A structured curriculum, SRS, and practice system for language learners.",
+  description:
+    "A structured curriculum, SRS, and practice system for language learners.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -44,13 +45,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <head>
         {/* Spec 20 Appearance — "Avoid Theme Flash": must run before the body paints, so it lives directly in <head> rather than anywhere hydration-ordered. */}
-        <script dangerouslySetInnerHTML={{ __html: getAppearanceBootstrapScript() }} />
+        <script
+          dangerouslySetInnerHTML={{ __html: getAppearanceBootstrapScript() }}
+        />
       </head>
       <body className="min-h-full flex flex-col">
         <AppearanceProvider>
-          <ClerkProvider appearance={clerkAppearance}>
-            {children}
-          </ClerkProvider>
+          <ClerkProvider appearance={clerkAppearance}>{children}</ClerkProvider>
         </AppearanceProvider>
       </body>
     </html>

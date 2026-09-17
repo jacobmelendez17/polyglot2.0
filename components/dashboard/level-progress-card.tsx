@@ -19,7 +19,12 @@ type ProgressStatProps = {
   indicatorClassName: string;
 };
 
-function ProgressStat({ label, learned, total, indicatorClassName }: ProgressStatProps) {
+function ProgressStat({
+  label,
+  learned,
+  total,
+  indicatorClassName,
+}: ProgressStatProps) {
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between text-sm">
@@ -28,7 +33,10 @@ function ProgressStat({ label, learned, total, indicatorClassName }: ProgressSta
           {learned}/{total}
         </span>
       </div>
-      <Progress value={progressPercent(learned, total)} indicatorClassName={indicatorClassName} />
+      <Progress
+        value={progressPercent(learned, total)}
+        indicatorClassName={indicatorClassName}
+      />
     </div>
   );
 }
@@ -44,7 +52,9 @@ export function LevelProgressCard({ levelProgress }: LevelProgressCardProps) {
       <CardContent className="flex flex-col gap-6">
         <div>
           <p className="text-sm text-muted-foreground">Current level</p>
-          <p className="font-heading text-3xl font-semibold text-foreground">{currentLevel}</p>
+          <p className="font-heading text-3xl font-semibold text-foreground">
+            {currentLevel}
+          </p>
         </div>
 
         <div>

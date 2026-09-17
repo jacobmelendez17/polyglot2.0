@@ -13,7 +13,9 @@ const MS_PER_HOUR = 60 * 60 * 1000;
  */
 function roundUpToHour(date: Date): Date {
   const remainder = date.getTime() % MS_PER_HOUR;
-  return remainder === 0 ? date : new Date(date.getTime() + (MS_PER_HOUR - remainder));
+  return remainder === 0
+    ? date
+    : new Date(date.getTime() + (MS_PER_HOUR - remainder));
 }
 
 /**
@@ -24,6 +26,12 @@ function roundUpToHour(date: Date): Date {
  * never to an already-persisted `nextReviewAt`, which keeps this future-only
  * the same way SRS Interval mode changes already are.
  */
-export function applyReviewQueueTiming(dueTime: Date, mode: ReviewQueueTimingMode, timeZone: string): Date {
-  return mode === "start_of_day" ? startOfDayInTimeZone(dueTime, timeZone) : roundUpToHour(dueTime);
+export function applyReviewQueueTiming(
+  dueTime: Date,
+  mode: ReviewQueueTimingMode,
+  timeZone: string,
+): Date {
+  return mode === "start_of_day"
+    ? startOfDayInTimeZone(dueTime, timeZone)
+    : roundUpToHour(dueTime);
 }

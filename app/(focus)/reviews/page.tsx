@@ -24,7 +24,10 @@ async function ReviewPageContent() {
   // returning null) when unauthenticated, so an unauthenticated request
   // never reaches this far in practice.
   const user = await requireUser();
-  const result = await startReviewSession({ userId: user.id, languageId: user.activeLanguageId });
+  const result = await startReviewSession({
+    userId: user.id,
+    languageId: user.activeLanguageId,
+  });
 
   if (result.kind === "empty") {
     return <ReviewEmptyState nextReviewAt={result.nextReviewAt} />;

@@ -14,7 +14,12 @@ import {
   vocabularyItems,
 } from "@/db/schema";
 
-import type { CurriculumExample, GrammarItem, LearningItem, VocabularyItem } from "./curriculum-types";
+import type {
+  CurriculumExample,
+  GrammarItem,
+  LearningItem,
+  VocabularyItem,
+} from "./curriculum-types";
 
 /**
  * Real, database-backed curriculum reads shaped for the lesson flow (spec 07
@@ -38,9 +43,15 @@ import type { CurriculumExample, GrammarItem, LearningItem, VocabularyItem } fro
 const PUBLISHED = "published" as const;
 const SAFE = "safe" as const;
 
-type AcceptedAnswerRow = { learningItemId: string; side: "term" | "meaning"; value: string };
+type AcceptedAnswerRow = {
+  learningItemId: string;
+  side: "term" | "meaning";
+  value: string;
+};
 
-function groupAcceptedAnswers(rows: AcceptedAnswerRow[]): Map<string, { term: string[]; meaning: string[] }> {
+function groupAcceptedAnswers(
+  rows: AcceptedAnswerRow[],
+): Map<string, { term: string[]; meaning: string[] }> {
   const byItem = new Map<string, { term: string[]; meaning: string[] }>();
   for (const row of rows) {
     const entry = byItem.get(row.learningItemId) ?? { term: [], meaning: [] };
@@ -71,7 +82,10 @@ function groupExamples(
  * treat a client-supplied ID as a request, never as proof the item exists or
  * is teachable, and compare lengths themselves when they need to detect that.
  */
-export async function getLessonItemsByIds(db: DbClient, ids: string[]): Promise<LearningItem[]> {
+export async function getLessonItemsByIds(
+  db: DbClient,
+  ids: string[],
+): Promise<LearningItem[]> {
   if (ids.length === 0) return [];
 
   const baseRows = await db
@@ -84,42 +98,75 @@ export async function getLessonItemsByIds(db: DbClient, ids: string[]): Promise<
     })
     .from(learningItems)
     .innerJoin(levels, eq(levels.id, learningItems.levelId))
-    .where(and(inArray(learningItems.id, ids), eq(learningItems.status, PUBLISHED), eq(levels.status, PUBLISHED)));
+    .where(
+      and(
+        inArray(learningItems.id, ids),
+        eq(learningItems.status, PUBLISHED),
+        eq(levels.status, PUBLISHED),
+      ),
+    );
 
   if (baseRows.length === 0) return [];
   const resolvedIds = baseRows.map((row) => row.id);
 
-  const [vocabularyRows, grammarRows, answerRows, exampleRows] = await Promise.all([
-    // Joined rather than fetched separately: every theme-based curriculum
-    // mode (spec 16) needs the group's name and position on the item
-    // itself, and a second query per group would be an N+1 in disguise.
-    db
-      .select({
-        item: vocabularyItems,
-        theme: { id: vocabularyGroups.id, name: vocabularyGroups.name, position: vocabularyGroups.position },
-      })
-      .from(vocabularyItems)
-      .innerJoin(vocabularyGroups, eq(vocabularyGroups.id, vocabularyItems.vocabularyGroupId))
-      .where(inArray(vocabularyItems.learningItemId, resolvedIds)),
-    db.select().from(grammarItems).where(inArray(grammarItems.learningItemId, resolvedIds)),
-    db
-      .select({ learningItemId: acceptedAnswers.learningItemId, side: acceptedAnswers.side, value: acceptedAnswers.value })
-      .from(acceptedAnswers)
-      .where(inArray(acceptedAnswers.learningItemId, resolvedIds)),
-    db
-      .select({
-        learningItemId: learningItemSentences.learningItemId,
-        targetText: sentences.targetText,
-        translation: sentences.translation,
-      })
-      .from(learningItemSentences)
-      .innerJoin(sentences, eq(sentences.id, learningItemSentences.sentenceId))
-      .where(and(inArray(learningItemSentences.learningItemId, resolvedIds), eq(sentences.status, PUBLISHED)))
-      .orderBy(asc(learningItemSentences.position)),
-  ]);
+  const [vocabularyRows, grammarRows, answerRows, exampleRows] =
+    await Promise.all([
+      // Joined rather than fetched separately: every theme-based curriculum
+      // mode (spec 16) needs the group's name and position on the item
+      // itself, and a second query per group would be an N+1 in disguise.
+      db
+        .select({
+          item: vocabularyItems,
+          theme: {
+            id: vocabularyGroups.id,
+            name: vocabularyGroups.name,
+            position: vocabularyGroups.position,
+          },
+        })
+        .from(vocabularyItems)
+        .innerJoin(
+          vocabularyGroups,
+          eq(vocabularyGroups.id, vocabularyItems.vocabularyGroupId),
+        )
+        .where(inArray(vocabularyItems.learningItemId, resolvedIds)),
+      db
+        .select()
+        .from(grammarItems)
+        .where(inArray(grammarItems.learningItemId, resolvedIds)),
+      db
+        .select({
+          learningItemId: acceptedAnswers.learningItemId,
+          side: acceptedAnswers.side,
+          value: acceptedAnswers.value,
+        })
+        .from(acceptedAnswers)
+        .where(inArray(acceptedAnswers.learningItemId, resolvedIds)),
+      db
+        .select({
+          learningItemId: learningItemSentences.learningItemId,
+          targetText: sentences.targetText,
+          translation: sentences.translation,
+        })
+        .from(learningItemSentences)
+        .innerJoin(
+          sentences,
+          eq(sentences.id, learningItemSentences.sentenceId),
+        )
+        .where(
+          and(
+            inArray(learningItemSentences.learningItemId, resolvedIds),
+            eq(sentences.status, PUBLISHED),
+          ),
+        )
+        .orderBy(asc(learningItemSentences.position)),
+    ]);
 
-  const vocabularyById = new Map(vocabularyRows.map((row) => [row.item.learningItemId, row]));
-  const grammarById = new Map(grammarRows.map((row) => [row.learningItemId, row]));
+  const vocabularyById = new Map(
+    vocabularyRows.map((row) => [row.item.learningItemId, row]),
+  );
+  const grammarById = new Map(
+    grammarRows.map((row) => [row.learningItemId, row]),
+  );
   const answersById = groupAcceptedAnswers(answerRows);
   const examplesById = groupExamples(exampleRows);
 
@@ -239,9 +286,16 @@ export async function getEligibleLessonItems(
         notInArray(learningItems.id, enrolled),
       ),
     )
-    .orderBy(asc(levels.levelNumber), asc(learningItems.lessonPriority), asc(learningItems.id));
+    .orderBy(
+      asc(levels.levelNumber),
+      asc(learningItems.lessonPriority),
+      asc(learningItems.id),
+    );
 
-  return getLessonItemsByIds(db, rows.map((row) => row.id));
+  return getLessonItemsByIds(
+    db,
+    rows.map((row) => row.id),
+  );
 }
 
 /**
@@ -249,11 +303,20 @@ export async function getEligibleLessonItems(
  * final completion revalidation (spec 07 §44) to reject a replayed batch
  * rather than silently skipping duplicates.
  */
-export async function getEnrolledItemIds(db: DbClient, userId: string, learningItemIds: string[]): Promise<string[]> {
+export async function getEnrolledItemIds(
+  db: DbClient,
+  userId: string,
+  learningItemIds: string[],
+): Promise<string[]> {
   if (learningItemIds.length === 0) return [];
   const rows = await db
     .select({ learningItemId: userItemProgress.learningItemId })
     .from(userItemProgress)
-    .where(and(eq(userItemProgress.userId, userId), inArray(userItemProgress.learningItemId, learningItemIds)));
+    .where(
+      and(
+        eq(userItemProgress.userId, userId),
+        inArray(userItemProgress.learningItemId, learningItemIds),
+      ),
+    );
   return rows.map((row) => row.learningItemId);
 }

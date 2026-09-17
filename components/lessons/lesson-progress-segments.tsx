@@ -30,18 +30,27 @@ const CATEGORY_ACCENT: Record<LearningItemType, string> = {
  * with a category-accent border, complete is a solid neutral bar, partial
  * is a dashed half-filled bar, and not-started is a thin outlined bar.
  */
-export function LessonProgressSegments({ items, onSelect }: LessonProgressSegmentsProps) {
+export function LessonProgressSegments({
+  items,
+  onSelect,
+}: LessonProgressSegmentsProps) {
   return (
-    <div className="flex items-end justify-center gap-1.5 sm:gap-2" role={onSelect ? "group" : undefined}>
+    <div
+      className="flex items-end justify-center gap-1.5 sm:gap-2"
+      role={onSelect ? "group" : undefined}
+    >
       {items.map((item, index) => {
         const accessibleLabel = `${item.itemType === "vocabulary" ? "Vocabulary" : "Grammar"} item ${index + 1} of ${items.length}, ${item.stateLabel}`;
 
         const shapeClass = cn(
           "w-6 rounded-full transition-all sm:w-8",
-          item.state === "current" && cn("h-3 border-2", CATEGORY_ACCENT[item.itemType]),
+          item.state === "current" &&
+            cn("h-3 border-2", CATEGORY_ACCENT[item.itemType]),
           item.state === "complete" && "h-1.5 bg-foreground/70",
-          item.state === "partial" && "h-1.5 border border-dashed border-foreground/60 bg-foreground/25",
-          item.state === "not-started" && "h-1.5 border border-dashed border-border bg-transparent",
+          item.state === "partial" &&
+            "h-1.5 border border-dashed border-foreground/60 bg-foreground/25",
+          item.state === "not-started" &&
+            "h-1.5 border border-dashed border-border bg-transparent",
         );
 
         if (onSelect) {
@@ -52,7 +61,10 @@ export function LessonProgressSegments({ items, onSelect }: LessonProgressSegmen
               aria-label={accessibleLabel}
               aria-current={item.state === "current" ? "true" : undefined}
               onClick={() => onSelect(item.itemId)}
-              className={cn(shapeClass, "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background")}
+              className={cn(
+                shapeClass,
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+              )}
             />
           );
         }

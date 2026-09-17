@@ -19,7 +19,10 @@ describe("HideEnglishToggle", () => {
   });
 
   it("calls updateContentPreferencesAction with only hideEnglishReviews", async () => {
-    mockAction.mockResolvedValueOnce({ ok: true, data: { hideEnglishReviews: true, showNsfwContent: false } });
+    mockAction.mockResolvedValueOnce({
+      ok: true,
+      data: { hideEnglishReviews: true, showNsfwContent: false },
+    });
     const user = userEvent.setup();
     render(<HideEnglishToggle initialValue={false} />);
 

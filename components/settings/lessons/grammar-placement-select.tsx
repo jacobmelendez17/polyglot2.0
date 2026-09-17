@@ -22,7 +22,9 @@ type GrammarPlacementSelectProps = {
  * still has a real stored value and takes effect the moment Variety is
  * chosen, per "this setting changes learner-specific queue ordering only."
  */
-export function GrammarPlacementSelect({ initialValue }: GrammarPlacementSelectProps) {
+export function GrammarPlacementSelect({
+  initialValue,
+}: GrammarPlacementSelectProps) {
   return (
     <InlineSelectSettingField
       label="Grammar Placement"
@@ -32,7 +34,10 @@ export function GrammarPlacementSelect({ initialValue }: GrammarPlacementSelectP
       onSave={async (grammarPlacement) => {
         const result = await updateGrammarPlacementAction({ grammarPlacement });
         return result.ok
-          ? { ok: true, value: result.data.grammarPlacement as GrammarPlacement }
+          ? {
+              ok: true,
+              value: result.data.grammarPlacement as GrammarPlacement,
+            }
           : { ok: false, message: result.error.message };
       }}
     />

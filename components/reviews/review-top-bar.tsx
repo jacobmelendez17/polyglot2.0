@@ -17,7 +17,13 @@ type ReviewTopBarProps = {
  * compact session stats (right). Stays a single row on mobile too (no
  * horizontal overflow) since every element here is intentionally compact.
  */
-export function ReviewTopBar({ onExit, progressPercent, remaining, accuracyPercent, focusMode = false }: ReviewTopBarProps) {
+export function ReviewTopBar({
+  onExit,
+  progressPercent,
+  remaining,
+  accuracyPercent,
+  focusMode = false,
+}: ReviewTopBarProps) {
   return (
     <div className="flex items-center gap-3">
       <ExitFocusButton label="Exit review" onClick={onExit} />
@@ -29,7 +35,8 @@ export function ReviewTopBar({ onExit, progressPercent, remaining, accuracyPerce
       />
 
       <p className="shrink-0 text-xs whitespace-nowrap text-muted-foreground">
-        {remaining} left{!focusMode && accuracyPercent !== null ? ` · ${accuracyPercent}%` : ""}
+        {remaining} left
+        {!focusMode && accuracyPercent !== null ? ` · ${accuracyPercent}%` : ""}
       </p>
     </div>
   );

@@ -24,24 +24,53 @@ export function ReviewHint({ hint, autoExpand }: ReviewHintProps) {
     return hint.nuance ? <NuanceText nuance={hint.nuance} /> : null;
   }
   if (hint.mode === "hint") {
-    return hint.nuance ? <SingleReveal label="Show Hint" content={hint.nuance} autoExpand={autoExpand} /> : null;
+    return hint.nuance ? (
+      <SingleReveal
+        label="Show Hint"
+        content={hint.nuance}
+        autoExpand={autoExpand}
+      />
+    ) : null;
   }
   if (hint.mode === "show") {
-    return <SingleReveal label="Show Meaning" content={hint.translation} autoExpand={autoExpand} />;
+    return (
+      <SingleReveal
+        label="Show Meaning"
+        content={hint.translation}
+        autoExpand={autoExpand}
+      />
+    );
   }
   return <MoreReveal hint={hint} autoExpand={autoExpand} />;
 }
 
 function NuanceText({ nuance }: { nuance: string }) {
-  return <p className="max-w-sm text-center text-sm text-muted-foreground">{nuance}</p>;
+  return (
+    <p className="max-w-sm text-center text-sm text-muted-foreground">
+      {nuance}
+    </p>
+  );
 }
 
-function SingleReveal({ label, content, autoExpand }: { label: string; content: string; autoExpand: boolean }) {
+function SingleReveal({
+  label,
+  content,
+  autoExpand,
+}: {
+  label: string;
+  content: string;
+  autoExpand: boolean;
+}) {
   const [manuallyRevealed, setManuallyRevealed] = useState(false);
 
   if (manuallyRevealed || autoExpand) return <NuanceText nuance={content} />;
   return (
-    <Button type="button" variant="ghost" size="sm" onClick={() => setManuallyRevealed(true)}>
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      onClick={() => setManuallyRevealed(true)}
+    >
       {label}
     </Button>
   );
@@ -51,7 +80,13 @@ function SingleReveal({ label, content, autoExpand }: { label: string; content: 
  * Hint Mode "more": two pieces of content, revealed one click at a time in
  * whichever order Hint Order picks — the only mode that setting affects.
  */
-function MoreReveal({ hint, autoExpand }: { hint: Extract<ReviewHintView, { mode: "more" }>; autoExpand: boolean }) {
+function MoreReveal({
+  hint,
+  autoExpand,
+}: {
+  hint: Extract<ReviewHintView, { mode: "more" }>;
+  autoExpand: boolean;
+}) {
   const [manualCount, setManualCount] = useState(0);
 
   const steps =
@@ -66,7 +101,9 @@ function MoreReveal({ hint, autoExpand }: { hint: Extract<ReviewHintView, { mode
         ];
   // A step with no content (e.g. no authored nuance note) is skipped rather
   // than offering a button that reveals nothing.
-  const availableSteps = steps.filter((step): step is { label: string; content: string } => Boolean(step.content));
+  const availableSteps = steps.filter(
+    (step): step is { label: string; content: string } => Boolean(step.content),
+  );
   const revealedCount = autoExpand ? availableSteps.length : manualCount;
 
   return (
@@ -75,7 +112,12 @@ function MoreReveal({ hint, autoExpand }: { hint: Extract<ReviewHintView, { mode
         <NuanceText key={step.label} nuance={step.content} />
       ))}
       {revealedCount < availableSteps.length ? (
-        <Button type="button" variant="ghost" size="sm" onClick={() => setManualCount((count) => count + 1)}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => setManualCount((count) => count + 1)}
+        >
           {availableSteps[revealedCount].label}
         </Button>
       ) : null}

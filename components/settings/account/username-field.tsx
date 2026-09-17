@@ -15,7 +15,9 @@ export function UsernameField({ initialUsername }: UsernameFieldProps) {
       initialValue={initialUsername}
       onSave={async (username) => {
         const result = await updateUsernameAction({ username });
-        return result.ok ? { ok: true, value: result.data.username } : { ok: false, message: result.error.message };
+        return result.ok
+          ? { ok: true, value: result.data.username }
+          : { ok: false, message: result.error.message };
       }}
     />
   );

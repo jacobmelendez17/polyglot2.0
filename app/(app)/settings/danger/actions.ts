@@ -19,7 +19,9 @@ import type { AccountDeletionStatus } from "@/domains/danger-zone/server";
 import { requireUser } from "@/domains/users/server";
 import { AppError } from "@/lib/errors/app-error";
 
-export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: { code: string; message: string } };
+export type ActionResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: { code: string; message: string } };
 
 const resetContentTypeReviewsInputSchema = z.object({
   contentType: z.enum(["grammar", "vocabulary"]),
@@ -57,10 +59,22 @@ export async function resetContentTypeReviewsAction(
       return { ok: false, error: { code: error.code, message: error.message } };
     }
     if (error instanceof z.ZodError) {
-      return { ok: false, error: { code: "VALIDATION_FAILED", message: error.issues[0]?.message ?? "That request isn't valid." } };
+      return {
+        ok: false,
+        error: {
+          code: "VALIDATION_FAILED",
+          message: error.issues[0]?.message ?? "That request isn't valid.",
+        },
+      };
     }
     console.error("Unexpected reset content type reviews action error", error);
-    return { ok: false, error: { code: "UNKNOWN", message: "Could not complete the reset. Please try again." } };
+    return {
+      ok: false,
+      error: {
+        code: "UNKNOWN",
+        message: "Could not complete the reset. Please try again.",
+      },
+    };
   }
 }
 
@@ -96,10 +110,22 @@ export async function resetToLevelAction(
       return { ok: false, error: { code: error.code, message: error.message } };
     }
     if (error instanceof z.ZodError) {
-      return { ok: false, error: { code: "VALIDATION_FAILED", message: error.issues[0]?.message ?? "That request isn't valid." } };
+      return {
+        ok: false,
+        error: {
+          code: "VALIDATION_FAILED",
+          message: error.issues[0]?.message ?? "That request isn't valid.",
+        },
+      };
     }
     console.error("Unexpected reset to level action error", error);
-    return { ok: false, error: { code: "UNKNOWN", message: "Could not complete the reset. Please try again." } };
+    return {
+      ok: false,
+      error: {
+        code: "UNKNOWN",
+        message: "Could not complete the reset. Please try again.",
+      },
+    };
   }
 }
 
@@ -116,7 +142,11 @@ export async function setManualStreakAction(
     const parsed = setManualStreakInputSchema.parse(input);
     const user = await requireUser();
 
-    const result = await setManualStreak({ userId: user.id, value: parsed.value, idempotencyKey: parsed.idempotencyKey });
+    const result = await setManualStreak({
+      userId: user.id,
+      value: parsed.value,
+      idempotencyKey: parsed.idempotencyKey,
+    });
 
     revalidatePath("/settings/danger");
     revalidatePath("/dashboard");
@@ -127,10 +157,22 @@ export async function setManualStreakAction(
       return { ok: false, error: { code: error.code, message: error.message } };
     }
     if (error instanceof z.ZodError) {
-      return { ok: false, error: { code: "VALIDATION_FAILED", message: error.issues[0]?.message ?? "That request isn't valid." } };
+      return {
+        ok: false,
+        error: {
+          code: "VALIDATION_FAILED",
+          message: error.issues[0]?.message ?? "That request isn't valid.",
+        },
+      };
     }
     console.error("Unexpected set manual streak action error", error);
-    return { ok: false, error: { code: "UNKNOWN", message: "Could not save the streak. Please try again." } };
+    return {
+      ok: false,
+      error: {
+        code: "UNKNOWN",
+        message: "Could not save the streak. Please try again.",
+      },
+    };
   }
 }
 
@@ -146,7 +188,10 @@ export async function resetDismissedWarningsAction(
     const parsed = resetDismissedWarningsInputSchema.parse(input);
     const user = await requireUser();
 
-    const result = await resetDismissedWarnings({ userId: user.id, idempotencyKey: parsed.idempotencyKey });
+    const result = await resetDismissedWarnings({
+      userId: user.id,
+      idempotencyKey: parsed.idempotencyKey,
+    });
 
     revalidatePath("/settings/danger");
 
@@ -156,10 +201,22 @@ export async function resetDismissedWarningsAction(
       return { ok: false, error: { code: error.code, message: error.message } };
     }
     if (error instanceof z.ZodError) {
-      return { ok: false, error: { code: "VALIDATION_FAILED", message: error.issues[0]?.message ?? "That request isn't valid." } };
+      return {
+        ok: false,
+        error: {
+          code: "VALIDATION_FAILED",
+          message: error.issues[0]?.message ?? "That request isn't valid.",
+        },
+      };
     }
     console.error("Unexpected reset dismissed warnings action error", error);
-    return { ok: false, error: { code: "UNKNOWN", message: "Could not reset warnings. Please try again." } };
+    return {
+      ok: false,
+      error: {
+        code: "UNKNOWN",
+        message: "Could not reset warnings. Please try again.",
+      },
+    };
   }
 }
 
@@ -182,7 +239,10 @@ export async function resetEntireAccountAction(
     const parsed = resetEntireAccountInputSchema.parse(input);
     const user = await requireUser();
 
-    const result = await resetEntireAccount({ userId: user.id, idempotencyKey: parsed.idempotencyKey });
+    const result = await resetEntireAccount({
+      userId: user.id,
+      idempotencyKey: parsed.idempotencyKey,
+    });
 
     // Every page a stale value from this account could still be showing.
     revalidatePath("/", "layout");
@@ -193,28 +253,51 @@ export async function resetEntireAccountAction(
       return { ok: false, error: { code: error.code, message: error.message } };
     }
     if (error instanceof z.ZodError) {
-      return { ok: false, error: { code: "VALIDATION_FAILED", message: error.issues[0]?.message ?? "That request isn't valid." } };
+      return {
+        ok: false,
+        error: {
+          code: "VALIDATION_FAILED",
+          message: error.issues[0]?.message ?? "That request isn't valid.",
+        },
+      };
     }
     console.error("Unexpected reset entire account action error", error);
-    return { ok: false, error: { code: "UNKNOWN", message: "Could not reset your account. Please try again." } };
+    return {
+      ok: false,
+      error: {
+        code: "UNKNOWN",
+        message: "Could not reset your account. Please try again.",
+      },
+    };
   }
 }
 
 /** Spec 20 Delete Account — the initial "Send Delete Confirmation Email" step. Idempotent: a repeat click while a request is already active returns that same request, never a duplicate. */
-export async function requestAccountDeletionAction(): Promise<ActionResult<{ requestedAt: string }>> {
+export async function requestAccountDeletionAction(): Promise<
+  ActionResult<{ requestedAt: string }>
+> {
   try {
     const user = await requireUser();
     const result = await requestAccountDeletion({ userId: user.id });
 
     revalidatePath("/settings/danger");
 
-    return { ok: true, data: { requestedAt: result.requestedAt.toISOString() } };
+    return {
+      ok: true,
+      data: { requestedAt: result.requestedAt.toISOString() },
+    };
   } catch (error) {
     if (error instanceof AppError) {
       return { ok: false, error: { code: error.code, message: error.message } };
     }
     console.error("Unexpected request account deletion action error", error);
-    return { ok: false, error: { code: "UNKNOWN", message: "Could not start account deletion. Please try again." } };
+    return {
+      ok: false,
+      error: {
+        code: "UNKNOWN",
+        message: "Could not start account deletion. Please try again.",
+      },
+    };
   }
 }
 
@@ -224,25 +307,38 @@ export async function requestAccountDeletionAction(): Promise<ActionResult<{ req
  * service.ts`'s docstring); the authenticated session itself plus this
  * unit's own typed-confirmation UI is the safety gate.
  */
-export async function confirmAccountDeletionAction(): Promise<ActionResult<{ deleteAfter: string }>> {
+export async function confirmAccountDeletionAction(): Promise<
+  ActionResult<{ deleteAfter: string }>
+> {
   try {
     const user = await requireUser();
     const result = await confirmAccountDeletion({ userId: user.id });
 
     revalidatePath("/settings/danger");
 
-    return { ok: true, data: { deleteAfter: result.deleteAfter.toISOString() } };
+    return {
+      ok: true,
+      data: { deleteAfter: result.deleteAfter.toISOString() },
+    };
   } catch (error) {
     if (error instanceof AppError) {
       return { ok: false, error: { code: error.code, message: error.message } };
     }
     console.error("Unexpected confirm account deletion action error", error);
-    return { ok: false, error: { code: "UNKNOWN", message: "Could not confirm account deletion. Please try again." } };
+    return {
+      ok: false,
+      error: {
+        code: "UNKNOWN",
+        message: "Could not confirm account deletion. Please try again.",
+      },
+    };
   }
 }
 
 /** Spec 20 Pending Deletion — "require explicit cancellation." */
-export async function cancelAccountDeletionAction(): Promise<ActionResult<{ cancelled: boolean }>> {
+export async function cancelAccountDeletionAction(): Promise<
+  ActionResult<{ cancelled: boolean }>
+> {
   try {
     const user = await requireUser();
     const result = await cancelAccountDeletion({ userId: user.id });
@@ -255,7 +351,13 @@ export async function cancelAccountDeletionAction(): Promise<ActionResult<{ canc
       return { ok: false, error: { code: error.code, message: error.message } };
     }
     console.error("Unexpected cancel account deletion action error", error);
-    return { ok: false, error: { code: "UNKNOWN", message: "Could not cancel account deletion. Please try again." } };
+    return {
+      ok: false,
+      error: {
+        code: "UNKNOWN",
+        message: "Could not cancel account deletion. Please try again.",
+      },
+    };
   }
 }
 

@@ -12,8 +12,16 @@ import { userDismissedNotices } from "@/db/schema";
  * this delete is currently a correct no-op for every real account — see
  * `db/schema/user-settings.ts`'s `userDismissedNotices` docstring.
  */
-export async function deleteDismissedNotices(db: DbClient, userId: string): Promise<number> {
-  const [row] = await db.select({ value: count() }).from(userDismissedNotices).where(eq(userDismissedNotices.userId, userId));
-  await db.delete(userDismissedNotices).where(eq(userDismissedNotices.userId, userId));
+export async function deleteDismissedNotices(
+  db: DbClient,
+  userId: string,
+): Promise<number> {
+  const [row] = await db
+    .select({ value: count() })
+    .from(userDismissedNotices)
+    .where(eq(userDismissedNotices.userId, userId));
+  await db
+    .delete(userDismissedNotices)
+    .where(eq(userDismissedNotices.userId, userId));
   return row?.value ?? 0;
 }

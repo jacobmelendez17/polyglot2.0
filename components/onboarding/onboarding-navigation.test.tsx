@@ -4,7 +4,9 @@ import userEvent from "@testing-library/user-event";
 
 import { OnboardingNavigation } from "@/components/onboarding/onboarding-navigation";
 
-function renderNav(overrides: Partial<Parameters<typeof OnboardingNavigation>[0]> = {}) {
+function renderNav(
+  overrides: Partial<Parameters<typeof OnboardingNavigation>[0]> = {},
+) {
   const props = {
     isFirstSlide: false,
     isLastSlide: false,
@@ -32,8 +34,12 @@ describe("OnboardingNavigation (spec 15)", () => {
 
   it("swaps Next for Start Now! on the final slide", () => {
     renderNav({ isLastSlide: true });
-    expect(screen.queryByRole("button", { name: /Next/ })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Start Now!" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Next/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Start Now!" }),
+    ).toBeInTheDocument();
   });
 
   it("gives Start Now! its own accent color and the one-shot emphasis animation", () => {

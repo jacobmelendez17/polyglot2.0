@@ -6,11 +6,23 @@ import type { CefrLevel } from "@/db/schema";
  * plus every CEFR band as its own option. Kept as one closed union rather
  * than two separate fields, matching the spec's own single-dropdown mockup.
  */
-export const CEFR_LEVELS: readonly CefrLevel[] = ["A1", "A2", "B1", "B2", "C1", "C2"] as const;
+export const CEFR_LEVELS: readonly CefrLevel[] = [
+  "A1",
+  "A2",
+  "B1",
+  "B2",
+  "C1",
+  "C2",
+] as const;
 
 export type ResetTarget = "main" | "ghost" | "leech" | CefrLevel;
 
-export const RESET_TARGETS: readonly ResetTarget[] = ["main", "ghost", "leech", ...CEFR_LEVELS] as const;
+export const RESET_TARGETS: readonly ResetTarget[] = [
+  "main",
+  "ghost",
+  "leech",
+  ...CEFR_LEVELS,
+] as const;
 
 export const RESET_TARGET_LABELS: Record<ResetTarget, string> = {
   main: "Main Reviews",
@@ -29,7 +41,12 @@ export function isCefrLevel(value: string): value is CefrLevel {
 }
 
 export function isResetTarget(value: string): value is ResetTarget {
-  return value === "main" || value === "ghost" || value === "leech" || isCefrLevel(value);
+  return (
+    value === "main" ||
+    value === "ghost" ||
+    value === "leech" ||
+    isCefrLevel(value)
+  );
 }
 
 export type ContentTypeResetResult = { affectedItemCount: number };

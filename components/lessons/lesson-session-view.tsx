@@ -1,6 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState, useTransition } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -16,7 +24,10 @@ import { ExitLessonDialog } from "@/components/lessons/exit-lesson-dialog";
 import { LessonCompleteView } from "@/components/lessons/lesson-complete-view";
 import { LessonErrorState } from "@/components/lessons/lesson-error-state";
 import { LessonItemTabs } from "@/components/lessons/lesson-item-tabs";
-import { LessonProgressSegments, type ProgressSegmentItem } from "@/components/lessons/lesson-progress-segments";
+import {
+  LessonProgressSegments,
+  type ProgressSegmentItem,
+} from "@/components/lessons/lesson-progress-segments";
 import { QuizView } from "@/components/lessons/quiz-view";
 import type {
   ItemSegmentState,
@@ -57,10 +68,17 @@ type SessionAction =
   | { type: "LESSON_COMPLETED"; completion: LessonCompletionSummary }
   | { type: "ERROR"; error: ActionError };
 
-function sessionReducer(state: SessionState, action: SessionAction): SessionState {
+function sessionReducer(
+  state: SessionState,
+  action: SessionAction,
+): SessionState {
   switch (action.type) {
     case "ITEM_VIEWED":
-      return { ...state, token: action.token, viewedItemIds: action.viewedItemIds };
+      return {
+        ...state,
+        token: action.token,
+        viewedItemIds: action.viewedItemIds,
+      };
     case "SELECT_STUDY_INDEX":
       return { ...state, currentStudyIndex: action.index };
     case "QUIZ_STARTED":
@@ -131,7 +149,10 @@ type LessonSessionViewProps = {
 export function LessonSessionView({ initial }: LessonSessionViewProps) {
   const router = useRouter();
   const batch = initial.batch;
-  const studyItems = useMemo(() => initial.studyItems ?? [], [initial.studyItems]);
+  const studyItems = useMemo(
+    () => initial.studyItems ?? [],
+    [initial.studyItems],
+  );
   // Resolved server-side from the language being studied and sent with the
   // session — the client has no access to the language record, and looking
   // it up here is what previously forced a curriculum import into this
@@ -163,12 +184,19 @@ export function LessonSessionView({ initial }: LessonSessionViewProps) {
   const markViewed = useCallback(
     (itemId: string) => {
       startTransition(async () => {
-        const result = await openLessonItemAction({ token: state.token, itemId });
+        const result = await openLessonItemAction({
+          token: state.token,
+          itemId,
+        });
         if (!result.ok) {
           dispatch({ type: "ERROR", error: result.error });
           return;
         }
-        dispatch({ type: "ITEM_VIEWED", token: result.data.token, viewedItemIds: result.data.viewedItemIds });
+        dispatch({
+          type: "ITEM_VIEWED",
+          token: result.data.token,
+          viewedItemIds: result.data.viewedItemIds,
+        });
       });
     },
     [state.token],
@@ -191,7 +219,10 @@ export function LessonSessionView({ initial }: LessonSessionViewProps) {
         void new Audio(audioUrl).play().catch(() => {});
         return;
       }
-      browserSpeechSynthesisProvider.speak({ text: item.item.word, languageCode });
+      browserSpeechSynthesisProvider.speak({
+        text: item.item.word,
+        languageCode,
+      });
     },
     [autoPronounceLessons, languageCode],
   );
@@ -214,7 +245,13 @@ export function LessonSessionView({ initial }: LessonSessionViewProps) {
       markViewed(first.itemId);
       maybeAutoPronounce(first);
     }
-  }, [markViewed, maybeAutoPronounce, state.phase, state.viewedItemIds, studyItems]);
+  }, [
+    markViewed,
+    maybeAutoPronounce,
+    state.phase,
+    state.viewedItemIds,
+    studyItems,
+  ]);
 
   /**
    * Spec 07 §49 — one idempotency key per logical completion, generated once
@@ -228,10 +265,14 @@ export function LessonSessionView({ initial }: LessonSessionViewProps) {
   // Once the server confirms the quiz is complete, request real enrollment
   // exactly once — the server revalidates and persists inside one transaction.
   useEffect(() => {
-    if (state.phase !== "complete" || state.completion || state.currentQuestion) return;
+    if (state.phase !== "complete" || state.completion || state.currentQuestion)
+      return;
     let cancelled = false;
     startTransition(async () => {
-      const result = await completeLessonAction({ token: state.token, idempotencyKey: completionKey.current! });
+      const result = await completeLessonAction({
+        token: state.token,
+        idempotencyKey: completionKey.current!,
+      });
       if (cancelled) return;
       if (!result.ok) {
         dispatch({ type: "ERROR", error: result.error });
@@ -259,7 +300,9 @@ export function LessonSessionView({ initial }: LessonSessionViewProps) {
       handleSelectStudyIndex(state.currentStudyIndex + 1);
       return;
     }
-    const firstUnviewed = studyItems.findIndex((item) => !state.viewedItemIds.includes(item.itemId));
+    const firstUnviewed = studyItems.findIndex(
+      (item) => !state.viewedItemIds.includes(item.itemId),
+    );
     if (firstUnviewed !== -1) handleSelectStudyIndex(firstUnviewed);
   }
 
@@ -278,7 +321,11 @@ export function LessonSessionView({ initial }: LessonSessionViewProps) {
     const questionId = state.currentQuestion?.questionId;
     if (!questionId) return;
     startTransition(async () => {
-      const result = await submitQuizAnswerAction({ token: state.token, questionId, answer });
+      const result = await submitQuizAnswerAction({
+        token: state.token,
+        questionId,
+        answer,
+      });
       if (!result.ok) {
         dispatch({ type: "ERROR", error: result.error });
         return;
@@ -306,7 +353,10 @@ export function LessonSessionView({ initial }: LessonSessionViewProps) {
         <QuizView
           question={state.currentQuestion}
           feedback={state.feedback}
-          awaitingAdvance={state.pendingQuestion !== null || (state.feedback !== null && state.phase === "complete")}
+          awaitingAdvance={
+            state.pendingQuestion !== null ||
+            (state.feedback !== null && state.phase === "complete")
+          }
           quizStats={state.quizStats}
           characterHelpers={characterHelpers}
           isPending={isPending}
@@ -314,7 +364,11 @@ export function LessonSessionView({ initial }: LessonSessionViewProps) {
           onAdvance={() => dispatch({ type: "ADVANCE_QUESTION" })}
           onExit={() => setExitDialogOpen(true)}
         />
-        <ExitLessonDialog open={isExitDialogOpen} onOpenChange={setExitDialogOpen} onConfirm={handleExitConfirm} />
+        <ExitLessonDialog
+          open={isExitDialogOpen}
+          onOpenChange={setExitDialogOpen}
+          onConfirm={handleExitConfirm}
+        />
       </>
     );
   }
@@ -328,12 +382,15 @@ export function LessonSessionView({ initial }: LessonSessionViewProps) {
   }
 
   const currentItem = studyItems[state.currentStudyIndex];
-  const allViewed = batch.every((batchItem) => state.viewedItemIds.includes(batchItem.itemId));
+  const allViewed = batch.every((batchItem) =>
+    state.viewedItemIds.includes(batchItem.itemId),
+  );
 
   // Only meaningful during study — this is the item-selector segment row,
   // which no longer renders anywhere during the quiz (see QuizView).
   const segments: ProgressSegmentItem[] = batch.map((batchItem) => {
-    const isCurrent = studyItems[state.currentStudyIndex]?.itemId === batchItem.itemId;
+    const isCurrent =
+      studyItems[state.currentStudyIndex]?.itemId === batchItem.itemId;
     const isViewed = state.viewedItemIds.includes(batchItem.itemId);
     return {
       itemId: batchItem.itemId,
@@ -359,10 +416,14 @@ export function LessonSessionView({ initial }: LessonSessionViewProps) {
        */}
       <div className="mx-auto flex h-svh max-w-3xl flex-col px-4">
         <div className="flex shrink-0 items-center justify-between py-6">
-          <ExitFocusButton label="Exit lesson" onClick={() => setExitDialogOpen(true)} />
+          <ExitFocusButton
+            label="Exit lesson"
+            onClick={() => setExitDialogOpen(true)}
+          />
           {currentItem ? (
             <p className="text-sm text-muted-foreground">
-              Level {currentItem.item.levelNumber} • {state.currentStudyIndex + 1} / {studyItems.length}
+              Level {currentItem.item.levelNumber} •{" "}
+              {state.currentStudyIndex + 1} / {studyItems.length}
             </p>
           ) : null}
         </div>
@@ -373,15 +434,22 @@ export function LessonSessionView({ initial }: LessonSessionViewProps) {
               <header className="flex flex-col items-center gap-2 text-center">
                 <CategoryBadge itemType={currentItem.itemType} />
                 <h1 className="font-heading text-4xl font-semibold text-foreground">
-                  {currentItem.item.type === "vocabulary" ? currentItem.item.word : currentItem.item.structure}
+                  {currentItem.item.type === "vocabulary"
+                    ? currentItem.item.word
+                    : currentItem.item.structure}
                 </h1>
                 <p className="text-lg text-muted-foreground">
-                  {currentItem.item.type === "vocabulary" ? currentItem.item.meanings[0] : currentItem.item.meaning}
+                  {currentItem.item.type === "vocabulary"
+                    ? currentItem.item.meanings[0]
+                    : currentItem.item.meaning}
                 </p>
               </header>
 
               <div className="mt-8 pb-6">
-                <LessonItemTabs item={currentItem.item} languageCode={languageCode} />
+                <LessonItemTabs
+                  item={currentItem.item}
+                  languageCode={languageCode}
+                />
               </div>
             </>
           ) : null}
@@ -391,19 +459,29 @@ export function LessonSessionView({ initial }: LessonSessionViewProps) {
           <LessonProgressSegments
             items={segments}
             onSelect={(itemId) => {
-              const index = studyItems.findIndex((item) => item.itemId === itemId);
+              const index = studyItems.findIndex(
+                (item) => item.itemId === itemId,
+              );
               if (index !== -1) handleSelectStudyIndex(index);
             }}
           />
           <div className="flex justify-end">
-            <Button type="button" onClick={allViewed ? handleStartQuiz : handleNext} disabled={isPending}>
+            <Button
+              type="button"
+              onClick={allViewed ? handleStartQuiz : handleNext}
+              disabled={isPending}
+            >
               {allViewed ? "Start Quiz" : "Next"}
             </Button>
           </div>
         </footer>
       </div>
 
-      <ExitLessonDialog open={isExitDialogOpen} onOpenChange={setExitDialogOpen} onConfirm={handleExitConfirm} />
+      <ExitLessonDialog
+        open={isExitDialogOpen}
+        onOpenChange={setExitDialogOpen}
+        onConfirm={handleExitConfirm}
+      />
     </>
   );
 }

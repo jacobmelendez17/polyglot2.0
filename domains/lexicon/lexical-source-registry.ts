@@ -32,7 +32,10 @@ export const WIKTIONARY_ES_SOURCE_CODE = "wiktionary-en-es";
 export const RLA_ES_MX_SOURCE_CODE = "rla-es-mx";
 export const RLA_ES_SOURCE_CODE = "rla-es-general";
 
-export const LEXICAL_SOURCE_DEFINITIONS: Record<string, LexicalSourceDefinition> = {
+export const LEXICAL_SOURCE_DEFINITIONS: Record<
+  string,
+  LexicalSourceDefinition
+> = {
   [WIKTIONARY_ES_SOURCE_CODE]: {
     code: WIKTIONARY_ES_SOURCE_CODE,
     provider: "wiktextract",
@@ -68,7 +71,8 @@ export const LEXICAL_SOURCE_DEFINITIONS: Record<string, LexicalSourceDefinition>
       licenseFile: "/licenses/rla-es.md",
       regionCode: "es-MX",
     },
-    attributionText: "Regional word list from RLA-ES (Recursos Lingüísticos Abiertos del Español).",
+    attributionText:
+      "Regional word list from RLA-ES (Recursos Lingüísticos Abiertos del Español).",
   },
   [RLA_ES_SOURCE_CODE]: {
     code: RLA_ES_SOURCE_CODE,
@@ -83,7 +87,8 @@ export const LEXICAL_SOURCE_DEFINITIONS: Record<string, LexicalSourceDefinition>
       licenseFile: "/licenses/rla-es.md",
       regionCode: "es",
     },
-    attributionText: "Regional word list from RLA-ES (Recursos Lingüísticos Abiertos del Español).",
+    attributionText:
+      "Regional word list from RLA-ES (Recursos Lingüísticos Abiertos del Español).",
   },
 };
 
@@ -102,8 +107,12 @@ const DICTIONARY_SOURCE_BY_LANGUAGE: Record<string, string> = {
   es: WIKTIONARY_ES_SOURCE_CODE,
 };
 
-export function getDictionarySourceCodeForLanguage(languageCode: string): string | null {
-  return resolveByLanguageCode(DICTIONARY_SOURCE_BY_LANGUAGE, languageCode) ?? null;
+export function getDictionarySourceCodeForLanguage(
+  languageCode: string,
+): string | null {
+  return (
+    resolveByLanguageCode(DICTIONARY_SOURCE_BY_LANGUAGE, languageCode) ?? null
+  );
 }
 
 /** Which regional source supplies evidence for a region code. */
@@ -112,6 +121,8 @@ const REGIONAL_SOURCE_BY_REGION: Record<string, string> = {
   es: RLA_ES_SOURCE_CODE,
 };
 
-export function getRegionalSourceCodeForRegion(regionCode: string): string | null {
+export function getRegionalSourceCodeForRegion(
+  regionCode: string,
+): string | null {
   return REGIONAL_SOURCE_BY_REGION[regionCode] ?? null;
 }

@@ -1,10 +1,20 @@
 import { describe, expect, it } from "vitest";
 
-import { ITEM_CASA_ID, ITEM_GATO_ID, LEARNER_ID, LEVEL_2_ID, seedTestFixtures } from "@/db/seed/test-fixtures";
+import {
+  ITEM_CASA_ID,
+  ITEM_GATO_ID,
+  LEARNER_ID,
+  LEVEL_2_ID,
+  seedTestFixtures,
+} from "@/db/seed/test-fixtures";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
 import { getLevelByLanguageAndNumber } from "@/domains/curriculum/curriculum-repository";
 import { getAuditEvents } from "@/domains/admin/audit-repository";
-import { getItemProgress, getUnlockedLevels, unlockLevel } from "@/domains/progress/repository";
+import {
+  getItemProgress,
+  getUnlockedLevels,
+  unlockLevel,
+} from "@/domains/progress/repository";
 
 import { resetOwnAccountProgress } from "./account-reset-service";
 
@@ -22,17 +32,34 @@ describe("resetOwnAccountProgress", () => {
       const { languageId } = await seedTestFixtures(tx);
       // Resetting an account restores the *application's* Level 1 unlock —
       // where a real learner starts — not the fixture's own level.
-      const applicationLevel1 = await getLevelByLanguageAndNumber(tx, languageId, 1, { includeUnpublished: true });
-      await unlockLevel(tx, { userId: LEARNER_ID, levelId: LEVEL_2_ID, now: new Date() });
+      const applicationLevel1 = await getLevelByLanguageAndNumber(
+        tx,
+        languageId,
+        1,
+        { includeUnpublished: true },
+      );
+      await unlockLevel(tx, {
+        userId: LEARNER_ID,
+        levelId: LEVEL_2_ID,
+        now: new Date(),
+      });
 
-      await resetOwnAccountProgress(tx, { userId: LEARNER_ID, languageId, idempotencyKey: crypto.randomUUID() });
+      await resetOwnAccountProgress(tx, {
+        userId: LEARNER_ID,
+        languageId,
+        idempotencyKey: crypto.randomUUID(),
+      });
 
       const unlocked = await getUnlockedLevels(tx, LEARNER_ID, languageId);
       expect(unlocked.map((l) => l.levelId)).toEqual([applicationLevel1!.id]);
       expect(await getItemProgress(tx, LEARNER_ID, ITEM_GATO_ID)).toBeNull();
       expect(await getItemProgress(tx, LEARNER_ID, ITEM_CASA_ID)).toBeNull();
 
-      const audit = await getAuditEvents(tx, { action: "ACCOUNT_PROGRESS_RESET", resourceId: LEARNER_ID, limit: 10 });
+      const audit = await getAuditEvents(tx, {
+        action: "ACCOUNT_PROGRESS_RESET",
+        resourceId: LEARNER_ID,
+        limit: 10,
+      });
       expect(audit.items).toHaveLength(1);
     });
   });
@@ -42,10 +69,22 @@ describe("resetOwnAccountProgress", () => {
       const { languageId } = await seedTestFixtures(tx);
       const idempotencyKey = crypto.randomUUID();
 
-      await resetOwnAccountProgress(tx, { userId: LEARNER_ID, languageId, idempotencyKey });
-      await resetOwnAccountProgress(tx, { userId: LEARNER_ID, languageId, idempotencyKey });
+      await resetOwnAccountProgress(tx, {
+        userId: LEARNER_ID,
+        languageId,
+        idempotencyKey,
+      });
+      await resetOwnAccountProgress(tx, {
+        userId: LEARNER_ID,
+        languageId,
+        idempotencyKey,
+      });
 
-      const audit = await getAuditEvents(tx, { action: "ACCOUNT_PROGRESS_RESET", resourceId: LEARNER_ID, limit: 10 });
+      const audit = await getAuditEvents(tx, {
+        action: "ACCOUNT_PROGRESS_RESET",
+        resourceId: LEARNER_ID,
+        limit: 10,
+      });
       expect(audit.items).toHaveLength(1);
     });
   });

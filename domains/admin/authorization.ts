@@ -43,7 +43,9 @@ export function canManageCurriculum(user: Pick<PolyglotUser, "role">): boolean {
  * the boundary that makes a writer's work reviewable rather than merely
  * audited: everything they do waits here.
  */
-export function canPublishCurriculum(user: Pick<PolyglotUser, "role">): boolean {
+export function canPublishCurriculum(
+  user: Pick<PolyglotUser, "role">,
+): boolean {
   return hasRole(user, "admin");
 }
 
@@ -52,6 +54,8 @@ export function canPublishCurriculum(user: Pick<PolyglotUser, "role">): boolean 
  * developer — a writer authors content and has no business simulating
  * learners or reading the audit log.
  */
-export function canUseDeveloperTools(user: Pick<PolyglotUser, "role">): boolean {
+export function canUseDeveloperTools(
+  user: Pick<PolyglotUser, "role">,
+): boolean {
   return hasRole(user, ["admin", "developer"]);
 }

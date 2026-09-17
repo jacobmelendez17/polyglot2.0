@@ -4,7 +4,10 @@ import userEvent from "@testing-library/user-event";
 
 import { ReviewQuestionView } from "@/components/reviews/review-question-view";
 import { DEFAULT_REVIEW_PREFERENCES } from "@/domains/srs";
-import type { ReviewQuestionView as ReviewQuestionViewData, ReviewUiPreferences } from "@/domains/srs";
+import type {
+  ReviewQuestionView as ReviewQuestionViewData,
+  ReviewUiPreferences,
+} from "@/domains/srs";
 
 const REVIEW_UI_PREFERENCES: ReviewUiPreferences = DEFAULT_REVIEW_PREFERENCES;
 
@@ -28,15 +31,26 @@ const CLOZE_TYPED_QUESTION: ReviewQuestionViewData = {
   ...QUESTION,
   direction: "englishToTarget",
   directionLabel: "English → Spanish",
-  presentation: { kind: "cloze_typed", sentenceBefore: "Yo tengo un ", sentenceAfter: " negro." },
+  presentation: {
+    kind: "cloze_typed",
+    sentenceBefore: "Yo tengo un ",
+    sentenceAfter: " negro.",
+  },
 };
 
 const CLOZE_REVEAL_QUESTION: ReviewQuestionViewData = {
   ...CLOZE_TYPED_QUESTION,
-  presentation: { kind: "cloze_reveal", sentenceBefore: "Yo tengo un ", sentenceAfter: " negro.", revealAnswer: "gato" },
+  presentation: {
+    kind: "cloze_reveal",
+    sentenceBefore: "Yo tengo un ",
+    sentenceAfter: " negro.",
+    revealAnswer: "gato",
+  },
 };
 
-function renderQuestion(overrides: Partial<Parameters<typeof ReviewQuestionView>[0]> = {}) {
+function renderQuestion(
+  overrides: Partial<Parameters<typeof ReviewQuestionView>[0]> = {},
+) {
   return render(
     <ReviewQuestionView
       question={QUESTION}
@@ -73,7 +87,10 @@ describe("ReviewQuestionView", () => {
     const onSubmit = vi.fn();
     renderQuestion({ onSubmit });
 
-    await user.type(screen.getByRole("textbox", { name: "Your answer" }), "cat{Enter}");
+    await user.type(
+      screen.getByRole("textbox", { name: "Your answer" }),
+      "cat{Enter}",
+    );
     expect(onSubmit).toHaveBeenCalledWith("cat");
   });
 
@@ -82,7 +99,10 @@ describe("ReviewQuestionView", () => {
     const onSubmit = vi.fn();
     renderQuestion({ onSubmit });
 
-    await user.type(screen.getByRole("textbox", { name: "Your answer" }), "cat");
+    await user.type(
+      screen.getByRole("textbox", { name: "Your answer" }),
+      "cat",
+    );
     await user.click(screen.getByRole("button", { name: "Submit" }));
     expect(onSubmit).toHaveBeenCalledWith("cat");
   });
@@ -92,16 +112,26 @@ describe("ReviewQuestionView", () => {
     const onSubmit = vi.fn();
     renderQuestion({ onSubmit });
 
-    await user.type(screen.getByRole("textbox", { name: "Your answer" }), "{Enter}");
+    await user.type(
+      screen.getByRole("textbox", { name: "Your answer" }),
+      "{Enter}",
+    );
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
   it("advances on Enter once feedback is displayed", async () => {
     const user = userEvent.setup();
     const onAdvance = vi.fn();
-    renderQuestion({ feedback: { kind: "correct" }, awaitingAdvance: true, onAdvance });
+    renderQuestion({
+      feedback: { kind: "correct" },
+      awaitingAdvance: true,
+      onAdvance,
+    });
 
-    await user.type(screen.getByRole("textbox", { name: "Your answer" }), "{Enter}");
+    await user.type(
+      screen.getByRole("textbox", { name: "Your answer" }),
+      "{Enter}",
+    );
     expect(onAdvance).toHaveBeenCalledOnce();
   });
 
@@ -113,7 +143,12 @@ describe("ReviewQuestionView", () => {
 
   it("shows incorrect feedback with what the learner entered and the expected answer", () => {
     renderQuestion({
-      feedback: { kind: "incorrect", reason: "no_match", userAnswer: "dog", expectedAnswer: "cat" },
+      feedback: {
+        kind: "incorrect",
+        reason: "no_match",
+        userAnswer: "dog",
+        expectedAnswer: "cat",
+      },
       awaitingAdvance: true,
     });
 
@@ -123,7 +158,13 @@ describe("ReviewQuestionView", () => {
 
   it("explains a missing-article mistake specifically", () => {
     renderQuestion({
-      feedback: { kind: "incorrect", reason: "missing_article", article: "el", userAnswer: "gato", expectedAnswer: "el gato" },
+      feedback: {
+        kind: "incorrect",
+        reason: "missing_article",
+        article: "el",
+        userAnswer: "gato",
+        expectedAnswer: "el gato",
+      },
       awaitingAdvance: true,
     });
 
@@ -134,7 +175,9 @@ describe("ReviewQuestionView", () => {
     const user = userEvent.setup();
     renderQuestion({ characterHelpers: ["ñ"] });
 
-    const input = screen.getByRole("textbox", { name: "Your answer" }) as HTMLInputElement;
+    const input = screen.getByRole("textbox", {
+      name: "Your answer",
+    }) as HTMLInputElement;
     await user.type(input, "ni");
     await user.click(screen.getByRole("button", { name: "ñ" }));
     expect(input.value).toBe("niñ");
@@ -169,7 +212,9 @@ describe("ReviewQuestionView", () => {
 
       expect(screen.getByText("cat")).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Know" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Don't Know" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Don't Know" }),
+      ).toBeInTheDocument();
     });
 
     it("reports Know/Don't Know via onKnowsAnswer", async () => {
@@ -184,15 +229,27 @@ describe("ReviewQuestionView", () => {
     });
 
     it("shows the answer and a Continue button while awaiting advance, without re-asking Know/Don't Know", () => {
-      renderQuestion({ question: REVEAL_QUESTION, feedback: { kind: "correct" }, awaitingAdvance: true });
+      renderQuestion({
+        question: REVEAL_QUESTION,
+        feedback: { kind: "correct" },
+        awaitingAdvance: true,
+      });
 
       expect(screen.getByText("cat")).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Continue" })).toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Know" })).not.toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Continue" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Know" }),
+      ).not.toBeInTheDocument();
     });
 
     it("shows self-graded incorrect feedback with no expected-answer breakdown (the learner already saw it via Reveal)", () => {
-      renderQuestion({ question: REVEAL_QUESTION, feedback: { kind: "self_graded_incorrect" }, awaitingAdvance: true });
+      renderQuestion({
+        question: REVEAL_QUESTION,
+        feedback: { kind: "self_graded_incorrect" },
+        awaitingAdvance: true,
+      });
 
       expect(screen.getByText("Not quite")).toBeInTheDocument();
       expect(screen.queryByText("You entered")).not.toBeInTheDocument();
@@ -205,7 +262,9 @@ describe("ReviewQuestionView", () => {
 
       expect(screen.getByText(/Yo tengo un/)).toBeInTheDocument();
       expect(screen.getByText(/negro\./)).toBeInTheDocument();
-      expect(screen.getByRole("textbox", { name: "Your answer" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("textbox", { name: "Your answer" }),
+      ).toBeInTheDocument();
       expect(screen.queryByText("Spanish → English")).not.toBeInTheDocument();
     });
 
@@ -214,7 +273,10 @@ describe("ReviewQuestionView", () => {
       const onSubmit = vi.fn();
       renderQuestion({ question: CLOZE_TYPED_QUESTION, onSubmit });
 
-      await user.type(screen.getByRole("textbox", { name: "Your answer" }), "gato{Enter}");
+      await user.type(
+        screen.getByRole("textbox", { name: "Your answer" }),
+        "gato{Enter}",
+      );
       expect(onSubmit).toHaveBeenCalledWith("gato");
     });
   });
@@ -224,8 +286,12 @@ describe("ReviewQuestionView", () => {
       renderQuestion({ question: CLOZE_REVEAL_QUESTION });
 
       expect(screen.getByText(/Yo tengo un/)).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Reveal" })).toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Reveal Answer" })).not.toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Reveal" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Reveal Answer" }),
+      ).not.toBeInTheDocument();
     });
 
     it("reveals the blanked word and offers Know/Don't Know", async () => {
@@ -244,7 +310,9 @@ describe("ReviewQuestionView", () => {
       const user = userEvent.setup();
       renderQuestion();
 
-      const input = screen.getByRole("textbox", { name: "Your answer" }) as HTMLInputElement;
+      const input = screen.getByRole("textbox", {
+        name: "Your answer",
+      }) as HTMLInputElement;
       await user.type(input, "hola");
       await user.click(screen.getByRole("button", { name: "Undo" }));
       expect(input.value).toBe("hol");
@@ -252,9 +320,16 @@ describe("ReviewQuestionView", () => {
 
     it("Undo clears everything when Undo Action is set to Clear All Characters", async () => {
       const user = userEvent.setup();
-      renderQuestion({ reviewUiPreferences: { ...REVIEW_UI_PREFERENCES, undoAction: "clear_all_characters" } });
+      renderQuestion({
+        reviewUiPreferences: {
+          ...REVIEW_UI_PREFERENCES,
+          undoAction: "clear_all_characters",
+        },
+      });
 
-      const input = screen.getByRole("textbox", { name: "Your answer" }) as HTMLInputElement;
+      const input = screen.getByRole("textbox", {
+        name: "Your answer",
+      }) as HTMLInputElement;
       await user.type(input, "hola");
       await user.click(screen.getByRole("button", { name: "Undo" }));
       expect(input.value).toBe("");
@@ -267,7 +342,12 @@ describe("ReviewQuestionView", () => {
 
     it("highlights the incorrect portion of a typed answer when Auto Highlight Errors is on", () => {
       renderQuestion({
-        feedback: { kind: "incorrect", reason: "no_match", userAnswer: "gata", expectedAnswer: "gato" },
+        feedback: {
+          kind: "incorrect",
+          reason: "no_match",
+          userAnswer: "gata",
+          expectedAnswer: "gato",
+        },
         awaitingAdvance: true,
       });
 
@@ -278,9 +358,17 @@ describe("ReviewQuestionView", () => {
 
     it("shows plain text instead of a highlight when Auto Highlight Errors is off", () => {
       renderQuestion({
-        feedback: { kind: "incorrect", reason: "no_match", userAnswer: "gata", expectedAnswer: "gato" },
+        feedback: {
+          kind: "incorrect",
+          reason: "no_match",
+          userAnswer: "gata",
+          expectedAnswer: "gato",
+        },
         awaitingAdvance: true,
-        reviewUiPreferences: { ...REVIEW_UI_PREFERENCES, autoHighlightErrors: false },
+        reviewUiPreferences: {
+          ...REVIEW_UI_PREFERENCES,
+          autoHighlightErrors: false,
+        },
       });
 
       expect(screen.getByText("gata")).toBeInTheDocument();
@@ -323,7 +411,15 @@ describe("ReviewQuestionView", () => {
     });
 
     it("renders the question's hint below the prompt", () => {
-      renderQuestion({ question: { ...QUESTION, hint: { mode: "always_show_nuance", nuance: "Used for pets or strays." } } });
+      renderQuestion({
+        question: {
+          ...QUESTION,
+          hint: {
+            mode: "always_show_nuance",
+            nuance: "Used for pets or strays.",
+          },
+        },
+      });
       expect(screen.getByText("Used for pets or strays.")).toBeInTheDocument();
     });
   });

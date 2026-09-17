@@ -1,6 +1,18 @@
 import { describe, expect, it } from "vitest";
 
-import { DEFAULT_HINT_MODE, DEFAULT_HINT_ORDER, DEFAULT_REVIEW_TYPE, DEFAULT_SRS_STRICTNESS, DEFAULT_UNDO_ACTION, isClozeReviewType, isHintMode, isHintOrder, isReviewType, isSrsStrictness, isUndoAction } from "./review-preference";
+import {
+  DEFAULT_HINT_MODE,
+  DEFAULT_HINT_ORDER,
+  DEFAULT_REVIEW_TYPE,
+  DEFAULT_SRS_STRICTNESS,
+  DEFAULT_UNDO_ACTION,
+  isClozeReviewType,
+  isHintMode,
+  isHintOrder,
+  isReviewType,
+  isSrsStrictness,
+  isUndoAction,
+} from "./review-preference";
 
 describe("isReviewType", () => {
   it("accepts the three real review types", () => {

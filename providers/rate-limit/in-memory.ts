@@ -1,5 +1,11 @@
 import { RATE_LIMIT_POLICIES } from "./policies";
-import type { RateLimitCheckInput, RateLimitDecision, RateLimiter, RateLimitPolicy, RateLimitPolicyName } from "./types";
+import type {
+  RateLimitCheckInput,
+  RateLimitDecision,
+  RateLimiter,
+  RateLimitPolicy,
+  RateLimitPolicyName,
+} from "./types";
 
 type WindowState = { count: number; windowStartMs: number };
 
@@ -27,12 +33,17 @@ export class InMemoryRateLimiter implements RateLimiter {
     this.policies = options.policies ?? RATE_LIMIT_POLICIES;
   }
 
-  async check({ policy, subject }: RateLimitCheckInput): Promise<RateLimitDecision> {
+  async check({
+    policy,
+    subject,
+  }: RateLimitCheckInput): Promise<RateLimitDecision> {
     const config = this.policies[policy];
 
     if (this.simulateFailure()) {
       // A store failure: fail closed unless this specific policy explicitly opted into failing open.
-      return config.failOpen ? { allowed: true } : { allowed: false, retryAfterSeconds: config.windowSeconds };
+      return config.failOpen
+        ? { allowed: true }
+        : { allowed: false, retryAfterSeconds: config.windowSeconds };
     }
 
     // Namespaced by APP_ENV so preview and production (and, here, separate test runs) never share buckets.
@@ -51,7 +62,10 @@ export class InMemoryRateLimiter implements RateLimiter {
       return { allowed: true };
     }
 
-    const retryAfterSeconds = Math.max(1, Math.ceil((existing.windowStartMs + windowMs - now) / 1000));
+    const retryAfterSeconds = Math.max(
+      1,
+      Math.ceil((existing.windowStartMs + windowMs - now) / 1000),
+    );
     return { allowed: false, retryAfterSeconds };
   }
 

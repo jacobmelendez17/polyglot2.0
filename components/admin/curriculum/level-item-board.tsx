@@ -6,10 +6,19 @@ import { useMemo, useState, useTransition } from "react";
 import { ArrowDown, ArrowUp } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { AdminCurriculumListItem } from "@/domains/curriculum";
 
-import { moveItemAction, reorderItemsAction } from "@/app/(admin)/admin/curriculum/actions";
+import {
+  moveItemAction,
+  reorderItemsAction,
+} from "@/app/(admin)/admin/curriculum/actions";
 import { CurriculumStatusBadge } from "./curriculum-status-badge";
 
 type LevelOption = { id: string; levelNumber: number };
@@ -35,14 +44,39 @@ type LevelItemBoardProps = {
  * Up/Down rather than drag-and-drop, matching `ItemReorderList`: the whole
  * interaction is keyboard-operable without a second mechanism to build.
  */
-export function LevelItemBoard({ levelId, items, levels, groups }: LevelItemBoardProps) {
-  const vocabulary = useMemo(() => items.filter((item) => item.type === "vocabulary"), [items]);
-  const grammar = useMemo(() => items.filter((item) => item.type === "grammar"), [items]);
+export function LevelItemBoard({
+  levelId,
+  items,
+  levels,
+  groups,
+}: LevelItemBoardProps) {
+  const vocabulary = useMemo(
+    () => items.filter((item) => item.type === "vocabulary"),
+    [items],
+  );
+  const grammar = useMemo(
+    () => items.filter((item) => item.type === "grammar"),
+    [items],
+  );
 
   return (
     <div className="flex flex-col gap-8">
-      <ItemTypeSection levelId={levelId} type="vocabulary" heading="Vocabulary" items={vocabulary} levels={levels} groups={groups} />
-      <ItemTypeSection levelId={levelId} type="grammar" heading="Grammar" items={grammar} levels={levels} groups={groups} />
+      <ItemTypeSection
+        levelId={levelId}
+        type="vocabulary"
+        heading="Vocabulary"
+        items={vocabulary}
+        levels={levels}
+        groups={groups}
+      />
+      <ItemTypeSection
+        levelId={levelId}
+        type="grammar"
+        heading="Grammar"
+        items={grammar}
+        levels={levels}
+        groups={groups}
+      />
     </div>
   );
 }
@@ -67,8 +101,13 @@ function ItemTypeSection({
   const [order, setOrder] = useState(() => items.map((item) => item.id));
   const [error, setError] = useState<string | null>(null);
 
-  const byId = useMemo(() => new Map(items.map((item) => [item.id, item])), [items]);
-  const dirty = order.length === items.length && order.some((id, index) => id !== items[index]?.id);
+  const byId = useMemo(
+    () => new Map(items.map((item) => [item.id, item])),
+    [items],
+  );
+  const dirty =
+    order.length === items.length &&
+    order.some((id, index) => id !== items[index]?.id);
   const groupsInThisLevel = groups.filter((group) => group.levelId === levelId);
 
   function move(index: number, direction: -1 | 1) {
@@ -82,7 +121,12 @@ function ItemTypeSection({
   function saveOrder() {
     setError(null);
     startTransition(async () => {
-      const result = await reorderItemsAction({ levelId, type, orderedLearningItemIds: order, idempotencyKey: crypto.randomUUID() });
+      const result = await reorderItemsAction({
+        levelId,
+        type,
+        orderedLearningItemIds: order,
+        idempotencyKey: crypto.randomUUID(),
+      });
       if (!result.ok) {
         setError(result.error.message);
         return;
@@ -91,10 +135,17 @@ function ItemTypeSection({
     });
   }
 
-  function moveItem(learningItemId: string, changes: { levelId?: string; vocabularyGroupId?: string }) {
+  function moveItem(
+    learningItemId: string,
+    changes: { levelId?: string; vocabularyGroupId?: string },
+  ) {
     setError(null);
     startTransition(async () => {
-      const result = await moveItemAction({ learningItemId, ...changes, idempotencyKey: crypto.randomUUID() });
+      const result = await moveItemAction({
+        learningItemId,
+        ...changes,
+        idempotencyKey: crypto.randomUUID(),
+      });
       if (!result.ok) {
         setError(result.error.message);
         return;
@@ -107,10 +158,18 @@ function ItemTypeSection({
     <section className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-heading text-lg font-semibold text-foreground">
-          {heading} <span className="text-sm font-normal text-muted-foreground">({items.length})</span>
+          {heading}{" "}
+          <span className="text-sm font-normal text-muted-foreground">
+            ({items.length})
+          </span>
         </h2>
         {dirty ? (
-          <Button type="button" size="sm" onClick={saveOrder} disabled={isPending}>
+          <Button
+            type="button"
+            size="sm"
+            onClick={saveOrder}
+            disabled={isPending}
+          >
             Save order
           </Button>
         ) : null}
@@ -127,23 +186,36 @@ function ItemTypeSection({
       ) : null}
 
       {items.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nothing in this level yet.</p>
+        <p className="text-sm text-muted-foreground">
+          Nothing in this level yet.
+        </p>
       ) : (
         <ol className="flex flex-col gap-2">
           {order.map((id, index) => {
             const item = byId.get(id);
             if (!item) return null;
             return (
-              <li key={id} className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card px-3 py-2">
-                <span className="w-6 text-sm text-muted-foreground" aria-hidden="true">
+              <li
+                key={id}
+                className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card px-3 py-2"
+              >
+                <span
+                  className="w-6 text-sm text-muted-foreground"
+                  aria-hidden="true"
+                >
                   {index + 1}
                 </span>
 
                 <div className="flex min-w-40 flex-1 flex-col">
-                  <Link href={`/admin/curriculum/items/${item.id}`} className="font-medium text-foreground hover:underline">
+                  <Link
+                    href={`/admin/curriculum/items/${item.id}`}
+                    className="font-medium text-foreground hover:underline"
+                  >
                     {item.itemLabel}
                   </Link>
-                  <span className="text-sm text-muted-foreground">{item.meaningLabel}</span>
+                  <span className="text-sm text-muted-foreground">
+                    {item.meaningLabel}
+                  </span>
                 </div>
 
                 <CurriculumStatusBadge status={item.status} />
@@ -153,7 +225,9 @@ function ItemTypeSection({
                     <span className="sr-only">Group for {item.itemLabel}</span>
                     <Select
                       value={item.groupId ?? ""}
-                      onValueChange={(value) => moveItem(item.id, { vocabularyGroupId: value })}
+                      onValueChange={(value) =>
+                        moveItem(item.id, { vocabularyGroupId: value })
+                      }
                       disabled={isPending}
                     >
                       <SelectTrigger className="w-44">
@@ -172,7 +246,13 @@ function ItemTypeSection({
 
                 <label className="text-sm">
                   <span className="sr-only">Level for {item.itemLabel}</span>
-                  <Select value={item.levelId} onValueChange={(value) => moveItem(item.id, { levelId: value })} disabled={isPending}>
+                  <Select
+                    value={item.levelId}
+                    onValueChange={(value) =>
+                      moveItem(item.id, { levelId: value })
+                    }
+                    disabled={isPending}
+                  >
                     <SelectTrigger className="w-32">
                       <SelectValue />
                     </SelectTrigger>

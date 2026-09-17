@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 
-export type InlineTextSettingFieldResult = { ok: true; value: string | null } | { ok: false; message: string };
+export type InlineTextSettingFieldResult =
+  { ok: true; value: string | null } | { ok: false; message: string };
 
 export type InlineTextSettingFieldProps = {
   label: string;
@@ -24,7 +25,11 @@ export type InlineTextSettingFieldProps = {
  * (`name-field.tsx`, `username-field.tsx`) — both are this same shape, only
  * the label and the Server Action they call differ.
  */
-export function InlineTextSettingField({ label, initialValue, onSave }: InlineTextSettingFieldProps) {
+export function InlineTextSettingField({
+  label,
+  initialValue,
+  onSave,
+}: InlineTextSettingFieldProps) {
   const inputId = useId();
   const [savedValue, setSavedValue] = useState(initialValue);
   const [isEditing, setIsEditing] = useState(false);
@@ -69,7 +74,9 @@ export function InlineTextSettingField({ label, initialValue, onSave }: InlineTe
       <div className="flex items-center justify-between gap-4 border-b border-border py-4 first:pt-0 last:border-b-0">
         <div>
           <p className="text-sm font-medium text-foreground">{label}</p>
-          <p className="mt-1 text-sm text-muted-foreground">{savedValue ?? "—"}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {savedValue ?? "—"}
+          </p>
           {/* Stays visible until the learner edits again (startEditing resets `state`) — the spec's "Saving.../Saved" confirmation would otherwise never actually be seen, since success also collapses the editing form in the same render. */}
           {state === "saved" && (
             <p className="mt-1 text-sm text-state-success" aria-live="polite">
@@ -77,7 +84,12 @@ export function InlineTextSettingField({ label, initialValue, onSave }: InlineTe
             </p>
           )}
         </div>
-        <Button type="button" variant="outline" size="sm" onClick={startEditing}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={startEditing}
+        >
           {savedValue ? "Edit" : "Add"}
         </Button>
       </div>
@@ -99,18 +111,35 @@ export function InlineTextSettingField({ label, initialValue, onSave }: InlineTe
           className="sm:max-w-xs"
         />
         <div className="flex gap-2">
-          <Button type="button" size="sm" onClick={handleSave} disabled={state === "saving"}>
+          <Button
+            type="button"
+            size="sm"
+            onClick={handleSave}
+            disabled={state === "saving"}
+          >
             Save
           </Button>
-          <Button type="button" variant="ghost" size="sm" onClick={cancelEditing} disabled={state === "saving"}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={cancelEditing}
+            disabled={state === "saving"}
+          >
             Cancel
           </Button>
         </div>
       </div>
       <p className="mt-2 text-sm" aria-live="polite">
-        {state === "saving" && <span className="text-muted-foreground">Saving…</span>}
+        {state === "saving" && (
+          <span className="text-muted-foreground">Saving…</span>
+        )}
         {state === "saved" && <span className="text-state-success">Saved</span>}
-        {state === "error" && <span className="text-destructive">{errorMessage ?? "Could not save setting."}</span>}
+        {state === "error" && (
+          <span className="text-destructive">
+            {errorMessage ?? "Could not save setting."}
+          </span>
+        )}
       </p>
     </div>
   );

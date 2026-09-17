@@ -1,4 +1,11 @@
-import { index, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  index,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 import { users } from "./users";
 
@@ -35,7 +42,9 @@ export const adminAuditEvents = pgTable(
     afterData: jsonb("after_data"),
     reason: text("reason"),
     correlationId: text("correlation_id"),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (t) => [
     // Full audit log listing (spec 11 §49), keyset-paginated newest first.

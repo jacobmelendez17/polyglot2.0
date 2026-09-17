@@ -4,9 +4,23 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import { createVocabularyGroupAction } from "@/app/(admin)/admin/curriculum/actions";
 
@@ -17,7 +31,11 @@ type CreateGroupDialogProps = {
 };
 
 /** Spec 11 rewrite's "Vocabulary Groups / Themes" — a new group is appended after every existing group in its level (server-computed position, never guessed here). */
-export function CreateGroupDialog({ languageId, levels, defaultLevelId }: CreateGroupDialogProps) {
+export function CreateGroupDialog({
+  languageId,
+  levels,
+  defaultLevelId,
+}: CreateGroupDialogProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
@@ -32,7 +50,12 @@ export function CreateGroupDialog({ languageId, levels, defaultLevelId }: Create
     }
     setError(null);
     startTransition(async () => {
-      const result = await createVocabularyGroupAction({ levelId, languageId, name, idempotencyKey: crypto.randomUUID() });
+      const result = await createVocabularyGroupAction({
+        levelId,
+        languageId,
+        name,
+        idempotencyKey: crypto.randomUUID(),
+      });
       if (!result.ok) {
         setError(result.error.message);
         return;
@@ -51,7 +74,9 @@ export function CreateGroupDialog({ languageId, levels, defaultLevelId }: Create
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Add a vocabulary group</DialogTitle>
-          <DialogDescription>New groups are appended after the existing groups in the level.</DialogDescription>
+          <DialogDescription>
+            New groups are appended after the existing groups in the level.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3">
@@ -72,7 +97,11 @@ export function CreateGroupDialog({ languageId, levels, defaultLevelId }: Create
           </label>
           <label className="block text-sm">
             <span className="font-medium text-foreground">Name</span>
-            <Input className="mt-1" value={name} onChange={(e) => setName(e.target.value)} />
+            <Input
+              className="mt-1"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
           </label>
         </div>
 

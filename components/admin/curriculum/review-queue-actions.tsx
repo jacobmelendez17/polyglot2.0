@@ -18,7 +18,13 @@ import { publishItemAction } from "@/app/(admin)/admin/curriculum/actions";
  * path already enforces, so verifying a stale row from a list somebody else
  * has since changed is refused rather than silently applied.
  */
-export function ReviewQueueActions({ learningItemId, expectedVersion }: { learningItemId: string; expectedVersion: number }) {
+export function ReviewQueueActions({
+  learningItemId,
+  expectedVersion,
+}: {
+  learningItemId: string;
+  expectedVersion: number;
+}) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -26,7 +32,11 @@ export function ReviewQueueActions({ learningItemId, expectedVersion }: { learni
   function publish() {
     setError(null);
     startTransition(async () => {
-      const result = await publishItemAction({ learningItemId, expectedVersion, idempotencyKey: crypto.randomUUID() });
+      const result = await publishItemAction({
+        learningItemId,
+        expectedVersion,
+        idempotencyKey: crypto.randomUUID(),
+      });
       if (!result.ok) {
         setError(result.error.message);
         return;

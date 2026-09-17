@@ -55,5 +55,8 @@ export type SandboxCurriculumPreview = {
   currentMode: CurriculumMode | null;
   selectedThemeId: string | null;
   themes: { id: string; name: string; remainingCount: number }[];
-  batchesByMode: { mode: CurriculumMode; items: SandboxCurriculumPreviewItem[] }[];
+  batchesByMode: {
+    mode: CurriculumMode;
+    items: SandboxCurriculumPreviewItem[];
+  }[];
 };

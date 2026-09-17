@@ -31,13 +31,22 @@ const ORDERED_TAG_GROUPS: readonly (readonly string[])[] = [
   ["first-person", "second-person", "third-person"],
   ["singular", "plural"],
   ["present", "preterite", "imperfect", "future", "conditional", "past"],
-  ["indicative", "subjunctive", "imperative", "infinitive", "participle", "gerund"],
+  [
+    "indicative",
+    "subjunctive",
+    "imperative",
+    "infinitive",
+    "participle",
+    "gerund",
+  ],
   ["masculine", "feminine", "neuter"],
 ];
 
 /** The tags a form carries that are worth showing, in reading order. */
 function describeTags(tags: string[]): string | null {
-  const present = ORDERED_TAG_GROUPS.flatMap((group) => group.filter((tag) => tags.includes(tag)));
+  const present = ORDERED_TAG_GROUPS.flatMap((group) =>
+    group.filter((tag) => tags.includes(tag)),
+  );
   return present.length > 0 ? present.join(" ") : null;
 }
 
@@ -48,8 +57,16 @@ function describeTags(tags: string[]): string | null {
  */
 function isUsageForm(form: DictionaryFormInput, lemma: string): boolean {
   if (form.form.trim().length === 0) return false;
-  if (form.form.trim().toLowerCase() === lemma.trim().toLowerCase()) return false;
-  const uninteresting = ["canonical", "romanization", "no-gloss", "table-tags", "class", "inflection-template"];
+  if (form.form.trim().toLowerCase() === lemma.trim().toLowerCase())
+    return false;
+  const uninteresting = [
+    "canonical",
+    "romanization",
+    "no-gloss",
+    "table-tags",
+    "class",
+    "inflection-template",
+  ];
   return !form.tags.some((tag) => uninteresting.includes(tag));
 }
 
@@ -76,7 +93,9 @@ export function proposeUsageContexts({
   existingSourceForms = [],
   limit = 12,
 }: SeedUsageContextsInput): ProposedUsageContext[] {
-  const alreadySeeded = new Set(existingSourceForms.map((form) => form.trim().toLowerCase()));
+  const alreadySeeded = new Set(
+    existingSourceForms.map((form) => form.trim().toLowerCase()),
+  );
   const byForm = new Map<string, ProposedUsageContext>();
 
   for (const form of forms) {
@@ -90,7 +109,8 @@ export function proposeUsageContexts({
     // Prefer the description that actually says something: the first
     // occurrence of a form is often the bare one.
     if (!existing) byForm.set(key, { label, note, sourceForm: label });
-    else if (existing.note === null && note !== null) byForm.set(key, { ...existing, note });
+    else if (existing.note === null && note !== null)
+      byForm.set(key, { ...existing, note });
   }
 
   return [...byForm.values()].slice(0, limit);

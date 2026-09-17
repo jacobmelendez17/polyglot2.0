@@ -1,4 +1,15 @@
-import { boolean, index, integer, jsonb, pgEnum, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  index,
+  integer,
+  jsonb,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+  unique,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 import { timestamps } from "./columns";
 import { vocabularyItems } from "./curriculum";
@@ -34,10 +45,17 @@ import { users } from "./users";
  */
 
 /** What kind of resource a source provides: full dictionary entries, or a regional word list used only as evidence. */
-export const lexicalSourceTypeEnum = pgEnum("lexical_source_type", ["dictionary", "regional_wordlist"]);
+export const lexicalSourceTypeEnum = pgEnum("lexical_source_type", [
+  "dictionary",
+  "regional_wordlist",
+]);
 
 /** Spec 12 "Import Scope". `curriculum` is the default: retain only entries the existing curriculum actually needs. */
-export const lexicalImportScopeEnum = pgEnum("lexical_import_scope", ["curriculum", "terms", "full_language"]);
+export const lexicalImportScopeEnum = pgEnum("lexical_import_scope", [
+  "curriculum",
+  "terms",
+  "full_language",
+]);
 
 /**
  * Spec 12 "Rollback": an import is only current once it reaches `completed`.
@@ -56,7 +74,10 @@ export const lexicalImportStatusEnum = pgEnum("lexical_import_status", [
  * Spec 12 "Removed Entries and Senses". A record that disappears upstream is
  * marked, never deleted — Polyglot may already reference it.
  */
-export const dictionarySourceStatusEnum = pgEnum("dictionary_source_status", ["active", "missing_from_source"]);
+export const dictionarySourceStatusEnum = pgEnum("dictionary_source_status", [
+  "active",
+  "missing_from_source",
+]);
 
 /**
  * Spec 12 "Mapping States". `source_data_not_imported` is the fifth value the
@@ -73,7 +94,10 @@ export const dictionaryMatchStatusEnum = pgEnum("dictionary_match_status", [
 ]);
 
 /** Spec 12 "Matching Algorithm" — categorical, never a fabricated percentage. */
-export const dictionaryMatchConfidenceEnum = pgEnum("dictionary_match_confidence", ["high", "medium", "low"]);
+export const dictionaryMatchConfidenceEnum = pgEnum(
+  "dictionary_match_confidence",
+  ["high", "medium", "low"],
+);
 
 /** Spec 12 "Forms, Pronunciations, and Relationships" — the exact relation list the spec enumerates. */
 export const dictionaryRelationTypeEnum = pgEnum("dictionary_relation_type", [
@@ -92,7 +116,11 @@ export const dictionaryRelationTypeEnum = pgEnum("dictionary_relation_type", [
  * region" — absence from a word list is weak evidence, not proof, which is
  * exactly why this is a three-value evidence enum and not a boolean.
  */
-export const regionalEvidenceStatusEnum = pgEnum("regional_evidence_status", ["recognized", "not_listed", "unknown"]);
+export const regionalEvidenceStatusEnum = pgEnum("regional_evidence_status", [
+  "recognized",
+  "not_listed",
+  "unknown",
+]);
 
 /**
  * One external lexical provider/dataset. Deliberately not scoped to Spanish:
@@ -116,7 +144,9 @@ export const lexicalSources = pgTable("lexical_sources", {
   sourceLanguage: text("source_language").notNull(),
   /** Language the definitions/glosses are written in, e.g. "en". Null for a word list that carries no glosses. */
   entryLanguage: text("entry_language"),
-  licenseMetadata: jsonb("license_metadata").$type<Record<string, unknown>>().notNull(),
+  licenseMetadata: jsonb("license_metadata")
+    .$type<Record<string, unknown>>()
+    .notNull(),
   attributionText: text("attribution_text").notNull(),
   ...timestamps(),
 });
@@ -166,15 +196,24 @@ export const lexicalImports = pgTable(
     recordsRejected: integer("records_rejected").notNull().default(0),
     entriesCreated: integer("entries_created").notNull().default(0),
     entriesUpdated: integer("entries_updated").notNull().default(0),
-    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    startedAt: timestamp("started_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
     completedAt: timestamp("completed_at", { withTimezone: true }),
     /** Operator-facing failure summary. Never a raw source record or a connection string. */
     failureReason: text("failure_reason"),
     ...timestamps(),
   },
   (t) => [
-    unique("lexical_imports_source_checksum_scope_key").on(t.sourceId, t.fileChecksum, t.scopeKey),
-    index("lexical_imports_source_started_idx").on(t.sourceId, t.startedAt.desc()),
+    unique("lexical_imports_source_checksum_scope_key").on(
+      t.sourceId,
+      t.fileChecksum,
+      t.scopeKey,
+    ),
+    index("lexical_imports_source_started_idx").on(
+      t.sourceId,
+      t.startedAt.desc(),
+    ),
   ],
 );
 
@@ -211,7 +250,9 @@ export const dictionaryEntries = pgTable(
      * one language's import silently reassign the other's entry.
      */
     sourceEntryKey: text("source_entry_key").notNull(),
-    sourceStatus: dictionarySourceStatusEnum("source_status").notNull().default("active"),
+    sourceStatus: dictionarySourceStatusEnum("source_status")
+      .notNull()
+      .default("active"),
     /**
      * Regions the source's own usage labels restrict this entry to (e.g.
      * `["es-ES"]` for a sense marked "Spain"). Empty for almost every entry.
@@ -220,15 +261,32 @@ export const dictionaryEntries = pgTable(
      * queries *by* it — spec 12's "no broad JSONB indexes unless a real
      * query needs them".
      */
-    restrictedRegionCodes: jsonb("restricted_region_codes").$type<string[]>().notNull().default([]),
-    firstSeenImportId: uuid("first_seen_import_id").references(() => lexicalImports.id, { onDelete: "set null" }),
-    lastSeenImportId: uuid("last_seen_import_id").references(() => lexicalImports.id, { onDelete: "set null" }),
+    restrictedRegionCodes: jsonb("restricted_region_codes")
+      .$type<string[]>()
+      .notNull()
+      .default([]),
+    firstSeenImportId: uuid("first_seen_import_id").references(
+      () => lexicalImports.id,
+      { onDelete: "set null" },
+    ),
+    lastSeenImportId: uuid("last_seen_import_id").references(
+      () => lexicalImports.id,
+      { onDelete: "set null" },
+    ),
     ...timestamps(),
   },
   (t) => [
-    unique("dictionary_entries_source_language_entry_key").on(t.sourceId, t.languageId, t.sourceEntryKey),
+    unique("dictionary_entries_source_language_entry_key").on(
+      t.sourceId,
+      t.languageId,
+      t.sourceEntryKey,
+    ),
     index("dictionary_entries_lemma_idx").on(t.languageId, t.normalizedLemma),
-    index("dictionary_entries_lemma_pos_idx").on(t.languageId, t.normalizedLemma, t.partOfSpeech),
+    index("dictionary_entries_lemma_pos_idx").on(
+      t.languageId,
+      t.normalizedLemma,
+      t.partOfSpeech,
+    ),
   ],
 );
 
@@ -257,11 +315,19 @@ export const dictionaryEntryVersions = pgTable(
     /** SHA-256 over the canonical serialization of `raw_data`. */
     sourceHash: text("source_hash").notNull(),
     rawData: jsonb("raw_data").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (t) => [
-    unique("dictionary_entry_versions_entry_hash_key").on(t.dictionaryEntryId, t.sourceHash),
-    index("dictionary_entry_versions_entry_idx").on(t.dictionaryEntryId, t.createdAt.desc()),
+    unique("dictionary_entry_versions_entry_hash_key").on(
+      t.dictionaryEntryId,
+      t.sourceHash,
+    ),
+    index("dictionary_entry_versions_entry_idx").on(
+      t.dictionaryEntryId,
+      t.createdAt.desc(),
+    ),
     index("dictionary_entry_versions_import_idx").on(t.lexicalImportId),
   ],
 );
@@ -289,13 +355,24 @@ export const dictionarySenses = pgTable(
     gloss: text("gloss").notNull(),
     tags: jsonb("tags").$type<string[]>().notNull().default([]),
     topics: jsonb("topics").$type<string[]>().notNull().default([]),
-    sourceStatus: dictionarySourceStatusEnum("source_status").notNull().default("active"),
-    firstSeenImportId: uuid("first_seen_import_id").references(() => lexicalImports.id, { onDelete: "set null" }),
-    lastSeenImportId: uuid("last_seen_import_id").references(() => lexicalImports.id, { onDelete: "set null" }),
+    sourceStatus: dictionarySourceStatusEnum("source_status")
+      .notNull()
+      .default("active"),
+    firstSeenImportId: uuid("first_seen_import_id").references(
+      () => lexicalImports.id,
+      { onDelete: "set null" },
+    ),
+    lastSeenImportId: uuid("last_seen_import_id").references(
+      () => lexicalImports.id,
+      { onDelete: "set null" },
+    ),
     ...timestamps(),
   },
   (t) => [
-    unique("dictionary_senses_entry_source_key").on(t.dictionaryEntryId, t.sourceSenseKey),
+    unique("dictionary_senses_entry_source_key").on(
+      t.dictionaryEntryId,
+      t.sourceSenseKey,
+    ),
     index("dictionary_senses_entry_idx").on(t.dictionaryEntryId),
   ],
 );
@@ -318,13 +395,24 @@ export const dictionaryForms = pgTable(
     /** Upstream tags describing the form, e.g. ["plural"], ["feminine"], ["participle"]. */
     tags: jsonb("tags").$type<string[]>().notNull().default([]),
     sourceFingerprint: text("source_fingerprint").notNull(),
-    sourceStatus: dictionarySourceStatusEnum("source_status").notNull().default("active"),
-    firstSeenImportId: uuid("first_seen_import_id").references(() => lexicalImports.id, { onDelete: "set null" }),
-    lastSeenImportId: uuid("last_seen_import_id").references(() => lexicalImports.id, { onDelete: "set null" }),
+    sourceStatus: dictionarySourceStatusEnum("source_status")
+      .notNull()
+      .default("active"),
+    firstSeenImportId: uuid("first_seen_import_id").references(
+      () => lexicalImports.id,
+      { onDelete: "set null" },
+    ),
+    lastSeenImportId: uuid("last_seen_import_id").references(
+      () => lexicalImports.id,
+      { onDelete: "set null" },
+    ),
     ...timestamps(),
   },
   (t) => [
-    unique("dictionary_forms_entry_fingerprint_key").on(t.dictionaryEntryId, t.sourceFingerprint),
+    unique("dictionary_forms_entry_fingerprint_key").on(
+      t.dictionaryEntryId,
+      t.sourceFingerprint,
+    ),
     index("dictionary_forms_normalized_idx").on(t.normalizedForm),
     index("dictionary_forms_entry_idx").on(t.dictionaryEntryId),
   ],
@@ -349,13 +437,24 @@ export const dictionaryPronunciations = pgTable(
     /** Source-provided audio reference. Metadata only — Polyglot does not fetch or host it in this spec. */
     audioUrl: text("audio_url"),
     sourceFingerprint: text("source_fingerprint").notNull(),
-    sourceStatus: dictionarySourceStatusEnum("source_status").notNull().default("active"),
-    firstSeenImportId: uuid("first_seen_import_id").references(() => lexicalImports.id, { onDelete: "set null" }),
-    lastSeenImportId: uuid("last_seen_import_id").references(() => lexicalImports.id, { onDelete: "set null" }),
+    sourceStatus: dictionarySourceStatusEnum("source_status")
+      .notNull()
+      .default("active"),
+    firstSeenImportId: uuid("first_seen_import_id").references(
+      () => lexicalImports.id,
+      { onDelete: "set null" },
+    ),
+    lastSeenImportId: uuid("last_seen_import_id").references(
+      () => lexicalImports.id,
+      { onDelete: "set null" },
+    ),
     ...timestamps(),
   },
   (t) => [
-    unique("dictionary_pronunciations_entry_fingerprint_key").on(t.dictionaryEntryId, t.sourceFingerprint),
+    unique("dictionary_pronunciations_entry_fingerprint_key").on(
+      t.dictionaryEntryId,
+      t.sourceFingerprint,
+    ),
     index("dictionary_pronunciations_entry_idx").on(t.dictionaryEntryId),
   ],
 );
@@ -379,16 +478,31 @@ export const dictionaryRelations = pgTable(
     relationType: dictionaryRelationTypeEnum("relation_type").notNull(),
     targetLemma: text("target_lemma").notNull(),
     normalizedTargetLemma: text("normalized_target_lemma").notNull(),
-    targetDictionaryEntryId: uuid("target_dictionary_entry_id").references(() => dictionaryEntries.id, {
-      onDelete: "set null",
-    }),
-    sourceStatus: dictionarySourceStatusEnum("source_status").notNull().default("active"),
-    firstSeenImportId: uuid("first_seen_import_id").references(() => lexicalImports.id, { onDelete: "set null" }),
-    lastSeenImportId: uuid("last_seen_import_id").references(() => lexicalImports.id, { onDelete: "set null" }),
+    targetDictionaryEntryId: uuid("target_dictionary_entry_id").references(
+      () => dictionaryEntries.id,
+      {
+        onDelete: "set null",
+      },
+    ),
+    sourceStatus: dictionarySourceStatusEnum("source_status")
+      .notNull()
+      .default("active"),
+    firstSeenImportId: uuid("first_seen_import_id").references(
+      () => lexicalImports.id,
+      { onDelete: "set null" },
+    ),
+    lastSeenImportId: uuid("last_seen_import_id").references(
+      () => lexicalImports.id,
+      { onDelete: "set null" },
+    ),
     ...timestamps(),
   },
   (t) => [
-    unique("dictionary_relations_entry_type_target_key").on(t.dictionaryEntryId, t.relationType, t.normalizedTargetLemma),
+    unique("dictionary_relations_entry_type_target_key").on(
+      t.dictionaryEntryId,
+      t.relationType,
+      t.normalizedTargetLemma,
+    ),
     index("dictionary_relations_entry_idx").on(t.dictionaryEntryId),
   ],
 );
@@ -416,19 +530,29 @@ export const vocabularyDictionaryMappings = pgTable(
     vocabularyItemId: uuid("vocabulary_item_id")
       .notNull()
       .unique()
-      .references(() => vocabularyItems.learningItemId, { onDelete: "cascade" }),
-    dictionaryEntryId: uuid("dictionary_entry_id").references(() => dictionaryEntries.id, { onDelete: "restrict" }),
+      .references(() => vocabularyItems.learningItemId, {
+        onDelete: "cascade",
+      }),
+    dictionaryEntryId: uuid("dictionary_entry_id").references(
+      () => dictionaryEntries.id,
+      { onDelete: "restrict" },
+    ),
     /** The lookup form this mapping was resolved through, e.g. "padre" for the display word "el padre". */
     lookupForm: text("lookup_form").notNull(),
     matchStatus: dictionaryMatchStatusEnum("match_status").notNull(),
     confidence: dictionaryMatchConfidenceEnum("confidence"),
     manualLock: boolean("manual_lock").notNull().default(false),
-    preferredPronunciationId: uuid("preferred_pronunciation_id").references(() => dictionaryPronunciations.id, {
-      onDelete: "set null",
-    }),
+    preferredPronunciationId: uuid("preferred_pronunciation_id").references(
+      () => dictionaryPronunciations.id,
+      {
+        onDelete: "set null",
+      },
+    ),
     /** Why this needs review, e.g. "multiple_candidates", "selected_sense_missing". Never free-form learner content. */
     reviewReason: text("review_reason"),
-    mappedByUserId: uuid("mapped_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    mappedByUserId: uuid("mapped_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
     mappedAt: timestamp("mapped_at", { withTimezone: true }),
     ...timestamps(),
   },
@@ -452,17 +576,26 @@ export const vocabularySelectedSenses = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     vocabularyItemId: uuid("vocabulary_item_id")
       .notNull()
-      .references(() => vocabularyItems.learningItemId, { onDelete: "cascade" }),
+      .references(() => vocabularyItems.learningItemId, {
+        onDelete: "cascade",
+      }),
     dictionarySenseId: uuid("dictionary_sense_id")
       .notNull()
       .references(() => dictionarySenses.id, { onDelete: "restrict" }),
     position: integer("position").notNull(),
-    selectedByUserId: uuid("selected_by_user_id").references(() => users.id, { onDelete: "set null" }),
-    selectedAt: timestamp("selected_at", { withTimezone: true }).notNull().defaultNow(),
+    selectedByUserId: uuid("selected_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    selectedAt: timestamp("selected_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
     ...timestamps(),
   },
   (t) => [
-    unique("vocabulary_selected_senses_item_sense_key").on(t.vocabularyItemId, t.dictionarySenseId),
+    unique("vocabulary_selected_senses_item_sense_key").on(
+      t.vocabularyItemId,
+      t.dictionarySenseId,
+    ),
     index("vocabulary_selected_senses_item_idx").on(t.vocabularyItemId),
   ],
 );
@@ -498,8 +631,15 @@ export const regionalLexemes = pgTable(
     ...timestamps(),
   },
   (t) => [
-    unique("regional_lexemes_source_region_word_key").on(t.sourceId, t.regionCode, t.normalizedWord),
-    index("regional_lexemes_region_word_idx").on(t.regionCode, t.normalizedWord),
+    unique("regional_lexemes_source_region_word_key").on(
+      t.sourceId,
+      t.regionCode,
+      t.normalizedWord,
+    ),
+    index("regional_lexemes_region_word_idx").on(
+      t.regionCode,
+      t.normalizedWord,
+    ),
   ],
 );
 
@@ -522,15 +662,28 @@ export const dictionaryRegionalEvidence = pgTable(
     regionCode: text("region_code").notNull(),
     status: regionalEvidenceStatusEnum("status").notNull(),
     /** The regional source this evidence came from. Null when status is `unknown` because no source covers the region. */
-    sourceId: uuid("source_id").references(() => lexicalSources.id, { onDelete: "set null" }),
-    lexicalImportId: uuid("lexical_import_id").references(() => lexicalImports.id, { onDelete: "set null" }),
+    sourceId: uuid("source_id").references(() => lexicalSources.id, {
+      onDelete: "set null",
+    }),
+    lexicalImportId: uuid("lexical_import_id").references(
+      () => lexicalImports.id,
+      { onDelete: "set null" },
+    ),
     /** Which form actually matched, when one did — so an admin can see *why* the entry is marked recognized. */
     matchedForm: text("matched_form"),
-    evaluatedAt: timestamp("evaluated_at", { withTimezone: true }).notNull().defaultNow(),
+    evaluatedAt: timestamp("evaluated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
     ...timestamps(),
   },
   (t) => [
-    unique("dictionary_regional_evidence_entry_region_key").on(t.dictionaryEntryId, t.regionCode),
-    index("dictionary_regional_evidence_entry_region_idx").on(t.dictionaryEntryId, t.regionCode),
+    unique("dictionary_regional_evidence_entry_region_key").on(
+      t.dictionaryEntryId,
+      t.regionCode,
+    ),
+    index("dictionary_regional_evidence_entry_region_idx").on(
+      t.dictionaryEntryId,
+      t.regionCode,
+    ),
   ],
 );

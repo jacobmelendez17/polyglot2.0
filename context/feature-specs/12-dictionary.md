@@ -6,9 +6,9 @@ Integrate structured external vocabulary data into Polyglot so vocabulary items 
 
 Use:
 
-* **Wiktionary through Kaikki/Wiktextract** as the primary lexical source.
-* **RLA-ES** as regional/spelling evidence, especially `es_MX`.
-* Polyglot remains authoritative for curriculum and teaching decisions.
+- **Wiktionary through Kaikki/Wiktextract** as the primary lexical source.
+- **RLA-ES** as regional/spelling evidence, especially `es_MX`.
+- Polyglot remains authoritative for curriculum and teaching decisions.
 
 Dictionary integration applies only to **vocabulary**, not grammar.
 
@@ -66,44 +66,44 @@ domain.
 
 `lexicon` owns:
 
-* external lexical sources
-* source imports
-* source/version metadata
-* dictionary entries
-* senses
-* pronunciations
-* forms
-* lexical relationships
-* regional evidence
-* vocabulary-to-dictionary matching
-* mapping status
-* source projections
+- external lexical sources
+- source imports
+- source/version metadata
+- dictionary entries
+- senses
+- pronunciations
+- forms
+- lexical relationships
+- regional evidence
+- vocabulary-to-dictionary matching
+- mapping status
+- source projections
 
 `curriculum` continues to own:
 
-* display word
-* translation
-* Level
-* group/theme
-* teaching meaning
-* curriculum ordering
-* official examples
-* creator notes
-* tags
-* publication state
+- display word
+- translation
+- Level
+- group/theme
+- teaching meaning
+- curriculum ordering
+- official examples
+- creator notes
+- tags
+- publication state
 
 `admin` owns the review and override workflow.
 
 External dictionary imports must never modify:
 
-* curriculum Level
-* group/theme
-* SRS
-* learner progress
-* official translation
-* teaching summary
-* official examples
-* curriculum publication state
+- curriculum Level
+- group/theme
+- SRS
+- learner progress
+- official translation
+- teaching summary
+- official examples
+- curriculum publication state
 
 ---
 
@@ -258,19 +258,19 @@ Use a **hybrid relational + JSONB model**.
 
 Normalize data Polyglot must frequently:
 
-* search
-* filter
-* match
-* select
-* display
+- search
+- filter
+- match
+- select
+- display
 
 Keep the complete upstream object as JSONB for:
 
-* source history
-* future fields
-* reprocessing
-* admin inspection
-* import debugging
+- source history
+- future fields
+- reprocessing
+- admin inspection
+- import debugging
 
 Normal learner page loads should not parse large JSON objects.
 
@@ -339,17 +339,17 @@ dictionary_relations
 
 Forms may include:
 
-* plural
-* gendered forms
-* conjugated/inflected forms
-* alternative spellings
+- plural
+- gendered forms
+- conjugated/inflected forms
+- alternative spellings
 
 Pronunciation may include:
 
-* IPA
-* regional labels
-* usage labels
-* source audio metadata where available
+- IPA
+- regional labels
+- usage labels
+- source audio metadata where available
 
 Relationships may include:
 
@@ -422,12 +422,12 @@ One clear candidate exists and there is no material ambiguity.
 
 Examples:
 
-* several matching entries
-* conflicting POS
-* homonym ambiguity
-* phrase ambiguity
-* selected sense disappeared after reimport
-* suspicious regional mismatch
+- several matching entries
+- conflicting POS
+- homonym ambiguity
+- phrase ambiguity
+- selected sense disappeared after reimport
+- suspicious regional mismatch
 
 ### `MANUAL`
 
@@ -498,10 +498,10 @@ separate.
 
 Permitted normalization:
 
-* trim whitespace
-* normalize Unicode representation
-* normalize case for matching
-* controlled punctuation normalization
+- trim whitespace
+- normalize Unicode representation
+- normalize case for matching
+- controlled punctuation normalization
 
 Do **not** remove accents or diacritics.
 
@@ -659,13 +659,13 @@ npm run lexicon:import-rla
 
 The importer should:
 
-* stream input
-* use bounded memory
-* batch database writes
-* validate every source record
-* retain source version information
-* generate useful operational output
-* never expose credentials
+- stream input
+- use bounded memory
+- batch database writes
+- validate every source record
+- retain source version information
+- generate useful operational output
+- never expose credentials
 
 A long-running import may use the pooled DB connection intended for import/migration workloads.
 
@@ -700,12 +700,12 @@ Importing the exact same completed source snapshot again must not duplicate lexi
 
 A newer source import may change:
 
-* definitions
-* forms
-* pronunciation
-* tags
-* synonyms
-* lexical relationships
+- definitions
+- forms
+- pronunciation
+- tags
+- synonyms
+- lexical relationships
 
 Reimport must:
 
@@ -859,16 +859,16 @@ and add Dictionary controls to vocabulary editing.
 
 The Admin dictionary UI should support:
 
-* mapping status
-* dictionary search
-* candidate comparison
-* manual mapping
-* selected senses
-* preferred pronunciation
-* regional evidence
-* imported source metadata
-* raw JSON inspection
-* mapping review queue
+- mapping status
+- dictionary search
+- candidate comparison
+- manual mapping
+- selected senses
+- preferred pronunciation
+- regional evidence
+- imported source metadata
+- raw JSON inspection
+- mapping review queue
 
 Example:
 
@@ -920,13 +920,13 @@ buenos días    buenos días  2 candidates   Recognized   Review
 
 Filter by:
 
-* Level
-* group
-* match state
-* POS
-* regional status
-* unmatched
-* review required
+- Level
+- group
+- match state
+- POS
+- regional status
+- unmatched
+- review required
 
 Admins may explicitly select a different dictionary entry.
 
@@ -938,24 +938,24 @@ That action must not reset learner progress.
 
 Once a mapping exists, the vocabulary editor should automatically expose:
 
-* lemma
-* POS
-* IPA
-* senses
-* forms
-* variants
-* synonyms
-* usage labels
-* regional information
+- lemma
+- POS
+- IPA
+- senses
+- forms
+- variants
+- synonyms
+- usage labels
+- regional information
 
 without requiring these to be typed into Polyglot curriculum fields.
 
 Dictionary information may also provide suggestions for:
 
-* accepted translations
-* accepted answers
-* preferred sense
-* pronunciation
+- accepted translations
+- accepted answers
+- preferred sense
+- pronunciation
 
 But:
 
@@ -1053,12 +1053,12 @@ Dictionary content and Polyglot-authored content should be visually distinguisha
 
 Persist:
 
-* provider
-* source
-* source version
-* source URL/reference
-* license metadata
-* required attribution
+- provider
+- source
+- source version
+- source URL/reference
+- license metadata
+- required attribution
 
 Keep third-party data distinguishable from Polyglot-authored data.
 
@@ -1084,22 +1084,22 @@ Imported files and JSON are untrusted.
 
 Validate:
 
-* source type
-* encoding
-* JSON structure
-* maximum field lengths
-* language
-* record shape
-* nested structures
-* import file size
+- source type
+- encoding
+- JSON structure
+- maximum field lengths
+- language
+- record shape
+- nested structures
+- import file size
 
 Do not:
 
-* execute imported markup
-* render upstream HTML directly
-* permit arbitrary remote fetch URLs from the Admin UI
-* interpolate imported content into SQL
-* expose import credentials
+- execute imported markup
+- render upstream HTML directly
+- permit arbitrary remote fetch URLs from the Admin UI
+- interpolate imported content into SQL
+- expose import credentials
 
 Dictionary source locations should be configured server-side.
 
@@ -1191,11 +1191,11 @@ vocabulary-lexicon:{itemId}
 
 Invalidate only affected entries after:
 
-* mapping changes
-* source reimport
-* sense selection changes
-* pronunciation changes
-* regional-data changes
+- mapping changes
+- source reimport
+- sense selection changes
+- pronunciation changes
+- regional-data changes
 
 Raw source JSON should never be required for normal cached learner responses.
 
@@ -1220,10 +1220,10 @@ Retain enough source/version state to restore the last valid lexical projection 
 
 Rollback must not modify:
 
-* curriculum organization
-* SRS
-* learner progress
-* manual vocabulary placement
+- curriculum organization
+- SRS
+- learner progress
+- manual vocabulary placement
 
 ---
 
@@ -1385,12 +1385,12 @@ multiple candidates
 
 Finally run the existing complete project test suite to verify Lexicon changes did not break:
 
-* lessons
-* reviews
-* curriculum
-* progress
-* Admin
-* database migrations/build
+- lessons
+- reviews
+- curriculum
+- progress
+- Admin
+- database migrations/build
 
 Update:
 

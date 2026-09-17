@@ -1,10 +1,18 @@
 import type { LearningItem } from "@/domains/curriculum";
 import type { CurriculumMode, LanguageSettings } from "@/domains/users";
-import { DEFAULT_AUTO_PRONOUNCE_LESSONS, DEFAULT_LESSON_BATCH_SIZE, isThemeSelectionRequired } from "@/domains/users";
+import {
+  DEFAULT_AUTO_PRONOUNCE_LESSONS,
+  DEFAULT_LESSON_BATCH_SIZE,
+  isThemeSelectionRequired,
+} from "@/domains/users";
 import { checkAnswer } from "@/lib/answer-checking";
 import { LessonError } from "@/lib/errors/lesson-errors";
 
-import { getAvailableThemes, selectLessonBatch, toLessonBatchItems } from "./lesson-batch";
+import {
+  getAvailableThemes,
+  selectLessonBatch,
+  toLessonBatchItems,
+} from "./lesson-batch";
 import type { LessonCurriculumReader } from "./lesson-curriculum-reader";
 import {
   getCharacterHelpers,
@@ -46,12 +54,21 @@ function itemLabel(item: LearningItem): string {
 }
 
 function toBatchSummary(items: LearningItem[]): LessonBatchSummary[] {
-  return items.map((item) => ({ itemId: item.id, itemType: item.type, label: itemLabel(item) }));
+  return items.map((item) => ({
+    itemId: item.id,
+    itemType: item.type,
+    label: itemLabel(item),
+  }));
 }
 
-function directionLabel(languageCode: string, direction: "targetToEnglish" | "englishToTarget"): string {
+function directionLabel(
+  languageCode: string,
+  direction: "targetToEnglish" | "englishToTarget",
+): string {
   const languageName = getLanguageDisplayName(languageCode);
-  return direction === "targetToEnglish" ? `${languageName} → English` : `English → ${languageName}`;
+  return direction === "targetToEnglish"
+    ? `${languageName} → English`
+    : `English → ${languageName}`;
 }
 
 /** Loads full curriculum content for a lesson's batch, preserving batch order, and re-validates every item is still present. */
@@ -59,7 +76,9 @@ async function resolveOrderedBatchItems(
   curriculum: LessonCurriculumReader,
   state: LessonState,
 ): Promise<LearningItem[]> {
-  const items = await curriculum.getLearningItemsByIds(state.batch.map((batchItem) => batchItem.itemId));
+  const items = await curriculum.getLearningItemsByIds(
+    state.batch.map((batchItem) => batchItem.itemId),
+  );
   const ordered = state.batch
     .map((batchItem) => items.find((item) => item.id === batchItem.itemId))
     .filter((item): item is LearningItem => Boolean(item));
@@ -100,7 +119,8 @@ function computeItemStates(
   const states: Record<string, ItemSegmentState> = {};
 
   if (!quiz) {
-    for (const batchItem of batchItems) states[batchItem.itemId] = "not-started";
+    for (const batchItem of batchItems)
+      states[batchItem.itemId] = "not-started";
     return states;
   }
 
@@ -116,7 +136,9 @@ function computeItemStates(
 
   for (const batchItem of batchItems) {
     const required = requiredByItem.get(batchItem.itemId) ?? [];
-    const satisfiedCount = required.filter((id) => quiz.satisfiedQuestionIds.includes(id)).length;
+    const satisfiedCount = required.filter((id) =>
+      quiz.satisfiedQuestionIds.includes(id),
+    ).length;
 
     if (batchItem.itemId === currentItemId) {
       states[batchItem.itemId] = "current";
@@ -137,11 +159,16 @@ function computeItemStates(
  * in each. Shared by `startLesson`'s `choose-theme` result and the
  * curriculum preference screen, so the two can never offer different lists.
  */
-export function toThemeChoices(eligibleItems: LearningItem[]): LessonThemeChoice[] {
+export function toThemeChoices(
+  eligibleItems: LearningItem[],
+): LessonThemeChoice[] {
   const remainingByTheme = new Map<string, number>();
   for (const item of eligibleItems) {
     if (item.type !== "vocabulary" || !item.theme) continue;
-    remainingByTheme.set(item.theme.id, (remainingByTheme.get(item.theme.id) ?? 0) + 1);
+    remainingByTheme.set(
+      item.theme.id,
+      (remainingByTheme.get(item.theme.id) ?? 0) + 1,
+    );
   }
   return getAvailableThemes(eligibleItems).map((theme) => ({
     id: theme.id,
@@ -160,7 +187,9 @@ export async function listAvailableThemes({
   userId: string;
   languageId: string;
 }): Promise<LessonThemeChoice[]> {
-  return toThemeChoices(await curriculum.getEligibleLearningItems(userId, languageId));
+  return toThemeChoices(
+    await curriculum.getEligibleLearningItems(userId, languageId),
+  );
 }
 
 export type StartLessonInput = {
@@ -199,13 +228,21 @@ export async function startLesson({
   settings = null,
   now = Date.now(),
 }: StartLessonInput): Promise<LessonStartResult> {
-  const eligibleItems = await curriculum.getEligibleLearningItems(userId, languageId);
+  const eligibleItems = await curriculum.getEligibleLearningItems(
+    userId,
+    languageId,
+  );
   const batchSize = settings?.lessonBatchSize ?? DEFAULT_LESSON_BATCH_SIZE;
   const mode = settings?.curriculumMode ?? FALLBACK_CURRICULUM_MODE;
 
   if (mode === "choose_group") {
     const themes = toThemeChoices(eligibleItems);
-    if (isThemeSelectionRequired(settings, themes.map((theme) => theme.id))) {
+    if (
+      isThemeSelectionRequired(
+        settings,
+        themes.map((theme) => theme.id),
+      )
+    ) {
       // Nothing left in any group is "nothing left to learn", not a choice.
       if (themes.length === 0) return { kind: "empty" };
       return { kind: "choose-theme", themes };
@@ -240,7 +277,11 @@ export async function startLesson({
 
   const token = await signLessonState(state);
   const batchSummary = toBatchSummary(selected);
-  const studyItems: StudyItemView[] = selected.map((item) => ({ itemId: item.id, itemType: item.type, item }));
+  const studyItems: StudyItemView[] = selected.map((item) => ({
+    itemId: item.id,
+    itemType: item.type,
+    item,
+  }));
 
   return {
     kind: "session",
@@ -257,7 +298,8 @@ export async function startLesson({
     // `studyItems` — this is populated here and nowhere else `LessonSessionResult`
     // is built; the client never re-reads it from a later action's result.
     languageCode: state.languageCode,
-    autoPronounceLessons: settings?.autoPronounceLessons ?? DEFAULT_AUTO_PRONOUNCE_LESSONS,
+    autoPronounceLessons:
+      settings?.autoPronounceLessons ?? DEFAULT_AUTO_PRONOUNCE_LESSONS,
   };
 }
 
@@ -276,14 +318,20 @@ export async function openLessonItem({
   languageId,
   itemId,
   now = Date.now(),
-}: OpenLessonItemInput): Promise<{ token: string; viewedItemIds: string[]; phase: LessonState["phase"] }> {
+}: OpenLessonItemInput): Promise<{
+  token: string;
+  viewedItemIds: string[];
+  phase: LessonState["phase"];
+}> {
   const state = await verifyLessonState({ token, userId, languageId, now });
 
   if (state.phase !== "study") {
     throw new LessonError("LESSON_STATE_INVALID");
   }
 
-  const belongsToBatch = state.batch.some((batchItem) => batchItem.itemId === itemId);
+  const belongsToBatch = state.batch.some(
+    (batchItem) => batchItem.itemId === itemId,
+  );
   if (!belongsToBatch) {
     throw new LessonError("ITEM_NOT_FOUND");
   }
@@ -298,17 +346,31 @@ export async function openLessonItem({
   return { token: nextToken, viewedItemIds, phase: nextState.phase };
 }
 
-export type StartQuizInput = { curriculum: LessonCurriculumReader; token: string; userId: string; languageId: string; now?: number };
+export type StartQuizInput = {
+  curriculum: LessonCurriculumReader;
+  token: string;
+  userId: string;
+  languageId: string;
+  now?: number;
+};
 
 /** Spec 07 §20, §21 — requires every batch item viewed; builds the deterministic interleaved question queue. */
-export async function startQuiz({ curriculum, token, userId, languageId, now = Date.now() }: StartQuizInput): Promise<LessonSessionResult> {
+export async function startQuiz({
+  curriculum,
+  token,
+  userId,
+  languageId,
+  now = Date.now(),
+}: StartQuizInput): Promise<LessonSessionResult> {
   const state = await verifyLessonState({ token, userId, languageId, now });
 
   if (state.phase !== "study") {
     throw new LessonError("LESSON_STATE_INVALID");
   }
 
-  const allViewed = state.batch.every((batchItem) => state.viewedItemIds.includes(batchItem.itemId));
+  const allViewed = state.batch.every((batchItem) =>
+    state.viewedItemIds.includes(batchItem.itemId),
+  );
   if (!allViewed) {
     throw new LessonError("LESSON_QUIZ_NOT_READY");
   }
@@ -331,7 +393,11 @@ export async function startQuiz({ curriculum, token, userId, languageId, now = D
 
   const nextToken = await signLessonState(nextState);
   const batchSummary = toBatchSummary(orderedItems);
-  const currentQuestion = await buildQuestionView(curriculum, nextState, queue[0]);
+  const currentQuestion = await buildQuestionView(
+    curriculum,
+    nextState,
+    queue[0],
+  );
 
   return {
     token: nextToken,
@@ -342,7 +408,12 @@ export async function startQuiz({ curriculum, token, userId, languageId, now = D
     currentQuestion,
     itemStates: computeItemStates(nextState.quiz, batchSummary),
     characterHelpers: getCharacterHelpers(state.languageCode),
-    quizStats: { requiredCount: queue.length, satisfiedCount: 0, attempts: 0, correctAttempts: 0 },
+    quizStats: {
+      requiredCount: queue.length,
+      satisfiedCount: 0,
+      attempts: 0,
+      correctAttempts: 0,
+    },
   };
 }
 
@@ -382,14 +453,20 @@ export async function submitQuizAnswer({
 
   const orderedItems = await resolveOrderedBatchItems(curriculum, state);
   const batchSummary = toBatchSummary(orderedItems);
-  const item = orderedItems.find((candidate) => candidate.id === question.itemId);
+  const item = orderedItems.find(
+    (candidate) => candidate.id === question.itemId,
+  );
   if (!item) throw new LessonError("ITEM_NOT_FOUND");
 
   const trimmedAnswer = answer.trim();
 
   if (trimmedAnswer.length === 0) {
     // Spec 07 §28: an empty submission is not an attempt and does not affect state.
-    const currentQuestion = await buildQuestionView(curriculum, state, currentQuestionId);
+    const currentQuestion = await buildQuestionView(
+      curriculum,
+      state,
+      currentQuestionId,
+    );
     return {
       token,
       phase: state.phase,
@@ -432,7 +509,11 @@ export async function submitQuizAnswer({
     };
     feedback = { kind: "correct" };
   } else {
-    const rescheduledQueue = rescheduleAfterIncorrect(restOfQueue, questionId, getRetrySpacingMinimum());
+    const rescheduledQueue = rescheduleAfterIncorrect(
+      restOfQueue,
+      questionId,
+      getRetrySpacingMinimum(),
+    );
     nextQuiz = { ...state.quiz, queue: rescheduledQueue, attempts };
     feedback =
       result.reason === "missing_article"
@@ -454,7 +535,10 @@ export async function submitQuizAnswer({
   const nextPhase = nextQuiz.queue.length === 0 ? "complete" : "quiz";
   const nextState: LessonState = { ...state, phase: nextPhase, quiz: nextQuiz };
   const nextToken = await signLessonState(nextState);
-  const nextQuestion = nextPhase === "quiz" ? await buildQuestionView(curriculum, nextState, nextQuiz.queue[0]) : undefined;
+  const nextQuestion =
+    nextPhase === "quiz"
+      ? await buildQuestionView(curriculum, nextState, nextQuiz.queue[0])
+      : undefined;
 
   return {
     token: nextToken,

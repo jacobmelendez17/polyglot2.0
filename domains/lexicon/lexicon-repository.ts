@@ -1,4 +1,14 @@
-import { and, asc, count, desc, eq, inArray, isNotNull, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  inArray,
+  isNotNull,
+  or,
+  sql,
+} from "drizzle-orm";
 
 import type { DbClient } from "@/db/client";
 import {
@@ -69,8 +79,15 @@ function toMapping(row: MappingRow): VocabularyDictionaryMapping {
   };
 }
 
-export async function getLexicalSourceByCode(db: DbClient, code: string): Promise<LexicalSource | null> {
-  const [row] = await db.select().from(lexicalSources).where(eq(lexicalSources.code, code)).limit(1);
+export async function getLexicalSourceByCode(
+  db: DbClient,
+  code: string,
+): Promise<LexicalSource | null> {
+  const [row] = await db
+    .select()
+    .from(lexicalSources)
+    .where(eq(lexicalSources.code, code))
+    .limit(1);
   if (!row) return null;
   return {
     id: row.id,
@@ -85,7 +102,10 @@ export async function getLexicalSourceByCode(db: DbClient, code: string): Promis
 }
 
 /** Attribution for a source's most recent completed import — travels with any surfaced dictionary content. */
-export async function getSourceAttribution(db: DbClient, sourceId: string): Promise<LexicalAttribution | null> {
+export async function getSourceAttribution(
+  db: DbClient,
+  sourceId: string,
+): Promise<LexicalAttribution | null> {
   const [row] = await db
     .select({
       code: lexicalSources.code,
@@ -96,7 +116,10 @@ export async function getSourceAttribution(db: DbClient, sourceId: string): Prom
     .from(lexicalSources)
     .leftJoin(
       lexicalImports,
-      and(eq(lexicalImports.sourceId, lexicalSources.id), eq(lexicalImports.status, "completed")),
+      and(
+        eq(lexicalImports.sourceId, lexicalSources.id),
+        eq(lexicalImports.status, "completed"),
+      ),
     )
     .where(eq(lexicalSources.id, sourceId))
     .orderBy(desc(lexicalImports.completedAt))
@@ -115,11 +138,20 @@ export async function getSourceAttribution(db: DbClient, sourceId: string): Prom
  * Drives the `source_data_not_imported` mapping state, which spec 12
  * requires be distinguishable from a genuine `unmatched`.
  */
-export async function hasImportedEntries(db: DbClient, languageId: string, sourceId: string): Promise<boolean> {
+export async function hasImportedEntries(
+  db: DbClient,
+  languageId: string,
+  sourceId: string,
+): Promise<boolean> {
   const [row] = await db
     .select({ total: count() })
     .from(dictionaryEntries)
-    .where(and(eq(dictionaryEntries.languageId, languageId), eq(dictionaryEntries.sourceId, sourceId)))
+    .where(
+      and(
+        eq(dictionaryEntries.languageId, languageId),
+        eq(dictionaryEntries.sourceId, sourceId),
+      ),
+    )
     .limit(1);
   return (row?.total ?? 0) > 0;
 }
@@ -146,7 +178,10 @@ export async function findMatchCandidates(
   const { languageId, sourceId, lookupForms, primaryRegionCode } = input;
   if (lookupForms.length === 0) return [];
 
-  const scope = and(eq(dictionaryEntries.languageId, languageId), eq(dictionaryEntries.sourceId, sourceId));
+  const scope = and(
+    eq(dictionaryEntries.languageId, languageId),
+    eq(dictionaryEntries.sourceId, sourceId),
+  );
   const evidenceJoin = primaryRegionCode
     ? and(
         eq(dictionaryRegionalEvidence.dictionaryEntryId, dictionaryEntries.id),
@@ -177,7 +212,10 @@ export async function findMatchCandidates(
       evidence: dictionaryRegionalEvidence.status,
     })
     .from(dictionaryForms)
-    .innerJoin(dictionaryEntries, eq(dictionaryEntries.id, dictionaryForms.dictionaryEntryId))
+    .innerJoin(
+      dictionaryEntries,
+      eq(dictionaryEntries.id, dictionaryForms.dictionaryEntryId),
+    )
     .leftJoin(dictionaryRegionalEvidence, evidenceJoin)
     .where(
       and(
@@ -190,7 +228,10 @@ export async function findMatchCandidates(
   const candidates: DictionaryMatchCandidate[] = [];
   const seen = new Set<string>();
 
-  const push = (row: (typeof lemmaRows)[number], matchedVia: "lemma" | "form") => {
+  const push = (
+    row: (typeof lemmaRows)[number],
+    matchedVia: "lemma" | "form",
+  ) => {
     // A form row whose entry was already reached by its headword adds no new
     // evidence — the stronger lemma match already represents that entry.
     const key = `${row.entryId}:${row.matchedLookupForm}:${matchedVia}`;
@@ -217,8 +258,15 @@ export async function findMatchCandidates(
   return candidates;
 }
 
-export async function getDictionaryEntrySummary(db: DbClient, entryId: string): Promise<DictionaryEntrySummary | null> {
-  const [row] = await db.select().from(dictionaryEntries).where(eq(dictionaryEntries.id, entryId)).limit(1);
+export async function getDictionaryEntrySummary(
+  db: DbClient,
+  entryId: string,
+): Promise<DictionaryEntrySummary | null> {
+  const [row] = await db
+    .select()
+    .from(dictionaryEntries)
+    .where(eq(dictionaryEntries.id, entryId))
+    .limit(1);
   if (!row) return null;
   return {
     id: row.id,
@@ -239,33 +287,44 @@ export async function getDictionaryEntrySummary(db: DbClient, entryId: string): 
  * exposed to ordinary learners. Raw inspection is its own admin-only call
  * (`getEntryRawVersions`).
  */
-export async function getDictionaryEntryDetail(db: DbClient, entryId: string): Promise<DictionaryEntryDetail | null> {
+export async function getDictionaryEntryDetail(
+  db: DbClient,
+  entryId: string,
+): Promise<DictionaryEntryDetail | null> {
   const summary = await getDictionaryEntrySummary(db, entryId);
   if (!summary) return null;
 
-  const [senseRows, formRows, pronunciationRows, relationRows, evidenceRows] = await Promise.all([
-    db
-      .select()
-      .from(dictionarySenses)
-      .where(eq(dictionarySenses.dictionaryEntryId, entryId))
-      .orderBy(asc(dictionarySenses.senseOrder), asc(dictionarySenses.id)),
-    db.select().from(dictionaryForms).where(eq(dictionaryForms.dictionaryEntryId, entryId)).orderBy(asc(dictionaryForms.form)),
-    db
-      .select()
-      .from(dictionaryPronunciations)
-      .where(eq(dictionaryPronunciations.dictionaryEntryId, entryId))
-      .orderBy(asc(dictionaryPronunciations.id)),
-    db
-      .select()
-      .from(dictionaryRelations)
-      .where(eq(dictionaryRelations.dictionaryEntryId, entryId))
-      .orderBy(asc(dictionaryRelations.relationType), asc(dictionaryRelations.targetLemma)),
-    db
-      .select()
-      .from(dictionaryRegionalEvidence)
-      .where(eq(dictionaryRegionalEvidence.dictionaryEntryId, entryId))
-      .orderBy(asc(dictionaryRegionalEvidence.regionCode)),
-  ]);
+  const [senseRows, formRows, pronunciationRows, relationRows, evidenceRows] =
+    await Promise.all([
+      db
+        .select()
+        .from(dictionarySenses)
+        .where(eq(dictionarySenses.dictionaryEntryId, entryId))
+        .orderBy(asc(dictionarySenses.senseOrder), asc(dictionarySenses.id)),
+      db
+        .select()
+        .from(dictionaryForms)
+        .where(eq(dictionaryForms.dictionaryEntryId, entryId))
+        .orderBy(asc(dictionaryForms.form)),
+      db
+        .select()
+        .from(dictionaryPronunciations)
+        .where(eq(dictionaryPronunciations.dictionaryEntryId, entryId))
+        .orderBy(asc(dictionaryPronunciations.id)),
+      db
+        .select()
+        .from(dictionaryRelations)
+        .where(eq(dictionaryRelations.dictionaryEntryId, entryId))
+        .orderBy(
+          asc(dictionaryRelations.relationType),
+          asc(dictionaryRelations.targetLemma),
+        ),
+      db
+        .select()
+        .from(dictionaryRegionalEvidence)
+        .where(eq(dictionaryRegionalEvidence.dictionaryEntryId, entryId))
+        .orderBy(asc(dictionaryRegionalEvidence.regionCode)),
+    ]);
 
   return {
     ...summary,
@@ -277,7 +336,12 @@ export async function getDictionaryEntryDetail(db: DbClient, entryId: string): P
       topics: row.topics,
       sourceStatus: row.sourceStatus,
     })),
-    forms: formRows.map((row) => ({ id: row.id, form: row.form, tags: row.tags, sourceStatus: row.sourceStatus })),
+    forms: formRows.map((row) => ({
+      id: row.id,
+      form: row.form,
+      tags: row.tags,
+      sourceStatus: row.sourceStatus,
+    })),
     pronunciations: pronunciationRows.map((row) => ({
       id: row.id,
       ipa: row.ipa,
@@ -307,7 +371,9 @@ export async function getEntryRawVersions(
   db: DbClient,
   entryId: string,
   limit: number,
-): Promise<{ id: string; sourceHash: string; createdAt: Date; rawData: unknown }[]> {
+): Promise<
+  { id: string; sourceHash: string; createdAt: Date; rawData: unknown }[]
+> {
   return db
     .select({
       id: dictionaryEntryVersions.id,
@@ -343,7 +409,10 @@ export async function searchDictionaryEntries(
         sql`${dictionaryEntries.normalizedLemma} LIKE ${`${input.normalizedQuery}%`}`,
       ),
     )
-    .orderBy(asc(dictionaryEntries.normalizedLemma), asc(dictionaryEntries.partOfSpeech))
+    .orderBy(
+      asc(dictionaryEntries.normalizedLemma),
+      asc(dictionaryEntries.partOfSpeech),
+    )
     .limit(input.limit);
 
   return rows.map((row) => ({
@@ -358,7 +427,10 @@ export async function searchDictionaryEntries(
   }));
 }
 
-export async function getMapping(db: DbClient, vocabularyItemId: string): Promise<VocabularyDictionaryMapping | null> {
+export async function getMapping(
+  db: DbClient,
+  vocabularyItemId: string,
+): Promise<VocabularyDictionaryMapping | null> {
   const [row] = await db
     .select()
     .from(vocabularyDictionaryMappings)
@@ -428,7 +500,13 @@ export async function upsertAutomaticMapping(
  */
 export async function setManualMapping(
   db: DbClient,
-  input: { vocabularyItemId: string; dictionaryEntryId: string; lookupForm: string; actorUserId: string; mappedAt: Date },
+  input: {
+    vocabularyItemId: string;
+    dictionaryEntryId: string;
+    lookupForm: string;
+    actorUserId: string;
+    mappedAt: Date;
+  },
 ): Promise<VocabularyDictionaryMapping> {
   const [row] = await db
     .insert(vocabularyDictionaryMappings)
@@ -478,7 +556,10 @@ export async function confirmMapping(
     })
     .where(
       and(
-        eq(vocabularyDictionaryMappings.vocabularyItemId, input.vocabularyItemId),
+        eq(
+          vocabularyDictionaryMappings.vocabularyItemId,
+          input.vocabularyItemId,
+        ),
         isNotNull(vocabularyDictionaryMappings.dictionaryEntryId),
       ),
     )
@@ -492,13 +573,21 @@ export async function setPreferredPronunciation(
 ): Promise<VocabularyDictionaryMapping | null> {
   const [row] = await db
     .update(vocabularyDictionaryMappings)
-    .set({ preferredPronunciationId: input.pronunciationId, updatedAt: new Date() })
-    .where(eq(vocabularyDictionaryMappings.vocabularyItemId, input.vocabularyItemId))
+    .set({
+      preferredPronunciationId: input.pronunciationId,
+      updatedAt: new Date(),
+    })
+    .where(
+      eq(vocabularyDictionaryMappings.vocabularyItemId, input.vocabularyItemId),
+    )
     .returning();
   return row ? toMapping(row) : null;
 }
 
-export async function getSelectedSenseIds(db: DbClient, vocabularyItemId: string): Promise<string[]> {
+export async function getSelectedSenseIds(
+  db: DbClient,
+  vocabularyItemId: string,
+): Promise<string[]> {
   const rows = await db
     .select({ dictionarySenseId: vocabularySelectedSenses.dictionarySenseId })
     .from(vocabularySelectedSenses)
@@ -515,9 +604,18 @@ export async function getSelectedSenseIds(db: DbClient, vocabularyItemId: string
  */
 export async function replaceSelectedSenses(
   db: DbClient,
-  input: { vocabularyItemId: string; senseIds: string[]; actorUserId: string; selectedAt: Date },
+  input: {
+    vocabularyItemId: string;
+    senseIds: string[];
+    actorUserId: string;
+    selectedAt: Date;
+  },
 ): Promise<void> {
-  await db.delete(vocabularySelectedSenses).where(eq(vocabularySelectedSenses.vocabularyItemId, input.vocabularyItemId));
+  await db
+    .delete(vocabularySelectedSenses)
+    .where(
+      eq(vocabularySelectedSenses.vocabularyItemId, input.vocabularyItemId),
+    );
   if (input.senseIds.length === 0) return;
   await db.insert(vocabularySelectedSenses).values(
     input.senseIds.map((senseId, index) => ({
@@ -561,16 +659,28 @@ export async function pruneSelectedSensesOutsideEntry(
  * entry disappears — but the lock stays set, so nothing automatic can
  * repoint it while it waits for that decision.
  */
-export async function flagMappingsNeedingReview(db: DbClient): Promise<{ flagged: number }> {
+export async function flagMappingsNeedingReview(
+  db: DbClient,
+): Promise<{ flagged: number }> {
   const itemsWithMissingSense = db
-    .selectDistinct({ vocabularyItemId: vocabularySelectedSenses.vocabularyItemId })
+    .selectDistinct({
+      vocabularyItemId: vocabularySelectedSenses.vocabularyItemId,
+    })
     .from(vocabularySelectedSenses)
-    .innerJoin(dictionarySenses, eq(dictionarySenses.id, vocabularySelectedSenses.dictionarySenseId))
+    .innerJoin(
+      dictionarySenses,
+      eq(dictionarySenses.id, vocabularySelectedSenses.dictionarySenseId),
+    )
     .where(eq(dictionarySenses.sourceStatus, "missing_from_source"));
 
   const missingSenseFlagged = await db
     .update(vocabularyDictionaryMappings)
-    .set({ matchStatus: "review_required", reviewReason: "selected_sense_missing", confidence: null, updatedAt: new Date() })
+    .set({
+      matchStatus: "review_required",
+      reviewReason: "selected_sense_missing",
+      confidence: null,
+      updatedAt: new Date(),
+    })
     .where(
       and(
         sql`${vocabularyDictionaryMappings.vocabularyItemId} IN ${itemsWithMissingSense}`,
@@ -586,7 +696,12 @@ export async function flagMappingsNeedingReview(db: DbClient): Promise<{ flagged
 
   const missingEntryFlagged = await db
     .update(vocabularyDictionaryMappings)
-    .set({ matchStatus: "review_required", reviewReason: "entry_missing_from_source", confidence: null, updatedAt: new Date() })
+    .set({
+      matchStatus: "review_required",
+      reviewReason: "entry_missing_from_source",
+      confidence: null,
+      updatedAt: new Date(),
+    })
     .where(
       and(
         sql`${vocabularyDictionaryMappings.dictionaryEntryId} IN ${missingEntryIds}`,
@@ -606,13 +721,21 @@ export async function findRegionalLexeme(
   const [row] = await db
     .select({ word: regionalLexemes.word })
     .from(regionalLexemes)
-    .where(and(eq(regionalLexemes.regionCode, input.regionCode), eq(regionalLexemes.normalizedWord, input.normalizedWord)))
+    .where(
+      and(
+        eq(regionalLexemes.regionCode, input.regionCode),
+        eq(regionalLexemes.normalizedWord, input.normalizedWord),
+      ),
+    )
     .limit(1);
   return row ?? null;
 }
 
 /** Whether any regional word list has been imported for a region — distinguishes `not_listed` from `unknown`. */
-export async function hasRegionalData(db: DbClient, regionCode: string): Promise<boolean> {
+export async function hasRegionalData(
+  db: DbClient,
+  regionCode: string,
+): Promise<boolean> {
   const [row] = await db
     .select({ total: count() })
     .from(regionalLexemes)
@@ -631,13 +754,19 @@ export interface UpsertRegionalEvidenceInput {
   evaluatedAt: Date;
 }
 
-export async function upsertRegionalEvidence(db: DbClient, rows: UpsertRegionalEvidenceInput[]): Promise<number> {
+export async function upsertRegionalEvidence(
+  db: DbClient,
+  rows: UpsertRegionalEvidenceInput[],
+): Promise<number> {
   if (rows.length === 0) return 0;
   const written = await db
     .insert(dictionaryRegionalEvidence)
     .values(rows)
     .onConflictDoUpdate({
-      target: [dictionaryRegionalEvidence.dictionaryEntryId, dictionaryRegionalEvidence.regionCode],
+      target: [
+        dictionaryRegionalEvidence.dictionaryEntryId,
+        dictionaryRegionalEvidence.regionCode,
+      ],
       set: {
         status: sql`excluded.status`,
         sourceId: sql`excluded.source_id`,
@@ -651,7 +780,10 @@ export async function upsertRegionalEvidence(db: DbClient, rows: UpsertRegionalE
   return written.length;
 }
 
-export async function getRegionalEvidenceForEntry(db: DbClient, entryId: string): Promise<RegionalEvidence[]> {
+export async function getRegionalEvidenceForEntry(
+  db: DbClient,
+  entryId: string,
+): Promise<RegionalEvidence[]> {
   const rows = await db
     .select()
     .from(dictionaryRegionalEvidence)
@@ -677,7 +809,10 @@ export interface MatchableVocabularyItem {
   partOfSpeech: string;
 }
 
-export async function getMatchableVocabularyItems(db: DbClient, languageId: string): Promise<MatchableVocabularyItem[]> {
+export async function getMatchableVocabularyItems(
+  db: DbClient,
+  languageId: string,
+): Promise<MatchableVocabularyItem[]> {
   return db
     .select({
       vocabularyItemId: vocabularyItems.learningItemId,
@@ -686,7 +821,10 @@ export async function getMatchableVocabularyItems(db: DbClient, languageId: stri
       partOfSpeech: vocabularyItems.partOfSpeech,
     })
     .from(vocabularyItems)
-    .innerJoin(learningItems, eq(learningItems.id, vocabularyItems.learningItemId))
+    .innerJoin(
+      learningItems,
+      eq(learningItems.id, vocabularyItems.learningItemId),
+    )
     .where(eq(learningItems.languageId, languageId))
     .orderBy(asc(vocabularyItems.term));
 }
@@ -746,20 +884,33 @@ export async function getMappingQueue(
       )
     : sql`false`;
 
-  const conditions = [eq(learningItems.languageId, input.languageId), eq(learningItems.type, "vocabulary")];
+  const conditions = [
+    eq(learningItems.languageId, input.languageId),
+    eq(learningItems.type, "vocabulary"),
+  ];
   if (input.levelId) conditions.push(eq(learningItems.levelId, input.levelId));
-  if (input.vocabularyGroupId) conditions.push(eq(vocabularyItems.vocabularyGroupId, input.vocabularyGroupId));
-  if (input.partOfSpeech) conditions.push(eq(vocabularyItems.partOfSpeech, input.partOfSpeech));
+  if (input.vocabularyGroupId)
+    conditions.push(
+      eq(vocabularyItems.vocabularyGroupId, input.vocabularyGroupId),
+    );
+  if (input.partOfSpeech)
+    conditions.push(eq(vocabularyItems.partOfSpeech, input.partOfSpeech));
   if (input.matchStatus) {
     // An item with no mapping row at all reads as `source_data_not_imported`
     // — nothing has looked at it yet — so that filter must also match NULL.
     conditions.push(
       input.matchStatus === "source_data_not_imported"
-        ? or(eq(vocabularyDictionaryMappings.matchStatus, input.matchStatus), sql`${vocabularyDictionaryMappings.id} IS NULL`)!
+        ? or(
+            eq(vocabularyDictionaryMappings.matchStatus, input.matchStatus),
+            sql`${vocabularyDictionaryMappings.id} IS NULL`,
+          )!
         : eq(vocabularyDictionaryMappings.matchStatus, input.matchStatus),
     );
   }
-  if (input.regionalStatus) conditions.push(eq(dictionaryRegionalEvidence.status, input.regionalStatus));
+  if (input.regionalStatus)
+    conditions.push(
+      eq(dictionaryRegionalEvidence.status, input.regionalStatus),
+    );
 
   const where = and(...conditions);
 
@@ -783,24 +934,64 @@ export async function getMappingQueue(
       regionalStatus: dictionaryRegionalEvidence.status,
     })
     .from(vocabularyItems)
-    .innerJoin(learningItems, eq(learningItems.id, vocabularyItems.learningItemId))
+    .innerJoin(
+      learningItems,
+      eq(learningItems.id, vocabularyItems.learningItemId),
+    )
     .innerJoin(levels, eq(levels.id, learningItems.levelId))
-    .innerJoin(vocabularyGroups, eq(vocabularyGroups.id, vocabularyItems.vocabularyGroupId))
-    .leftJoin(vocabularyDictionaryMappings, eq(vocabularyDictionaryMappings.vocabularyItemId, vocabularyItems.learningItemId))
-    .leftJoin(dictionaryEntries, eq(dictionaryEntries.id, vocabularyDictionaryMappings.dictionaryEntryId))
+    .innerJoin(
+      vocabularyGroups,
+      eq(vocabularyGroups.id, vocabularyItems.vocabularyGroupId),
+    )
+    .leftJoin(
+      vocabularyDictionaryMappings,
+      eq(
+        vocabularyDictionaryMappings.vocabularyItemId,
+        vocabularyItems.learningItemId,
+      ),
+    )
+    .leftJoin(
+      dictionaryEntries,
+      eq(dictionaryEntries.id, vocabularyDictionaryMappings.dictionaryEntryId),
+    )
     .leftJoin(dictionaryRegionalEvidence, evidenceJoin)
     .where(where);
 
   const [rows, [totalRow]] = await Promise.all([
-    baseQuery.orderBy(asc(levels.levelNumber), asc(vocabularyGroups.position), asc(vocabularyItems.term)).limit(input.limit).offset(input.offset),
+    baseQuery
+      .orderBy(
+        asc(levels.levelNumber),
+        asc(vocabularyGroups.position),
+        asc(vocabularyItems.term),
+      )
+      .limit(input.limit)
+      .offset(input.offset),
     db
       .select({ total: count() })
       .from(vocabularyItems)
-      .innerJoin(learningItems, eq(learningItems.id, vocabularyItems.learningItemId))
+      .innerJoin(
+        learningItems,
+        eq(learningItems.id, vocabularyItems.learningItemId),
+      )
       .innerJoin(levels, eq(levels.id, learningItems.levelId))
-      .innerJoin(vocabularyGroups, eq(vocabularyGroups.id, vocabularyItems.vocabularyGroupId))
-      .leftJoin(vocabularyDictionaryMappings, eq(vocabularyDictionaryMappings.vocabularyItemId, vocabularyItems.learningItemId))
-      .leftJoin(dictionaryEntries, eq(dictionaryEntries.id, vocabularyDictionaryMappings.dictionaryEntryId))
+      .innerJoin(
+        vocabularyGroups,
+        eq(vocabularyGroups.id, vocabularyItems.vocabularyGroupId),
+      )
+      .leftJoin(
+        vocabularyDictionaryMappings,
+        eq(
+          vocabularyDictionaryMappings.vocabularyItemId,
+          vocabularyItems.learningItemId,
+        ),
+      )
+      .leftJoin(
+        dictionaryEntries,
+        eq(
+          dictionaryEntries.id,
+          vocabularyDictionaryMappings.dictionaryEntryId,
+        ),
+      )
       .leftJoin(dictionaryRegionalEvidence, evidenceJoin)
       .where(where),
   ]);
@@ -833,11 +1024,28 @@ export async function getMappingStatusCounts(
   languageId: string,
 ): Promise<Record<DictionaryMatchStatus | "no_mapping", number>> {
   const rows = await db
-    .select({ matchStatus: vocabularyDictionaryMappings.matchStatus, total: count() })
+    .select({
+      matchStatus: vocabularyDictionaryMappings.matchStatus,
+      total: count(),
+    })
     .from(vocabularyItems)
-    .innerJoin(learningItems, eq(learningItems.id, vocabularyItems.learningItemId))
-    .leftJoin(vocabularyDictionaryMappings, eq(vocabularyDictionaryMappings.vocabularyItemId, vocabularyItems.learningItemId))
-    .where(and(eq(learningItems.languageId, languageId), eq(learningItems.type, "vocabulary")))
+    .innerJoin(
+      learningItems,
+      eq(learningItems.id, vocabularyItems.learningItemId),
+    )
+    .leftJoin(
+      vocabularyDictionaryMappings,
+      eq(
+        vocabularyDictionaryMappings.vocabularyItemId,
+        vocabularyItems.learningItemId,
+      ),
+    )
+    .where(
+      and(
+        eq(learningItems.languageId, languageId),
+        eq(learningItems.type, "vocabulary"),
+      ),
+    )
     .groupBy(vocabularyDictionaryMappings.matchStatus);
 
   const counts: Record<DictionaryMatchStatus | "no_mapping", number> = {
@@ -868,13 +1076,25 @@ export interface EntryLexicalForms {
  */
 export async function getEntryLexicalForms(
   db: DbClient,
-  input: { languageId: string; sourceId: string; afterId: string | null; limit: number },
+  input: {
+    languageId: string;
+    sourceId: string;
+    afterId: string | null;
+    limit: number;
+  },
 ): Promise<EntryLexicalForms[]> {
-  const conditions = [eq(dictionaryEntries.languageId, input.languageId), eq(dictionaryEntries.sourceId, input.sourceId)];
-  if (input.afterId) conditions.push(sql`${dictionaryEntries.id} > ${input.afterId}`);
+  const conditions = [
+    eq(dictionaryEntries.languageId, input.languageId),
+    eq(dictionaryEntries.sourceId, input.sourceId),
+  ];
+  if (input.afterId)
+    conditions.push(sql`${dictionaryEntries.id} > ${input.afterId}`);
 
   const entries = await db
-    .select({ id: dictionaryEntries.id, normalizedLemma: dictionaryEntries.normalizedLemma })
+    .select({
+      id: dictionaryEntries.id,
+      normalizedLemma: dictionaryEntries.normalizedLemma,
+    })
     .from(dictionaryEntries)
     .where(and(...conditions))
     .orderBy(asc(dictionaryEntries.id))
@@ -884,9 +1104,17 @@ export async function getEntryLexicalForms(
 
   const entryIds = entries.map((entry) => entry.id);
   const formRows = await db
-    .select({ dictionaryEntryId: dictionaryForms.dictionaryEntryId, normalizedForm: dictionaryForms.normalizedForm })
+    .select({
+      dictionaryEntryId: dictionaryForms.dictionaryEntryId,
+      normalizedForm: dictionaryForms.normalizedForm,
+    })
     .from(dictionaryForms)
-    .where(and(inArray(dictionaryForms.dictionaryEntryId, entryIds), eq(dictionaryForms.sourceStatus, "active")));
+    .where(
+      and(
+        inArray(dictionaryForms.dictionaryEntryId, entryIds),
+        eq(dictionaryForms.sourceStatus, "active"),
+      ),
+    );
 
   const formsByEntry = new Map<string, string[]>();
   for (const row of formRows) {
@@ -906,7 +1134,9 @@ export async function getEntryLexicalForms(
 export async function findRegionalLexemes(
   db: DbClient,
   input: { regionCode: string; normalizedWords: string[] },
-): Promise<Map<string, { word: string; sourceId: string; lexicalImportId: string }>> {
+): Promise<
+  Map<string, { word: string; sourceId: string; lexicalImportId: string }>
+> {
   if (input.normalizedWords.length === 0) return new Map();
   const rows = await db
     .select({
@@ -916,12 +1146,24 @@ export async function findRegionalLexemes(
       lexicalImportId: regionalLexemes.lexicalImportId,
     })
     .from(regionalLexemes)
-    .where(and(eq(regionalLexemes.regionCode, input.regionCode), inArray(regionalLexemes.normalizedWord, input.normalizedWords)));
+    .where(
+      and(
+        eq(regionalLexemes.regionCode, input.regionCode),
+        inArray(regionalLexemes.normalizedWord, input.normalizedWords),
+      ),
+    );
 
-  const byWord = new Map<string, { word: string; sourceId: string; lexicalImportId: string }>();
+  const byWord = new Map<
+    string,
+    { word: string; sourceId: string; lexicalImportId: string }
+  >();
   for (const row of rows) {
     if (!byWord.has(row.normalizedWord)) {
-      byWord.set(row.normalizedWord, { word: row.word, sourceId: row.sourceId, lexicalImportId: row.lexicalImportId });
+      byWord.set(row.normalizedWord, {
+        word: row.word,
+        sourceId: row.sourceId,
+        lexicalImportId: row.lexicalImportId,
+      });
     }
   }
   return byWord;
@@ -949,7 +1191,10 @@ export async function getMatchableVocabularyItem(
       languageCode: languages.code,
     })
     .from(vocabularyItems)
-    .innerJoin(learningItems, eq(learningItems.id, vocabularyItems.learningItemId))
+    .innerJoin(
+      learningItems,
+      eq(learningItems.id, vocabularyItems.learningItemId),
+    )
     .innerJoin(languages, eq(languages.id, learningItems.languageId))
     .where(eq(vocabularyItems.learningItemId, vocabularyItemId))
     .limit(1);
@@ -957,17 +1202,26 @@ export async function getMatchableVocabularyItem(
 }
 
 /** Whether a sense belongs to a given entry — the server-side check behind sense selection, never trusted from the client. */
-export async function getSenseEntryIds(db: DbClient, senseIds: string[]): Promise<Map<string, string>> {
+export async function getSenseEntryIds(
+  db: DbClient,
+  senseIds: string[],
+): Promise<Map<string, string>> {
   if (senseIds.length === 0) return new Map();
   const rows = await db
-    .select({ id: dictionarySenses.id, dictionaryEntryId: dictionarySenses.dictionaryEntryId })
+    .select({
+      id: dictionarySenses.id,
+      dictionaryEntryId: dictionarySenses.dictionaryEntryId,
+    })
     .from(dictionarySenses)
     .where(inArray(dictionarySenses.id, senseIds));
   return new Map(rows.map((row) => [row.id, row.dictionaryEntryId]));
 }
 
 /** Same check for a pronunciation. */
-export async function getPronunciationEntryId(db: DbClient, pronunciationId: string): Promise<string | null> {
+export async function getPronunciationEntryId(
+  db: DbClient,
+  pronunciationId: string,
+): Promise<string | null> {
   const [row] = await db
     .select({ dictionaryEntryId: dictionaryPronunciations.dictionaryEntryId })
     .from(dictionaryPronunciations)
@@ -995,35 +1249,84 @@ export async function getConfirmedDictionaryDataForItems(
     .select({
       vocabularyItemId: vocabularyDictionaryMappings.vocabularyItemId,
       dictionaryEntryId: vocabularyDictionaryMappings.dictionaryEntryId,
-      preferredPronunciationId: vocabularyDictionaryMappings.preferredPronunciationId,
+      preferredPronunciationId:
+        vocabularyDictionaryMappings.preferredPronunciationId,
     })
     .from(vocabularyDictionaryMappings)
     .where(
       and(
-        inArray(vocabularyDictionaryMappings.vocabularyItemId, vocabularyItemIds),
+        inArray(
+          vocabularyDictionaryMappings.vocabularyItemId,
+          vocabularyItemIds,
+        ),
         eq(vocabularyDictionaryMappings.matchStatus, "manual"),
         isNotNull(vocabularyDictionaryMappings.dictionaryEntryId),
       ),
     );
   if (mappingRows.length === 0) return new Map();
 
-  const entryIds = [...new Set(mappingRows.map((row) => row.dictionaryEntryId!))];
+  const entryIds = [
+    ...new Set(mappingRows.map((row) => row.dictionaryEntryId!)),
+  ];
   const confirmedItemIds = mappingRows.map((row) => row.vocabularyItemId);
 
-  const [entryRows, senseRows, pronunciationRows, relationRows, evidenceRows, selectedSenseRows] = await Promise.all([
-    db.select({ id: dictionaryEntries.id, lemma: dictionaryEntries.lemma, sourceId: dictionaryEntries.sourceId }).from(dictionaryEntries).where(inArray(dictionaryEntries.id, entryIds)),
+  const [
+    entryRows,
+    senseRows,
+    pronunciationRows,
+    relationRows,
+    evidenceRows,
+    selectedSenseRows,
+  ] = await Promise.all([
     db
-      .select({ id: dictionarySenses.id, dictionaryEntryId: dictionarySenses.dictionaryEntryId, gloss: dictionarySenses.gloss, tags: dictionarySenses.tags, topics: dictionarySenses.topics })
+      .select({
+        id: dictionaryEntries.id,
+        lemma: dictionaryEntries.lemma,
+        sourceId: dictionaryEntries.sourceId,
+      })
+      .from(dictionaryEntries)
+      .where(inArray(dictionaryEntries.id, entryIds)),
+    db
+      .select({
+        id: dictionarySenses.id,
+        dictionaryEntryId: dictionarySenses.dictionaryEntryId,
+        gloss: dictionarySenses.gloss,
+        tags: dictionarySenses.tags,
+        topics: dictionarySenses.topics,
+      })
       .from(dictionarySenses)
-      .where(and(inArray(dictionarySenses.dictionaryEntryId, entryIds), eq(dictionarySenses.sourceStatus, "active"))),
+      .where(
+        and(
+          inArray(dictionarySenses.dictionaryEntryId, entryIds),
+          eq(dictionarySenses.sourceStatus, "active"),
+        ),
+      ),
     db
-      .select({ id: dictionaryPronunciations.id, dictionaryEntryId: dictionaryPronunciations.dictionaryEntryId, ipa: dictionaryPronunciations.ipa })
+      .select({
+        id: dictionaryPronunciations.id,
+        dictionaryEntryId: dictionaryPronunciations.dictionaryEntryId,
+        ipa: dictionaryPronunciations.ipa,
+      })
       .from(dictionaryPronunciations)
-      .where(and(inArray(dictionaryPronunciations.dictionaryEntryId, entryIds), eq(dictionaryPronunciations.sourceStatus, "active"))),
+      .where(
+        and(
+          inArray(dictionaryPronunciations.dictionaryEntryId, entryIds),
+          eq(dictionaryPronunciations.sourceStatus, "active"),
+        ),
+      ),
     db
-      .select({ dictionaryEntryId: dictionaryRelations.dictionaryEntryId, relationType: dictionaryRelations.relationType, targetLemma: dictionaryRelations.targetLemma })
+      .select({
+        dictionaryEntryId: dictionaryRelations.dictionaryEntryId,
+        relationType: dictionaryRelations.relationType,
+        targetLemma: dictionaryRelations.targetLemma,
+      })
       .from(dictionaryRelations)
-      .where(and(inArray(dictionaryRelations.dictionaryEntryId, entryIds), eq(dictionaryRelations.sourceStatus, "active"))),
+      .where(
+        and(
+          inArray(dictionaryRelations.dictionaryEntryId, entryIds),
+          eq(dictionaryRelations.sourceStatus, "active"),
+        ),
+      ),
     db
       .select({
         dictionaryEntryId: dictionaryRegionalEvidence.dictionaryEntryId,
@@ -1035,9 +1338,14 @@ export async function getConfirmedDictionaryDataForItems(
       .from(dictionaryRegionalEvidence)
       .where(inArray(dictionaryRegionalEvidence.dictionaryEntryId, entryIds)),
     db
-      .select({ vocabularyItemId: vocabularySelectedSenses.vocabularyItemId, dictionarySenseId: vocabularySelectedSenses.dictionarySenseId })
+      .select({
+        vocabularyItemId: vocabularySelectedSenses.vocabularyItemId,
+        dictionarySenseId: vocabularySelectedSenses.dictionarySenseId,
+      })
       .from(vocabularySelectedSenses)
-      .where(inArray(vocabularySelectedSenses.vocabularyItemId, confirmedItemIds))
+      .where(
+        inArray(vocabularySelectedSenses.vocabularyItemId, confirmedItemIds),
+      )
       .orderBy(asc(vocabularySelectedSenses.position)),
   ]);
 
@@ -1045,7 +1353,14 @@ export async function getConfirmedDictionaryDataForItems(
   // at most), never by the number of items — this stays a small, fixed cost
   // regardless of lesson batch size.
   const sourceIds = [...new Set(entryRows.map((row) => row.sourceId))];
-  const attributionBySourceId = new Map(await Promise.all(sourceIds.map(async (sourceId) => [sourceId, await getSourceAttribution(db, sourceId)] as const)));
+  const attributionBySourceId = new Map(
+    await Promise.all(
+      sourceIds.map(
+        async (sourceId) =>
+          [sourceId, await getSourceAttribution(db, sourceId)] as const,
+      ),
+    ),
+  );
 
   const entryById = new Map(entryRows.map((row) => [row.id, row]));
   const sensesByEntry = new Map<string, typeof senseRows>();
@@ -1057,7 +1372,8 @@ export async function getConfirmedDictionaryDataForItems(
   const senseById = new Map(senseRows.map((row) => [row.id, row]));
   const pronunciationsByEntry = new Map<string, typeof pronunciationRows>();
   for (const pronunciation of pronunciationRows) {
-    const list = pronunciationsByEntry.get(pronunciation.dictionaryEntryId) ?? [];
+    const list =
+      pronunciationsByEntry.get(pronunciation.dictionaryEntryId) ?? [];
     list.push(pronunciation);
     pronunciationsByEntry.set(pronunciation.dictionaryEntryId, list);
   }
@@ -1070,7 +1386,12 @@ export async function getConfirmedDictionaryDataForItems(
   const evidenceByEntry = new Map<string, RegionalEvidence[]>();
   for (const evidence of evidenceRows) {
     const list = evidenceByEntry.get(evidence.dictionaryEntryId) ?? [];
-    list.push({ regionCode: evidence.regionCode, status: evidence.status, matchedForm: evidence.matchedForm, evaluatedAt: evidence.evaluatedAt });
+    list.push({
+      regionCode: evidence.regionCode,
+      status: evidence.status,
+      matchedForm: evidence.matchedForm,
+      evaluatedAt: evidence.evaluatedAt,
+    });
     evidenceByEntry.set(evidence.dictionaryEntryId, list);
   }
   const selectedSenseIdsByItem = new Map<string, string[]>();
@@ -1085,18 +1406,30 @@ export async function getConfirmedDictionaryDataForItems(
     const entry = entryById.get(mapping.dictionaryEntryId!);
     if (!entry) continue;
 
-    const selectedSenseIds = selectedSenseIdsByItem.get(mapping.vocabularyItemId) ?? [];
+    const selectedSenseIds =
+      selectedSenseIdsByItem.get(mapping.vocabularyItemId) ?? [];
     const primarySense = senseById.get(selectedSenseIds[0] ?? "");
 
     const pronunciations = pronunciationsByEntry.get(entry.id) ?? [];
-    const preferredPronunciation = pronunciations.find((p) => p.id === mapping.preferredPronunciationId) ?? pronunciations[0];
+    const preferredPronunciation =
+      pronunciations.find((p) => p.id === mapping.preferredPronunciationId) ??
+      pronunciations[0];
 
     const relations = relationsByEntry.get(entry.id) ?? [];
-    const synonyms = relations.filter((r) => r.relationType === "synonym").map((r) => r.targetLemma);
-    const variants = relations.filter((r) => r.relationType === "alternative_form" || r.relationType === "form_of").map((r) => r.targetLemma);
+    const synonyms = relations
+      .filter((r) => r.relationType === "synonym")
+      .map((r) => r.targetLemma);
+    const variants = relations
+      .filter(
+        (r) =>
+          r.relationType === "alternative_form" || r.relationType === "form_of",
+      )
+      .map((r) => r.targetLemma);
 
     const senses = sensesByEntry.get(entry.id) ?? [];
-    const usageLabels = [...new Set(senses.flatMap((sense) => [...sense.tags, ...sense.topics]))].sort();
+    const usageLabels = [
+      ...new Set(senses.flatMap((sense) => [...sense.tags, ...sense.topics])),
+    ].sort();
 
     result.set(mapping.vocabularyItemId, {
       lemma: entry.lemma,

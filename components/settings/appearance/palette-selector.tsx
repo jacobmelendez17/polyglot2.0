@@ -42,10 +42,16 @@ export function PaletteSelector() {
             onClick={() => updateSettings({ palette })}
             aria-pressed={settings.palette === palette}
             className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
-              settings.palette === palette ? "border-primary bg-accent/40" : "border-border"
+              settings.palette === palette
+                ? "border-primary bg-accent/40"
+                : "border-border"
             }`}
           >
-            <span className="inline-block size-4 rounded-full" style={{ backgroundColor: SWATCH_COLORS[palette] }} aria-hidden="true" />
+            <span
+              className="inline-block size-4 rounded-full"
+              style={{ backgroundColor: SWATCH_COLORS[palette] }}
+              aria-hidden="true"
+            />
             {LABELS[palette]}
           </button>
         ))}
@@ -57,7 +63,9 @@ export function PaletteSelector() {
           <div className="h-12 flex-[2] rounded-md bg-muted" />
         </div>
         <div className="mt-3 h-8 rounded-md bg-primary/20" />
-        <p className="mt-3 text-xs text-muted-foreground">Preview — buttons, links, and highlights use this accent.</p>
+        <p className="mt-3 text-xs text-muted-foreground">
+          Preview — buttons, links, and highlights use this accent.
+        </p>
       </div>
     </div>
   );

@@ -35,7 +35,10 @@ export function findCompatibleClozeSentence(
   examples: readonly CurriculumExampleSentence[],
   targetWord: string,
 ): ClozeSentence | null {
-  const pattern = new RegExp(`(?<![\\p{L}])(${escapeRegExp(targetWord)})(?![\\p{L}])`, "iu");
+  const pattern = new RegExp(
+    `(?<![\\p{L}])(${escapeRegExp(targetWord)})(?![\\p{L}])`,
+    "iu",
+  );
 
   for (const example of examples) {
     const match = pattern.exec(example.targetText);

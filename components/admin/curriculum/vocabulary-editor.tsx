@@ -4,12 +4,21 @@ import { RotateCcw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
 import type { DictionaryOverridableField } from "@/db/schema";
 
-import { AcceptedAnswersEditor, type AcceptedAnswerValue } from "./accepted-answers-editor";
+import {
+  AcceptedAnswersEditor,
+  type AcceptedAnswerValue,
+} from "./accepted-answers-editor";
 import { RegisterSelect } from "./register-select";
 import type { RegisterEditorValue } from "./register-value";
 
@@ -62,12 +71,25 @@ type VocabularyEditorProps = {
 };
 
 /** Spec 11 rewrite's "Vocabulary Editor" — every authoritative vocabulary field the current curriculum domain represents. */
-export function VocabularyEditor({ value, onChange, groups, resolved, onResetField, isResetting }: VocabularyEditorProps) {
-  function set<K extends keyof VocabularyEditorValue>(key: K, fieldValue: VocabularyEditorValue[K]) {
+export function VocabularyEditor({
+  value,
+  onChange,
+  groups,
+  resolved,
+  onResetField,
+  isResetting,
+}: VocabularyEditorProps) {
+  function set<K extends keyof VocabularyEditorValue>(
+    key: K,
+    fieldValue: VocabularyEditorValue[K],
+  ) {
     onChange({ ...value, [key]: fieldValue });
   }
 
-  function provenanceFor(field: DictionaryOverridableField, dictionaryValue: string | null) {
+  function provenanceFor(
+    field: DictionaryOverridableField,
+    dictionaryValue: string | null,
+  ) {
     if (!resolved?.confirmed) return null;
     return (
       <FieldProvenance
@@ -85,27 +107,53 @@ export function VocabularyEditor({ value, onChange, groups, resolved, onResetFie
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block text-sm">
           <span className="font-medium text-foreground">Term</span>
-          <Input className="mt-1" value={value.term} onChange={(e) => set("term", e.target.value)} required />
+          <Input
+            className="mt-1"
+            value={value.term}
+            onChange={(e) => set("term", e.target.value)}
+            required
+          />
         </label>
         <label className="block text-sm">
           <span className="font-medium text-foreground">Article</span>
-          <Input className="mt-1" value={value.article} onChange={(e) => set("article", e.target.value)} placeholder="el, la, ..." />
+          <Input
+            className="mt-1"
+            value={value.article}
+            onChange={(e) => set("article", e.target.value)}
+            placeholder="el, la, ..."
+          />
         </label>
         <label className="block text-sm">
           <span className="font-medium text-foreground">Primary meaning</span>
-          <Input className="mt-1" value={value.primaryMeaning} onChange={(e) => set("primaryMeaning", e.target.value)} required />
+          <Input
+            className="mt-1"
+            value={value.primaryMeaning}
+            onChange={(e) => set("primaryMeaning", e.target.value)}
+            required
+          />
         </label>
         <label className="block text-sm">
           <span className="font-medium text-foreground">Part of speech</span>
-          <Input className="mt-1" value={value.partOfSpeech} onChange={(e) => set("partOfSpeech", e.target.value)} required />
+          <Input
+            className="mt-1"
+            value={value.partOfSpeech}
+            onChange={(e) => set("partOfSpeech", e.target.value)}
+            required
+          />
           {provenanceFor("partOfSpeech", resolved?.partOfSpeech ?? null)}
         </label>
-        <RegisterSelect value={value.register} onChange={(register) => onChange({ ...value, register })} />
+        <RegisterSelect
+          value={value.register}
+          onChange={(register) => onChange({ ...value, register })}
+        />
       </div>
 
       <label className="block text-sm">
         <span className="font-medium text-foreground">Group / theme</span>
-        <Select value={value.vocabularyGroupId} onValueChange={(v) => set("vocabularyGroupId", v)}>
+        <Select
+          value={value.vocabularyGroupId}
+          onValueChange={(v) => set("vocabularyGroupId", v)}
+        >
           <SelectTrigger className="mt-1 w-full" aria-label="Group / theme">
             <SelectValue placeholder="Select a group" />
           </SelectTrigger>
@@ -122,35 +170,63 @@ export function VocabularyEditor({ value, onChange, groups, resolved, onResetFie
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block text-sm">
           <span className="font-medium text-foreground">Pronunciation</span>
-          <Input className="mt-1" value={value.pronunciation} onChange={(e) => set("pronunciation", e.target.value)} />
+          <Input
+            className="mt-1"
+            value={value.pronunciation}
+            onChange={(e) => set("pronunciation", e.target.value)}
+          />
         </label>
         <label className="block text-sm">
           <span className="font-medium text-foreground">IPA</span>
-          <Input className="mt-1 font-mono" value={value.ipa} onChange={(e) => set("ipa", e.target.value)} />
+          <Input
+            className="mt-1 font-mono"
+            value={value.ipa}
+            onChange={(e) => set("ipa", e.target.value)}
+          />
           {provenanceFor("ipa", resolved?.ipa ?? null)}
         </label>
       </div>
 
       <label className="block text-sm">
         <span className="font-medium text-foreground">Teaching meaning</span>
-        <Textarea className="mt-1" value={value.definition} onChange={(e) => set("definition", e.target.value)} />
+        <Textarea
+          className="mt-1"
+          value={value.definition}
+          onChange={(e) => set("definition", e.target.value)}
+        />
         {provenanceFor("definition", resolved?.definition ?? null)}
       </label>
 
       <label className="block text-sm">
-        <span className="font-medium text-foreground">Context (how it&apos;s actually used)</span>
-        <Textarea className="mt-1" value={value.context} onChange={(e) => set("context", e.target.value)} />
+        <span className="font-medium text-foreground">
+          Context (how it&apos;s actually used)
+        </span>
+        <Textarea
+          className="mt-1"
+          value={value.context}
+          onChange={(e) => set("context", e.target.value)}
+        />
       </label>
 
       <label className="block text-sm">
         <span className="font-medium text-foreground">Creator notes</span>
         {resolved?.confirmed ? (
-          <span className="ml-2 text-xs font-normal text-muted-foreground">Optional — expands on the dictionary meaning above, not a replacement for it.</span>
+          <span className="ml-2 text-xs font-normal text-muted-foreground">
+            Optional — expands on the dictionary meaning above, not a
+            replacement for it.
+          </span>
         ) : null}
-        <Textarea className="mt-1" value={value.creatorNotes} onChange={(e) => set("creatorNotes", e.target.value)} />
+        <Textarea
+          className="mt-1"
+          value={value.creatorNotes}
+          onChange={(e) => set("creatorNotes", e.target.value)}
+        />
       </label>
 
-      <AcceptedAnswersEditor value={value.acceptedAnswers} onChange={(v) => set("acceptedAnswers", v)} />
+      <AcceptedAnswersEditor
+        value={value.acceptedAnswers}
+        onChange={(v) => set("acceptedAnswers", v)}
+      />
     </div>
   );
 }
@@ -181,19 +257,35 @@ function FieldProvenance({
   if (!authored) {
     return (
       <span className="mt-1 block text-xs font-normal text-muted-foreground">
-        From the confirmed dictionary mapping{lemma ? ` (${lemma})` : ""}. Editing this takes it over.
+        From the confirmed dictionary mapping{lemma ? ` (${lemma})` : ""}.
+        Editing this takes it over.
       </span>
     );
   }
 
   return (
     <span className="mt-1 flex flex-wrap items-center gap-2 text-xs font-normal">
-      <span className="rounded-full bg-accent-primary/15 px-2 py-0.5 text-foreground">Edited by hand</span>
+      <span className="rounded-full bg-accent-primary/15 px-2 py-0.5 text-foreground">
+        Edited by hand
+      </span>
       <span className="text-muted-foreground">
-        The dictionary says {dictionaryValue ? <span className="text-foreground">{dictionaryValue}</span> : "nothing for this field"}.
+        The dictionary says{" "}
+        {dictionaryValue ? (
+          <span className="text-foreground">{dictionaryValue}</span>
+        ) : (
+          "nothing for this field"
+        )}
+        .
       </span>
       {onReset ? (
-        <Button type="button" variant="ghost" size="sm" className="h-6 cursor-pointer px-2" disabled={isResetting} onClick={onReset}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-6 cursor-pointer px-2"
+          disabled={isResetting}
+          onClick={onReset}
+        >
           <RotateCcw className="h-3 w-3" aria-hidden="true" />
           Reset to dictionary
         </Button>

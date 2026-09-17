@@ -17,7 +17,10 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { DECK_DESCRIPTION_MAX_LENGTH, DECK_NAME_MAX_LENGTH } from "@/domains/decks";
+import {
+  DECK_DESCRIPTION_MAX_LENGTH,
+  DECK_NAME_MAX_LENGTH,
+} from "@/domains/decks";
 
 type DeckSettingsDialogProps = {
   deckId: string;
@@ -26,7 +29,11 @@ type DeckSettingsDialogProps = {
 };
 
 /** Rename and re-describe a personal deck (spec 14's "rename" / "edit description"). */
-export function DeckSettingsDialog({ deckId, name, description }: DeckSettingsDialogProps) {
+export function DeckSettingsDialog({
+  deckId,
+  name,
+  description,
+}: DeckSettingsDialogProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
@@ -41,7 +48,11 @@ export function DeckSettingsDialog({ deckId, name, description }: DeckSettingsDi
     }
     setError(null);
     startTransition(async () => {
-      const result = await updateDeckDetailsAction({ deckId, name: nameDraft, description: descriptionDraft });
+      const result = await updateDeckDetailsAction({
+        deckId,
+        name: nameDraft,
+        description: descriptionDraft,
+      });
       if (!result.ok) {
         setError(result.error.message);
         return;
@@ -72,7 +83,9 @@ export function DeckSettingsDialog({ deckId, name, description }: DeckSettingsDi
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Deck details</DialogTitle>
-          <DialogDescription>Rename this deck or change its description.</DialogDescription>
+          <DialogDescription>
+            Rename this deck or change its description.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3">
@@ -86,7 +99,9 @@ export function DeckSettingsDialog({ deckId, name, description }: DeckSettingsDi
             />
           </label>
           <label className="block text-sm">
-            <span className="font-medium text-foreground">Description (optional)</span>
+            <span className="font-medium text-foreground">
+              Description (optional)
+            </span>
             <Textarea
               className="mt-1"
               rows={3}

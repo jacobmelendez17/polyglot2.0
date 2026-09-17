@@ -1,11 +1,19 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 
-import { grammarContentBlocks, learningItemResources, learningItems } from "@/db/schema";
+import {
+  grammarContentBlocks,
+  learningItemResources,
+  learningItems,
+} from "@/db/schema";
 import { seedTestFixtures } from "@/db/seed/test-fixtures";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
 
-import { getGrammarContentBlocks, getItemResources, getSiblingItemIds } from "./curriculum-repository";
+import {
+  getGrammarContentBlocks,
+  getItemResources,
+  getSiblingItemIds,
+} from "./curriculum-repository";
 
 /**
  * Spec 18's three new curriculum reads. Exercised against the real schema
@@ -19,16 +27,39 @@ describe("grammar content blocks", () => {
       const { grammarYId } = await seedTestFixtures(tx);
 
       await tx.insert(grammarContentBlocks).values([
-        { learningItemId: grammarYId, type: "note", position: 2, body: "Watch the accent." },
-        { learningItemId: grammarYId, type: "text", position: 1, body: "Joins two things." },
-        { learningItemId: grammarYId, type: "example", position: 3, targetText: "pan y agua", translation: "bread and water" },
+        {
+          learningItemId: grammarYId,
+          type: "note",
+          position: 2,
+          body: "Watch the accent.",
+        },
+        {
+          learningItemId: grammarYId,
+          type: "text",
+          position: 1,
+          body: "Joins two things.",
+        },
+        {
+          learningItemId: grammarYId,
+          type: "example",
+          position: 3,
+          targetText: "pan y agua",
+          translation: "bread and water",
+        },
       ]);
 
       const blocks = await getGrammarContentBlocks(tx, grammarYId);
 
       expect(blocks.map((block) => block.position)).toEqual([1, 2, 3]);
-      expect(blocks[0]).toMatchObject({ type: "text", body: "Joins two things." });
-      expect(blocks[2]).toMatchObject({ type: "example", targetText: "pan y agua", translation: "bread and water" });
+      expect(blocks[0]).toMatchObject({
+        type: "text",
+        body: "Joins two things.",
+      });
+      expect(blocks[2]).toMatchObject({
+        type: "example",
+        targetText: "pan y agua",
+        translation: "bread and water",
+      });
     });
   });
 
@@ -40,11 +71,18 @@ describe("grammar content blocks", () => {
       // rejected by `grammar_content_blocks_shape_check`, so a half-filled
       // block can never reach a learner even if a caller skips validation.
       await expect(
-        tx.insert(grammarContentBlocks).values({ learningItemId: grammarYId, type: "example", position: 1, targetText: "pan y agua" }),
+        tx.insert(grammarContentBlocks).values({
+          learningItemId: grammarYId,
+          type: "example",
+          position: 1,
+          targetText: "pan y agua",
+        }),
       ).rejects.toThrow();
 
       await expect(
-        tx.insert(grammarContentBlocks).values({ learningItemId: grammarYId, type: "note", position: 1 }),
+        tx
+          .insert(grammarContentBlocks)
+          .values({ learningItemId: grammarYId, type: "note", position: 1 }),
       ).rejects.toThrow();
     });
   });
@@ -63,11 +101,23 @@ describe("item resources", () => {
       const { gatoId } = await seedTestFixtures(tx);
 
       await tx.insert(learningItemResources).values([
-        { learningItemId: gatoId, label: "Second", url: "https://example.invalid/b", position: 2 },
-        { learningItemId: gatoId, label: "First", url: "https://example.invalid/a", position: 1 },
+        {
+          learningItemId: gatoId,
+          label: "Second",
+          url: "https://example.invalid/b",
+          position: 2,
+        },
+        {
+          learningItemId: gatoId,
+          label: "First",
+          url: "https://example.invalid/a",
+          position: 1,
+        },
       ]);
 
-      expect((await getItemResources(tx, gatoId)).map((resource) => resource.label)).toEqual(["First", "Second"]);
+      expect(
+        (await getItemResources(tx, gatoId)).map((resource) => resource.label),
+      ).toEqual(["First", "Second"]);
     });
   });
 
@@ -75,9 +125,19 @@ describe("item resources", () => {
     await withTestTransaction(async (tx) => {
       const { gatoId } = await seedTestFixtures(tx);
 
-      await tx.insert(learningItemResources).values({ learningItemId: gatoId, label: "A", url: "https://example.invalid/a", position: 1 });
+      await tx.insert(learningItemResources).values({
+        learningItemId: gatoId,
+        label: "A",
+        url: "https://example.invalid/a",
+        position: 1,
+      });
       await expect(
-        tx.insert(learningItemResources).values({ learningItemId: gatoId, label: "B", url: "https://example.invalid/b", position: 1 }),
+        tx.insert(learningItemResources).values({
+          learningItemId: gatoId,
+          label: "B",
+          url: "https://example.invalid/b",
+          position: 1,
+        }),
       ).rejects.toThrow();
     });
   });
@@ -86,9 +146,14 @@ describe("item resources", () => {
 describe("hero navigation siblings", () => {
   it("cycles vocabulary through its own theme, in curriculum order", async () => {
     await withTestTransaction(async (tx) => {
-      const { gatoId, casaId, aguaId, rojoId, level1Id, vocabGroupId } = await seedTestFixtures(tx);
+      const { gatoId, casaId, aguaId, rojoId, level1Id, vocabGroupId } =
+        await seedTestFixtures(tx);
 
-      const ids = await getSiblingItemIds(tx, { id: gatoId, type: "vocabulary", levelId: level1Id }, vocabGroupId);
+      const ids = await getSiblingItemIds(
+        tx,
+        { id: gatoId, type: "vocabulary", levelId: level1Id },
+        vocabGroupId,
+      );
 
       expect(ids).toContain(gatoId);
       expect(ids).toContain(casaId);
@@ -109,16 +174,37 @@ describe("hero navigation siblings", () => {
       // High positions avoid colliding with anything already in the level.
       const [second] = await tx
         .insert(learningItems)
-        .values({ languageId, levelId: level1Id, type: "grammar", status: "published", position: 902, lessonPriority: 902 })
+        .values({
+          languageId,
+          levelId: level1Id,
+          type: "grammar",
+          status: "published",
+          position: 902,
+          lessonPriority: 902,
+        })
         .returning({ id: learningItems.id });
       const [first] = await tx
         .insert(learningItems)
-        .values({ languageId, levelId: level1Id, type: "grammar", status: "published", position: 901, lessonPriority: 901 })
+        .values({
+          languageId,
+          levelId: level1Id,
+          type: "grammar",
+          status: "published",
+          position: 901,
+          lessonPriority: 901,
+        })
         .returning({ id: learningItems.id });
 
-      const ids = await getSiblingItemIds(tx, { id: first.id, type: "grammar", levelId: level1Id }, null);
+      const ids = await getSiblingItemIds(
+        tx,
+        { id: first.id, type: "grammar", levelId: level1Id },
+        null,
+      );
 
-      expect(ids.filter((id) => id === first.id || id === second.id)).toEqual([first.id, second.id]);
+      expect(ids.filter((id) => id === first.id || id === second.id)).toEqual([
+        first.id,
+        second.id,
+      ]);
       // Vocabulary is never part of a grammar item's navigation.
       expect(ids).not.toContain(gatoId);
     });
@@ -126,11 +212,19 @@ describe("hero navigation siblings", () => {
 
   it("never puts an unpublished sibling in a learner's navigation", async () => {
     await withTestTransaction(async (tx) => {
-      const { gatoId, casaId, level1Id, vocabGroupId } = await seedTestFixtures(tx);
+      const { gatoId, casaId, level1Id, vocabGroupId } =
+        await seedTestFixtures(tx);
 
-      await tx.update(learningItems).set({ status: "archived" }).where(eq(learningItems.id, casaId));
+      await tx
+        .update(learningItems)
+        .set({ status: "archived" })
+        .where(eq(learningItems.id, casaId));
 
-      const ids = await getSiblingItemIds(tx, { id: gatoId, type: "vocabulary", levelId: level1Id }, vocabGroupId);
+      const ids = await getSiblingItemIds(
+        tx,
+        { id: gatoId, type: "vocabulary", levelId: level1Id },
+        vocabGroupId,
+      );
 
       expect(ids).toContain(gatoId);
       expect(ids).not.toContain(casaId);
@@ -140,7 +234,13 @@ describe("hero navigation siblings", () => {
   it("returns nothing for a vocabulary item with no theme", async () => {
     await withTestTransaction(async (tx) => {
       const { gatoId, level1Id } = await seedTestFixtures(tx);
-      expect(await getSiblingItemIds(tx, { id: gatoId, type: "vocabulary", levelId: level1Id }, null)).toEqual([]);
+      expect(
+        await getSiblingItemIds(
+          tx,
+          { id: gatoId, type: "vocabulary", levelId: level1Id },
+          null,
+        ),
+      ).toEqual([]);
     });
   });
 });

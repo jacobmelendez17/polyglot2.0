@@ -2,10 +2,20 @@ import { describe, expect, it } from "vitest";
 
 import { DEVELOPER_ID, seedTestFixtures } from "@/db/seed/test-fixtures";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
-import { getLevelsByLanguage, getVocabularyGroup, getVocabularyGroupsByLanguage } from "@/domains/curriculum/curriculum-repository";
+import {
+  getLevelsByLanguage,
+  getVocabularyGroup,
+  getVocabularyGroupsByLanguage,
+} from "@/domains/curriculum/curriculum-repository";
 
 import { getAuditEvents } from "./audit-repository";
-import { createLevel, createVocabularyGroup, reorderVocabularyGroups, updateLevel, updateVocabularyGroup } from "./publication-service";
+import {
+  createLevel,
+  createVocabularyGroup,
+  reorderVocabularyGroups,
+  updateLevel,
+  updateVocabularyGroup,
+} from "./publication-service";
 
 describe("createLevel", () => {
   it("creates a level and records LEVEL_CREATED", async () => {
@@ -19,10 +29,16 @@ describe("createLevel", () => {
         idempotencyKey: crypto.randomUUID(),
       });
 
-      const found = (await getLevelsByLanguage(tx, languageId)).find((l) => l.id === levelId);
+      const found = (await getLevelsByLanguage(tx, languageId)).find(
+        (l) => l.id === levelId,
+      );
       expect(found?.name).toBe("Bonus");
 
-      const audit = await getAuditEvents(tx, { action: "LEVEL_CREATED", resourceId: levelId, limit: 10 });
+      const audit = await getAuditEvents(tx, {
+        action: "LEVEL_CREATED",
+        resourceId: levelId,
+        limit: 10,
+      });
       expect(audit.items).toHaveLength(1);
     });
   });
@@ -41,9 +57,16 @@ describe("updateLevel", () => {
         idempotencyKey: crypto.randomUUID(),
       });
 
-      await updateLevel(tx, { levelId, status: "published", actorUserId: DEVELOPER_ID, idempotencyKey: crypto.randomUUID() });
+      await updateLevel(tx, {
+        levelId,
+        status: "published",
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+      });
 
-      const published = (await getLevelsByLanguage(tx, languageId)).find((level) => level.id === levelId);
+      const published = (await getLevelsByLanguage(tx, languageId)).find(
+        (level) => level.id === levelId,
+      );
       expect(published?.status).toBe("published");
     });
   });
@@ -58,18 +81,25 @@ describe("updateLevel", () => {
         idempotencyKey: crypto.randomUUID(),
       });
 
-      await updateLevel(tx, { levelId, name: "Renamed", actorUserId: DEVELOPER_ID, idempotencyKey: crypto.randomUUID() });
+      await updateLevel(tx, {
+        levelId,
+        name: "Renamed",
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+      });
 
-      const found = (await getLevelsByLanguage(tx, languageId)).find((l) => l.id === levelId);
+      const found = (await getLevelsByLanguage(tx, languageId)).find(
+        (l) => l.id === levelId,
+      );
       expect(found?.name).toBe("Renamed");
-      const audit = await getAuditEvents(tx, { action: "LEVEL_UPDATED", resourceId: levelId, limit: 10 });
+      const audit = await getAuditEvents(tx, {
+        action: "LEVEL_UPDATED",
+        resourceId: levelId,
+        limit: 10,
+      });
       expect(audit.items).toHaveLength(1);
     });
   });
-
-
-
-
 });
 
 describe("createVocabularyGroup", () => {
@@ -84,7 +114,11 @@ describe("createVocabularyGroup", () => {
         idempotencyKey: crypto.randomUUID(),
       });
 
-      const audit = await getAuditEvents(tx, { action: "GROUP_CREATED", resourceId: groupId, limit: 10 });
+      const audit = await getAuditEvents(tx, {
+        action: "GROUP_CREATED",
+        resourceId: groupId,
+        limit: 10,
+      });
       expect(audit.items).toHaveLength(1);
     });
   });
@@ -102,11 +136,20 @@ describe("updateVocabularyGroup", () => {
         idempotencyKey: crypto.randomUUID(),
       });
 
-      await updateVocabularyGroup(tx, { groupId, name: "Food & Drink", actorUserId: DEVELOPER_ID, idempotencyKey: crypto.randomUUID() });
+      await updateVocabularyGroup(tx, {
+        groupId,
+        name: "Food & Drink",
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+      });
 
       const group = await getVocabularyGroup(tx, groupId);
       expect(group?.name).toBe("Food & Drink");
-      const audit = await getAuditEvents(tx, { action: "GROUP_UPDATED", resourceId: groupId, limit: 10 });
+      const audit = await getAuditEvents(tx, {
+        action: "GROUP_UPDATED",
+        resourceId: groupId,
+        limit: 10,
+      });
       expect(audit.items).toHaveLength(1);
     });
   });
@@ -122,13 +165,26 @@ describe("updateVocabularyGroup", () => {
         idempotencyKey: crypto.randomUUID(),
       });
 
-      await updateVocabularyGroup(tx, { groupId, status: "archived", actorUserId: DEVELOPER_ID, idempotencyKey: crypto.randomUUID() });
+      await updateVocabularyGroup(tx, {
+        groupId,
+        status: "archived",
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+      });
 
       const group = await getVocabularyGroup(tx, groupId);
       expect(group?.status).toBe("archived");
-      const archived = await getAuditEvents(tx, { action: "GROUP_ARCHIVED", resourceId: groupId, limit: 10 });
+      const archived = await getAuditEvents(tx, {
+        action: "GROUP_ARCHIVED",
+        resourceId: groupId,
+        limit: 10,
+      });
       expect(archived.items).toHaveLength(1);
-      const updated = await getAuditEvents(tx, { action: "GROUP_UPDATED", resourceId: groupId, limit: 10 });
+      const updated = await getAuditEvents(tx, {
+        action: "GROUP_UPDATED",
+        resourceId: groupId,
+        limit: 10,
+      });
       expect(updated.items).toHaveLength(0);
     });
   });
@@ -179,7 +235,11 @@ describe("reorderVocabularyGroups", () => {
       expect(byId.get(second!)).toBe(2);
       expect(byId.get(first!)).toBe(3);
 
-      const audit = await getAuditEvents(tx, { action: "GROUP_REORDERED", resourceId: levelId, limit: 10 });
+      const audit = await getAuditEvents(tx, {
+        action: "GROUP_REORDERED",
+        resourceId: levelId,
+        limit: 10,
+      });
       expect(audit.items).toHaveLength(1);
     });
   });

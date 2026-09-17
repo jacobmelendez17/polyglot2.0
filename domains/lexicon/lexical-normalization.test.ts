@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { isMultiwordForm, normalizeLexicalForm, normalizePartOfSpeech } from "./lexical-normalization";
+import {
+  isMultiwordForm,
+  normalizeLexicalForm,
+  normalizePartOfSpeech,
+} from "./lexical-normalization";
 
 describe("normalizeLexicalForm", () => {
   it("trims, collapses whitespace, and folds case", () => {
@@ -13,7 +17,9 @@ describe("normalizeLexicalForm", () => {
     const decomposed = "día";
     const precomposed = "día";
     expect(decomposed).not.toBe(precomposed);
-    expect(normalizeLexicalForm(decomposed)).toBe(normalizeLexicalForm(precomposed));
+    expect(normalizeLexicalForm(decomposed)).toBe(
+      normalizeLexicalForm(precomposed),
+    );
     expect(normalizeLexicalForm(decomposed)).toBe("día");
   });
 

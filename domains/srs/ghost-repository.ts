@@ -3,7 +3,10 @@ import { and, count, eq, inArray, isNotNull, lte, sql } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { userSentenceGhostProgress } from "@/db/schema";
 
-import { calculateGhostAnswerResult, calculateGhostMissOutcome } from "./ghost-progress";
+import {
+  calculateGhostAnswerResult,
+  calculateGhostMissOutcome,
+} from "./ghost-progress";
 import type { GhostStage } from "./ghost-progress";
 import type { GhostMode } from "./review-preference";
 import type { ReviewItemType } from "./review-types";
@@ -55,11 +58,20 @@ function toGhostProgress(row: GhostProgressRow): GhostProgress {
  * is asking before grading it, never to decide what to write — the actual
  * mutation goes through `applyGhostAnswer`'s own locked read.
  */
-export async function getGhostProgressById(db: DbClient, userId: string, ghostProgressId: string): Promise<GhostProgress | null> {
+export async function getGhostProgressById(
+  db: DbClient,
+  userId: string,
+  ghostProgressId: string,
+): Promise<GhostProgress | null> {
   const [row] = await db
     .select()
     .from(userSentenceGhostProgress)
-    .where(and(eq(userSentenceGhostProgress.id, ghostProgressId), eq(userSentenceGhostProgress.userId, userId)))
+    .where(
+      and(
+        eq(userSentenceGhostProgress.id, ghostProgressId),
+        eq(userSentenceGhostProgress.userId, userId),
+      ),
+    )
     .limit(1);
   return row ? toGhostProgress(row) : null;
 }
@@ -133,7 +145,10 @@ export async function recordSentenceMiss(
           };
 
     if (existing) {
-      await tx.update(userSentenceGhostProgress).set(values).where(eq(userSentenceGhostProgress.id, existing.id));
+      await tx
+        .update(userSentenceGhostProgress)
+        .set(values)
+        .where(eq(userSentenceGhostProgress.id, existing.id));
       return;
     }
 
@@ -149,7 +164,9 @@ export async function recordSentenceMiss(
   });
 }
 
-export type ApplyGhostAnswerResult = { kind: "completed"; ghostProgress: GhostProgress } | { kind: "continuing"; ghostProgress: GhostProgress };
+export type ApplyGhostAnswerResult =
+  | { kind: "completed"; ghostProgress: GhostProgress }
+  | { kind: "continuing"; ghostProgress: GhostProgress };
 
 /**
  * Spec 20 Ghost Reviews — grading the Ghost review itself ("Ghost SRS" /
@@ -164,24 +181,42 @@ export type ApplyGhostAnswerResult = { kind: "completed"; ghostProgress: GhostPr
  */
 export async function applyGhostAnswer(
   db: DbClient,
-  input: { userId: string; ghostProgressId: string; isCorrect: boolean; now: Date },
+  input: {
+    userId: string;
+    ghostProgressId: string;
+    isCorrect: boolean;
+    now: Date;
+  },
 ): Promise<ApplyGhostAnswerResult | null> {
   return db.transaction(async (tx) => {
     const [row] = await tx
       .select()
       .from(userSentenceGhostProgress)
-      .where(and(eq(userSentenceGhostProgress.id, input.ghostProgressId), eq(userSentenceGhostProgress.userId, input.userId)))
+      .where(
+        and(
+          eq(userSentenceGhostProgress.id, input.ghostProgressId),
+          eq(userSentenceGhostProgress.userId, input.userId),
+        ),
+      )
       .for("update");
 
     // Not found, not this learner's, or not actually an active Ghost (defensive — the caller only ever reaches here for a Ghost it just fetched as due, which always has a stage).
     if (!row || !row.ghostStage) return null;
 
-    const result = calculateGhostAnswerResult(row.ghostStage, input.isCorrect, input.now);
+    const result = calculateGhostAnswerResult(
+      row.ghostStage,
+      input.isCorrect,
+      input.now,
+    );
 
     if (result.kind === "completed") {
       const [updated] = await tx
         .update(userSentenceGhostProgress)
-        .set({ nextReviewAt: null, completedAt: input.now, updatedAt: input.now })
+        .set({
+          nextReviewAt: null,
+          completedAt: input.now,
+          updatedAt: input.now,
+        })
         .where(eq(userSentenceGhostProgress.id, row.id))
         .returning();
       return { kind: "completed", ghostProgress: toGhostProgress(updated) };
@@ -189,7 +224,11 @@ export async function applyGhostAnswer(
 
     const [updated] = await tx
       .update(userSentenceGhostProgress)
-      .set({ ghostStage: result.ghostStage, nextReviewAt: result.nextReviewAt, updatedAt: input.now })
+      .set({
+        ghostStage: result.ghostStage,
+        nextReviewAt: result.nextReviewAt,
+        updatedAt: input.now,
+      })
       .where(eq(userSentenceGhostProgress.id, row.id))
       .returning();
     return { kind: "continuing", ghostProgress: toGhostProgress(updated) };
@@ -204,7 +243,12 @@ export async function applyGhostAnswer(
  * should remain available unless explicitly reset from Danger Zone") — Off
  * only stops new Ghosts from being *created* (`recordSentenceMiss`).
  */
-export async function getDueGhosts(db: DbClient, userId: string, languageId: string, now: Date): Promise<GhostProgress[]> {
+export async function getDueGhosts(
+  db: DbClient,
+  userId: string,
+  languageId: string,
+  now: Date,
+): Promise<GhostProgress[]> {
   const rows = await db
     .select()
     .from(userSentenceGhostProgress)
@@ -277,14 +321,28 @@ export async function deleteGhostProgressForContentType(
 }
 
 /** Spec 20 Danger Zone — Reset to Level: "removes Ghost state tied to removed progress." */
-export async function deleteGhostProgressForLearningItems(db: DbClient, userId: string, learningItemIds: string[]): Promise<void> {
+export async function deleteGhostProgressForLearningItems(
+  db: DbClient,
+  userId: string,
+  learningItemIds: string[],
+): Promise<void> {
   if (learningItemIds.length === 0) return;
   await db
     .delete(userSentenceGhostProgress)
-    .where(and(eq(userSentenceGhostProgress.userId, userId), inArray(userSentenceGhostProgress.learningItemId, learningItemIds)));
+    .where(
+      and(
+        eq(userSentenceGhostProgress.userId, userId),
+        inArray(userSentenceGhostProgress.learningItemId, learningItemIds),
+      ),
+    );
 }
 
-export async function applyGhostVacationSchedulingAdjustment(db: DbClient, userId: string, vacationStartedAt: Date, vacationEndedAt: Date): Promise<void> {
+export async function applyGhostVacationSchedulingAdjustment(
+  db: DbClient,
+  userId: string,
+  vacationStartedAt: Date,
+  vacationEndedAt: Date,
+): Promise<void> {
   const waitStartedAt = userSentenceGhostProgress.updatedAt;
 
   await db
@@ -296,5 +354,10 @@ export async function applyGhostVacationSchedulingAdjustment(db: DbClient, userI
         ELSE ${vacationEndedAt}::timestamptz + (${userSentenceGhostProgress.nextReviewAt} - ${waitStartedAt})
       END`,
     })
-    .where(and(eq(userSentenceGhostProgress.userId, userId), isNotNull(userSentenceGhostProgress.nextReviewAt)));
+    .where(
+      and(
+        eq(userSentenceGhostProgress.userId, userId),
+        isNotNull(userSentenceGhostProgress.nextReviewAt),
+      ),
+    );
 }

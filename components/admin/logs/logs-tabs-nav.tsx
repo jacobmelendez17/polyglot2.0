@@ -11,7 +11,11 @@ export function LogsTabsNav({ active }: LogsTabsNavProps) {
   const router = useRouter();
 
   return (
-    <Tabs value={active} onValueChange={(tab) => router.push(`/admin/logs?tab=${tab}`)} className="mb-4">
+    <Tabs
+      value={active}
+      onValueChange={(tab) => router.push(`/admin/logs?tab=${tab}`)}
+      className="mb-4"
+    >
       <TabsList>
         <TabsTrigger value="audit">Audit</TabsTrigger>
         <TabsTrigger value="system">System</TabsTrigger>

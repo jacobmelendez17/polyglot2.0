@@ -44,8 +44,19 @@ const readServerSupport = () => true;
  * A browser with neither a recording nor synthesis gets a disabled control
  * with a stated reason rather than a dead button.
  */
-export function PronunciationButton({ text, languageCode, audioUrl, label, size = "md", className }: PronunciationButtonProps) {
-  const canSynthesize = useSyncExternalStore(subscribeToNothing, readSupport, readServerSupport);
+export function PronunciationButton({
+  text,
+  languageCode,
+  audioUrl,
+  label,
+  size = "md",
+  className,
+}: PronunciationButtonProps) {
+  const canSynthesize = useSyncExternalStore(
+    subscribeToNothing,
+    readSupport,
+    readServerSupport,
+  );
   const [isPlaying, setPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -82,7 +93,11 @@ export function PronunciationButton({ text, languageCode, audioUrl, label, size 
     }
 
     setPlaying(true);
-    browserSpeechSynthesisProvider.speak({ text, languageCode, onEnd: () => setPlaying(false) });
+    browserSpeechSynthesisProvider.speak({
+      text,
+      languageCode,
+      onEnd: () => setPlaying(false),
+    });
   }
 
   return (
@@ -90,8 +105,16 @@ export function PronunciationButton({ text, languageCode, audioUrl, label, size 
       type="button"
       onClick={handleClick}
       disabled={!isAvailable}
-      aria-label={isAvailable ? `Play pronunciation of ${spokenLabel}` : `Pronunciation of ${spokenLabel} is unavailable in this browser`}
-      title={isAvailable ? undefined : "This browser cannot play pronunciation audio."}
+      aria-label={
+        isAvailable
+          ? `Play pronunciation of ${spokenLabel}`
+          : `Pronunciation of ${spokenLabel} is unavailable in this browser`
+      }
+      title={
+        isAvailable
+          ? undefined
+          : "This browser cannot play pronunciation audio."
+      }
       className={cn(
         "inline-flex shrink-0 cursor-pointer items-center justify-center rounded-full text-primary transition-colors",
         "hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
@@ -102,9 +125,15 @@ export function PronunciationButton({ text, languageCode, audioUrl, label, size 
       )}
     >
       {isAvailable ? (
-        <Volume2 className={size === "sm" ? "h-4 w-4" : "h-5 w-5"} aria-hidden="true" />
+        <Volume2
+          className={size === "sm" ? "h-4 w-4" : "h-5 w-5"}
+          aria-hidden="true"
+        />
       ) : (
-        <VolumeX className={size === "sm" ? "h-4 w-4" : "h-5 w-5"} aria-hidden="true" />
+        <VolumeX
+          className={size === "sm" ? "h-4 w-4" : "h-5 w-5"}
+          aria-hidden="true"
+        />
       )}
     </button>
   );

@@ -19,8 +19,16 @@ function getZonedDateParts(date: Date, timeZone: string) {
     second: "2-digit",
     hourCycle: "h23",
   }).formatToParts(date);
-  const value = (type: string) => Number(parts.find((part) => part.type === type)?.value);
-  return { year: value("year"), month: value("month"), day: value("day"), hour: value("hour"), minute: value("minute"), second: value("second") };
+  const value = (type: string) =>
+    Number(parts.find((part) => part.type === type)?.value);
+  return {
+    year: value("year"),
+    month: value("month"),
+    day: value("day"),
+    hour: value("hour"),
+    minute: value("minute"),
+    second: value("second"),
+  };
 }
 
 /**
@@ -32,10 +40,22 @@ function getZonedDateParts(date: Date, timeZone: string) {
  * transition's own size (at most an hour) — an acceptable, extremely rare
  * edge case for a once-daily scheduling boundary.
  */
-function localMidnightToUtc(year: number, month: number, day: number, timeZone: string): Date {
+function localMidnightToUtc(
+  year: number,
+  month: number,
+  day: number,
+  timeZone: string,
+): Date {
   const utcGuess = Date.UTC(year, month - 1, day, 0, 0, 0);
   const zonedGuess = getZonedDateParts(new Date(utcGuess), timeZone);
-  const zonedGuessAsUtc = Date.UTC(zonedGuess.year, zonedGuess.month - 1, zonedGuess.day, zonedGuess.hour, zonedGuess.minute, zonedGuess.second);
+  const zonedGuessAsUtc = Date.UTC(
+    zonedGuess.year,
+    zonedGuess.month - 1,
+    zonedGuess.day,
+    zonedGuess.hour,
+    zonedGuess.minute,
+    zonedGuess.second,
+  );
   const drift = zonedGuessAsUtc - utcGuess;
   return new Date(utcGuess - drift);
 }

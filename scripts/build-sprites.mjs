@@ -58,7 +58,9 @@ const MAX_SHEET_DIMENSION = 3600;
 async function main() {
   const name = process.argv[2];
   if (!name) {
-    console.error("Usage: node scripts/build-sprites.mjs <animation-folder-name>");
+    console.error(
+      "Usage: node scripts/build-sprites.mjs <animation-folder-name>",
+    );
     console.error("Example: node scripts/build-sprites.mjs hero-here");
     process.exitCode = 1;
     return;
@@ -68,7 +70,9 @@ async function main() {
   const outputDir = path.join(repoRoot, "public", "sprites");
 
   const sourceFrames = await loadFrameSequence(inputDir);
-  console.log(`Found ${sourceFrames.length} frames in public/animations/${name}/`);
+  console.log(
+    `Found ${sourceFrames.length} frames in public/animations/${name}/`,
+  );
 
   const sourceSize = await validateUniformSize(sourceFrames);
   console.log(`Source frame size: ${sourceSize.width}x${sourceSize.height}`);
@@ -83,10 +87,17 @@ async function main() {
     { columns, rows, maxSheetDimension: MAX_SHEET_DIMENSION },
   );
   if (frameWidth !== sourceSize.width) {
-    console.log(`Downscaled to ${frameWidth}x${frameHeight} for packing (source frames untouched)`);
+    console.log(
+      `Downscaled to ${frameWidth}x${frameHeight} for packing (source frames untouched)`,
+    );
   }
 
-  const spritePng = await compositeSprite(frames, { frameWidth, frameHeight, columns, rows });
+  const spritePng = await compositeSprite(frames, {
+    frameWidth,
+    frameHeight,
+    columns,
+    rows,
+  });
   const hash = createHash("sha256").update(spritePng).digest("hex").slice(0, 8);
 
   await mkdir(outputDir, { recursive: true });
@@ -103,7 +114,10 @@ async function main() {
     rows,
     frameCount: frames.length,
   };
-  await writeFile(path.join(outputDir, `${name}.json`), JSON.stringify(manifest, null, 2) + "\n");
+  await writeFile(
+    path.join(outputDir, `${name}.json`),
+    JSON.stringify(manifest, null, 2) + "\n",
+  );
 
   console.log(`Wrote public/sprites/${imagePath}`);
   console.log(`Wrote public/sprites/${name}.json`);
@@ -148,12 +162,18 @@ async function validateUniformSize(frames) {
   const sizes = await Promise.all(
     frames.map(async (frame) => {
       const metadata = await sharp(frame.buffer).metadata();
-      return { frameNumber: frame.frameNumber, width: metadata.width, height: metadata.height };
+      return {
+        frameNumber: frame.frameNumber,
+        width: metadata.width,
+        height: metadata.height,
+      };
     }),
   );
 
   const { width, height } = sizes[0];
-  const mismatch = sizes.find((size) => size.width !== width || size.height !== height);
+  const mismatch = sizes.find(
+    (size) => size.width !== width || size.height !== height,
+  );
   if (mismatch) {
     throw new Error(
       `Frame ${mismatch.frameNumber} is ${mismatch.width}x${mismatch.height}, expected ${width}x${height} (from frame 1). All frames must be the same size.`,
@@ -169,8 +189,16 @@ async function validateUniformSize(frames) {
  * `maxSheetDimension` on both sides. Never upscales: a source already small
  * enough (few frames, or already-small art) passes through untouched.
  */
-async function downscaleFrames(frames, { width, height }, { columns, rows, maxSheetDimension }) {
-  const scale = Math.min(1, maxSheetDimension / (columns * width), maxSheetDimension / (rows * height));
+async function downscaleFrames(
+  frames,
+  { width, height },
+  { columns, rows, maxSheetDimension },
+) {
+  const scale = Math.min(
+    1,
+    maxSheetDimension / (columns * width),
+    maxSheetDimension / (rows * height),
+  );
   if (scale >= 1) {
     return { frames, frameWidth: width, frameHeight: height };
   }
@@ -181,14 +209,20 @@ async function downscaleFrames(frames, { width, height }, { columns, rows, maxSh
   const scaledFrames = await Promise.all(
     frames.map(async ({ frameNumber, buffer }) => ({
       frameNumber,
-      buffer: await sharp(buffer).resize(frameWidth, frameHeight).png().toBuffer(),
+      buffer: await sharp(buffer)
+        .resize(frameWidth, frameHeight)
+        .png()
+        .toBuffer(),
     })),
   );
 
   return { frames: scaledFrames, frameWidth, frameHeight };
 }
 
-async function compositeSprite(frames, { frameWidth, frameHeight, columns, rows }) {
+async function compositeSprite(
+  frames,
+  { frameWidth, frameHeight, columns, rows },
+) {
   const composites = frames.map(({ frameNumber, buffer }) => {
     const index = frameNumber - 1;
     const col = index % columns;
@@ -212,7 +246,9 @@ async function compositeSprite(frames, { frameWidth, frameHeight, columns, rows 
 /** Removes any previously generated sprite PNG for this name before writing the new one, so stale hashed files don't accumulate. */
 async function removeStaleOutputs(outputDir, name) {
   const entries = await readdir(outputDir).catch(() => []);
-  const stalePattern = new RegExp(`^${escapeRegExp(name)}\\.[0-9a-f]{8}\\.png$`);
+  const stalePattern = new RegExp(
+    `^${escapeRegExp(name)}\\.[0-9a-f]{8}\\.png$`,
+  );
   await Promise.all(
     entries
       .filter((entry) => stalePattern.test(entry))

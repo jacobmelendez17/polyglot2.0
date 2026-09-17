@@ -1,5 +1,9 @@
 import type { DbClient } from "@/db/client";
-import { getLearningItem, getLevelById, getLevelsByLanguage } from "@/domains/curriculum/curriculum-repository";
+import {
+  getLearningItem,
+  getLevelById,
+  getLevelsByLanguage,
+} from "@/domains/curriculum/curriculum-repository";
 import { withIdempotency } from "@/domains/idempotency";
 import {
   applyItemProgressUpdate,
@@ -10,13 +14,25 @@ import {
 } from "@/domains/progress/repository";
 import { ReviewError } from "@/lib/errors/review-errors";
 
-import { LEVEL_UNLOCK_MINIMUM_STAGE, LEVEL_UNLOCK_RATIO } from "./review-config";
-import type { ReviewQueueTimingMode, SrsIntervalMode, SrsStrictness } from "./review-preference";
+import {
+  LEVEL_UNLOCK_MINIMUM_STAGE,
+  LEVEL_UNLOCK_RATIO,
+} from "./review-config";
+import type {
+  ReviewQueueTimingMode,
+  SrsIntervalMode,
+  SrsStrictness,
+} from "./review-preference";
 import { applyReviewQueueTiming } from "./review-queue-timing";
 import { insertReviewEvent } from "./review-repository";
 import { calculateReviewStageResult } from "./review-result";
 import { SRS_STAGE_ORDER } from "./srs-config";
-import { calculateFluentMaintenanceReview, calculateNextReview, getStageIndex, isReviewDue } from "./srs-rules";
+import {
+  calculateFluentMaintenanceReview,
+  calculateNextReview,
+  getStageIndex,
+  isReviewDue,
+} from "./srs-rules";
 import type { ReviewItemCompletionPreview } from "./review-types";
 
 /**
@@ -95,7 +111,8 @@ export async function applyReviewCompletion(
         languageId: input.languageId,
       });
       if (!locked) throw new ReviewError("ITEM_NOT_FOUND");
-      if (locked.version !== input.expectedVersion) throw new ReviewError("STALE_REVIEW");
+      if (locked.version !== input.expectedVersion)
+        throw new ReviewError("STALE_REVIEW");
       if (!isReviewDue({ nextReviewAt: locked.nextReviewAt, now: input.now })) {
         throw new ReviewError("REVIEW_NOT_DUE");
       }
@@ -105,7 +122,11 @@ export async function applyReviewCompletion(
       const level = await getLevelById(tx, curriculumItem.levelId);
       if (!level) throw new ReviewError("ITEM_NOT_FOUND");
 
-      const { stage: stageAfter, result, reachedFluent } = calculateReviewStageResult({
+      const {
+        stage: stageAfter,
+        result,
+        reachedFluent,
+      } = calculateReviewStageResult({
         stage: locked.srsStage,
         hadIncorrectRequiredAnswer: input.hadIncorrectRequiredAnswer,
         srsStrictness: input.srsStrictness,
@@ -129,7 +150,9 @@ export async function applyReviewCompletion(
         // original `fluentAt`, which would silently stop advancing after
         // the first maintenance cycle. Bypasses SRS Interval / Review Queue
         // Timing outright rather than refining their output.
-        nextReviewAt = input.fluentMode ? calculateFluentMaintenanceReview(input.now) : null;
+        nextReviewAt = input.fluentMode
+          ? calculateFluentMaintenanceReview(input.now)
+          : null;
       } else {
         const rawNextReviewAt = calculateNextReview({
           stage: stageAfter,
@@ -139,7 +162,13 @@ export async function applyReviewCompletion(
         });
         // Spec 20 Review Queue Timing — the pipeline's last step, applied to
         // every freshly-computed due time regardless of advance/penalty.
-        nextReviewAt = rawNextReviewAt && applyReviewQueueTiming(rawNextReviewAt, input.reviewQueueTiming, input.timeZone);
+        nextReviewAt =
+          rawNextReviewAt &&
+          applyReviewQueueTiming(
+            rawNextReviewAt,
+            input.reviewQueueTiming,
+            input.timeZone,
+          );
       }
 
       const updated = await applyItemProgressUpdate(tx, {
@@ -169,14 +198,28 @@ export async function applyReviewCompletion(
         result,
       });
 
-      await evaluateLevelUnlock(tx, { userId: input.userId, languageId: input.languageId, completedLevel: level, now: input.now });
+      await evaluateLevelUnlock(tx, {
+        userId: input.userId,
+        languageId: input.languageId,
+        completedLevel: level,
+        now: input.now,
+      });
 
-      return { itemId: input.learningItemId, stageBefore: locked.srsStage, stageAfter, result, nextReviewAt, reachedFluent };
+      return {
+        itemId: input.learningItemId,
+        stageBefore: locked.srsStage,
+        stageAfter,
+        result,
+        nextReviewAt,
+        reachedFluent,
+      };
     },
   );
 }
 
-const QUALIFYING_STAGES = SRS_STAGE_ORDER.slice(getStageIndex(LEVEL_UNLOCK_MINIMUM_STAGE));
+const QUALIFYING_STAGES = SRS_STAGE_ORDER.slice(
+  getStageIndex(LEVEL_UNLOCK_MINIMUM_STAGE),
+);
 
 type CurriculumLevel = Awaited<ReturnType<typeof getLevelById>>;
 
@@ -189,15 +232,31 @@ type CurriculumLevel = Awaited<ReturnType<typeof getLevelById>>;
  */
 async function evaluateLevelUnlock(
   tx: DbClient,
-  { userId, languageId, completedLevel, now }: { userId: string; languageId: string; completedLevel: NonNullable<CurriculumLevel>; now: Date },
+  {
+    userId,
+    languageId,
+    completedLevel,
+    now,
+  }: {
+    userId: string;
+    languageId: string;
+    completedLevel: NonNullable<CurriculumLevel>;
+    now: Date;
+  },
 ): Promise<void> {
   const levels = await getLevelsByLanguage(tx, languageId);
-  const nextLevel = levels.find((level) => level.levelNumber === completedLevel.levelNumber + 1);
+  const nextLevel = levels.find(
+    (level) => level.levelNumber === completedLevel.levelNumber + 1,
+  );
   if (!nextLevel) return;
 
   const [totalGatingItems, itemsAtOrAboveThreshold] = await Promise.all([
     countLevelGatingItems(tx, completedLevel.id),
-    countUserItemsAtOrAboveStageInLevel(tx, { userId, levelId: completedLevel.id, qualifyingStages: QUALIFYING_STAGES }),
+    countUserItemsAtOrAboveStageInLevel(tx, {
+      userId,
+      levelId: completedLevel.id,
+      qualifyingStages: QUALIFYING_STAGES,
+    }),
   ]);
 
   if (totalGatingItems === 0) return;

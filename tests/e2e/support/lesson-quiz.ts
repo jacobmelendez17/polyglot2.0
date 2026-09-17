@@ -20,7 +20,8 @@ const LESSON_TERMS = [
   { term: "verde", meaning: "green", toEnglish: "green", toSpanish: "verde" },
 ] as const;
 
-const LESSON_ANSWERS: Record<string, { toEnglish: string; toSpanish: string }> = {};
+const LESSON_ANSWERS: Record<string, { toEnglish: string; toSpanish: string }> =
+  {};
 for (const { term, meaning, toEnglish, toSpanish } of LESSON_TERMS) {
   LESSON_ANSWERS[term] = { toEnglish, toSpanish };
   LESSON_ANSWERS[meaning] = { toEnglish, toSpanish };
@@ -59,7 +60,9 @@ export async function studyAllLessonItems(page: Page): Promise<void> {
 
   // The real completion signal: the quiz's answer field actually mounted,
   // not just that the click was dispatched.
-  await page.getByLabel("Your answer").waitFor({ state: "visible", timeout: 30_000 });
+  await page
+    .getByLabel("Your answer")
+    .waitFor({ state: "visible", timeout: 30_000 });
 }
 
 export interface CompleteLessonQuizOptions {
@@ -78,7 +81,10 @@ export interface CompleteLessonQuizOptions {
  * is complete. Assumes `studyAllLessonItems` has already run and "Start
  * Quiz" has been clicked.
  */
-export async function completeLessonQuiz(page: Page, options: CompleteLessonQuizOptions = {}): Promise<void> {
+export async function completeLessonQuiz(
+  page: Page,
+  options: CompleteLessonQuizOptions = {},
+): Promise<void> {
   const answerInput = page.getByLabel("Your answer");
   let hasMissed = !options.missTermOnce;
 
@@ -89,11 +95,19 @@ export async function completeLessonQuiz(page: Page, options: CompleteLessonQuiz
     if (!(await answerInput.isVisible().catch(() => false))) return; // quiz finished
 
     const heading = await page.locator("body").innerText();
-    const lines = heading.split("\n").map((line) => line.trim()).filter(Boolean);
+    const lines = heading
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
     const term = lines[1] ?? lines[0]!;
-    const direction: "toEnglish" | "toSpanish" = heading.includes("Spanish → English") ? "toEnglish" : "toSpanish";
+    const direction: "toEnglish" | "toSpanish" = heading.includes(
+      "Spanish → English",
+    )
+      ? "toEnglish"
+      : "toSpanish";
     const correctAnswer = LESSON_ANSWERS[term]?.[direction];
-    if (!correctAnswer) throw new Error(`No known answer for term "${term}" (${direction}).`);
+    if (!correctAnswer)
+      throw new Error(`No known answer for term "${term}" (${direction}).`);
 
     const shouldMiss = !hasMissed && term === options.missTermOnce;
     const answer = shouldMiss ? wrongAnswerFor(term) : correctAnswer;
@@ -101,16 +115,22 @@ export async function completeLessonQuiz(page: Page, options: CompleteLessonQuiz
 
     await answerInput.fill(answer);
     await page.keyboard.press("Enter");
-    await expect(page.getByText(shouldMiss ? /Not quite/i : /Correct!/i)).toBeVisible();
+    await expect(
+      page.getByText(shouldMiss ? /Not quite/i : /Correct!/i),
+    ).toBeVisible();
 
     await page.keyboard.press("Enter");
     // A cleared, editable input is the reliable "ready for the next
     // question" signal — the `readonly` attribute used for feedback
     // display can briefly linger through a transition.
-    await expect(answerInput).toHaveValue("", { timeout: 8_000 }).catch(() => {
-      // The quiz may have finished instead of advancing to another question.
-    });
+    await expect(answerInput)
+      .toHaveValue("", { timeout: 8_000 })
+      .catch(() => {
+        // The quiz may have finished instead of advancing to another question.
+      });
   }
 
-  throw new Error("Lesson quiz did not finish within the expected number of attempts.");
+  throw new Error(
+    "Lesson quiz did not finish within the expected number of attempts.",
+  );
 }

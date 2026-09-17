@@ -6,7 +6,11 @@ import { buildItemAdminSlots } from "@/components/items/item-detail/item-admin-s
 import { canManageCurriculum } from "@/domains/admin";
 import { buildItemDetailView } from "@/domains/curriculum";
 import type { CurriculumStatus } from "@/domains/curriculum";
-import { getItemAdminEditingData, getItemDetailPageData, getLearningItem } from "@/domains/curriculum/server";
+import {
+  getItemAdminEditingData,
+  getItemDetailPageData,
+  getLearningItem,
+} from "@/domains/curriculum/server";
 import { getVocabularyMappingView } from "@/domains/lexicon/server";
 import { requireUser } from "@/domains/users/server";
 
@@ -21,14 +25,21 @@ type ItemDetailPageProps = {
 // compliant, so `z.uuid()` would reject real data. Checked before any query
 // runs so a malformed id 404s cleanly instead of surfacing a raw Postgres
 // "invalid input syntax for type uuid" error.
-const UUID_LIKE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_LIKE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export async function generateMetadata({ params }: ItemDetailPageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: ItemDetailPageProps): Promise<Metadata> {
   const { itemId } = await params;
   if (!UUID_LIKE.test(itemId)) return { title: "Polyglot" };
 
   const item = await getLearningItem(itemId);
-  const label = item ? (item.type === "vocabulary" ? item.vocabulary.term : (item.grammar.title ?? item.grammar.structure)) : "Item";
+  const label = item
+    ? item.type === "vocabulary"
+      ? item.vocabulary.term
+      : (item.grammar.title ?? item.grammar.structure)
+    : "Item";
   return { title: `${label} — Polyglot` };
 }
 
@@ -63,7 +74,9 @@ export default async function ItemDetailPage({ params }: ItemDetailPageProps) {
     notFound();
   }
 
-  const adminSlots = canManageCurriculum(user) ? await buildAdminSlots(itemId, data.status, data.source.type) : undefined;
+  const adminSlots = canManageCurriculum(user)
+    ? await buildAdminSlots(itemId, data.status, data.source.type)
+    : undefined;
 
   return (
     <ItemDetailLayout
@@ -90,7 +103,11 @@ export default async function ItemDetailPage({ params }: ItemDetailPageProps) {
  * straight line, and so these queries are unmistakably behind the role check
  * at the call site.
  */
-async function buildAdminSlots(itemId: string, status: CurriculumStatus, itemType: "vocabulary" | "grammar") {
+async function buildAdminSlots(
+  itemId: string,
+  status: CurriculumStatus,
+  itemType: "vocabulary" | "grammar",
+) {
   const editing = await getItemAdminEditingData(itemId);
   if (!editing) return undefined;
 
@@ -98,7 +115,10 @@ async function buildAdminSlots(itemId: string, status: CurriculumStatus, itemTyp
   // forms, so grammar skips the mapping lookup entirely rather than issuing
   // a query that can only ever come back empty.
   const canSeedFromDictionary =
-    itemType === "vocabulary" ? (await getVocabularyMappingView(itemId)).mapping?.matchStatus === "manual" : false;
+    itemType === "vocabulary"
+      ? (await getVocabularyMappingView(itemId)).mapping?.matchStatus ===
+        "manual"
+      : false;
 
   return buildItemAdminSlots({ data: editing, status, canSeedFromDictionary });
 }

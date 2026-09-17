@@ -12,7 +12,9 @@ describe("SrsStageBadge", () => {
   it("shares one color across a stage's sub-stages while the number stays in the text", () => {
     const { container: first } = render(<SrsStageBadge stage="beginner_1" />);
     const { container: second } = render(<SrsStageBadge stage="beginner_4" />);
-    expect(first.firstElementChild?.className).toBe(second.firstElementChild?.className);
+    expect(first.firstElementChild?.className).toBe(
+      second.firstElementChild?.className,
+    );
     expect(screen.getByText("Beginner 1")).toBeInTheDocument();
     expect(screen.getByText("Beginner 4")).toBeInTheDocument();
   });

@@ -6,9 +6,9 @@ After onboarding, let the learner choose how new curriculum items are introduced
 
 The three modes are:
 
-* **Theme** — learner chooses a vocabulary theme and works through that theme
-* **Random** — lesson batches randomly mix available vocabulary and grammar
-* **Balanced** — lesson batches pull a little from each available vocabulary theme while grammar follows its configured curriculum order
+- **Theme** — learner chooses a vocabulary theme and works through that theme
+- **Random** — lesson batches randomly mix available vocabulary and grammar
+- **Balanced** — lesson batches pull a little from each available vocabulary theme while grammar follows its configured curriculum order
 
 All modes use the same curriculum and progression rules. They only change how new lesson material is selected.
 
@@ -36,11 +36,11 @@ Changing modes affects future lesson generation only.
 
 It must not modify:
 
-* learned items
-* SRS stages
-* review schedules
-* Level unlocks
-* existing progress
+- learned items
+- SRS stages
+- review schedules
+- Level unlocks
+- existing progress
 
 ## Theme Mode
 
@@ -72,8 +72,8 @@ Build each new lesson from the available unlearned curriculum items in the curre
 
 Randomize across:
 
-* vocabulary
-* grammar
+- vocabulary
+- grammar
 
 Respect the existing lesson batch-size configuration.
 
@@ -106,7 +106,7 @@ Keep grammar sequencing authoritative to the existing grammar curriculum configu
 
 Exception:
 
-* Random mode may mix currently eligible grammar and vocabulary together in the lesson batch
+- Random mode may mix currently eligible grammar and vocabulary together in the lesson batch
 
 Theme and Balanced modes must not scramble grammar progression.
 
@@ -116,11 +116,11 @@ All modes eventually teach the same Level curriculum.
 
 Do not change:
 
-* Level requirements
-* SRS algorithms
-* unlock thresholds
-* review behavior
-* completion rules
+- Level requirements
+- SRS algorithms
+- unlock thresholds
+- review behavior
+- completion rules
 
 A learner changing modes midway through a Level simply changes how the remaining unlearned items are selected.
 
@@ -130,9 +130,9 @@ Add the curriculum preference to Settings.
 
 Changing it should:
 
-* persist immediately
-* affect the next generated lesson session
-* preserve all existing progress
+- persist immediately
+- affect the next generated lesson session
+- preserve all existing progress
 
 Do not regenerate or mutate an already-active lesson session.
 
@@ -142,9 +142,9 @@ Add the curriculum decider to the existing Admin/Developer Sandbox.
 
 Allow:
 
-* replaying the initial curriculum-choice screen
-* switching between Theme, Random, and Balanced
-* previewing lesson selection under each mode
+- replaying the initial curriculum-choice screen
+- switching between Theme, Random, and Balanced
+- previewing lesson selection under each mode
 
 Sandbox changes must not modify the real admin/developer learner preference or real progress.
 
@@ -158,12 +158,12 @@ The CSV should create real Pending curriculum records using the existing curricu
 
 Preserve:
 
-* stable item identities
-* Level
-* batch/theme
-* ordering
-* vocabulary vs grammar type
-* authored translations/content from the CSV
+- stable item identities
+- Level
+- batch/theme
+- ordering
+- vocabulary vs grammar type
+- authored translations/content from the CSV
 
 Do not use the CSV as a runtime data source.
 
@@ -175,11 +175,11 @@ Imported Level 1 vocabulary should enter the existing Lexicon/dictionary workflo
 
 After database intake:
 
-* derive dictionary lookup forms
-* attempt existing automatic dictionary matching
-* auto-match only safe candidates
-* send ambiguous/unmatched vocabulary to the existing review queue
-* allow Admin mapping confirmation
+- derive dictionary lookup forms
+- attempt existing automatic dictionary matching
+- auto-match only safe candidates
+- send ambiguous/unmatched vocabulary to the existing review queue
+- allow Admin mapping confirmation
 
 Grammar items do not use dictionary mapping.
 
@@ -205,30 +205,30 @@ Keep selection deterministic/testable where practical, especially for Theme and 
 
 ## Scope Limits
 
-* no new SRS behavior
-* no changes to Level unlock rules
-* no adaptive AI curriculum ordering
-* no permanent per-theme progress system beyond existing item progress
-* no CSV runtime loading
-* no automatic curriculum publication
-* no grammar dictionary integration
+- no new SRS behavior
+- no changes to Level unlock rules
+- no adaptive AI curriculum ordering
+- no permanent per-theme progress system beyond existing item progress
+- no CSV runtime loading
+- no automatic curriculum publication
+- no grammar dictionary integration
 
 ## Check When Done
 
-* Curriculum decider appears immediately after onboarding.
-* Theme, Random, and Balanced modes can be selected.
-* Preference persists per learner/language.
-* Preference can be changed from Settings.
-* Switching modes only affects future lesson selection.
-* Theme mode never fills a short theme batch using another theme.
-* Random mode mixes eligible grammar and vocabulary.
-* Balanced mode distributes vocabulary across themes.
-* Grammar ordering remains authoritative outside Random mode.
-* Existing SRS/progress/unlock behavior is unchanged.
-* Sandbox can replay and test all modes without affecting real state.
-* Level 1 CSV is imported into the real curriculum database.
-* Level 1 vocabulary enters the existing dictionary review workflow.
-* Grammar bypasses dictionary mapping.
-* Imported curriculum remains Pending until publication.
-* Tests pass.
-* `npm run build` passes.
+- Curriculum decider appears immediately after onboarding.
+- Theme, Random, and Balanced modes can be selected.
+- Preference persists per learner/language.
+- Preference can be changed from Settings.
+- Switching modes only affects future lesson selection.
+- Theme mode never fills a short theme batch using another theme.
+- Random mode mixes eligible grammar and vocabulary.
+- Balanced mode distributes vocabulary across themes.
+- Grammar ordering remains authoritative outside Random mode.
+- Existing SRS/progress/unlock behavior is unchanged.
+- Sandbox can replay and test all modes without affecting real state.
+- Level 1 CSV is imported into the real curriculum database.
+- Level 1 vocabulary enters the existing dictionary review workflow.
+- Grammar bypasses dictionary mapping.
+- Imported curriculum remains Pending until publication.
+- Tests pass.
+- `npm run build` passes.

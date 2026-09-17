@@ -2,7 +2,10 @@ import { BookOpen, PencilLine } from "lucide-react";
 
 import type { LearningItemType } from "@/domains/lessons";
 
-const CATEGORY_CONFIG: Record<LearningItemType, { label: string; icon: typeof BookOpen; className: string }> = {
+const CATEGORY_CONFIG: Record<
+  LearningItemType,
+  { label: string; icon: typeof BookOpen; className: string }
+> = {
   vocabulary: {
     label: "Vocabulary",
     icon: BookOpen,
@@ -19,7 +22,9 @@ const CATEGORY_CONFIG: Record<LearningItemType, { label: string; icon: typeof Bo
 export function CategoryBadge({ itemType }: { itemType: LearningItemType }) {
   const { label, icon: Icon, className } = CATEGORY_CONFIG[itemType];
   return (
-    <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium ${className}`}>
+    <span
+      className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium ${className}`}
+    >
       <Icon className="h-3 w-3" aria-hidden="true" />
       {label}
     </span>

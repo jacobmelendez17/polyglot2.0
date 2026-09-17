@@ -5,8 +5,18 @@ import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { SETTINGS_NAV_ITEMS, isSettingsNavItemCurrent } from "./settings-nav-items";
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import {
+  SETTINGS_NAV_ITEMS,
+  isSettingsNavItemCurrent,
+} from "./settings-nav-items";
 
 /**
  * Mobile Settings navigation (spec 20 "Layout": "do not squeeze the desktop
@@ -39,7 +49,9 @@ export function SettingsMobileNav() {
                   aria-current={isCurrent ? "page" : undefined}
                   className={cn(
                     "rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-muted",
-                    item.destructive ? "mt-4 border-t border-border pt-4 text-destructive" : "text-foreground",
+                    item.destructive
+                      ? "mt-4 border-t border-border pt-4 text-destructive"
+                      : "text-foreground",
                     isCurrent && "bg-muted font-semibold",
                   )}
                 >

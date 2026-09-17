@@ -13,13 +13,26 @@ import { Flame, GraduationCap, Sparkles } from "lucide-react";
  */
 const HIGHLIGHTS = [
   { icon: GraduationCap, label: "Level 1", detail: "unlocked", delay: "" },
-  { icon: Flame, label: "Day 1", detail: "streak starts today", delay: "ob-delay-2" },
-  { icon: Sparkles, label: "First lesson", detail: "ready when you are", delay: "ob-delay-4" },
+  {
+    icon: Flame,
+    label: "Day 1",
+    detail: "streak starts today",
+    delay: "ob-delay-2",
+  },
+  {
+    icon: Sparkles,
+    label: "First lesson",
+    detail: "ready when you are",
+    delay: "ob-delay-4",
+  },
 ] as const;
 
 export function StartSlide() {
   return (
-    <div aria-hidden="true" className="flex h-56 w-full items-center justify-center sm:h-72">
+    <div
+      aria-hidden="true"
+      className="flex h-56 w-full items-center justify-center sm:h-72"
+    >
       <ul className="flex w-full max-w-sm flex-col gap-2">
         {HIGHLIGHTS.map(({ icon: Icon, label, detail, delay }) => (
           <li
@@ -30,8 +43,12 @@ export function StartSlide() {
               <Icon className="h-4 w-4 text-foreground" />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-sm font-semibold text-foreground">{label}</span>
-              <span className="block text-xs text-muted-foreground">{detail}</span>
+              <span className="block text-sm font-semibold text-foreground">
+                {label}
+              </span>
+              <span className="block text-xs text-muted-foreground">
+                {detail}
+              </span>
             </span>
           </li>
         ))}

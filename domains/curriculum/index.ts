@@ -1,5 +1,11 @@
-export { getEligibleLearningItems, getLearningItemsByIds } from "./curriculum-service";
-export { FIXTURE_LANGUAGE_ID, FIXTURE_LEARNING_ITEMS } from "./curriculum-fixtures";
+export {
+  getEligibleLearningItems,
+  getLearningItemsByIds,
+} from "./curriculum-service";
+export {
+  FIXTURE_LANGUAGE_ID,
+  FIXTURE_LEARNING_ITEMS,
+} from "./curriculum-fixtures";
 export type {
   CurriculumExample,
   CurriculumResource,
@@ -65,7 +71,12 @@ export type {
 
 // Spec 10 — pure, database-free (no db/client.ts import, safe for a "use
 // client" component to value-import) level-page transforms.
-export { LEVEL_NUMBER_MAX, LEVEL_NUMBER_MIN, buildLevelViewModel, parseLevelNumber } from "./level-view";
+export {
+  LEVEL_NUMBER_MAX,
+  LEVEL_NUMBER_MIN,
+  buildLevelViewModel,
+  parseLevelNumber,
+} from "./level-view";
 export type { LevelCardItem, LevelViewModel } from "./level-view";
 
 // Spec 13's bulk vocabulary import — column contract, size limits, and
@@ -129,4 +140,7 @@ export type {
   ItemDetailView,
   ItemNavigationView,
 } from "./item-detail-view";
-export type { CurriculumGrammarContentBlock, CurriculumItemResource } from "./curriculum-db-types";
+export type {
+  CurriculumGrammarContentBlock,
+  CurriculumItemResource,
+} from "./curriculum-db-types";

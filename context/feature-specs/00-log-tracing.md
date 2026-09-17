@@ -8,18 +8,18 @@ Add centralized structured logging and tracing throughout Polyglot so production
 
 When something breaks, logs should make it possible to determine:
 
-* which request or operation failed
-* which function/domain operation failed
-* which route or Server Action triggered it
-* which user/account was affected when safe to record
-* what step the operation reached
-* which external dependency was involved
-* how long the operation took
-* whether a database transaction committed or rolled back
-* whether the error was expected or unexpected
-* the application's structured error code
-* which deployment/environment produced the error
-* all related log entries belonging to the same request
+- which request or operation failed
+- which function/domain operation failed
+- which route or Server Action triggered it
+- which user/account was affected when safe to record
+- what step the operation reached
+- which external dependency was involved
+- how long the operation took
+- whether a database transaction committed or rolled back
+- whether the error was expected or unexpected
+- the application's structured error code
+- which deployment/environment produced the error
+- all related log entries belonging to the same request
 
 Logging must never expose sensitive learner content, authentication secrets, credentials, or private application data.
 
@@ -88,7 +88,7 @@ logger.info({
   userId,
   itemId,
   durationMs,
-})
+});
 ```
 
 Production logs should be machine-readable structured output.
@@ -107,11 +107,11 @@ Detailed development/troubleshooting information.
 
 Examples:
 
-* operation entered
-* branch/decision selected
-* count of records returned
-* sanitized configuration decision
-* retry attempt
+- operation entered
+- branch/decision selected
+- count of records returned
+- sanitized configuration decision
+- retry attempt
 
 Debug output may be disabled or reduced in production.
 
@@ -123,12 +123,12 @@ Normal important system events.
 
 Examples:
 
-* lesson completed
-* review completed
-* account reset completed
-* admin published curriculum
-* import job completed
-* production background task completed
+- lesson completed
+- review completed
+- account reset completed
+- admin published curriculum
+- import job completed
+- production background task completed
 
 Do not log every trivial render/read operation at INFO.
 
@@ -140,14 +140,14 @@ Unexpected but recoverable situations.
 
 Examples:
 
-* external provider temporarily unavailable
-* slow database operation
-* stale request rejected
-* rate limit triggered
-* retry required
-* missing optional media
-* duplicate operation safely ignored
-* fallback behavior used
+- external provider temporarily unavailable
+- slow database operation
+- stale request rejected
+- rate limit triggered
+- retry required
+- missing optional media
+- duplicate operation safely ignored
+- fallback behavior used
 
 ---
 
@@ -157,13 +157,13 @@ An operation failed.
 
 Examples:
 
-* review transaction failed
-* lesson enrollment failed
-* database operation failed
-* provider request failed
-* unauthorized mutation attempt
-* Lambda job failed
-* account deletion finalization failed
+- review transaction failed
+- lesson enrollment failed
+- database operation failed
+- provider request failed
+- unauthorized mutation attempt
+- Lambda job failed
+- account deletion finalization failed
 
 Errors should contain enough structured context to diagnose the failure.
 
@@ -454,9 +454,9 @@ trace_id
 
 Do not log:
 
-* the learner's typed answer
-* accepted answers
-* example-sentence content
+- the learner's typed answer
+- accepted answers
+- example-sentence content
 
 ---
 
@@ -494,10 +494,10 @@ Dashboard reads generally do not need verbose success logging.
 
 Log:
 
-* aggregation failures
-* unusually slow aggregation
-* database/provider failures
-* impossible/inconsistent state
+- aggregation failures
+- unusually slow aggregation
+- database/provider failures
+- impossible/inconsistent state
 
 Do not generate INFO logs every time a normal dashboard successfully loads.
 
@@ -520,11 +520,11 @@ settings.vacation.disable
 
 Log:
 
-* operation
-* user ID
-* setting category
-* success/failure
-* duration
+- operation
+- user ID
+- setting category
+- success/failure
+- duration
 
 Do not log sensitive setting values unless explicitly known to be safe.
 
@@ -769,12 +769,12 @@ review.transaction.failed
 
 This is particularly important for:
 
-* review completion
-* lesson SRS enrollment
-* account reset
-* account deletion
-* curriculum publication
-* bulk imports
+- review completion
+- lesson SRS enrollment
+- account reset
+- account deletion
+- curriculum publication
+- bulk imports
 
 ---
 
@@ -915,10 +915,10 @@ Client-side errors should eventually feed the centralized observability system.
 
 Important browser failures include:
 
-* React error boundaries
-* unexpected page exceptions
-* failed critical API requests
-* unhandled promise rejections
+- React error boundaries
+- unexpected page exceptions
+- failed critical API requests
+- unhandled promise rejections
 
 Do not create large amounts of browser console logging.
 
@@ -1086,22 +1086,22 @@ Do not rely on reading the hostname later.
 
 Never log:
 
-* passwords
-* authentication tokens
-* cookies
-* session IDs where they function as credentials
-* Clerk secrets
-* Neon connection strings
-* AWS secret keys
-* R2 credentials
-* Upstash credentials
-* presigned upload URLs containing credentials
-* raw authorization headers
-* journal entries
-* private notes
-* microphone recordings
-* full typed learner answers
-* complete request bodies by default
+- passwords
+- authentication tokens
+- cookies
+- session IDs where they function as credentials
+- Clerk secrets
+- Neon connection strings
+- AWS secret keys
+- R2 credentials
+- Upstash credentials
+- presigned upload URLs containing credentials
+- raw authorization headers
+- journal entries
+- private notes
+- microphone recordings
+- full typed learner answers
+- complete request bodies by default
 
 ---
 
@@ -1185,20 +1185,20 @@ For significant server operations.
 
 Such as:
 
-* reviews
-* lessons
-* admin publishing
-* account resets
-* account deletion
-* imports
+- reviews
+- lessons
+- admin publishing
+- account resets
+- account deletion
+- imports
 
 ### Sample/omit routine successful reads
 
 Such as:
 
-* simple curriculum reads
-* normal dashboard reads
-* static content requests
+- simple curriculum reads
+- normal dashboard reads
+- static content requests
 
 unless they are slow or fail.
 
@@ -1319,10 +1319,10 @@ This spec should prepare logs/traces to integrate with Sentry.
 
 When Sentry is configured:
 
-* unexpected errors should report to Sentry
-* trace ID should be attached where possible
-* release/environment should match structured logs
-* logs and Sentry events should be cross-referenceable
+- unexpected errors should report to Sentry
+- trace ID should be attached where possible
+- release/environment should match structured logs
+- logs and Sentry events should be cross-referenceable
 
 Do not send sensitive learning content to Sentry.
 
@@ -1373,16 +1373,16 @@ Test the observability layer itself.
 
 Verify:
 
-* trace IDs are generated
-* nested operations keep the same trace ID
-* concurrent requests do not share trace context
-* operation wrapper records success
-* operation wrapper records failure
-* duration is recorded
-* error code is preserved
-* sensitive configured fields are redacted
-* passwords/tokens cannot appear in normal logger serialization
-* production logging does not accidentally emit full request bodies
+- trace IDs are generated
+- nested operations keep the same trace ID
+- concurrent requests do not share trace context
+- operation wrapper records success
+- operation wrapper records failure
+- duration is recorded
+- error code is preserved
+- sensitive configured fields are redacted
+- passwords/tokens cannot appear in normal logger serialization
+- production logging does not accidentally emit full request bodies
 
 Add targeted tests to representative critical operations.
 
@@ -1419,16 +1419,16 @@ which error code occurred
 
 This spec does not:
 
-* build a custom logging dashboard
-* store logs inside Polyglot's PostgreSQL database
-* log every function invocation
-* log every SQL query
-* expose learner content for debugging
-* implement business analytics
-* replace admin audit logs
-* add arbitrary client-side console logging
-* add production alert paging
-* create a full distributed tracing platform
+- build a custom logging dashboard
+- store logs inside Polyglot's PostgreSQL database
+- log every function invocation
+- log every SQL query
+- expose learner content for debugging
+- implement business analytics
+- replace admin audit logs
+- add arbitrary client-side console logging
+- add production alert paging
+- create a full distributed tracing platform
 
 It establishes the logging/tracing foundation those systems may consume later.
 
@@ -1436,46 +1436,46 @@ It establishes the logging/tracing foundation those systems may consume later.
 
 # Check When Done
 
-* [ ] Central structured logger exists
-* [ ] Production logging uses structured machine-readable output
-* [ ] Development logs remain readable
-* [ ] Log levels are standardized
-* [ ] Trace IDs exist
-* [ ] Request IDs exist
-* [ ] Trace context survives nested server operations
-* [ ] Concurrent requests cannot leak trace state
-* [ ] Important operations identify their logical function/operation
-* [ ] Operation start/success/failure can be traced
-* [ ] Important operations include duration
-* [ ] Environment is attached
-* [ ] release/deployment identifier is attached
-* [ ] Route-handler failures are logged
-* [ ] important Server Action failures are logged
-* [ ] authentication/authorization failures are traceable
-* [ ] review completion is traced
-* [ ] lesson completion/enrollment is traced
-* [ ] transaction failures identify rollback/failure
-* [ ] important Settings mutations are traced
-* [ ] account reset is traced
-* [ ] account deletion lifecycle is traced
-* [ ] admin curriculum mutations are traced
-* [ ] curriculum imports carry import/job correlation
-* [ ] Lambda failures identify processing stage
-* [ ] queue failures are traceable
-* [ ] provider failures identify provider + operation
-* [ ] rate-limit failures are traceable
-* [ ] idempotency replay/in-progress behavior is traceable
-* [ ] slow critical operations produce warnings
-* [ ] unexpected errors preserve stack/cause where available
-* [ ] structured application error codes appear in logs
-* [ ] raw passwords are never logged
-* [ ] tokens/cookies/auth headers are never logged
-* [ ] database connection strings are never logged
-* [ ] learner typed answers are never logged
-* [ ] journal/private-note content is never logged
-* [ ] central sensitive-field redaction exists
-* [ ] trace behavior is tested
-* [ ] redaction behavior is tested
-* [ ] representative failure paths have been manually inspected
-* [ ] logs are useful enough to determine what function/operation failed
-* [ ] `architecture.md` / `code-standards.md` / `progress-tracker.md` updated as necessary
+- [ ] Central structured logger exists
+- [ ] Production logging uses structured machine-readable output
+- [ ] Development logs remain readable
+- [ ] Log levels are standardized
+- [ ] Trace IDs exist
+- [ ] Request IDs exist
+- [ ] Trace context survives nested server operations
+- [ ] Concurrent requests cannot leak trace state
+- [ ] Important operations identify their logical function/operation
+- [ ] Operation start/success/failure can be traced
+- [ ] Important operations include duration
+- [ ] Environment is attached
+- [ ] release/deployment identifier is attached
+- [ ] Route-handler failures are logged
+- [ ] important Server Action failures are logged
+- [ ] authentication/authorization failures are traceable
+- [ ] review completion is traced
+- [ ] lesson completion/enrollment is traced
+- [ ] transaction failures identify rollback/failure
+- [ ] important Settings mutations are traced
+- [ ] account reset is traced
+- [ ] account deletion lifecycle is traced
+- [ ] admin curriculum mutations are traced
+- [ ] curriculum imports carry import/job correlation
+- [ ] Lambda failures identify processing stage
+- [ ] queue failures are traceable
+- [ ] provider failures identify provider + operation
+- [ ] rate-limit failures are traceable
+- [ ] idempotency replay/in-progress behavior is traceable
+- [ ] slow critical operations produce warnings
+- [ ] unexpected errors preserve stack/cause where available
+- [ ] structured application error codes appear in logs
+- [ ] raw passwords are never logged
+- [ ] tokens/cookies/auth headers are never logged
+- [ ] database connection strings are never logged
+- [ ] learner typed answers are never logged
+- [ ] journal/private-note content is never logged
+- [ ] central sensitive-field redaction exists
+- [ ] trace behavior is tested
+- [ ] redaction behavior is tested
+- [ ] representative failure paths have been manually inspected
+- [ ] logs are useful enough to determine what function/operation failed
+- [ ] `architecture.md` / `code-standards.md` / `progress-tracker.md` updated as necessary

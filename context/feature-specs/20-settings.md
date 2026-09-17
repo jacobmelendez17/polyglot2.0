@@ -6,30 +6,30 @@ Build a complete Settings system for Polyglot.
 
 Settings should give each learner control over:
 
-* account information
-* timezone and general behavior
-* lesson/curriculum preferences
-* review behavior
-* SRS behavior
-* visual appearance
-* notification preferences
-* account resets and destructive actions
+- account information
+- timezone and general behavior
+- lesson/curriculum preferences
+- review behavior
+- SRS behavior
+- visual appearance
+- notification preferences
+- account resets and destructive actions
 
 The Settings system is not only UI.
 
 Many settings directly affect:
 
-* lesson selection
-* curriculum ordering
-* SRS stage changes
-* SRS scheduling
-* Fluent maintenance reviews
-* Ghost Reviews
-* leech classification
-* Vacation Mode
-* streaks
-* review presentation
-* account state
+- lesson selection
+- curriculum ordering
+- SRS stage changes
+- SRS scheduling
+- Fluent maintenance reviews
+- Ghost Reviews
+- leech classification
+- Vacation Mode
+- streaks
+- review presentation
+- account state
 
 Those settings must be authoritative on the server.
 
@@ -254,14 +254,14 @@ This prevents a stale settings page on another device from overwriting unrelated
 
 Server Actions must:
 
-* resolve the authenticated user
-* validate input with Zod
-* validate language ownership/scope where applicable
-* modify only the authenticated user's rows
-* return safe structured errors
-* never trust hidden client state
-* never expose secrets
-* never accept credential data into application persistence
+- resolve the authenticated user
+- validate input with Zod
+- validate language ownership/scope where applicable
+- modify only the authenticated user's rows
+- return safe structured errors
+- never trust hidden client state
+- never expose secrets
+- never accept credential data into application persistence
 
 Sensitive/destructive settings require stronger rate limits.
 
@@ -472,10 +472,10 @@ Username is a Polyglot identifier.
 
 It should be:
 
-* unique
-* case-insensitively unique
-* server validated
-* database constrained
+- unique
+- case-insensitively unique
+- server validated
+- database constrained
 
 Recommended validation:
 
@@ -642,11 +642,11 @@ users.timezone
 
 Timezone affects:
 
-* displayed dates/times
-* dashboard/stat date bucketing
-* streak day boundaries
-* Review Queue Timing
-* Start-of-Day review scheduling
+- displayed dates/times
+- dashboard/stat date bucketing
+- streak day boundaries
+- Review Queue Timing
+- Start-of-Day review scheduling
 
 Store real timestamps in UTC/timestamptz.
 
@@ -714,9 +714,9 @@ OFF
 
 NSFW content may include:
 
-* official curriculum items
-* official example sentences
-* learner-facing dictionary content associated with curriculum
+- official curriculum items
+- official example sentences
+- learner-facing dictionary content associated with curriculum
 
 Content requires authoritative classification.
 
@@ -735,10 +735,10 @@ NSFW content is hidden by default.
 
 When hidden:
 
-* NSFW lesson items are not selected
-* NSFW example sentences are not shown
-* NSFW dictionary senses/content are not exposed to the learner
-* excluded NSFW content must not prevent the learner from progressing through a Level
+- NSFW lesson items are not selected
+- NSFW example sentences are not shown
+- NSFW dictionary senses/content are not exposed to the learner
+- excluded NSFW content must not prevent the learner from progressing through a Level
 
 If NSFW is enabled later, the previously hidden material becomes available.
 
@@ -806,11 +806,11 @@ Use a database/application constraint preventing overlapping active vacations.
 
 While Vacation Mode is enabled:
 
-* normal scheduled reviews are frozen
-* Ghost Reviews are frozen
-* review availability is paused
-* streaks are frozen
-* normal review due dates do not continue consuming waiting time
+- normal scheduled reviews are frozen
+- Ghost Reviews are frozen
+- review availability is paused
+- streaks are frozen
+- normal review due dates do not continue consuming waiting time
 
 There is no separate "overdue" state.
 
@@ -1015,13 +1015,13 @@ Reuse and extend the existing curriculum-decider domain rather than building a s
 
 Changing Learning Queue:
 
-* persists immediately
-* affects future generated lessons
-* never alters the currently active lesson session
-* never changes learned items
-* never changes SRS
-* never changes existing progress
-* never changes Level unlocks
+- persists immediately
+- affects future generated lessons
+- never alters the currently active lesson session
+- never changes learned items
+- never changes SRS
+- never changes existing progress
+- never changes Level unlocks
 
 ---
 
@@ -2123,12 +2123,12 @@ Focus Mode removes nonessential visual elements from the review session.
 
 It must not remove:
 
-* Exit
-* prompt
-* answer controls
-* required feedback
-* accessibility context
-* essential progress information
+- Exit
+- prompt
+- answer controls
+- required feedback
+- accessibility context
+- essential progress information
 
 Do not create a separate review implementation for Focus Mode.
 
@@ -2495,16 +2495,16 @@ The customizable standard schedule applies to normal non-accelerated Levels.
 
 Use:
 
-| Current Stage | Shortest | Shorter | Default | Longer | Longest |
-|---|---:|---:|---:|---:|---:|
-| Beginner 1 | 4 hours | 4 hours | 4 hours | 4 hours | 4 hours |
-| Beginner 2 | 8 hours | 8 hours | 8 hours | 8 hours | 8 hours |
-| Beginner 3 | 12 hours | 18 hours | 24 hours | 30 hours | 36 hours |
-| Beginner 4 | 2 days | 2 days | 2 days | 2 days | 2 days |
-| Familiar 1 | 5 days | 6 days | 7 days | 8 days | 9 days |
-| Familiar 2 | 1 week | 1.5 weeks | 2 weeks | 2.5 weeks | 3 weeks |
-| Intermediate | 2 weeks | 3 weeks | 4 weeks | 5 weeks | 6 weeks |
-| Master | 2 months | 3 months | 3 months | 5 months | 6 months |
+| Current Stage | Shortest |   Shorter |  Default |    Longer |  Longest |
+| ------------- | -------: | --------: | -------: | --------: | -------: |
+| Beginner 1    |  4 hours |   4 hours |  4 hours |   4 hours |  4 hours |
+| Beginner 2    |  8 hours |   8 hours |  8 hours |   8 hours |  8 hours |
+| Beginner 3    | 12 hours |  18 hours | 24 hours |  30 hours | 36 hours |
+| Beginner 4    |   2 days |    2 days |   2 days |    2 days |   2 days |
+| Familiar 1    |   5 days |    6 days |   7 days |    8 days |   9 days |
+| Familiar 2    |   1 week | 1.5 weeks |  2 weeks | 2.5 weeks |  3 weeks |
+| Intermediate  |  2 weeks |   3 weeks |  4 weeks |   5 weeks |  6 weeks |
+| Master        | 2 months |  3 months | 3 months |  5 months | 6 months |
 
 Only these stages vary with the selected interval mode:
 
@@ -3113,13 +3113,13 @@ The three blank cards should change appearance as the learner chooses different 
 
 Palette may affect:
 
-* primary accent
-* main buttons
-* links
-* selected tabs
-* decorative backgrounds
-* non-semantic highlights
-* charts where appropriate
+- primary accent
+- main buttons
+- links
+- selected tabs
+- decorative backgrounds
+- non-semantic highlights
+- charts where appropriate
 
 Palette must not redefine meaning-bearing semantic colors.
 
@@ -3204,9 +3204,9 @@ It changes as the selected text size changes.
 
 Font sizing should adjust:
 
-* normal text
-* headings
-* labels
+- normal text
+- headings
+- labels
 
 using designed scaling ratios.
 
@@ -3236,12 +3236,12 @@ Color-blind assistance must strengthen non-color cues.
 
 Use:
 
-* icons
-* labels
-* shapes
-* borders
-* patterns where useful
-* stronger contrast
+- icons
+- labels
+- shapes
+- borders
+- patterns where useful
+- stronger contrast
 
 Do not merely replace one color palette with another while continuing to encode state using color alone.
 
@@ -3473,10 +3473,10 @@ Server-side confirmation remains authoritative.
 
 Danger Zone operations should use:
 
-* authenticated internal user
-* rate limiting
-* idempotency
-* transactions where multiple records are affected
+- authenticated internal user
+- rate limiting
+- idempotency
+- transactions where multiple records are affected
 
 ---
 
@@ -3760,10 +3760,10 @@ Level 6
 
 The reset:
 
-* removes current item progress above Level 6
-* removes Level unlocks above Level 6
-* removes Ghost state tied to removed progress
-* returns the learner's effective current Level to Level 6
+- removes current item progress above Level 6
+- removes Level unlocks above Level 6
+- removes Ghost state tied to removed progress
+- returns the learner's effective current Level to Level 6
 
 Retain durable review-event history.
 
@@ -3949,27 +3949,27 @@ Reset all Polyglot learner/application state.
 
 Remove/reset:
 
-* lesson progress
-* SRS progress
-* review-event history
-* Ghost Reviews
-* Leech aggregate state
-* Level unlocks
-* curriculum preferences
-* lesson preferences
-* review preferences
-* notification preferences
-* personal Decks
-* personal Deck membership
-* private notes
-* personal synonyms
-* private examples
-* Vacation history
-* streak adjustments
-* dismissed warnings
-* Polyglot username
-* onboarding completion
-* other learner-specific application data
+- lesson progress
+- SRS progress
+- review-event history
+- Ghost Reviews
+- Leech aggregate state
+- Level unlocks
+- curriculum preferences
+- lesson preferences
+- review preferences
+- notification preferences
+- personal Decks
+- personal Deck membership
+- private notes
+- personal synonyms
+- private examples
+- Vacation history
+- streak adjustments
+- dismissed warnings
+- Polyglot username
+- onboarding completion
+- other learner-specific application data
 
 The learner should effectively return to:
 
@@ -4698,17 +4698,17 @@ All Settings controls must be accessible.
 
 Requirements include:
 
-* keyboard navigation
-* visible focus
-* proper labels
-* screen-reader state for switches
-* accessible dropdowns
-* modal focus trapping
-* focus restoration after dialogs
-* touch-friendly controls
-* no color-only state
-* reduced-motion respect
-* no horizontal overflow at maximum font size
+- keyboard navigation
+- visible focus
+- proper labels
+- screen-reader state for switches
+- accessible dropdowns
+- modal focus trapping
+- focus restoration after dialogs
+- touch-friendly controls
+- no color-only state
+- reduced-motion respect
+- no horizontal overflow at maximum font size
 
 Danger Zone confirmations must clearly identify:
 
@@ -4820,24 +4820,24 @@ components/settings/*
 
 Reuse existing:
 
-* authenticated internal-user resolution
-* `users.timezone`
-* `user_language_settings`
-* curriculum preference system
-* lesson-selection service
-* onboarding components
-* pronunciation/audio provider
-* review-session signing/orchestration
-* SRS domain
-* review events
-* atomic review-completion transaction
-* progress domain
-* level-unlock logic
-* dashboard/streak read models where applicable
-* semantic color tokens
-* Clerk integration
-* rate limiting
-* idempotency patterns
+- authenticated internal-user resolution
+- `users.timezone`
+- `user_language_settings`
+- curriculum preference system
+- lesson-selection service
+- onboarding components
+- pronunciation/audio provider
+- review-session signing/orchestration
+- SRS domain
+- review events
+- atomic review-completion transaction
+- progress domain
+- level-unlock logic
+- dashboard/streak read models where applicable
+- semantic color tokens
+- Clerk integration
+- rate limiting
+- idempotency patterns
 
 Do not create:
 
@@ -4919,227 +4919,227 @@ Do not fill Settings with controls that currently have no effect.
 
 # Scope Limits
 
-* no Spec number in the document title
-* no Dashboard Tour until that feature exists
-* no active Beta Mode until beta features exist
-* no production subscription implementation
-* no public API implementation
-* no optional-email delivery provider
-* no Practice settings before Practice features define their preferences
-* no arbitrary custom SRS interval editor
-* no arbitrary custom hex-color picker
-* no Beginner 0 SRS stage
-* no WaniKani Familiar+ multiplier penalty
-* no client-authoritative SRS calculations
-* no client-authoritative curriculum settings
-* no client-authoritative Vacation Mode
-* no client-authoritative NSFW filtering
-* no rewriting historical review events when normal progress is reset
-* no retroactive Ghost creation from old review history
-* no duplicate lesson-selection implementation
-* no duplicate review-completion implementation
-* no second authentication/password database
-* no one giant untyped settings JSON blob
-* no fake email, subscription, API, or beta functionality
+- no Spec number in the document title
+- no Dashboard Tour until that feature exists
+- no active Beta Mode until beta features exist
+- no production subscription implementation
+- no public API implementation
+- no optional-email delivery provider
+- no Practice settings before Practice features define their preferences
+- no arbitrary custom SRS interval editor
+- no arbitrary custom hex-color picker
+- no Beginner 0 SRS stage
+- no WaniKani Familiar+ multiplier penalty
+- no client-authoritative SRS calculations
+- no client-authoritative curriculum settings
+- no client-authoritative Vacation Mode
+- no client-authoritative NSFW filtering
+- no rewriting historical review events when normal progress is reset
+- no retroactive Ghost creation from old review history
+- no duplicate lesson-selection implementation
+- no duplicate review-completion implementation
+- no second authentication/password database
+- no one giant untyped settings JSON blob
+- no fake email, subscription, API, or beta functionality
 
 ---
 
 # Check When Done
 
-* `/settings` exists and redirects to `/settings/account`.
-* Desktop Settings uses a persistent sidebar.
-* Mobile Settings has usable responsive navigation.
-* Account, General, Lessons, Reviews, Appearance, Subscription, Notifications, API, and Danger Zone pages exist.
-* Every non-Appearance authoritative setting is persisted server-side for the authenticated user.
-* Appearance preferences persist client-side and never affect authoritative learning logic.
-* Settings cannot modify another user's data by supplying another user ID.
-* Narrow settings mutations prevent unrelated stale settings from overwriting each other.
-* Saved server settings survive refresh and appear on another signed-in device.
-* Appearance persists on the local browser/device.
-* Name can be added/edited.
-* Name synchronizes correctly with Clerk/internal Polyglot identity.
-* `Welcome back ___` uses the synchronized Polyglot display name.
-* Username can be edited.
-* Username uniqueness is enforced case-insensitively by the database.
-* Email change uses secure identity-provider verification.
-* Password change never stores credentials in Neon.
-* Beta shows Coming Soon.
-* Onboarding Tour can be replayed without resetting onboarding/progress.
-* Dashboard Tour is omitted.
-* Timezone can be changed.
-* Timezone affects stats/streak day boundaries.
-* Timezone affects Start-of-Day Review Queue Timing.
-* Historical event timestamps are not rewritten when timezone changes.
-* Hide English affects Reviews only.
-* NSFW content is hidden by default.
-* NSFW filtering is server-side.
-* NSFW curriculum/examples/dictionary content is excluded when disabled.
-* Hidden NSFW content does not block Level progression.
-* Vacation Mode is account-wide.
-* Vacation Mode records real historical vacation periods.
-* Normal Reviews freeze during Vacation Mode.
-* Ghost Reviews freeze during Vacation Mode.
-* Vacation days do not increase streak.
-* Vacation days do not break streak.
-* Already-ready reviews become ready immediately after Vacation Mode ends.
-* Future reviews retain their remaining interval across Vacation Mode.
-* Items learned during Vacation Mode preserve only the remaining vacation overlap.
-* Lessons remain available during Vacation Mode after explicit warning.
-* Learning Queue has Default Order, Choose Group as You Go, and Variety.
-* Existing curriculum preferences migrate into the new model.
-* Learning Queue changes affect future lessons only.
-* Default Order teaches Grammar first.
-* Default Order then follows vocabulary group order.
-* Choose Group as You Go lets the learner choose vocabulary themes.
-* Choose Group as You Go does not fill a short theme from another theme.
-* Grammar Placement does not affect Choose Group as You Go.
-* Variety distributes vocabulary across available groups.
-* Variety respects Grammar Placement.
-* No Preference never removes Grammar.
-* Lesson batch-size choices include every integer from 3 through 15.
-* Lesson batch size defaults to 6.
-* Lesson auto-pronunciation works through the existing audio system.
-* Grammar and Vocabulary Review Type can be configured separately.
-* Cloze Manual uses typed server-checked answers.
-* Vocabulary Cloze uses official example sentences.
-* Vocabulary Cloze safely falls back when no sentence exists.
-* Cloze Flashcard uses Reveal + Know/Don't Know.
-* Flashcard uses Reveal + Know/Don't Know.
-* Know is a correct SRS outcome.
-* Don't Know is an incorrect SRS outcome.
-* Active review sessions keep the settings with which they started.
-* Ghost Reviews are separate from Leeches.
-* Grammar Ghost Reviews support On, Minimal, Off.
-* Vocabulary Ghost Reviews support On, Minimal, Off.
-* Ghost On creates after the first sentence miss.
-* Ghost Minimal creates after the same sentence is missed more than once.
-* Ghost Off creates no new Ghosts.
-* Ghost SRS intervals are 4h, 12h, 24h, 48h.
-* Incorrect Ghost answers reset the Ghost to Ghost 1.
-* Ghost progression never directly modifies normal item SRS.
-* Ghost state is persisted per learner/sentence/item.
-* Ghost queue respects Vacation Mode.
-* Leech score uses `incorrectCount / max(correctStreak, 1)^1.5`.
-* Leech requires score greater than 1.
-* Grammar minimum-Leech SRS is configurable.
-* Vocabulary minimum-Leech SRS is configurable.
-* Minimum-Leech stage uses highest stage ever reached, not current stage only.
-* Current correct streak updates transactionally with reviews.
-* Ghost reviews do not affect Leech counters.
-* Hint Order supports Nuance First and Translation First.
-* Hint Mode supports Hide, Hint, Show, More, Always Show Nuance.
-* Hide-English and explicit hint actions interact correctly.
-* Review Autoplay Audio works.
-* Lightning Mode advances automatically after correct answers.
-* Focus Mode removes only nonessential UI.
-* Auto Highlight Errors never overrides authoritative answer checking.
-* Show SRS Stage changes presentation only.
-* Auto-Expand Info works.
-* Lightning Mode takes precedence over Auto-Expand after correct answers.
-* Undo Action supports Clear All Characters.
-* Undo Action supports Clear Last Character.
-* Old Familiar+ automatic two-stage penalty is removed.
-* Default incorrect SRS penalty is exactly one stage.
-* Grammar SRS Strictness is configurable.
-* Vocabulary SRS Strictness is configurable.
-* 1 Stage works.
-* 2 Stages works.
-* 3 Stages works.
-* Half uses floor(current stage position / 2).
-* Full resets to Beginner 1.
-* No result can go below Beginner 1.
-* No Beginner 0 is introduced.
-* Grammar SRS Interval is configurable.
-* Vocabulary SRS Interval is configurable.
-* SRS Interval offers Shortest, Shorter, Default, Longer, Longest.
-* Changing interval preference never changes a review already scheduled.
-* Level 3+ Beginner 3 intervals are 12h / 18h / 24h / 30h / 36h.
-* Familiar 1 intervals are 5d / 6d / 7d / 8d / 9d.
-* Familiar 2 intervals are 1w / 1.5w / 2w / 2.5w / 3w.
-* Intermediate intervals are 2w / 3w / 4w / 5w / 6w.
-* Master intervals are 2mo / 3mo / 3mo / 5mo / 6mo.
-* Beginner 1 remains fixed at 4 hours on normal Levels.
-* Beginner 2 remains fixed at 8 hours on normal Levels.
-* Beginner 4 remains fixed at 2 days on normal Levels.
-* Level 1–2 acceleration remains 2h / 4h / 8h / 1d for Beginner stages.
-* Level 1–2 uses the selected interval preference from Familiar 1 onward.
-* Month intervals use calendar months.
-* Default Master → Fluent is now 3 calendar months.
-* The old 4-month Master default is removed.
-* Review Queue Timing supports Start of Hour.
-* Review Queue Timing supports Start of Day.
-* Start of Hour rounds forward correctly.
-* Start of Day uses learner timezone midnight.
-* Grammar Fluent Mode exists.
-* Vocabulary Fluent Mode exists.
-* Fluent Mode defaults On.
-* Fluent maintenance reviews recur every six calendar months.
-* Incorrect Fluent reviews respect configured SRS Strictness.
-* Existing Fluent items use `fluentAt + 6 months`.
-* Already-past Fluent maintenance dates become ready immediately.
-* Turning Fluent Mode off removes only Fluent maintenance scheduling.
-* SRS calculations remain server-side.
-* Review completion remains atomic and idempotent.
-* Ghost creation/update is atomic with the triggering normal review where applicable.
-* Theme supports System, Light, Dark.
-* Appearance changes without server-authoritative learning-state changes.
-* Palette options show the miniature dashboard preview.
-* Accent palettes do not replace semantic Vocabulary/Grammar/SRS/error colors.
-* Three curated font families are provided.
-* Fonts support required Polyglot character sets.
-* Font sizes include Small, Default, Large, Extra Large.
-* Font-size preview works.
-* Maximum font size remains responsive.
-* Color-Blind Assistance provides non-color state cues.
-* Appearance survives refresh without an unnecessary theme flash.
-* Subscription displays Coming Soon.
-* API displays Coming Soon.
-* News & Updates preference is stored.
-* Progress Email preference is stored.
-* Inactivity Email preference is stored.
-* Trial Email preference is stored.
-* All optional email preferences default On.
-* Transactional Emails is informational and cannot be disabled.
-* Notification preferences do not falsely send emails before email delivery exists.
-* Danger Zone is visually separated.
-* Every Danger Zone action requires explicit confirmation.
-* Reset Grammar supports Main Reviews.
-* Reset Grammar supports Ghost Reviews.
-* Reset Grammar supports Leech Reviews.
-* Reset Grammar supports A1–C2.
-* Reset Vocabulary supports Main Reviews.
-* Reset Vocabulary supports Ghost Reviews.
-* Reset Vocabulary supports Leech Reviews.
-* Reset Vocabulary supports A1–C2.
-* Main Reviews reset returns current normal SRS state to Beginner 1.
-* Main Reviews reset preserves durable review history.
-* Ghost reset clears Ghost state without modifying normal SRS.
-* Leech reset returns current Leech items to Beginner 1.
-* CEFR resets affect only the selected item type and CEFR band.
-* Reset to Level only offers current/previous Levels.
-* Reset to Level cannot unlock/advance a learner.
-* Reset to Level removes current progress above the target Level.
-* Reset to Level preserves durable review history.
-* Manual streak editing does not fabricate review events.
-* Manual streak continues incrementing normally afterward.
-* A genuinely broken streak resets the manual streak to zero.
-* Vacation days do not alter the streak count.
-* Reset Dismissable Warnings restores hidden warnings.
-* Dismissed-warning records use stable notice keys.
-* Reset Entire Account produces a genuinely fresh Polyglot learner state.
-* Reset Entire Account retains external Clerk login identity.
-* Reset Entire Account retains future active billing/subscription identity where required.
-* Reset Entire Account removes Polyglot learning/preferences/history/personal content.
-* Reset Entire Account requires onboarding again.
-* Delete Account sends/starts a secure deletion-confirmation workflow.
-* Confirmed account deletion enters a seven-day recovery period.
-* Pending deletion can be explicitly cancelled.
-* Permanent deletion runs server-side after the recovery period.
-* Permanent deletion is idempotent.
-* No destructive operation can affect another learner.
-* Settings remain responsive and accessible.
-* Server/client domain boundaries do not leak secrets into Settings client bundles.
-* Existing curriculum, lessons, reviews, SRS, Clerk, and progress domain services are reused rather than duplicated.
-* Tests pass.
-* Integration tests pass.
-* `npm run build` passes.
+- `/settings` exists and redirects to `/settings/account`.
+- Desktop Settings uses a persistent sidebar.
+- Mobile Settings has usable responsive navigation.
+- Account, General, Lessons, Reviews, Appearance, Subscription, Notifications, API, and Danger Zone pages exist.
+- Every non-Appearance authoritative setting is persisted server-side for the authenticated user.
+- Appearance preferences persist client-side and never affect authoritative learning logic.
+- Settings cannot modify another user's data by supplying another user ID.
+- Narrow settings mutations prevent unrelated stale settings from overwriting each other.
+- Saved server settings survive refresh and appear on another signed-in device.
+- Appearance persists on the local browser/device.
+- Name can be added/edited.
+- Name synchronizes correctly with Clerk/internal Polyglot identity.
+- `Welcome back ___` uses the synchronized Polyglot display name.
+- Username can be edited.
+- Username uniqueness is enforced case-insensitively by the database.
+- Email change uses secure identity-provider verification.
+- Password change never stores credentials in Neon.
+- Beta shows Coming Soon.
+- Onboarding Tour can be replayed without resetting onboarding/progress.
+- Dashboard Tour is omitted.
+- Timezone can be changed.
+- Timezone affects stats/streak day boundaries.
+- Timezone affects Start-of-Day Review Queue Timing.
+- Historical event timestamps are not rewritten when timezone changes.
+- Hide English affects Reviews only.
+- NSFW content is hidden by default.
+- NSFW filtering is server-side.
+- NSFW curriculum/examples/dictionary content is excluded when disabled.
+- Hidden NSFW content does not block Level progression.
+- Vacation Mode is account-wide.
+- Vacation Mode records real historical vacation periods.
+- Normal Reviews freeze during Vacation Mode.
+- Ghost Reviews freeze during Vacation Mode.
+- Vacation days do not increase streak.
+- Vacation days do not break streak.
+- Already-ready reviews become ready immediately after Vacation Mode ends.
+- Future reviews retain their remaining interval across Vacation Mode.
+- Items learned during Vacation Mode preserve only the remaining vacation overlap.
+- Lessons remain available during Vacation Mode after explicit warning.
+- Learning Queue has Default Order, Choose Group as You Go, and Variety.
+- Existing curriculum preferences migrate into the new model.
+- Learning Queue changes affect future lessons only.
+- Default Order teaches Grammar first.
+- Default Order then follows vocabulary group order.
+- Choose Group as You Go lets the learner choose vocabulary themes.
+- Choose Group as You Go does not fill a short theme from another theme.
+- Grammar Placement does not affect Choose Group as You Go.
+- Variety distributes vocabulary across available groups.
+- Variety respects Grammar Placement.
+- No Preference never removes Grammar.
+- Lesson batch-size choices include every integer from 3 through 15.
+- Lesson batch size defaults to 6.
+- Lesson auto-pronunciation works through the existing audio system.
+- Grammar and Vocabulary Review Type can be configured separately.
+- Cloze Manual uses typed server-checked answers.
+- Vocabulary Cloze uses official example sentences.
+- Vocabulary Cloze safely falls back when no sentence exists.
+- Cloze Flashcard uses Reveal + Know/Don't Know.
+- Flashcard uses Reveal + Know/Don't Know.
+- Know is a correct SRS outcome.
+- Don't Know is an incorrect SRS outcome.
+- Active review sessions keep the settings with which they started.
+- Ghost Reviews are separate from Leeches.
+- Grammar Ghost Reviews support On, Minimal, Off.
+- Vocabulary Ghost Reviews support On, Minimal, Off.
+- Ghost On creates after the first sentence miss.
+- Ghost Minimal creates after the same sentence is missed more than once.
+- Ghost Off creates no new Ghosts.
+- Ghost SRS intervals are 4h, 12h, 24h, 48h.
+- Incorrect Ghost answers reset the Ghost to Ghost 1.
+- Ghost progression never directly modifies normal item SRS.
+- Ghost state is persisted per learner/sentence/item.
+- Ghost queue respects Vacation Mode.
+- Leech score uses `incorrectCount / max(correctStreak, 1)^1.5`.
+- Leech requires score greater than 1.
+- Grammar minimum-Leech SRS is configurable.
+- Vocabulary minimum-Leech SRS is configurable.
+- Minimum-Leech stage uses highest stage ever reached, not current stage only.
+- Current correct streak updates transactionally with reviews.
+- Ghost reviews do not affect Leech counters.
+- Hint Order supports Nuance First and Translation First.
+- Hint Mode supports Hide, Hint, Show, More, Always Show Nuance.
+- Hide-English and explicit hint actions interact correctly.
+- Review Autoplay Audio works.
+- Lightning Mode advances automatically after correct answers.
+- Focus Mode removes only nonessential UI.
+- Auto Highlight Errors never overrides authoritative answer checking.
+- Show SRS Stage changes presentation only.
+- Auto-Expand Info works.
+- Lightning Mode takes precedence over Auto-Expand after correct answers.
+- Undo Action supports Clear All Characters.
+- Undo Action supports Clear Last Character.
+- Old Familiar+ automatic two-stage penalty is removed.
+- Default incorrect SRS penalty is exactly one stage.
+- Grammar SRS Strictness is configurable.
+- Vocabulary SRS Strictness is configurable.
+- 1 Stage works.
+- 2 Stages works.
+- 3 Stages works.
+- Half uses floor(current stage position / 2).
+- Full resets to Beginner 1.
+- No result can go below Beginner 1.
+- No Beginner 0 is introduced.
+- Grammar SRS Interval is configurable.
+- Vocabulary SRS Interval is configurable.
+- SRS Interval offers Shortest, Shorter, Default, Longer, Longest.
+- Changing interval preference never changes a review already scheduled.
+- Level 3+ Beginner 3 intervals are 12h / 18h / 24h / 30h / 36h.
+- Familiar 1 intervals are 5d / 6d / 7d / 8d / 9d.
+- Familiar 2 intervals are 1w / 1.5w / 2w / 2.5w / 3w.
+- Intermediate intervals are 2w / 3w / 4w / 5w / 6w.
+- Master intervals are 2mo / 3mo / 3mo / 5mo / 6mo.
+- Beginner 1 remains fixed at 4 hours on normal Levels.
+- Beginner 2 remains fixed at 8 hours on normal Levels.
+- Beginner 4 remains fixed at 2 days on normal Levels.
+- Level 1–2 acceleration remains 2h / 4h / 8h / 1d for Beginner stages.
+- Level 1–2 uses the selected interval preference from Familiar 1 onward.
+- Month intervals use calendar months.
+- Default Master → Fluent is now 3 calendar months.
+- The old 4-month Master default is removed.
+- Review Queue Timing supports Start of Hour.
+- Review Queue Timing supports Start of Day.
+- Start of Hour rounds forward correctly.
+- Start of Day uses learner timezone midnight.
+- Grammar Fluent Mode exists.
+- Vocabulary Fluent Mode exists.
+- Fluent Mode defaults On.
+- Fluent maintenance reviews recur every six calendar months.
+- Incorrect Fluent reviews respect configured SRS Strictness.
+- Existing Fluent items use `fluentAt + 6 months`.
+- Already-past Fluent maintenance dates become ready immediately.
+- Turning Fluent Mode off removes only Fluent maintenance scheduling.
+- SRS calculations remain server-side.
+- Review completion remains atomic and idempotent.
+- Ghost creation/update is atomic with the triggering normal review where applicable.
+- Theme supports System, Light, Dark.
+- Appearance changes without server-authoritative learning-state changes.
+- Palette options show the miniature dashboard preview.
+- Accent palettes do not replace semantic Vocabulary/Grammar/SRS/error colors.
+- Three curated font families are provided.
+- Fonts support required Polyglot character sets.
+- Font sizes include Small, Default, Large, Extra Large.
+- Font-size preview works.
+- Maximum font size remains responsive.
+- Color-Blind Assistance provides non-color state cues.
+- Appearance survives refresh without an unnecessary theme flash.
+- Subscription displays Coming Soon.
+- API displays Coming Soon.
+- News & Updates preference is stored.
+- Progress Email preference is stored.
+- Inactivity Email preference is stored.
+- Trial Email preference is stored.
+- All optional email preferences default On.
+- Transactional Emails is informational and cannot be disabled.
+- Notification preferences do not falsely send emails before email delivery exists.
+- Danger Zone is visually separated.
+- Every Danger Zone action requires explicit confirmation.
+- Reset Grammar supports Main Reviews.
+- Reset Grammar supports Ghost Reviews.
+- Reset Grammar supports Leech Reviews.
+- Reset Grammar supports A1–C2.
+- Reset Vocabulary supports Main Reviews.
+- Reset Vocabulary supports Ghost Reviews.
+- Reset Vocabulary supports Leech Reviews.
+- Reset Vocabulary supports A1–C2.
+- Main Reviews reset returns current normal SRS state to Beginner 1.
+- Main Reviews reset preserves durable review history.
+- Ghost reset clears Ghost state without modifying normal SRS.
+- Leech reset returns current Leech items to Beginner 1.
+- CEFR resets affect only the selected item type and CEFR band.
+- Reset to Level only offers current/previous Levels.
+- Reset to Level cannot unlock/advance a learner.
+- Reset to Level removes current progress above the target Level.
+- Reset to Level preserves durable review history.
+- Manual streak editing does not fabricate review events.
+- Manual streak continues incrementing normally afterward.
+- A genuinely broken streak resets the manual streak to zero.
+- Vacation days do not alter the streak count.
+- Reset Dismissable Warnings restores hidden warnings.
+- Dismissed-warning records use stable notice keys.
+- Reset Entire Account produces a genuinely fresh Polyglot learner state.
+- Reset Entire Account retains external Clerk login identity.
+- Reset Entire Account retains future active billing/subscription identity where required.
+- Reset Entire Account removes Polyglot learning/preferences/history/personal content.
+- Reset Entire Account requires onboarding again.
+- Delete Account sends/starts a secure deletion-confirmation workflow.
+- Confirmed account deletion enters a seven-day recovery period.
+- Pending deletion can be explicitly cancelled.
+- Permanent deletion runs server-side after the recovery period.
+- Permanent deletion is idempotent.
+- No destructive operation can affect another learner.
+- Settings remain responsive and accessible.
+- Server/client domain boundaries do not leak secrets into Settings client bundles.
+- Existing curriculum, lessons, reviews, SRS, Clerk, and progress domain services are reused rather than duplicated.
+- Tests pass.
+- Integration tests pass.
+- `npm run build` passes.

@@ -33,13 +33,23 @@ import { AdminError } from "@/lib/errors/admin-errors";
  * shape exactly.
  */
 
-export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: { code: string; message: string } };
+export type ActionResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: { code: string; message: string } };
 
-async function runSandboxAction<T>(fn: () => Promise<T>): Promise<ActionResult<T>> {
+async function runSandboxAction<T>(
+  fn: () => Promise<T>,
+): Promise<ActionResult<T>> {
   try {
     const user = await requireUser();
     if (!canUseDeveloperTools(user)) {
-      return { ok: false, error: { code: "FORBIDDEN", message: "You don't have access to do that." } };
+      return {
+        ok: false,
+        error: {
+          code: "FORBIDDEN",
+          message: "You don't have access to do that.",
+        },
+      };
     }
     return { ok: true, data: await fn() };
   } catch (error) {
@@ -47,14 +57,36 @@ async function runSandboxAction<T>(fn: () => Promise<T>): Promise<ActionResult<T
       return { ok: false, error: { code: error.code, message: error.message } };
     }
     if (error instanceof z.ZodError) {
-      return { ok: false, error: { code: "CURRICULUM_VALIDATION_FAILED", message: "That request could not be understood." } };
+      return {
+        ok: false,
+        error: {
+          code: "CURRICULUM_VALIDATION_FAILED",
+          message: "That request could not be understood.",
+        },
+      };
     }
     console.error("Unexpected sandbox action error", error);
-    return { ok: false, error: { code: "UNKNOWN", message: "Something went wrong. Please try again." } };
+    return {
+      ok: false,
+      error: {
+        code: "UNKNOWN",
+        message: "Something went wrong. Please try again.",
+      },
+    };
   }
 }
 
-const SRS_STAGES = ["beginner_1", "beginner_2", "beginner_3", "beginner_4", "familiar_1", "familiar_2", "intermediate", "master", "fluent"] as const;
+const SRS_STAGES = [
+  "beginner_1",
+  "beginner_2",
+  "beginner_3",
+  "beginner_4",
+  "familiar_1",
+  "familiar_2",
+  "intermediate",
+  "master",
+  "fluent",
+] as const;
 
 const simulateLevelActionSchema = z.object({
   languageId: z.string().min(1),
@@ -62,11 +94,17 @@ const simulateLevelActionSchema = z.object({
   idempotencyKey: z.string().min(1),
 });
 
-export async function simulateLevelAction(input: z.infer<typeof simulateLevelActionSchema>): Promise<ActionResult<void>> {
+export async function simulateLevelAction(
+  input: z.infer<typeof simulateLevelActionSchema>,
+): Promise<ActionResult<void>> {
   return runSandboxAction(async () => {
     const parsed = simulateLevelActionSchema.parse(input);
     const user = await requireUser();
-    await simulateLevelForSandbox({ ...parsed, ownerUserId: user.id, actorUserId: user.id });
+    await simulateLevelForSandbox({
+      ...parsed,
+      ownerUserId: user.id,
+      actorUserId: user.id,
+    });
   });
 }
 
@@ -77,11 +115,17 @@ const setSandboxItemStageActionSchema = z.object({
   idempotencyKey: z.string().min(1),
 });
 
-export async function setSandboxItemStageAction(input: z.infer<typeof setSandboxItemStageActionSchema>): Promise<ActionResult<void>> {
+export async function setSandboxItemStageAction(
+  input: z.infer<typeof setSandboxItemStageActionSchema>,
+): Promise<ActionResult<void>> {
   return runSandboxAction(async () => {
     const parsed = setSandboxItemStageActionSchema.parse(input);
     const user = await requireUser();
-    await setSandboxItemStage({ ...parsed, ownerUserId: user.id, actorUserId: user.id });
+    await setSandboxItemStage({
+      ...parsed,
+      ownerUserId: user.id,
+      actorUserId: user.id,
+    });
   });
 }
 
@@ -90,11 +134,17 @@ const makeSandboxReviewsDueActionSchema = z.object({
   idempotencyKey: z.string().min(1),
 });
 
-export async function makeSandboxReviewsDueAction(input: z.infer<typeof makeSandboxReviewsDueActionSchema>): Promise<ActionResult<void>> {
+export async function makeSandboxReviewsDueAction(
+  input: z.infer<typeof makeSandboxReviewsDueActionSchema>,
+): Promise<ActionResult<void>> {
   return runSandboxAction(async () => {
     const parsed = makeSandboxReviewsDueActionSchema.parse(input);
     const user = await requireUser();
-    await makeSandboxReviewsDue({ ...parsed, ownerUserId: user.id, actorUserId: user.id });
+    await makeSandboxReviewsDue({
+      ...parsed,
+      ownerUserId: user.id,
+      actorUserId: user.id,
+    });
   });
 }
 
@@ -103,11 +153,17 @@ const resetSandboxActionSchema = z.object({
   idempotencyKey: z.string().min(1),
 });
 
-export async function resetSandboxAction(input: z.infer<typeof resetSandboxActionSchema>): Promise<ActionResult<void>> {
+export async function resetSandboxAction(
+  input: z.infer<typeof resetSandboxActionSchema>,
+): Promise<ActionResult<void>> {
   return runSandboxAction(async () => {
     const parsed = resetSandboxActionSchema.parse(input);
     const user = await requireUser();
-    await resetSandboxForOwner({ ...parsed, ownerUserId: user.id, actorUserId: user.id });
+    await resetSandboxForOwner({
+      ...parsed,
+      ownerUserId: user.id,
+      actorUserId: user.id,
+    });
   });
 }
 
@@ -140,7 +196,11 @@ const setSandboxTimeOffsetActionSchema = z.object({
    * enough that a bad value cannot push scheduling into a range where date
    * arithmetic stops being meaningful.
    */
-  offsetSeconds: z.number().int().min(-10 * 365 * 24 * 60 * 60).max(10 * 365 * 24 * 60 * 60),
+  offsetSeconds: z
+    .number()
+    .int()
+    .min(-10 * 365 * 24 * 60 * 60)
+    .max(10 * 365 * 24 * 60 * 60),
   idempotencyKey: z.string().min(1),
 });
 
@@ -150,7 +210,11 @@ export async function setSandboxTimeOffsetAction(
   return runSandboxAction(async () => {
     const parsed = setSandboxTimeOffsetActionSchema.parse(input);
     const user = await requireUser();
-    await setSandboxTimeOffsetForOwner({ ...parsed, ownerUserId: user.id, actorUserId: user.id });
+    await setSandboxTimeOffsetForOwner({
+      ...parsed,
+      ownerUserId: user.id,
+      actorUserId: user.id,
+    });
   });
 }
 
@@ -168,12 +232,17 @@ const openSandboxActionSchema = z.object({ languageId: z.string().min(1) });
  * The grant only *requests* impersonation — `resolveCurrentUser` re-proves
  * ownership against the database on every request before honouring it.
  */
-export async function openSandboxAction(input: z.infer<typeof openSandboxActionSchema>): Promise<ActionResult<void>> {
+export async function openSandboxAction(
+  input: z.infer<typeof openSandboxActionSchema>,
+): Promise<ActionResult<void>> {
   return runSandboxAction(async () => {
     const { languageId } = openSandboxActionSchema.parse(input);
     const user = await requireUser();
     const account = await getOrCreateSandbox(db, user.id, languageId);
-    const token = await signSandboxGrant({ adminUserId: user.id, sandboxUserId: account.sandboxUserId });
+    const token = await signSandboxGrant({
+      adminUserId: user.id,
+      sandboxUserId: account.sandboxUserId,
+    });
 
     const cookieStore = await cookies();
     cookieStore.set(SANDBOX_SESSION_COOKIE, token, {

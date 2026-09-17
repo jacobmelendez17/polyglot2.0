@@ -13,7 +13,10 @@ import { requireUser } from "@/domains/users/server";
  */
 export async function DashboardContent() {
   const user = await requireUser();
-  const data = await getDashboardData({ userId: user.id, languageId: user.activeLanguageId });
+  const data = await getDashboardData({
+    userId: user.id,
+    languageId: user.activeLanguageId,
+  });
 
   return <DashboardView data={data} />;
 }

@@ -2,12 +2,24 @@ import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import type { DbClient } from "@/db/client";
 import { isUniqueViolation } from "@/db/postgres-errors";
-import { languages, levels, userLanguageSettings, userNotificationPreferences, userPreferences, users, userLevelProgress } from "@/db/schema";
+import {
+  languages,
+  levels,
+  userLanguageSettings,
+  userNotificationPreferences,
+  userPreferences,
+  users,
+  userLevelProgress,
+} from "@/db/schema";
 import { AppError } from "@/lib/errors/app-error";
 
 import type { ContentPreferences } from "./content-preferences";
 import { DEFAULT_CONTENT_PREFERENCES } from "./content-preferences";
-import type { CurriculumMode, GrammarPlacement, LanguageSettings } from "./curriculum-preference";
+import type {
+  CurriculumMode,
+  GrammarPlacement,
+  LanguageSettings,
+} from "./curriculum-preference";
 import type { NotificationPreferences } from "./notification-preferences";
 import { DEFAULT_NOTIFICATION_PREFERENCES } from "./notification-preferences";
 import { getDefaultLanguageCode } from "./provisioning-config";
@@ -45,12 +57,22 @@ function toPolyglotUser(row: UserRow): PolyglotUser {
   };
 }
 
-export async function findUserByClerkUserId(db: DbClient, clerkUserId: string): Promise<PolyglotUser | null> {
-  const [row] = await db.select().from(users).where(eq(users.clerkUserId, clerkUserId)).limit(1);
+export async function findUserByClerkUserId(
+  db: DbClient,
+  clerkUserId: string,
+): Promise<PolyglotUser | null> {
+  const [row] = await db
+    .select()
+    .from(users)
+    .where(eq(users.clerkUserId, clerkUserId))
+    .limit(1);
   return row ? toPolyglotUser(row) : null;
 }
 
-export async function findUserById(db: DbClient, id: string): Promise<PolyglotUser | null> {
+export async function findUserById(
+  db: DbClient,
+  id: string,
+): Promise<PolyglotUser | null> {
   const [row] = await db.select().from(users).where(eq(users.id, id)).limit(1);
   return row ? toPolyglotUser(row) : null;
 }
@@ -66,14 +88,17 @@ export async function findUserById(db: DbClient, id: string): Promise<PolyglotUs
  * Returns the row as it stands afterwards, so a caller always sees the
  * authoritative state rather than assuming its own write landed.
  */
-export async function completeOnboarding(db: DbClient, userId: string, now: Date): Promise<PolyglotUser | null> {
+export async function completeOnboarding(
+  db: DbClient,
+  userId: string,
+  now: Date,
+): Promise<PolyglotUser | null> {
   await db
     .update(users)
     .set({ onboardingCompletedAt: now })
     .where(and(eq(users.id, userId), isNull(users.onboardingCompletedAt)));
   return findUserById(db, userId);
 }
-
 
 /**
  * This learner's settings for one language, or `null` when they have never
@@ -110,21 +135,35 @@ type LanguageSettingsRow = {
  * shouldn't crash if one somehow still does; it re-applies the exact same
  * mapping the backfill used, as a defensive fallback rather than a new rule.
  */
-function normalizeLegacyCurriculumMode(mode: LanguageSettingsRow["curriculumMode"]): CurriculumMode {
+function normalizeLegacyCurriculumMode(
+  mode: LanguageSettingsRow["curriculumMode"],
+): CurriculumMode {
   if (mode === "theme") return "choose_group";
   if (mode === "random" || mode === "balanced") return "variety";
   return mode;
 }
 
 function toLanguageSettings(row: LanguageSettingsRow): LanguageSettings {
-  return { ...row, curriculumMode: normalizeLegacyCurriculumMode(row.curriculumMode) };
+  return {
+    ...row,
+    curriculumMode: normalizeLegacyCurriculumMode(row.curriculumMode),
+  };
 }
 
-export async function findLanguageSettings(db: DbClient, userId: string, languageId: string): Promise<LanguageSettings | null> {
+export async function findLanguageSettings(
+  db: DbClient,
+  userId: string,
+  languageId: string,
+): Promise<LanguageSettings | null> {
   const [row] = await db
     .select(LANGUAGE_SETTINGS_COLUMNS)
     .from(userLanguageSettings)
-    .where(and(eq(userLanguageSettings.userId, userId), eq(userLanguageSettings.languageId, languageId)))
+    .where(
+      and(
+        eq(userLanguageSettings.userId, userId),
+        eq(userLanguageSettings.languageId, languageId),
+      ),
+    )
     .limit(1);
   return row ? toLanguageSettings(row) : null;
 }
@@ -145,9 +184,17 @@ export async function findLanguageSettings(db: DbClient, userId: string, languag
  */
 export async function saveCurriculumPreference(
   db: DbClient,
-  input: { userId: string; languageId: string; curriculumMode: CurriculumMode; selectedVocabularyGroupId?: string | null },
+  input: {
+    userId: string;
+    languageId: string;
+    curriculumMode: CurriculumMode;
+    selectedVocabularyGroupId?: string | null;
+  },
 ): Promise<LanguageSettings> {
-  const selectedVocabularyGroupId = input.curriculumMode === "choose_group" ? (input.selectedVocabularyGroupId ?? null) : null;
+  const selectedVocabularyGroupId =
+    input.curriculumMode === "choose_group"
+      ? (input.selectedVocabularyGroupId ?? null)
+      : null;
 
   const [row] = await db
     .insert(userLanguageSettings)
@@ -159,7 +206,11 @@ export async function saveCurriculumPreference(
     })
     .onConflictDoUpdate({
       target: [userLanguageSettings.userId, userLanguageSettings.languageId],
-      set: { curriculumMode: input.curriculumMode, selectedVocabularyGroupId, updatedAt: new Date() },
+      set: {
+        curriculumMode: input.curriculumMode,
+        selectedVocabularyGroupId,
+        updatedAt: new Date(),
+      },
     })
     .returning(LANGUAGE_SETTINGS_COLUMNS);
   return toLanguageSettings(row!);
@@ -176,15 +227,27 @@ export async function saveCurriculumPreference(
  */
 export async function saveGrammarPlacement(
   db: DbClient,
-  input: { userId: string; languageId: string; grammarPlacement: GrammarPlacement },
+  input: {
+    userId: string;
+    languageId: string;
+    grammarPlacement: GrammarPlacement;
+  },
 ): Promise<LanguageSettings> {
   const [row] = await db
     .update(userLanguageSettings)
     .set({ grammarPlacement: input.grammarPlacement, updatedAt: new Date() })
-    .where(and(eq(userLanguageSettings.userId, input.userId), eq(userLanguageSettings.languageId, input.languageId)))
+    .where(
+      and(
+        eq(userLanguageSettings.userId, input.userId),
+        eq(userLanguageSettings.languageId, input.languageId),
+      ),
+    )
     .returning(LANGUAGE_SETTINGS_COLUMNS);
   if (!row) {
-    throw new AppError("ITEM_NOT_FOUND", "Choose a Learning Queue mode before setting Grammar Placement.");
+    throw new AppError(
+      "ITEM_NOT_FOUND",
+      "Choose a Learning Queue mode before setting Grammar Placement.",
+    );
   }
   return toLanguageSettings(row);
 }
@@ -197,10 +260,18 @@ export async function saveLessonBatchSize(
   const [row] = await db
     .update(userLanguageSettings)
     .set({ lessonBatchSize: input.lessonBatchSize, updatedAt: new Date() })
-    .where(and(eq(userLanguageSettings.userId, input.userId), eq(userLanguageSettings.languageId, input.languageId)))
+    .where(
+      and(
+        eq(userLanguageSettings.userId, input.userId),
+        eq(userLanguageSettings.languageId, input.languageId),
+      ),
+    )
     .returning(LANGUAGE_SETTINGS_COLUMNS);
   if (!row) {
-    throw new AppError("ITEM_NOT_FOUND", "Choose a Learning Queue mode before setting Lesson Batch Size.");
+    throw new AppError(
+      "ITEM_NOT_FOUND",
+      "Choose a Learning Queue mode before setting Lesson Batch Size.",
+    );
   }
   return toLanguageSettings(row);
 }
@@ -212,11 +283,22 @@ export async function saveAutoPronounceLessons(
 ): Promise<LanguageSettings> {
   const [row] = await db
     .update(userLanguageSettings)
-    .set({ autoPronounceLessons: input.autoPronounceLessons, updatedAt: new Date() })
-    .where(and(eq(userLanguageSettings.userId, input.userId), eq(userLanguageSettings.languageId, input.languageId)))
+    .set({
+      autoPronounceLessons: input.autoPronounceLessons,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(userLanguageSettings.userId, input.userId),
+        eq(userLanguageSettings.languageId, input.languageId),
+      ),
+    )
     .returning(LANGUAGE_SETTINGS_COLUMNS);
   if (!row) {
-    throw new AppError("ITEM_NOT_FOUND", "Choose a Learning Queue mode before setting Auto Pronunciation.");
+    throw new AppError(
+      "ITEM_NOT_FOUND",
+      "Choose a Learning Queue mode before setting Auto Pronunciation.",
+    );
   }
   return toLanguageSettings(row);
 }
@@ -226,10 +308,20 @@ export async function saveAutoPronounceLessons(
  * centralized defaults when they have never changed either — "a user should
  * not require a fully populated row containing every possible setting."
  */
-export async function getContentPreferences(db: DbClient, userId: string): Promise<ContentPreferences> {
-  const [row] = await db.select().from(userPreferences).where(eq(userPreferences.userId, userId)).limit(1);
+export async function getContentPreferences(
+  db: DbClient,
+  userId: string,
+): Promise<ContentPreferences> {
+  const [row] = await db
+    .select()
+    .from(userPreferences)
+    .where(eq(userPreferences.userId, userId))
+    .limit(1);
   return row
-    ? { hideEnglishReviews: row.hideEnglishReviews, showNsfwContent: row.showNsfwContent }
+    ? {
+        hideEnglishReviews: row.hideEnglishReviews,
+        showNsfwContent: row.showNsfwContent,
+      }
     : DEFAULT_CONTENT_PREFERENCES;
 }
 
@@ -254,7 +346,10 @@ export async function saveContentPreferences(
       set: { ...input, updatedAt: new Date() },
     })
     .returning();
-  return { hideEnglishReviews: row.hideEnglishReviews, showNsfwContent: row.showNsfwContent };
+  return {
+    hideEnglishReviews: row.hideEnglishReviews,
+    showNsfwContent: row.showNsfwContent,
+  };
 }
 
 /**
@@ -262,8 +357,15 @@ export async function saveContentPreferences(
  * Notifications), or the centralized defaults when no row exists yet —
  * "absence of a row resolves to all true for these optional categories."
  */
-export async function getNotificationPreferences(db: DbClient, userId: string): Promise<NotificationPreferences> {
-  const [row] = await db.select().from(userNotificationPreferences).where(eq(userNotificationPreferences.userId, userId)).limit(1);
+export async function getNotificationPreferences(
+  db: DbClient,
+  userId: string,
+): Promise<NotificationPreferences> {
+  const [row] = await db
+    .select()
+    .from(userNotificationPreferences)
+    .where(eq(userNotificationPreferences.userId, userId))
+    .limit(1);
   return row
     ? {
         newsUpdates: row.newsUpdates,
@@ -308,8 +410,16 @@ export async function saveNotificationPreferences(
  * The Clerk-side sync happens in `user-service.ts`'s `updateName`, which
  * calls this after; this function does not know Clerk exists.
  */
-export async function updateDisplayName(db: DbClient, userId: string, displayName: string): Promise<PolyglotUser> {
-  const [row] = await db.update(users).set({ displayName, updatedAt: new Date() }).where(eq(users.id, userId)).returning();
+export async function updateDisplayName(
+  db: DbClient,
+  userId: string,
+  displayName: string,
+): Promise<PolyglotUser> {
+  const [row] = await db
+    .update(users)
+    .set({ displayName, updatedAt: new Date() })
+    .where(eq(users.id, userId))
+    .returning();
   if (!row) {
     throw new AppError("ITEM_NOT_FOUND", "That account could not be found.");
   }
@@ -324,9 +434,17 @@ export async function updateDisplayName(db: DbClient, userId: string, displayNam
  * this must be check-the-constraint-by-attempting-the-write, never
  * check-then-insert, so nothing reads the table for availability first.
  */
-export async function updateUsername(db: DbClient, userId: string, username: string): Promise<PolyglotUser> {
+export async function updateUsername(
+  db: DbClient,
+  userId: string,
+  username: string,
+): Promise<PolyglotUser> {
   try {
-    const [row] = await db.update(users).set({ username, updatedAt: new Date() }).where(eq(users.id, userId)).returning();
+    const [row] = await db
+      .update(users)
+      .set({ username, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
     if (!row) {
       throw new AppError("ITEM_NOT_FOUND", "That account could not be found.");
     }
@@ -340,15 +458,26 @@ export async function updateUsername(db: DbClient, userId: string, username: str
 }
 
 /** Spec 20 General — Timezone. `users.timezone` already exists (spec 08); this just gives it a Settings write path. */
-export async function updateTimezone(db: DbClient, userId: string, timezone: string): Promise<PolyglotUser> {
-  const [row] = await db.update(users).set({ timezone, updatedAt: new Date() }).where(eq(users.id, userId)).returning();
+export async function updateTimezone(
+  db: DbClient,
+  userId: string,
+  timezone: string,
+): Promise<PolyglotUser> {
+  const [row] = await db
+    .update(users)
+    .set({ timezone, updatedAt: new Date() })
+    .where(eq(users.id, userId))
+    .returning();
   if (!row) {
     throw new AppError("ITEM_NOT_FOUND", "That account could not be found.");
   }
   return toPolyglotUser(row);
 }
 
-export async function findUsersByIds(db: DbClient, ids: string[]): Promise<PolyglotUser[]> {
+export async function findUsersByIds(
+  db: DbClient,
+  ids: string[],
+): Promise<PolyglotUser[]> {
   if (ids.length === 0) return [];
   const rows = await db.select().from(users).where(inArray(users.id, ids));
   return rows.map(toPolyglotUser);
@@ -369,7 +498,10 @@ export async function findUsersByIds(db: DbClient, ids: string[]): Promise<Polyg
  * prerequisites checks below) rolls back the whole thing, so a user can
  * never be left half-provisioned.
  */
-export async function provisionUser(db: DbClient, clerkUserId: string): Promise<PolyglotUser> {
+export async function provisionUser(
+  db: DbClient,
+  clerkUserId: string,
+): Promise<PolyglotUser> {
   return db.transaction(async (tx) => {
     const [language] = await tx
       .select({ id: languages.id })
@@ -377,7 +509,10 @@ export async function provisionUser(db: DbClient, clerkUserId: string): Promise<
       .where(eq(languages.code, getDefaultLanguageCode()))
       .limit(1);
     if (!language) {
-      throw new AppError("PROVISIONING_FAILED", "The default language is not configured.");
+      throw new AppError(
+        "PROVISIONING_FAILED",
+        "The default language is not configured.",
+      );
     }
 
     const [level1] = await tx
@@ -386,7 +521,10 @@ export async function provisionUser(db: DbClient, clerkUserId: string): Promise<
       .where(and(eq(levels.languageId, language.id), eq(levels.levelNumber, 1)))
       .limit(1);
     if (!level1) {
-      throw new AppError("PROVISIONING_FAILED", "Level 1 of the default language is not configured.");
+      throw new AppError(
+        "PROVISIONING_FAILED",
+        "Level 1 of the default language is not configured.",
+      );
     }
 
     const [inserted] = await tx
@@ -397,7 +535,10 @@ export async function provisionUser(db: DbClient, clerkUserId: string): Promise<
         timezone: "UTC",
         activeLanguageId: language.id,
       })
-      .onConflictDoNothing({ target: users.clerkUserId, where: sql`${users.clerkUserId} IS NOT NULL` })
+      .onConflictDoNothing({
+        target: users.clerkUserId,
+        where: sql`${users.clerkUserId} IS NOT NULL`,
+      })
       .returning();
 
     if (inserted) {
@@ -412,9 +553,16 @@ export async function provisionUser(db: DbClient, clerkUserId: string): Promise<
     // Lost the race: the winning transaction already committed a row for
     // this clerk_user_id (the conflicting insert above blocks until that
     // commit), so this read is guaranteed to find it.
-    const [existing] = await tx.select().from(users).where(eq(users.clerkUserId, clerkUserId)).limit(1);
+    const [existing] = await tx
+      .select()
+      .from(users)
+      .where(eq(users.clerkUserId, clerkUserId))
+      .limit(1);
     if (!existing) {
-      throw new AppError("PROVISIONING_FAILED", "User provisioning failed unexpectedly.");
+      throw new AppError(
+        "PROVISIONING_FAILED",
+        "User provisioning failed unexpectedly.",
+      );
     }
     return toPolyglotUser(existing);
   });

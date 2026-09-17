@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, render, screen, waitFor } from "@testing-library/react";
 
-import { HandwritingWord, type SpriteManifest } from "@/components/marketing/handwriting-word";
+import {
+  HandwritingWord,
+  type SpriteManifest,
+} from "@/components/marketing/handwriting-word";
 
 let imageLoadBehavior: "success" | "error" = "success";
 
@@ -110,7 +113,9 @@ describe("HandwritingWord", () => {
 
     render(<HandwritingWord {...props} />);
 
-    await waitFor(() => expect(currentBackgroundPosition()).toBe(positionForFrame(1)));
+    await waitFor(() =>
+      expect(currentBackgroundPosition()).toBe(positionForFrame(1)),
+    );
   });
 
   it("preloads only the single sprite sheet, not one request per frame", async () => {
@@ -139,8 +144,12 @@ describe("HandwritingWord", () => {
 
     render(<HandwritingWord {...props} />);
 
-    await waitFor(() => expect(screen.getByText("ここ")).not.toHaveClass("sr-only"));
-    expect(document.querySelector('[aria-hidden="true"]')).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByText("ここ")).not.toHaveClass("sr-only"),
+    );
+    expect(
+      document.querySelector('[aria-hidden="true"]'),
+    ).not.toBeInTheDocument();
   });
 
   it("keeps the word accessible even before the sequence has loaded", () => {

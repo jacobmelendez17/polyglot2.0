@@ -6,7 +6,10 @@ const VALID_UUID = "40000000-0000-0000-0000-000000000001";
 
 describe("getAdminCurriculumItemsInputSchema", () => {
   it("accepts a minimal valid input", () => {
-    const result = getAdminCurriculumItemsInputSchema.parse({ languageId: VALID_UUID, limit: 20 });
+    const result = getAdminCurriculumItemsInputSchema.parse({
+      languageId: VALID_UUID,
+      limit: 20,
+    });
     expect(result.languageId).toBe(VALID_UUID);
   });
 
@@ -25,22 +28,37 @@ describe("getAdminCurriculumItemsInputSchema", () => {
   });
 
   it("rejects a missing languageId", () => {
-    expect(() => getAdminCurriculumItemsInputSchema.parse({ limit: 20 })).toThrow();
+    expect(() =>
+      getAdminCurriculumItemsInputSchema.parse({ limit: 20 }),
+    ).toThrow();
   });
 
   it("rejects an unknown status", () => {
     expect(() =>
-      getAdminCurriculumItemsInputSchema.parse({ languageId: VALID_UUID, status: "live", limit: 20 }),
+      getAdminCurriculumItemsInputSchema.parse({
+        languageId: VALID_UUID,
+        status: "live",
+        limit: 20,
+      }),
     ).toThrow();
   });
 
   it("rejects an unknown type", () => {
     expect(() =>
-      getAdminCurriculumItemsInputSchema.parse({ languageId: VALID_UUID, type: "kanji", limit: 20 }),
+      getAdminCurriculumItemsInputSchema.parse({
+        languageId: VALID_UUID,
+        type: "kanji",
+        limit: 20,
+      }),
     ).toThrow();
   });
 
   it("rejects a limit above the configured maximum", () => {
-    expect(() => getAdminCurriculumItemsInputSchema.parse({ languageId: VALID_UUID, limit: 500 })).toThrow();
+    expect(() =>
+      getAdminCurriculumItemsInputSchema.parse({
+        languageId: VALID_UUID,
+        limit: 500,
+      }),
+    ).toThrow();
   });
 });

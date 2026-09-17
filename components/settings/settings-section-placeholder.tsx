@@ -11,12 +11,19 @@ type SettingsSectionPlaceholderProps = {
  * functionality" the spec forbids: it renders no toggle, no saved value, no
  * illusion of effect — only an honest "not built yet" notice.
  */
-export function SettingsSectionPlaceholder({ title, description }: SettingsSectionPlaceholderProps) {
+export function SettingsSectionPlaceholder({
+  title,
+  description,
+}: SettingsSectionPlaceholderProps) {
   return (
     <div className="rounded-xl border border-dashed border-border bg-card p-6">
-      <h2 className="font-heading text-lg font-semibold text-foreground">{title}</h2>
+      <h2 className="font-heading text-lg font-semibold text-foreground">
+        {title}
+      </h2>
       <p className="mt-2 text-sm text-muted-foreground">{description}</p>
-      <p className="mt-4 text-sm text-muted-foreground">This section is being built in a later implementation unit.</p>
+      <p className="mt-4 text-sm text-muted-foreground">
+        This section is being built in a later implementation unit.
+      </p>
     </div>
   );
 }

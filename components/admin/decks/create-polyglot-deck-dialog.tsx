@@ -3,7 +3,10 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-import { createPolyglotDeckAction, searchPublishedItemsAction } from "@/app/(admin)/admin/decks/actions";
+import {
+  createPolyglotDeckAction,
+  searchPublishedItemsAction,
+} from "@/app/(admin)/admin/decks/actions";
 import { DeckAvailabilityFields } from "@/components/admin/decks/deck-availability-fields";
 import type { AdminDeckLevelOption } from "@/components/admin/decks/deck-availability-fields";
 import { DeckItemPicker } from "@/components/decks/deck-item-picker";
@@ -19,7 +22,10 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { DECK_DESCRIPTION_MAX_LENGTH, DECK_NAME_MAX_LENGTH } from "@/domains/decks";
+import {
+  DECK_DESCRIPTION_MAX_LENGTH,
+  DECK_NAME_MAX_LENGTH,
+} from "@/domains/decks";
 import type { DeckAvailability } from "@/domains/decks";
 
 type CreatePolyglotDeckDialogProps = {
@@ -28,13 +34,19 @@ type CreatePolyglotDeckDialogProps = {
 };
 
 /** Creates an official Polyglot deck (spec 14's "Admin"). Like every deck, it cannot be created empty. */
-export function CreatePolyglotDeckDialog({ languageId, levels }: CreatePolyglotDeckDialogProps) {
+export function CreatePolyglotDeckDialog({
+  languageId,
+  levels,
+}: CreatePolyglotDeckDialogProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [availability, setAvailability] = useState<{ availability: DeckAvailability; gateLevelId: string | null }>({
+  const [availability, setAvailability] = useState<{
+    availability: DeckAvailability;
+    gateLevelId: string | null;
+  }>({
     availability: "theme",
     gateLevelId: null,
   });
@@ -58,7 +70,10 @@ export function CreatePolyglotDeckDialog({ languageId, levels }: CreatePolyglotD
         description,
         learningItemIds: selectedIds,
         ...(availability.availability === "level"
-          ? { availability: "level" as const, gateLevelId: availability.gateLevelId! }
+          ? {
+              availability: "level" as const,
+              gateLevelId: availability.gateLevelId!,
+            }
           : { availability: "theme" as const, gateLevelId: null }),
       });
       if (!result.ok) {
@@ -79,19 +94,26 @@ export function CreatePolyglotDeckDialog({ languageId, levels }: CreatePolyglotD
         <DialogHeader>
           <DialogTitle>Add a Polyglot deck</DialogTitle>
           <DialogDescription>
-            Official decks reference published curriculum items. Learners can view and practice them but never change
-            them.
+            Official decks reference published curriculum items. Learners can
+            view and practice them but never change them.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3">
           <label className="block text-sm">
             <span className="font-medium text-foreground">Name</span>
-            <Input className="mt-1" value={name} maxLength={DECK_NAME_MAX_LENGTH} onChange={(e) => setName(e.target.value)} />
+            <Input
+              className="mt-1"
+              value={name}
+              maxLength={DECK_NAME_MAX_LENGTH}
+              onChange={(e) => setName(e.target.value)}
+            />
           </label>
 
           <label className="block text-sm">
-            <span className="font-medium text-foreground">Description (optional)</span>
+            <span className="font-medium text-foreground">
+              Description (optional)
+            </span>
             <Textarea
               className="mt-1"
               rows={2}
@@ -113,7 +135,9 @@ export function CreatePolyglotDeckDialog({ languageId, levels }: CreatePolyglotD
             <DeckItemPicker
               selectedIds={selectedIds}
               onChange={setSelectedIds}
-              search={(query) => searchPublishedItemsAction({ languageId, search: query })}
+              search={(query) =>
+                searchPublishedItemsAction({ languageId, search: query })
+              }
               emptyMessage="No published curriculum items match."
             />
           </div>
@@ -129,7 +153,10 @@ export function CreatePolyglotDeckDialog({ languageId, levels }: CreatePolyglotD
           <Button variant="outline" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button onClick={handleCreate} disabled={isPending || selectedIds.length === 0}>
+          <Button
+            onClick={handleCreate}
+            disabled={isPending || selectedIds.length === 0}
+          >
             Add deck
           </Button>
         </DialogFooter>

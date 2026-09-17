@@ -14,8 +14,12 @@ export function NewsUpdatesToggle({ initialValue }: NewsUpdatesToggleProps) {
       label="News & Updates"
       initialValue={initialValue}
       onSave={async (newsUpdates) => {
-        const result = await updateNotificationPreferencesAction({ newsUpdates });
-        return result.ok ? { ok: true, value: result.data.newsUpdates } : { ok: false, message: result.error.message };
+        const result = await updateNotificationPreferencesAction({
+          newsUpdates,
+        });
+        return result.ok
+          ? { ok: true, value: result.data.newsUpdates }
+          : { ok: false, message: result.error.message };
       }}
     />
   );

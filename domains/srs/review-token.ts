@@ -19,12 +19,18 @@ import type { ReviewState } from "./review-types";
 function base64UrlEncode(bytes: Uint8Array): string {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  return btoa(binary)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
 }
 
 function base64UrlDecode(value: string): Uint8Array<ArrayBuffer> {
   const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
-  const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), "=");
+  const padded = normalized.padEnd(
+    normalized.length + ((4 - (normalized.length % 4)) % 4),
+    "=",
+  );
   const binary = atob(padded);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
@@ -84,7 +90,12 @@ export async function verifyReviewState({
   }
 
   const key = await getSigningKey();
-  const isValidSignature = await crypto.subtle.verify("HMAC", key, signatureBytes, payloadBytes);
+  const isValidSignature = await crypto.subtle.verify(
+    "HMAC",
+    key,
+    signatureBytes,
+    payloadBytes,
+  );
   if (!isValidSignature) throw new ReviewError("INVALID_REVIEW_STATE");
 
   let parsedPayload: unknown;
@@ -99,7 +110,8 @@ export async function verifyReviewState({
 
   const state = result.data;
   if (state.userId !== userId) throw new ReviewError("INVALID_REVIEW_STATE");
-  if (state.languageId !== languageId) throw new ReviewError("INVALID_REVIEW_STATE");
+  if (state.languageId !== languageId)
+    throw new ReviewError("INVALID_REVIEW_STATE");
   if (now >= state.expiresAt) throw new ReviewError("EXPIRED_REVIEW_STATE");
 
   return state;

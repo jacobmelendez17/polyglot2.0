@@ -34,13 +34,23 @@ import { DeckError } from "@/lib/errors/deck-errors";
  * `app/(admin)/admin/curriculum/actions.ts`'s shape.
  */
 
-export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: { code: string; message: string } };
+export type ActionResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: { code: string; message: string } };
 
-async function runAdminDeckAction<T>(fn: (actorUserId: string) => Promise<T>): Promise<ActionResult<T>> {
+async function runAdminDeckAction<T>(
+  fn: (actorUserId: string) => Promise<T>,
+): Promise<ActionResult<T>> {
   try {
     const user = await requireUser();
     if (!canPublishCurriculum(user)) {
-      return { ok: false, error: { code: "FORBIDDEN", message: "You don't have access to do that." } };
+      return {
+        ok: false,
+        error: {
+          code: "FORBIDDEN",
+          message: "You don't have access to do that.",
+        },
+      };
     }
     return { ok: true, data: await fn(user.id) };
   } catch (error) {
@@ -51,14 +61,29 @@ async function runAdminDeckAction<T>(fn: (actorUserId: string) => Promise<T>): P
       return { ok: false, error: { code: error.code, message: error.message } };
     }
     if (error instanceof z.ZodError) {
-      return { ok: false, error: { code: "DECK_VALIDATION_FAILED", message: "That request could not be understood." } };
+      return {
+        ok: false,
+        error: {
+          code: "DECK_VALIDATION_FAILED",
+          message: "That request could not be understood.",
+        },
+      };
     }
     console.error("Unexpected admin deck action error", error);
-    return { ok: false, error: { code: "UNKNOWN", message: "Something went wrong. Please try again." } };
+    return {
+      ok: false,
+      error: {
+        code: "UNKNOWN",
+        message: "Something went wrong. Please try again.",
+      },
+    };
   }
 }
 
-const createDeckActionSchema = z.intersection(z.object({ languageId: z.string().min(1) }), createPolyglotDeckSchema);
+const createDeckActionSchema = z.intersection(
+  z.object({ languageId: z.string().min(1) }),
+  createPolyglotDeckSchema,
+);
 
 export async function createPolyglotDeckAction(
   input: z.input<typeof createDeckActionSchema>,
@@ -116,7 +141,9 @@ export async function reorderPolyglotDeckItemsAction(
   });
 }
 
-export async function deletePolyglotDeckAction(input: z.input<typeof deckIdSchema>): Promise<ActionResult<null>> {
+export async function deletePolyglotDeckAction(
+  input: z.input<typeof deckIdSchema>,
+): Promise<ActionResult<null>> {
   return runAdminDeckAction(async (actorUserId) => {
     const parsed = deckIdSchema.parse(input);
     await deletePolyglotDeck({ ...parsed, actorUserId });
@@ -125,7 +152,10 @@ export async function deletePolyglotDeckAction(input: z.input<typeof deckIdSchem
   });
 }
 
-const searchItemsActionSchema = z.object({ languageId: z.string().min(1), search: z.string().max(120).optional() });
+const searchItemsActionSchema = z.object({
+  languageId: z.string().min(1),
+  search: z.string().max(120).optional(),
+});
 
 /** Powers the Admin deck-item picker — published curriculum, never gated on any learner's progress. */
 export async function searchPublishedItemsAction(

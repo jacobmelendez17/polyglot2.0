@@ -23,6 +23,9 @@ describe("ReviewEmptyState", () => {
 
   it("provides a route back to the dashboard", () => {
     render(<ReviewEmptyState nextReviewAt={null} />);
-    expect(screen.getByRole("link", { name: /dashboard/i })).toHaveAttribute("href", "/dashboard");
+    expect(screen.getByRole("link", { name: /dashboard/i })).toHaveAttribute(
+      "href",
+      "/dashboard",
+    );
   });
 });

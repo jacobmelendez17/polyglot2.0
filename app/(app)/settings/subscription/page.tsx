@@ -12,7 +12,9 @@ export const metadata: Metadata = {
 export default function SubscriptionSettingsPage() {
   return (
     <div className="rounded-xl border border-border bg-card p-6">
-      <h2 className="font-heading text-lg font-semibold text-foreground">Subscription</h2>
+      <h2 className="font-heading text-lg font-semibold text-foreground">
+        Subscription
+      </h2>
       <p className="mt-2 text-sm text-muted-foreground">Coming Soon</p>
     </div>
   );

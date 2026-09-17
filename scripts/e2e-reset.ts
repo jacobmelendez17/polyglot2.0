@@ -45,7 +45,9 @@ async function main() {
     // `public` alone — a Neon branch created from a migrated parent copies
     // both, so both must be dropped for `drizzle-kit`'s migrator to actually
     // reapply every migration rather than trusting a copied ledger.
-    await pool.query("DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;");
+    await pool.query(
+      "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;",
+    );
     await pool.query("DROP SCHEMA IF EXISTS drizzle CASCADE;");
 
     console.log("Applying migrations...");
@@ -54,7 +56,10 @@ async function main() {
 
     console.log("Seeding the E2E curriculum fixture and test identities...");
     const db = drizzle(pool, { schema });
-    const ids = await seedE2EFixtures(db, { learnerClerkUserId, adminClerkUserId });
+    const ids = await seedE2EFixtures(db, {
+      learnerClerkUserId,
+      adminClerkUserId,
+    });
     console.log("E2E database ready:", {
       languageId: ids.languageId,
       levelId: ids.levelId,

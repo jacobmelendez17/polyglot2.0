@@ -11,7 +11,10 @@ import type { DeckPickerItem } from "@/domains/decks";
 
 export type DeckItemSearch = (
   query: string,
-) => Promise<{ ok: true; data: DeckPickerItem[] } | { ok: false; error: { code: string; message: string } }>;
+) => Promise<
+  | { ok: true; data: DeckPickerItem[] }
+  | { ok: false; error: { code: string; message: string } }
+>;
 
 type DeckItemPickerProps = {
   selectedIds: string[];
@@ -30,7 +33,13 @@ type DeckItemPickerProps = {
  * never offered — and the mutation re-checks eligibility regardless, because
  * hiding an option is not authorization.
  */
-export function DeckItemPicker({ selectedIds, onChange, search, alreadyInDeckIds = [], emptyMessage }: DeckItemPickerProps) {
+export function DeckItemPicker({
+  selectedIds,
+  onChange,
+  search,
+  alreadyInDeckIds = [],
+  emptyMessage,
+}: DeckItemPickerProps) {
   const searchInputId = useId();
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<DeckPickerItem[]>([]);
@@ -60,7 +69,11 @@ export function DeckItemPicker({ selectedIds, onChange, search, alreadyInDeckIds
   }, []);
 
   function toggle(learningItemId: string, checked: boolean) {
-    onChange(checked ? [...selectedIds, learningItemId] : selectedIds.filter((id) => id !== learningItemId));
+    onChange(
+      checked
+        ? [...selectedIds, learningItemId]
+        : selectedIds.filter((id) => id !== learningItemId),
+    );
   }
 
   return (
@@ -72,7 +85,10 @@ export function DeckItemPicker({ selectedIds, onChange, search, alreadyInDeckIds
           runSearch(query);
         }}
       >
-        <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+        <Search
+          className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+          aria-hidden="true"
+        />
         <Input
           id={searchInputId}
           type="search"
@@ -92,9 +108,13 @@ export function DeckItemPicker({ selectedIds, onChange, search, alreadyInDeckIds
 
       <div className="max-h-72 overflow-y-auto rounded-lg border border-border">
         {!hasLoaded ? (
-          <p className="px-3 py-6 text-center text-sm text-muted-foreground">Loading items…</p>
+          <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+            Loading items…
+          </p>
         ) : items.length === 0 ? (
-          <p className="px-3 py-6 text-center text-sm text-muted-foreground">{emptyMessage}</p>
+          <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+            {emptyMessage}
+          </p>
         ) : (
           <ul className="divide-y divide-border">
             {items.map((item) => {
@@ -103,18 +123,31 @@ export function DeckItemPicker({ selectedIds, onChange, search, alreadyInDeckIds
                 <li key={item.learningItemId}>
                   <label className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-muted has-disabled:cursor-default has-disabled:opacity-60">
                     <Checkbox
-                      checked={isAlreadyInDeck || selectedIds.includes(item.learningItemId)}
+                      checked={
+                        isAlreadyInDeck ||
+                        selectedIds.includes(item.learningItemId)
+                      }
                       disabled={isAlreadyInDeck || isPending}
-                      onCheckedChange={(checked) => toggle(item.learningItemId, checked === true)}
+                      onCheckedChange={(checked) =>
+                        toggle(item.learningItemId, checked === true)
+                      }
                     />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-medium text-foreground">{item.primary}</span>
+                      <span className="block truncate text-sm font-medium text-foreground">
+                        {item.primary}
+                      </span>
                       <span className="block truncate text-xs text-muted-foreground">
                         {item.secondary} · Level {item.levelNumber}
                       </span>
                     </span>
-                    {item.srsStage !== null ? <SrsStageBadge stage={item.srsStage} /> : null}
-                    {isAlreadyInDeck ? <span className="shrink-0 text-xs text-muted-foreground">In deck</span> : null}
+                    {item.srsStage !== null ? (
+                      <SrsStageBadge stage={item.srsStage} />
+                    ) : null}
+                    {isAlreadyInDeck ? (
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        In deck
+                      </span>
+                    ) : null}
                   </label>
                 </li>
               );
@@ -125,7 +158,9 @@ export function DeckItemPicker({ selectedIds, onChange, search, alreadyInDeckIds
 
       <p className="text-xs text-muted-foreground" role="status">
         {selectedIds.length} selected
-        {items.length === DECK_ITEM_PICKER_LIMIT ? " · showing the first 100 matches — search to narrow them" : ""}
+        {items.length === DECK_ITEM_PICKER_LIMIT
+          ? " · showing the first 100 matches — search to narrow them"
+          : ""}
       </p>
     </div>
   );

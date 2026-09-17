@@ -1,6 +1,9 @@
 "use client";
 
-import { updateGrammarHintOrderAction, updateVocabularyHintOrderAction } from "@/app/(app)/settings/reviews/actions";
+import {
+  updateGrammarHintOrderAction,
+  updateVocabularyHintOrderAction,
+} from "@/app/(app)/settings/reviews/actions";
 import { InlineSelectSettingField } from "@/components/settings/inline-select-setting-field";
 import type { HintOrder } from "@/domains/srs";
 
@@ -15,18 +18,30 @@ type HintOrderSelectProps = {
 };
 
 /** Spec 20 Review Hints — Grammar/Vocabulary Hint Order. Only meaningful when that content type's Hint Mode is "More". */
-export function HintOrderSelect({ contentType, initialValue }: HintOrderSelectProps) {
-  const action = contentType === "grammar" ? updateGrammarHintOrderAction : updateVocabularyHintOrderAction;
+export function HintOrderSelect({
+  contentType,
+  initialValue,
+}: HintOrderSelectProps) {
+  const action =
+    contentType === "grammar"
+      ? updateGrammarHintOrderAction
+      : updateVocabularyHintOrderAction;
 
   return (
     <InlineSelectSettingField
-      label={contentType === "grammar" ? "Grammar Hint Order" : "Vocabulary Hint Order"}
+      label={
+        contentType === "grammar"
+          ? "Grammar Hint Order"
+          : "Vocabulary Hint Order"
+      }
       description="Only applies when Hint Mode is set to More — it decides which piece of extra help appears first."
       initialValue={initialValue}
       options={OPTIONS}
       onSave={async (hintOrder) => {
         const result = await action({ hintOrder });
-        return result.ok ? { ok: true, value: result.data.hintOrder as HintOrder } : { ok: false, message: result.error.message };
+        return result.ok
+          ? { ok: true, value: result.data.hintOrder as HintOrder }
+          : { ok: false, message: result.error.message };
       }}
     />
   );

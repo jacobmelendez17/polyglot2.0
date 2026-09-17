@@ -46,7 +46,10 @@ export default defineConfig({
   // `timeout` above) — 15s gives real state changes room to land without
   // papering over a genuine hang, which would still exceed this.
   expect: { timeout: 15_000 },
-  reporter: [["list"], ["html", { open: "never", outputFolder: "playwright-report" }]],
+  reporter: [
+    ["list"],
+    ["html", { open: "never", outputFolder: "playwright-report" }],
+  ],
   use: {
     baseURL,
     trace: "retain-on-failure",
@@ -66,7 +69,10 @@ export default defineConfig({
     },
     {
       name: "mobile-chromium",
-      use: { ...devices["Desktop Chrome"], viewport: { width: 390, height: 844 } },
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 390, height: 844 },
+      },
       dependencies: ["setup"],
       testMatch: /mobile\.smoke\.spec\.ts/,
     },

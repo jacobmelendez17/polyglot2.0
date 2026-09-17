@@ -4,7 +4,10 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Plus } from "lucide-react";
 
-import { createDeckAction, searchEligibleDeckItemsAction } from "@/app/(app)/decks/actions";
+import {
+  createDeckAction,
+  searchEligibleDeckItemsAction,
+} from "@/app/(app)/decks/actions";
 import { DeckItemPicker } from "@/components/decks/deck-item-picker";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,7 +21,10 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { DECK_DESCRIPTION_MAX_LENGTH, DECK_NAME_MAX_LENGTH } from "@/domains/decks";
+import {
+  DECK_DESCRIPTION_MAX_LENGTH,
+  DECK_NAME_MAX_LENGTH,
+} from "@/domains/decks";
 
 /**
  * Personal deck creation (spec 14): name, optional description, and one or
@@ -89,8 +95,8 @@ export function CreateDeckDialog() {
         <DialogHeader>
           <DialogTitle>Create a deck</DialogTitle>
           <DialogDescription>
-            Decks are extra practice built from items you have already learned. Practising a deck never changes your
-            reviews or SRS progress.
+            Decks are extra practice built from items you have already learned.
+            Practising a deck never changes your reviews or SRS progress.
           </DialogDescription>
         </DialogHeader>
 
@@ -106,7 +112,9 @@ export function CreateDeckDialog() {
           </label>
 
           <label className="block text-sm">
-            <span className="font-medium text-foreground">Description (optional)</span>
+            <span className="font-medium text-foreground">
+              Description (optional)
+            </span>
             <Textarea
               className="mt-1"
               rows={2}
@@ -118,11 +126,15 @@ export function CreateDeckDialog() {
 
           <div className="text-sm">
             <p className="font-medium text-foreground">Items</p>
-            <p className="mb-2 text-xs text-muted-foreground">Only items you have already learned can be added.</p>
+            <p className="mb-2 text-xs text-muted-foreground">
+              Only items you have already learned can be added.
+            </p>
             <DeckItemPicker
               selectedIds={selectedIds}
               onChange={setSelectedIds}
-              search={(query) => searchEligibleDeckItemsAction({ search: query })}
+              search={(query) =>
+                searchEligibleDeckItemsAction({ search: query })
+              }
               emptyMessage="Nothing to add yet — finish a lesson and your items will show up here."
             />
           </div>
@@ -138,7 +150,10 @@ export function CreateDeckDialog() {
           <Button variant="outline" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button onClick={handleCreate} disabled={isPending || selectedIds.length === 0}>
+          <Button
+            onClick={handleCreate}
+            disabled={isPending || selectedIds.length === 0}
+          >
             Create deck
           </Button>
         </DialogFooter>

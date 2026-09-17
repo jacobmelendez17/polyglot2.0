@@ -18,7 +18,10 @@ const STAGES = [
 
 export function SrsSlide() {
   return (
-    <div aria-hidden="true" className="flex h-56 w-full items-center justify-center sm:h-72">
+    <div
+      aria-hidden="true"
+      className="flex h-56 w-full items-center justify-center sm:h-72"
+    >
       <ol className="flex w-full max-w-md flex-col gap-2">
         {STAGES.map((stage, index) => (
           <li
@@ -29,8 +32,12 @@ export function SrsSlide() {
               {index + 1}
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-semibold text-foreground">{stage.label}</span>
-              <span className="block truncate text-xs text-muted-foreground">{stage.detail}</span>
+              <span className="block truncate text-sm font-semibold text-foreground">
+                {stage.label}
+              </span>
+              <span className="block truncate text-xs text-muted-foreground">
+                {stage.detail}
+              </span>
             </span>
           </li>
         ))}

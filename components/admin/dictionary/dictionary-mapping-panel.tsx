@@ -74,11 +74,15 @@ export function DictionaryMappingPanel({
   selectedSenseIds,
   attributionText,
 }: DictionaryMappingPanelProps) {
-  const [selectedSenses, setSelectedSenses] = useState<string[]>(selectedSenseIds);
-  const [preferredPronunciationId, setPreferredPronunciationId] = useState<string | null>(
-    mapping?.preferredPronunciationId ?? null,
-  );
-  const [feedback, setFeedback] = useState<{ tone: "success" | "error"; message: string } | null>(null);
+  const [selectedSenses, setSelectedSenses] =
+    useState<string[]>(selectedSenseIds);
+  const [preferredPronunciationId, setPreferredPronunciationId] = useState<
+    string | null
+  >(mapping?.preferredPronunciationId ?? null);
+  const [feedback, setFeedback] = useState<{
+    tone: "success" | "error";
+    message: string;
+  } | null>(null);
   const [isPending, startTransition] = useTransition();
 
   function toggleSense(senseId: string) {
@@ -93,7 +97,10 @@ export function DictionaryMappingPanel({
         idempotencyKey: crypto.randomUUID(),
       });
       if (result.ok) {
-        setFeedback({ tone: "success", message: "Selected definitions saved." });
+        setFeedback({
+          tone: "success",
+          message: "Selected definitions saved.",
+        });
       } else {
         // Roll the optimistic toggle back — the server is authoritative.
         setSelectedSenses(selectedSenses);
@@ -112,7 +119,10 @@ export function DictionaryMappingPanel({
         idempotencyKey: crypto.randomUUID(),
       });
       if (result.ok) {
-        setFeedback({ tone: "success", message: "Preferred pronunciation saved." });
+        setFeedback({
+          tone: "success",
+          message: "Preferred pronunciation saved.",
+        });
       } else {
         setPreferredPronunciationId(previous);
         setFeedback({ tone: "error", message: result.error.message });
@@ -122,7 +132,10 @@ export function DictionaryMappingPanel({
 
   function confirm() {
     startTransition(async () => {
-      const result = await confirmMappingAction({ vocabularyItemId, idempotencyKey: crypto.randomUUID() });
+      const result = await confirmMappingAction({
+        vocabularyItemId,
+        idempotencyKey: crypto.randomUUID(),
+      });
       setFeedback(
         result.ok
           ? { tone: "success", message: "Mapping confirmed and locked." }
@@ -133,7 +146,10 @@ export function DictionaryMappingPanel({
 
   function rematch() {
     startTransition(async () => {
-      const result = await rematchVocabularyItemAction({ vocabularyItemId, idempotencyKey: crypto.randomUUID() });
+      const result = await rematchVocabularyItemAction({
+        vocabularyItemId,
+        idempotencyKey: crypto.randomUUID(),
+      });
       if (!result.ok) {
         setFeedback({ tone: "error", message: result.error.message });
         return;
@@ -148,20 +164,41 @@ export function DictionaryMappingPanel({
   }
 
   return (
-    <section aria-labelledby="dictionary-mapping-heading" className="rounded-xl border border-dashed border-border bg-muted/20 p-4">
+    <section
+      aria-labelledby="dictionary-mapping-heading"
+      className="rounded-xl border border-dashed border-border bg-muted/20 p-4"
+    >
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <BookOpen className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-          <h3 id="dictionary-mapping-heading" className="text-sm font-semibold text-foreground">
+          <BookOpen
+            className="h-4 w-4 text-muted-foreground"
+            aria-hidden="true"
+          />
+          <h3
+            id="dictionary-mapping-heading"
+            className="text-sm font-semibold text-foreground"
+          >
             Dictionary mapping
           </h3>
-          <MappingStatusBadge status={mapping?.matchStatus ?? null} confidence={mapping?.confidence} />
+          <MappingStatusBadge
+            status={mapping?.matchStatus ?? null}
+            confidence={mapping?.confidence}
+          />
           {mapping?.manualLock ? (
-            <Lock className="h-3.5 w-3.5 text-muted-foreground" aria-label="Locked against automatic replacement" />
+            <Lock
+              className="h-3.5 w-3.5 text-muted-foreground"
+              aria-label="Locked against automatic replacement"
+            />
           ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" variant="outline" size="sm" onClick={rematch} disabled={isPending}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={rematch}
+            disabled={isPending}
+          >
             <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
             Re-run matching
           </Button>
@@ -171,7 +208,9 @@ export function DictionaryMappingPanel({
             displayWord={displayWord}
             currentEntryId={entry?.id ?? null}
           />
-          {entry ? <RawSourceDialog entryId={entry.id} lemma={entry.lemma} /> : null}
+          {entry ? (
+            <RawSourceDialog entryId={entry.id} lemma={entry.lemma} />
+          ) : null}
         </div>
       </div>
 
@@ -179,12 +218,17 @@ export function DictionaryMappingPanel({
         <dt className="text-muted-foreground">Display</dt>
         <dd className="text-foreground">{displayWord}</dd>
         <dt className="text-muted-foreground">Lookup</dt>
-        <dd className="font-mono text-xs text-foreground">{mapping?.lookupForm ?? "—"}</dd>
+        <dd className="font-mono text-xs text-foreground">
+          {mapping?.lookupForm ?? "—"}
+        </dd>
         <dt className="text-muted-foreground">Entry</dt>
         <dd className="text-foreground">
           {entry ? (
             <>
-              {entry.lemma} <span className="text-muted-foreground">· {entry.partOfSpeech}</span>
+              {entry.lemma}{" "}
+              <span className="text-muted-foreground">
+                · {entry.partOfSpeech}
+              </span>
             </>
           ) : (
             "—"
@@ -193,7 +237,9 @@ export function DictionaryMappingPanel({
       </dl>
 
       <p className="mb-3 text-xs text-muted-foreground">
-        {mapping?.reviewReason ? `${REVIEW_REASON_LABELS[mapping.reviewReason]}. ` : ""}
+        {mapping?.reviewReason
+          ? `${REVIEW_REASON_LABELS[mapping.reviewReason]}. `
+          : ""}
         {statusHint(mapping?.matchStatus ?? null)}
       </p>
 
@@ -226,13 +272,20 @@ export function DictionaryMappingPanel({
                     disabled={isPending}
                     className="mt-0.5"
                   />
-                  <label htmlFor={`sense-${sense.id}`} className="text-sm text-foreground">
+                  <label
+                    htmlFor={`sense-${sense.id}`}
+                    className="text-sm text-foreground"
+                  >
                     {sense.gloss}
                     {sense.tags.length > 0 ? (
-                      <span className="ml-1 text-xs text-muted-foreground">({sense.tags.join(", ")})</span>
+                      <span className="ml-1 text-xs text-muted-foreground">
+                        ({sense.tags.join(", ")})
+                      </span>
                     ) : null}
                     {sense.sourceStatus === "missing_from_source" ? (
-                      <span className="ml-1 text-xs text-state-warning">— no longer in the source</span>
+                      <span className="ml-1 text-xs text-state-warning">
+                        — no longer in the source
+                      </span>
                     ) : null}
                   </label>
                 </li>
@@ -242,7 +295,9 @@ export function DictionaryMappingPanel({
 
           {entry.pronunciations.length > 0 ? (
             <fieldset className="mb-3">
-              <legend className="mb-1 text-xs font-medium text-muted-foreground">Preferred pronunciation</legend>
+              <legend className="mb-1 text-xs font-medium text-muted-foreground">
+                Preferred pronunciation
+              </legend>
               <div className="space-y-1">
                 <label className="flex items-center gap-2 text-sm text-foreground">
                   <input
@@ -256,7 +311,10 @@ export function DictionaryMappingPanel({
                   None
                 </label>
                 {entry.pronunciations.map((pronunciation) => (
-                  <label key={pronunciation.id} className="flex items-center gap-2 text-sm text-foreground">
+                  <label
+                    key={pronunciation.id}
+                    className="flex items-center gap-2 text-sm text-foreground"
+                  >
                     <input
                       type="radio"
                       name="preferred-pronunciation"
@@ -265,9 +323,13 @@ export function DictionaryMappingPanel({
                       disabled={isPending}
                       className="h-4 w-4"
                     />
-                    <span className="font-mono text-xs">{pronunciation.ipa ?? "audio only"}</span>
+                    <span className="font-mono text-xs">
+                      {pronunciation.ipa ?? "audio only"}
+                    </span>
                     {pronunciation.regionCode ? (
-                      <span className="text-xs text-muted-foreground">{pronunciation.regionCode}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {pronunciation.regionCode}
+                      </span>
                     ) : null}
                   </label>
                 ))}
@@ -280,10 +342,14 @@ export function DictionaryMappingPanel({
               {entry.forms.length > 0 ? (
                 <>
                   <dt className="text-muted-foreground">Forms</dt>
-                  <dd className="text-foreground">{entry.forms.map((form) => form.form).join(", ")}</dd>
+                  <dd className="text-foreground">
+                    {entry.forms.map((form) => form.form).join(", ")}
+                  </dd>
                 </>
               ) : null}
-              {entry.relations.some((relation) => relation.relationType === "synonym") ? (
+              {entry.relations.some(
+                (relation) => relation.relationType === "synonym",
+              ) ? (
                 <>
                   <dt className="text-muted-foreground">Synonyms</dt>
                   <dd className="text-foreground">
@@ -298,7 +364,12 @@ export function DictionaryMappingPanel({
           ) : null}
 
           {mapping && !mapping.manualLock ? (
-            <Button type="button" size="sm" onClick={confirm} disabled={isPending}>
+            <Button
+              type="button"
+              size="sm"
+              onClick={confirm}
+              disabled={isPending}
+            >
               <Check className="h-3.5 w-3.5" aria-hidden="true" />
               Confirm this mapping
             </Button>
@@ -309,13 +380,19 @@ export function DictionaryMappingPanel({
       {feedback ? (
         <p
           role="status"
-          className={feedback.tone === "error" ? "mt-3 text-sm text-state-error" : "mt-3 text-sm text-state-success"}
+          className={
+            feedback.tone === "error"
+              ? "mt-3 text-sm text-state-error"
+              : "mt-3 text-sm text-state-success"
+          }
         >
           {feedback.message}
         </p>
       ) : null}
 
-      {attributionText ? <p className="mt-3 text-xs text-muted-foreground">{attributionText}</p> : null}
+      {attributionText ? (
+        <p className="mt-3 text-xs text-muted-foreground">{attributionText}</p>
+      ) : null}
     </section>
   );
 }

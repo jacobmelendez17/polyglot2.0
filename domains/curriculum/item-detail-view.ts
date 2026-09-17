@@ -25,7 +25,8 @@ export type ItemDetailType = "vocabulary" | "grammar";
 /** Which sections the shell renders. Spec 18: lessons show Info/Examples/Resources and never Progress. */
 export type ItemDetailMode = "page" | "lesson";
 
-export type ItemDetailSectionId = "info" | "examples" | "progress" | "resources";
+export type ItemDetailSectionId =
+  "info" | "examples" | "progress" | "resources";
 
 export const ITEM_DETAIL_SECTION_LABELS: Record<ItemDetailSectionId, string> = {
   info: "Info",
@@ -40,8 +41,12 @@ export const ITEM_DETAIL_SECTION_LABELS: Record<ItemDetailSectionId, string> = {
  * the first time — and because a lesson must not present SRS state that
  * enrollment has not created yet.
  */
-export function itemDetailSections(mode: ItemDetailMode): ItemDetailSectionId[] {
-  return mode === "lesson" ? ["info", "examples", "resources"] : ["info", "examples", "progress", "resources"];
+export function itemDetailSections(
+  mode: ItemDetailMode,
+): ItemDetailSectionId[] {
+  return mode === "lesson"
+    ? ["info", "examples", "resources"]
+    : ["info", "examples", "progress", "resources"];
 }
 
 /** Register values, as a learner reads them. `null` register renders as an em dash — see `registerEnum`. */
@@ -68,9 +73,17 @@ export const NOT_APPLICABLE_FIELD = "N/A";
 
 // --- Source shapes each caller builds ---
 
-export type ItemDetailSenseSource = { id: string; gloss: string; tags: string[] };
+export type ItemDetailSenseSource = {
+  id: string;
+  gloss: string;
+  tags: string[];
+};
 
-export type ItemDetailPatternSource = { id: string; label: string; note: string | null };
+export type ItemDetailPatternSource = {
+  id: string;
+  label: string;
+  note: string | null;
+};
 
 export type ItemDetailExampleSource = {
   id: string;
@@ -80,11 +93,21 @@ export type ItemDetailExampleSource = {
   patternId: string | null;
 };
 
-export type ItemDetailResourceSource = { id: string; label: string; url: string };
+export type ItemDetailResourceSource = {
+  id: string;
+  label: string;
+  url: string;
+};
 
 export type GrammarContentBlockSource =
   | { id: string; position: number; type: "text" | "note"; body: string }
-  | { id: string; position: number; type: "example"; targetText: string; translation: string };
+  | {
+      id: string;
+      position: number;
+      type: "example";
+      targetText: string;
+      translation: string;
+    };
 
 type ItemDetailSourceBase = {
   itemId: string;
@@ -171,7 +194,12 @@ export type ItemDetailAboutView = {
   blocks: GrammarContentBlockSource[];
 };
 
-export type ItemDetailExampleView = { id: string; targetText: string; translation: string; spokenText: string };
+export type ItemDetailExampleView = {
+  id: string;
+  targetText: string;
+  translation: string;
+  spokenText: string;
+};
 
 export type ItemDetailPatternView = {
   id: string;
@@ -206,12 +234,22 @@ export type ItemDetailView = {
 /** The General tab's synthetic id — examples belonging to no pattern (spec 17's rule, unchanged). */
 export const GENERAL_PATTERN_ID = "general";
 
-function toExampleView(example: ItemDetailExampleSource): ItemDetailExampleView {
-  return { id: example.id, targetText: example.targetText, translation: example.translation, spokenText: example.targetText };
+function toExampleView(
+  example: ItemDetailExampleSource,
+): ItemDetailExampleView {
+  return {
+    id: example.id,
+    targetText: example.targetText,
+    translation: example.translation,
+    spokenText: example.targetText,
+  };
 }
 
 function registerField(register: Register | null): ItemDetailField {
-  return { label: "Register", value: register ? REGISTER_LABELS[register] : EMPTY_FIELD };
+  return {
+    label: "Register",
+    value: register ? REGISTER_LABELS[register] : EMPTY_FIELD,
+  };
 }
 
 /**
@@ -225,18 +263,30 @@ function registerField(register: Register | null): ItemDetailField {
  * useful to a learner than the form silently not existing.
  */
 function buildPatterns(source: ItemDetailSource): ItemDetailPatternView[] {
-  const general = source.examples.filter((example) => example.patternId === null);
+  const general = source.examples.filter(
+    (example) => example.patternId === null,
+  );
   const patterns: ItemDetailPatternView[] = source.patterns.map((pattern) => ({
     id: pattern.id,
     label: pattern.label,
     note: pattern.note,
-    examples: source.examples.filter((example) => example.patternId === pattern.id).map(toExampleView),
+    examples: source.examples
+      .filter((example) => example.patternId === pattern.id)
+      .map(toExampleView),
   }));
 
   if (patterns.length === 0) return [];
   if (general.length === 0) return patterns;
 
-  return [...patterns, { id: GENERAL_PATTERN_ID, label: "General", note: null, examples: general.map(toExampleView) }];
+  return [
+    ...patterns,
+    {
+      id: GENERAL_PATTERN_ID,
+      label: "General",
+      note: null,
+      examples: general.map(toExampleView),
+    },
+  ];
 }
 
 /**
@@ -258,9 +308,15 @@ export function buildItemDetailView(source: ItemDetailSource): ItemDetailView {
       translation: source.translation,
       levelNumber: source.levelNumber,
       cefrLevel: source.cefrLevel,
-      details: [{ label: "Structure", value: source.structure }, registerField(source.register)],
+      details: [
+        { label: "Structure", value: source.structure },
+        registerField(source.register),
+      ],
       pronunciation: null,
-      synonyms: { official: source.officialSynonyms, personal: source.personalSynonyms },
+      synonyms: {
+        official: source.officialSynonyms,
+        personal: source.personalSynonyms,
+      },
       variations: { official: [], personal: [] },
       about: {
         title: `About ${source.title ?? source.structure}`,
@@ -287,7 +343,12 @@ export function buildItemDetailView(source: ItemDetailSource): ItemDetailView {
     levelNumber: source.levelNumber,
     cefrLevel: source.cefrLevel,
     details: [
-      { label: "Gender", value: source.gender ? GENDER_LABELS[source.gender] : NOT_APPLICABLE_FIELD },
+      {
+        label: "Gender",
+        value: source.gender
+          ? GENDER_LABELS[source.gender]
+          : NOT_APPLICABLE_FIELD,
+      },
       registerField(source.register),
     ],
     pronunciation: {
@@ -297,8 +358,14 @@ export function buildItemDetailView(source: ItemDetailSource): ItemDetailView {
       audioUrl: source.audioUrl,
       spokenText: source.displayWord,
     },
-    synonyms: { official: source.officialSynonyms, personal: source.personalSynonyms },
-    variations: { official: source.officialVariations, personal: source.personalVariations },
+    synonyms: {
+      official: source.officialSynonyms,
+      personal: source.personalSynonyms,
+    },
+    variations: {
+      official: source.officialVariations,
+      personal: source.personalVariations,
+    },
     about: {
       title: "Definition",
       body: source.teachingDefinition,
@@ -340,7 +407,11 @@ export type ItemNavigationView = {
  * the list holds only this item — one item has nowhere to go, and arrows
  * that navigate to the current page would be a lie rather than a no-op.
  */
-export function buildItemNavigation(itemIds: string[], currentItemId: string, scopeLabel: string): ItemNavigationView | null {
+export function buildItemNavigation(
+  itemIds: string[],
+  currentItemId: string,
+  scopeLabel: string,
+): ItemNavigationView | null {
   const index = itemIds.indexOf(currentItemId);
   if (index === -1 || itemIds.length < 2) return null;
 

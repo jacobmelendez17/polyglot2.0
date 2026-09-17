@@ -40,12 +40,22 @@ type MappingQueueTableProps = {
  * already performs, applied to several already-reviewed rows at once,
  * never a second way to pick *which* candidate is right.
  */
-export function MappingQueueTable({ rows, regionCode, selectedIds, onToggleItem, onToggleAll }: MappingQueueTableProps) {
+export function MappingQueueTable({
+  rows,
+  regionCode,
+  selectedIds,
+  onToggleItem,
+  onToggleAll,
+}: MappingQueueTableProps) {
   if (rows.length === 0) {
     return (
       <div className="rounded-xl border border-border bg-card p-8 text-center">
-        <p className="font-medium text-foreground">No vocabulary matches these filters</p>
-        <p className="mt-1 text-sm text-muted-foreground">Try a different filter, or clear one.</p>
+        <p className="font-medium text-foreground">
+          No vocabulary matches these filters
+        </p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Try a different filter, or clear one.
+        </p>
       </div>
     );
   }
@@ -72,19 +82,34 @@ export function MappingQueueTable({ rows, regionCode, selectedIds, onToggleItem,
             {selectedIds ? (
               <th scope="col" className="px-3 py-2">
                 <Checkbox
-                  checked={rows.filter(isConfirmableMappingRow).length > 0 && rows.filter(isConfirmableMappingRow).every((row) => selectedIds.has(row.vocabularyItemId))}
+                  checked={
+                    rows.filter(isConfirmableMappingRow).length > 0 &&
+                    rows
+                      .filter(isConfirmableMappingRow)
+                      .every((row) => selectedIds.has(row.vocabularyItemId))
+                  }
                   onCheckedChange={onToggleAll}
                   aria-label="Select all confirmable rows on this page"
                 />
               </th>
             ) : null}
-            <th scope="col" className="px-3 py-2">Curriculum</th>
-            <th scope="col" className="px-3 py-2">Lookup</th>
-            <th scope="col" className="px-3 py-2">Candidate</th>
+            <th scope="col" className="px-3 py-2">
+              Curriculum
+            </th>
+            <th scope="col" className="px-3 py-2">
+              Lookup
+            </th>
+            <th scope="col" className="px-3 py-2">
+              Candidate
+            </th>
             {regionCode ? (
-              <th scope="col" className="px-3 py-2">{regionCode}</th>
+              <th scope="col" className="px-3 py-2">
+                {regionCode}
+              </th>
             ) : null}
-            <th scope="col" className="px-3 py-2">Status</th>
+            <th scope="col" className="px-3 py-2">
+              Status
+            </th>
             <th scope="col" className="px-3 py-2">
               <span className="sr-only">Actions</span>
             </th>
@@ -92,30 +117,42 @@ export function MappingQueueTable({ rows, regionCode, selectedIds, onToggleItem,
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={row.vocabularyItemId} className="border-b border-border last:border-b-0">
+            <tr
+              key={row.vocabularyItemId}
+              className="border-b border-border last:border-b-0"
+            >
               {selectedIds ? (
                 <td className="px-3 py-2">
                   {isConfirmableMappingRow(row) ? (
                     <Checkbox
                       checked={selectedIds.has(row.vocabularyItemId)}
-                      onCheckedChange={() => onToggleItem?.(row.vocabularyItemId)}
+                      onCheckedChange={() =>
+                        onToggleItem?.(row.vocabularyItemId)
+                      }
                       aria-label={`Select ${row.displayWord}`}
                     />
                   ) : null}
                 </td>
               ) : null}
               <td className="px-3 py-2">
-                <div className="font-medium text-foreground">{row.displayWord}</div>
+                <div className="font-medium text-foreground">
+                  {row.displayWord}
+                </div>
                 <div className="text-xs text-muted-foreground">
                   {row.translation} · Level {row.levelNumber} · {row.groupName}
                 </div>
               </td>
-              <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{row.lookupForm ?? "—"}</td>
+              <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
+                {row.lookupForm ?? "—"}
+              </td>
               <td className="px-3 py-2">
                 {row.entryLemma ? (
                   <span className="text-foreground">
                     {row.entryLemma}
-                    <span className="text-muted-foreground"> · {row.entryPartOfSpeech}</span>
+                    <span className="text-muted-foreground">
+                      {" "}
+                      · {row.entryPartOfSpeech}
+                    </span>
                   </span>
                 ) : (
                   <span className="text-muted-foreground">—</span>
@@ -124,7 +161,10 @@ export function MappingQueueTable({ rows, regionCode, selectedIds, onToggleItem,
               {regionCode ? (
                 <td className="px-3 py-2">
                   {row.regionalStatus ? (
-                    <RegionalEvidenceBadge regionCode={regionCode} status={row.regionalStatus} />
+                    <RegionalEvidenceBadge
+                      regionCode={regionCode}
+                      status={row.regionalStatus}
+                    />
                   ) : (
                     <span className="text-muted-foreground">—</span>
                   )}
@@ -132,13 +172,21 @@ export function MappingQueueTable({ rows, regionCode, selectedIds, onToggleItem,
               ) : null}
               <td className="px-3 py-2">
                 <div className="flex flex-wrap items-center gap-1">
-                  <MappingStatusBadge status={row.matchStatus} confidence={row.confidence} />
+                  <MappingStatusBadge
+                    status={row.matchStatus}
+                    confidence={row.confidence}
+                  />
                   {row.manualLock ? (
-                    <Lock className="h-3 w-3 text-muted-foreground" aria-label="Locked against automatic replacement" />
+                    <Lock
+                      className="h-3 w-3 text-muted-foreground"
+                      aria-label="Locked against automatic replacement"
+                    />
                   ) : null}
                 </div>
                 {row.reviewReason ? (
-                  <div className="mt-0.5 text-xs text-muted-foreground">{REVIEW_REASON_LABELS[row.reviewReason]}</div>
+                  <div className="mt-0.5 text-xs text-muted-foreground">
+                    {REVIEW_REASON_LABELS[row.reviewReason]}
+                  </div>
                 ) : null}
               </td>
               <td className="px-3 py-2 text-right">

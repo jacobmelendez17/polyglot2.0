@@ -19,19 +19,27 @@ type ExitLessonDialogProps = {
  * the quiz screen, not modals layered over it). Careful not to imply SRS
  * progress will be lost — none has been created yet at this point.
  */
-export function ExitLessonDialog({ open, onOpenChange, onConfirm }: ExitLessonDialogProps) {
+export function ExitLessonDialog({
+  open,
+  onOpenChange,
+  onConfirm,
+}: ExitLessonDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Exit this lesson?</DialogTitle>
           <DialogDescription>
-            Your unfinished lesson progress will not be saved. These items will remain available to learn in a
-            future lesson.
+            Your unfinished lesson progress will not be saved. These items will
+            remain available to learn in a future lesson.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+          >
             Keep studying
           </Button>
           <Button type="button" variant="destructive" onClick={onConfirm}>

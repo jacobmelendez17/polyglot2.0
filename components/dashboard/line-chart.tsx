@@ -24,11 +24,17 @@ function toY(value: number, max: number): number {
  * zero-length, invisible line segment rather than an empty flat extension. */
 function toSlots(values: number[], max: number): { x: number; y: number }[] {
   if (values.length === 0) {
-    return Array.from({ length: SLOT_COUNT }, () => ({ x: CHART_WIDTH / 2, y: toY(0, max) }));
+    return Array.from({ length: SLOT_COUNT }, () => ({
+      x: CHART_WIDTH / 2,
+      y: toY(0, max),
+    }));
   }
 
   const real = values.map((value, index) => ({
-    x: values.length === 1 ? CHART_WIDTH / 2 : (index / (values.length - 1)) * CHART_WIDTH,
+    x:
+      values.length === 1
+        ? CHART_WIDTH / 2
+        : (index / (values.length - 1)) * CHART_WIDTH,
     y: toY(value, max),
   }));
 
@@ -83,7 +89,10 @@ export function LineChart({ points }: LineChartProps) {
 
       <div className="flex gap-1" aria-hidden="true">
         {points.map((point) => (
-          <span key={point.timestamp} className="flex-1 text-center text-xs text-muted-foreground">
+          <span
+            key={point.timestamp}
+            className="flex-1 text-center text-xs text-muted-foreground"
+          >
             {point.label}
           </span>
         ))}

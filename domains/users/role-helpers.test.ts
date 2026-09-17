@@ -37,7 +37,9 @@ describe("hasRole", () => {
   });
 
   it("fails a disallowed role check against a list", () => {
-    expect(hasRole(withRole("beta-tester"), ["admin", "developer"])).toBe(false);
+    expect(hasRole(withRole("beta-tester"), ["admin", "developer"])).toBe(
+      false,
+    );
   });
 });
 

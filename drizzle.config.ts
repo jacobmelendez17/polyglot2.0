@@ -10,7 +10,9 @@ config({ path: ".env.local" });
 // lib/env.ts also requires Clerk/lesson vars that are irrelevant here.
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
-  throw new Error("DATABASE_URL is required to run drizzle-kit. Set it in .env.local.");
+  throw new Error(
+    "DATABASE_URL is required to run drizzle-kit. Set it in .env.local.",
+  );
 }
 
 export default defineConfig({

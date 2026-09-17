@@ -18,7 +18,12 @@ type LevelLinkProps = {
  * together — never color alone — plus `aria-current="page"` for assistive
  * tech.
  */
-export function LevelLink({ levelNumber, isCurrent, onClick, className }: LevelLinkProps) {
+export function LevelLink({
+  levelNumber,
+  isCurrent,
+  onClick,
+  className,
+}: LevelLinkProps) {
   return (
     <Link
       href={`/levels/${levelNumber}`}
@@ -26,7 +31,8 @@ export function LevelLink({ levelNumber, isCurrent, onClick, className }: LevelL
       aria-current={isCurrent ? "page" : undefined}
       className={cn(
         "flex items-center justify-center rounded-md text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        isCurrent && "border border-foreground/50 bg-muted font-semibold text-foreground",
+        isCurrent &&
+          "border border-foreground/50 bg-muted font-semibold text-foreground",
         className,
       )}
     >

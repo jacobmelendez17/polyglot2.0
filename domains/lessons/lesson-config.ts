@@ -40,7 +40,9 @@ const LANGUAGE_DISPLAY_NAMES: Record<string, string> = {
 
 /** Display name for a language code, for UI copy such as "Spanish → English". Data-driven, not hardcoded per language. */
 export function getLanguageDisplayName(languageCode: string): string {
-  return resolveByLanguageCode(LANGUAGE_DISPLAY_NAMES, languageCode) ?? languageCode;
+  return (
+    resolveByLanguageCode(LANGUAGE_DISPLAY_NAMES, languageCode) ?? languageCode
+  );
 }
 
 const CHARACTER_HELPERS_BY_LANGUAGE: Record<string, readonly string[]> = {
@@ -49,5 +51,7 @@ const CHARACTER_HELPERS_BY_LANGUAGE: Record<string, readonly string[]> = {
 
 /** Configured character helpers for a language code (spec 07 §27) — never hardcoded into the input component itself. */
 export function getCharacterHelpers(languageCode: string): readonly string[] {
-  return resolveByLanguageCode(CHARACTER_HELPERS_BY_LANGUAGE, languageCode) ?? [];
+  return (
+    resolveByLanguageCode(CHARACTER_HELPERS_BY_LANGUAGE, languageCode) ?? []
+  );
 }

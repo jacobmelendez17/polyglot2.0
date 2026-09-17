@@ -118,7 +118,10 @@ export type SeedTestFixturesOptions = {
   committed?: boolean;
 };
 
-export async function seedTestFixtures(db: DbClient, options: SeedTestFixturesOptions = {}): Promise<TestFixtureIds> {
+export async function seedTestFixtures(
+  db: DbClient,
+  options: SeedTestFixturesOptions = {},
+): Promise<TestFixtureIds> {
   const languageCode = getDefaultLanguageCode();
 
   const [insertedLanguage] = await db
@@ -127,30 +130,63 @@ export async function seedTestFixtures(db: DbClient, options: SeedTestFixturesOp
     .onConflictDoNothing({ target: languages.code })
     .returning();
   const language =
-    insertedLanguage ?? (await db.select().from(languages).where(eq(languages.code, languageCode)).limit(1))[0];
+    insertedLanguage ??
+    (
+      await db
+        .select()
+        .from(languages)
+        .where(eq(languages.code, languageCode))
+        .limit(1)
+    )[0];
   const languageId = language.id;
 
   await db
     .insert(levels)
-    .values({ id: LEVEL_1_ID, languageId, levelNumber: FIXTURE_LEVEL_NUMBER, name: "Fixture level", status: "published" })
+    .values({
+      id: LEVEL_1_ID,
+      languageId,
+      levelNumber: FIXTURE_LEVEL_NUMBER,
+      name: "Fixture level",
+      status: "published",
+    })
     .onConflictDoNothing({ target: levels.id });
   const level1Id = LEVEL_1_ID;
 
   await db
     .insert(levels)
-    .values({ id: LEVEL_2_ID, languageId, levelNumber: FIXTURE_NEXT_LEVEL_NUMBER, name: "Fixture level 2", status: "published" })
+    .values({
+      id: LEVEL_2_ID,
+      languageId,
+      levelNumber: FIXTURE_NEXT_LEVEL_NUMBER,
+      name: "Fixture level 2",
+      status: "published",
+    })
     .onConflictDoNothing({ target: levels.id });
 
   await db
     .insert(vocabularyGroups)
-    .values({ id: VOCAB_GROUP_ID, levelId: level1Id, languageId, name: "Home & Basics", position: 1, status: "published" })
+    .values({
+      id: VOCAB_GROUP_ID,
+      levelId: level1Id,
+      languageId,
+      name: "Home & Basics",
+      position: 1,
+      status: "published",
+    })
     .onConflictDoNothing({ target: vocabularyGroups.id });
 
   // rojo's own group — see VOCAB_GROUP_2_ID's docstring for why this stays
   // on Level 1 rather than Level 2.
   await db
     .insert(vocabularyGroups)
-    .values({ id: VOCAB_GROUP_2_ID, levelId: level1Id, languageId, name: "Colors", position: 2, status: "published" })
+    .values({
+      id: VOCAB_GROUP_2_ID,
+      levelId: level1Id,
+      languageId,
+      name: "Colors",
+      position: 2,
+      status: "published",
+    })
     .onConflictDoNothing({ target: vocabularyGroups.id });
 
   // Level 1 vocabulary: a plain noun, an article-requiring noun, and an
@@ -168,16 +204,61 @@ export async function seedTestFixtures(db: DbClient, options: SeedTestFixturesOp
   // demo items in the real database and put them back in front of learners,
   // which is exactly what happened once before this option existed.
   const learningItemValues = [
-    { id: ITEM_GATO_ID, languageId, levelId: level1Id, type: "vocabulary" as const, status: "published" as const, position: 1, lessonPriority: 1 },
-    { id: ITEM_CASA_ID, languageId, levelId: level1Id, type: "vocabulary" as const, status: "published" as const, position: 2, lessonPriority: 2 },
-    { id: ITEM_AGUA_ID, languageId, levelId: level1Id, type: "vocabulary" as const, status: "published" as const, position: 3, lessonPriority: 3 },
-    { id: ITEM_Y_ID, languageId, levelId: level1Id, type: "grammar" as const, status: "published" as const, position: 4, lessonPriority: 4 },
-    { id: ITEM_ROJO_ID, languageId, levelId: LEVEL_2_ID, type: "vocabulary" as const, status: "published" as const, position: 1, lessonPriority: 1 },
+    {
+      id: ITEM_GATO_ID,
+      languageId,
+      levelId: level1Id,
+      type: "vocabulary" as const,
+      status: "published" as const,
+      position: 1,
+      lessonPriority: 1,
+    },
+    {
+      id: ITEM_CASA_ID,
+      languageId,
+      levelId: level1Id,
+      type: "vocabulary" as const,
+      status: "published" as const,
+      position: 2,
+      lessonPriority: 2,
+    },
+    {
+      id: ITEM_AGUA_ID,
+      languageId,
+      levelId: level1Id,
+      type: "vocabulary" as const,
+      status: "published" as const,
+      position: 3,
+      lessonPriority: 3,
+    },
+    {
+      id: ITEM_Y_ID,
+      languageId,
+      levelId: level1Id,
+      type: "grammar" as const,
+      status: "published" as const,
+      position: 4,
+      lessonPriority: 4,
+    },
+    {
+      id: ITEM_ROJO_ID,
+      languageId,
+      levelId: LEVEL_2_ID,
+      type: "vocabulary" as const,
+      status: "published" as const,
+      position: 1,
+      lessonPriority: 1,
+    },
   ];
-  const learningItemsInsert = db.insert(learningItems).values(learningItemValues);
+  const learningItemsInsert = db
+    .insert(learningItems)
+    .values(learningItemValues);
   await (options.committed
     ? learningItemsInsert.onConflictDoNothing({ target: learningItems.id })
-    : learningItemsInsert.onConflictDoUpdate({ target: learningItems.id, set: { status: "published" } }));
+    : learningItemsInsert.onConflictDoUpdate({
+        target: learningItems.id,
+        set: { status: "published" },
+      }));
 
   await db
     .insert(vocabularyItems)
@@ -206,7 +287,8 @@ export async function seedTestFixtures(db: DbClient, options: SeedTestFixturesOp
         // Irregular: feminine noun that takes "el" in the singular.
         article: "el",
         partOfSpeech: "noun",
-        creatorNotes: "Irregular article: feminine noun, singular article 'el'.",
+        creatorNotes:
+          "Irregular article: feminine noun, singular article 'el'.",
       },
       {
         learningItemId: ITEM_ROJO_ID,
@@ -225,48 +307,90 @@ export async function seedTestFixtures(db: DbClient, options: SeedTestFixturesOp
       structure: "y",
       primaryMeaning: "and",
       explanation: "Connects two words, phrases, or clauses.",
-      requiredQuestions: [{ format: "translation", direction: "targetToEnglish" }],
+      requiredQuestions: [
+        { format: "translation", direction: "targetToEnglish" },
+      ],
     })
     .onConflictDoNothing({ target: grammarItems.learningItemId });
 
   await db
     .insert(sentences)
     .values([
-      { id: SENTENCE_GATO_ID, languageId, targetText: "El gato duerme.", translation: "The cat sleeps.", status: "published" },
-      { id: SENTENCE_Y_ID, languageId, targetText: "gato y perro", translation: "cat and dog", status: "published" },
+      {
+        id: SENTENCE_GATO_ID,
+        languageId,
+        targetText: "El gato duerme.",
+        translation: "The cat sleeps.",
+        status: "published",
+      },
+      {
+        id: SENTENCE_Y_ID,
+        languageId,
+        targetText: "gato y perro",
+        translation: "cat and dog",
+        status: "published",
+      },
     ])
     .onConflictDoNothing({ target: sentences.id });
 
   await db
     .insert(learningItemSentences)
     .values([
-      { learningItemId: ITEM_GATO_ID, sentenceId: SENTENCE_GATO_ID, position: 1 },
+      {
+        learningItemId: ITEM_GATO_ID,
+        sentenceId: SENTENCE_GATO_ID,
+        position: 1,
+      },
       { learningItemId: ITEM_Y_ID, sentenceId: SENTENCE_Y_ID, position: 1 },
     ])
-    .onConflictDoNothing({ target: [learningItemSentences.learningItemId, learningItemSentences.position] });
+    .onConflictDoNothing({
+      target: [
+        learningItemSentences.learningItemId,
+        learningItemSentences.position,
+      ],
+    });
 
   await db
     .insert(users)
     .values([
-      { id: LEARNER_ID, clerkUserId: LEARNER_CLERK_USER_ID, role: "user", activeLanguageId: languageId },
-      { id: DEVELOPER_ID, clerkUserId: DEVELOPER_CLERK_USER_ID, role: "developer", activeLanguageId: languageId },
+      {
+        id: LEARNER_ID,
+        clerkUserId: LEARNER_CLERK_USER_ID,
+        role: "user",
+        activeLanguageId: languageId,
+      },
+      {
+        id: DEVELOPER_ID,
+        clerkUserId: DEVELOPER_CLERK_USER_ID,
+        role: "developer",
+        activeLanguageId: languageId,
+      },
     ])
     .onConflictDoNothing({ target: users.id });
 
   await db
     .insert(users)
-    .values({ id: SANDBOX_ID, isSandbox: true, sandboxOwnerUserId: DEVELOPER_ID, activeLanguageId: languageId })
+    .values({
+      id: SANDBOX_ID,
+      isSandbox: true,
+      sandboxOwnerUserId: DEVELOPER_ID,
+      activeLanguageId: languageId,
+    })
     .onConflictDoNothing({ target: users.id });
 
   // The fixture learner has unlocked the fixture level and nothing else.
   // Asserted rather than assumed: this learner previously had an unlock row
   // for the real Level 1, left behind when the fixtures moved to their own
   // level, and "lists every level a user has unlocked" started seeing two.
-  await db.delete(userLevelProgress).where(eq(userLevelProgress.userId, LEARNER_ID));
+  await db
+    .delete(userLevelProgress)
+    .where(eq(userLevelProgress.userId, LEARNER_ID));
   await db
     .insert(userLevelProgress)
     .values({ userId: LEARNER_ID, levelId: level1Id, unlockedAt: new Date() })
-    .onConflictDoNothing({ target: [userLevelProgress.userId, userLevelProgress.levelId] });
+    .onConflictDoNothing({
+      target: [userLevelProgress.userId, userLevelProgress.levelId],
+    });
 
   await db
     .insert(userItemProgress)
@@ -278,12 +402,20 @@ export async function seedTestFixtures(db: DbClient, options: SeedTestFixturesOp
       correctCount: 1,
       reviewCount: 1,
     })
-    .onConflictDoNothing({ target: [userItemProgress.userId, userItemProgress.learningItemId] });
+    .onConflictDoNothing({
+      target: [userItemProgress.userId, userItemProgress.learningItemId],
+    });
 
   await db
     .insert(userNotes)
-    .values({ userId: LEARNER_ID, learningItemId: ITEM_GATO_ID, body: "Remember: el gato, not la gato." })
-    .onConflictDoNothing({ target: [userNotes.userId, userNotes.learningItemId] });
+    .values({
+      userId: LEARNER_ID,
+      learningItemId: ITEM_GATO_ID,
+      body: "Remember: el gato, not la gato.",
+    })
+    .onConflictDoNothing({
+      target: [userNotes.userId, userNotes.learningItemId],
+    });
 
   await db
     .insert(userSynonyms)
@@ -295,7 +427,12 @@ export async function seedTestFixtures(db: DbClient, options: SeedTestFixturesOp
       normalizedValue: normalizeForComparison("kitty"),
     })
     .onConflictDoNothing({
-      target: [userSynonyms.userId, userSynonyms.learningItemId, userSynonyms.side, userSynonyms.normalizedValue],
+      target: [
+        userSynonyms.userId,
+        userSynonyms.learningItemId,
+        userSynonyms.side,
+        userSynonyms.normalizedValue,
+      ],
     });
 
   await db

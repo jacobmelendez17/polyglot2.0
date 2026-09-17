@@ -1,4 +1,13 @@
-import { foreignKey, index, integer, pgEnum, pgTable, primaryKey, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  foreignKey,
+  index,
+  integer,
+  pgEnum,
+  pgTable,
+  primaryKey,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 import { timestamps } from "./columns";
 import { learningItems, levels } from "./curriculum";
@@ -40,7 +49,9 @@ export const userItemProgress = pgTable(
     learningItemId: uuid("learning_item_id").notNull(),
     languageId: uuid("language_id").notNull(),
     srsStage: srsStageEnum("srs_stage").notNull(),
-    learnedAt: timestamp("learned_at", { withTimezone: true }).notNull().defaultNow(),
+    learnedAt: timestamp("learned_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
     nextReviewAt: timestamp("next_review_at", { withTimezone: true }),
     fluentAt: timestamp("fluent_at", { withTimezone: true }),
     correctCount: integer("correct_count").notNull().default(0),
@@ -59,8 +70,12 @@ export const userItemProgress = pgTable(
      * transaction as every other counter here, never computed after the
      * fact (spec: "Do not run asynchronous leech calculations").
      */
-    currentCorrectStreak: integer("current_correct_streak").notNull().default(0),
-    highestSrsStageReached: srsStageEnum("highest_srs_stage_reached").notNull().default("beginner_1"),
+    currentCorrectStreak: integer("current_correct_streak")
+      .notNull()
+      .default(0),
+    highestSrsStageReached: srsStageEnum("highest_srs_stage_reached")
+      .notNull()
+      .default("beginner_1"),
     // Optimistic-concurrency guard for future review mutations (spec 08 §26) — not consumed yet.
     version: integer("version").notNull().default(0),
     ...timestamps(),
@@ -76,9 +91,16 @@ export const userItemProgress = pgTable(
       foreignColumns: [learningItems.id, learningItems.languageId],
     }).onDelete("restrict"),
     // The due-review path (spec 08 §41) — the reason language_id is denormalized onto this table at all.
-    index("user_item_progress_due_review_idx").on(t.userId, t.languageId, t.nextReviewAt),
+    index("user_item_progress_due_review_idx").on(
+      t.userId,
+      t.languageId,
+      t.nextReviewAt,
+    ),
     // Supports the learning_item_id/language_id foreign key and level-stage aggregate joins through learning_items.
-    index("user_item_progress_learning_item_idx").on(t.learningItemId, t.languageId),
+    index("user_item_progress_learning_item_idx").on(
+      t.learningItemId,
+      t.languageId,
+    ),
   ],
 );
 

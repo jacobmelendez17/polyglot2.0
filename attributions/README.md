@@ -23,7 +23,7 @@ the Admin dictionary UI.
 Applies to: regional recognition badges (`es-MX`, `es`) shown against
 dictionary entries.
 
-## What is *not* third-party
+## What is _not_ third-party
 
 Polyglot's own teaching content — display word, translation, teaching
 summary, official examples, level, group, accepted answers — is authored in

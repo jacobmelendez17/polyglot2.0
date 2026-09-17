@@ -27,14 +27,23 @@ afterAll(() => {
 
 describe("readJsonlFile", () => {
   it("streams one parsed object per line", async () => {
-    const path = writeFixture("simple.jsonl", '{"word":"padre"}\n{"word":"madre"}\n');
+    const path = writeFixture(
+      "simple.jsonl",
+      '{"word":"padre"}\n{"word":"madre"}\n',
+    );
     const lines = await collect(path);
-    expect(lines.map((line) => line.value)).toEqual([{ word: "padre" }, { word: "madre" }]);
+    expect(lines.map((line) => line.value)).toEqual([
+      { word: "padre" },
+      { word: "madre" },
+    ]);
     expect(lines.map((line) => line.lineNumber)).toEqual([1, 2]);
   });
 
   it("reports a malformed line instead of throwing, so one bad record cannot abort an import", async () => {
-    const path = writeFixture("malformed.jsonl", '{"word":"padre"}\n{"word": [\n{"word":"madre"}\n');
+    const path = writeFixture(
+      "malformed.jsonl",
+      '{"word":"padre"}\n{"word": [\n{"word":"madre"}\n',
+    );
     const lines = await collect(path);
     expect(lines).toHaveLength(3);
     expect(lines[1].parseError).toBe("invalid JSON");
@@ -50,9 +59,15 @@ describe("readJsonlFile", () => {
   });
 
   it("decompresses a .gz dump in the same stream", async () => {
-    const path = writeFixture("compressed.jsonl.gz", gzipSync('{"word":"padre"}\n{"word":"madre"}\n'));
+    const path = writeFixture(
+      "compressed.jsonl.gz",
+      gzipSync('{"word":"padre"}\n{"word":"madre"}\n'),
+    );
     const lines = await collect(path);
-    expect(lines.map((line) => line.value)).toEqual([{ word: "padre" }, { word: "madre" }]);
+    expect(lines.map((line) => line.value)).toEqual([
+      { word: "padre" },
+      { word: "madre" },
+    ]);
   });
 
   it("handles a file with no trailing newline", async () => {
@@ -70,6 +85,8 @@ describe("assertImportFileSize", () => {
 
   it("refuses a file beyond the permitted size before any parsing happens", () => {
     const path = writeFixture("too-big.jsonl", '{"a":1}\n');
-    expect(() => assertImportFileSize(path, 2)).toThrow(/maximum permitted size/);
+    expect(() => assertImportFileSize(path, 2)).toThrow(
+      /maximum permitted size/,
+    );
   });
 });

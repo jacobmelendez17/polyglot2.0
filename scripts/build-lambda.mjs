@@ -26,7 +26,10 @@ import { resolve } from "node:path";
 const OUT_DIR = resolve(process.cwd(), "dist/lambda/curriculum-import");
 const OUT_FILE = resolve(OUT_DIR, "index.js");
 
-await rm(resolve(process.cwd(), "dist/lambda"), { recursive: true, force: true });
+await rm(resolve(process.cwd(), "dist/lambda"), {
+  recursive: true,
+  force: true,
+});
 await mkdir(OUT_DIR, { recursive: true });
 
 await build({

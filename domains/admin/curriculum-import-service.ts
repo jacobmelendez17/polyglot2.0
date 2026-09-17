@@ -15,7 +15,11 @@ import {
   setStatus,
   unarchiveCurriculumImport as repoUnarchiveCurriculumImport,
 } from "./curriculum-import-repository";
-import type { CreateCurriculumImportInput, CurriculumImportRecord, CurriculumImportRowPreviewInput } from "./curriculum-import-types";
+import type {
+  CreateCurriculumImportInput,
+  CurriculumImportRecord,
+  CurriculumImportRowPreviewInput,
+} from "./curriculum-import-types";
 
 /**
  * State-machine behavior around `curriculum_imports` (spec 19 §18, §48 step
@@ -34,21 +38,40 @@ import type { CreateCurriculumImportInput, CurriculumImportRecord, CurriculumImp
  * then persist that result here via `recordPreviewResult`/`confirmCurriculumImport`.
  */
 
-export async function createCurriculumImport(db: DbClient, input: CreateCurriculumImportInput): Promise<CurriculumImportRecord> {
+export async function createCurriculumImport(
+  db: DbClient,
+  input: CreateCurriculumImportInput,
+): Promise<CurriculumImportRecord> {
   return repoCreateCurriculumImport(db, input);
 }
 
 /** Called once the browser's direct-to-S3 upload is known to have happened — the object exists, and preview processing can be queued. */
-export async function markCurriculumImportUploaded(db: DbClient, importId: string): Promise<void> {
+export async function markCurriculumImportUploaded(
+  db: DbClient,
+  importId: string,
+): Promise<void> {
   const current = await lockCurriculumImportForUpdate(db, importId);
-  if (!current) throw new AdminError("CURRICULUM_ITEM_NOT_FOUND", "This import no longer exists.");
+  if (!current)
+    throw new AdminError(
+      "CURRICULUM_ITEM_NOT_FOUND",
+      "This import no longer exists.",
+    );
   if (current.status !== "uploading") return; // Already past this point — a duplicate S3 event, harmless (spec 19 §7).
-  await setStatus(db, importId, "queued_for_preview", { uploadedAt: new Date() });
+  await setStatus(db, importId, "queued_for_preview", {
+    uploadedAt: new Date(),
+  });
 }
 
-export async function markCurriculumImportPreviewStarted(db: DbClient, importId: string): Promise<void> {
+export async function markCurriculumImportPreviewStarted(
+  db: DbClient,
+  importId: string,
+): Promise<void> {
   const current = await lockCurriculumImportForUpdate(db, importId);
-  if (!current) throw new AdminError("CURRICULUM_ITEM_NOT_FOUND", "This import no longer exists.");
+  if (!current)
+    throw new AdminError(
+      "CURRICULUM_ITEM_NOT_FOUND",
+      "This import no longer exists.",
+    );
   if (
     current.status !== "queued_for_preview" &&
     current.status !== "needs_review" &&
@@ -60,7 +83,10 @@ export async function markCurriculumImportPreviewStarted(db: DbClient, importId:
     // always allowed it). queued_for_import: §12's mandatory commit-time
     // revalidation — commit-job.ts re-runs the same preview pipeline before
     // ever trusting the confirmed one, from exactly this status.
-    throw new AdminError("CURRICULUM_VALIDATION_FAILED", `Cannot start preview from status "${current.status}".`);
+    throw new AdminError(
+      "CURRICULUM_VALIDATION_FAILED",
+      `Cannot start preview from status "${current.status}".`,
+    );
   }
   await setStatus(db, importId, "previewing", { previewStartedAt: new Date() });
 }
@@ -74,19 +100,39 @@ export async function markCurriculumImportPreviewStarted(db: DbClient, importId:
  */
 export async function recordCurriculumImportPreview(
   db: DbClient,
-  { importId, rows, sourceSha256 }: { importId: string; rows: CurriculumImportRowPreviewInput[]; sourceSha256?: string },
+  {
+    importId,
+    rows,
+    sourceSha256,
+  }: {
+    importId: string;
+    rows: CurriculumImportRowPreviewInput[];
+    sourceSha256?: string;
+  },
 ): Promise<void> {
   const current = await lockCurriculumImportForUpdate(db, importId);
-  if (!current) throw new AdminError("CURRICULUM_ITEM_NOT_FOUND", "This import no longer exists.");
+  if (!current)
+    throw new AdminError(
+      "CURRICULUM_ITEM_NOT_FOUND",
+      "This import no longer exists.",
+    );
   if (current.status !== "previewing") {
-    throw new AdminError("CURRICULUM_VALIDATION_FAILED", `Cannot record a preview from status "${current.status}".`);
+    throw new AdminError(
+      "CURRICULUM_VALIDATION_FAILED",
+      `Cannot record a preview from status "${current.status}".`,
+    );
   }
   // Fetched before the overwrite below replaces them — this is what lets a
   // re-preview mark `changedSincePreview` (spec 19 §12/§13's "CHANGED SINCE
   // PREVIEW" indicator) instead of every re-preview looking identical to a
   // first one.
   const previousRows = await getCurrentRowClassifications(db, importId);
-  await repoRecordPreviewResult(db, { importId, rows, sourceSha256, previousRows });
+  await repoRecordPreviewResult(db, {
+    importId,
+    rows,
+    sourceSha256,
+    previousRows,
+  });
 }
 
 /**
@@ -100,17 +146,37 @@ export async function recordCurriculumImportPreview(
  */
 export async function revertCurriculumImportForRevalidation(
   db: DbClient,
-  { importId, rows, sourceSha256 }: { importId: string; rows: CurriculumImportRowPreviewInput[]; sourceSha256?: string },
+  {
+    importId,
+    rows,
+    sourceSha256,
+  }: {
+    importId: string;
+    rows: CurriculumImportRowPreviewInput[];
+    sourceSha256?: string;
+  },
 ): Promise<void> {
   const current = await lockCurriculumImportForUpdate(db, importId);
-  if (!current) throw new AdminError("CURRICULUM_ITEM_NOT_FOUND", "This import no longer exists.");
+  if (!current)
+    throw new AdminError(
+      "CURRICULUM_ITEM_NOT_FOUND",
+      "This import no longer exists.",
+    );
   // `failed`: a retried commit (see markCurriculumImportStarted) can also
   // discover a material change on its retry, not just on the first attempt.
   if (current.status !== "queued_for_import" && current.status !== "failed") {
-    throw new AdminError("CURRICULUM_VALIDATION_FAILED", `Cannot revert to review from status "${current.status}".`);
+    throw new AdminError(
+      "CURRICULUM_VALIDATION_FAILED",
+      `Cannot revert to review from status "${current.status}".`,
+    );
   }
   const previousRows = await getCurrentRowClassifications(db, importId);
-  await repoRecordPreviewResult(db, { importId, rows, sourceSha256, previousRows });
+  await repoRecordPreviewResult(db, {
+    importId,
+    rows,
+    sourceSha256,
+    previousRows,
+  });
 }
 
 export type ConfirmCurriculumImportResult = { confirmedPreviewVersion: number };
@@ -121,19 +187,38 @@ export type ConfirmCurriculumImportResult = { confirmedPreviewVersion: number };
  * import is actually sitting in a confirmable status — confirming twice, or
  * confirming mid-preview, is a bug in the caller, not a retryable state.
  */
-export async function confirmCurriculumImport(db: DbClient, { importId, actorUserId }: { importId: string; actorUserId: string }): Promise<ConfirmCurriculumImportResult> {
+export async function confirmCurriculumImport(
+  db: DbClient,
+  { importId, actorUserId }: { importId: string; actorUserId: string },
+): Promise<ConfirmCurriculumImportResult> {
   const current = await lockCurriculumImportForUpdate(db, importId);
-  if (!current) throw new AdminError("CURRICULUM_ITEM_NOT_FOUND", "This import no longer exists.");
-  if (current.status !== "needs_review" && current.status !== "ready_to_import") {
-    throw new AdminError("CURRICULUM_VALIDATION_FAILED", `This import isn't ready to confirm (status "${current.status}").`);
+  if (!current)
+    throw new AdminError(
+      "CURRICULUM_ITEM_NOT_FOUND",
+      "This import no longer exists.",
+    );
+  if (
+    current.status !== "needs_review" &&
+    current.status !== "ready_to_import"
+  ) {
+    throw new AdminError(
+      "CURRICULUM_VALIDATION_FAILED",
+      `This import isn't ready to confirm (status "${current.status}").`,
+    );
   }
 
   const unresolved = await countUnresolvedRows(db, importId);
   if (unresolved > 0) {
-    throw new AdminError("CURRICULUM_VALIDATION_FAILED", `${unresolved} row(s) still need a decision before this import can be confirmed.`);
+    throw new AdminError(
+      "CURRICULUM_VALIDATION_FAILED",
+      `${unresolved} row(s) still need a decision before this import can be confirmed.`,
+    );
   }
 
-  await setStatus(db, importId, "queued_for_import", { confirmedAt: new Date(), confirmedPreviewVersion: current.previewVersion });
+  await setStatus(db, importId, "queued_for_import", {
+    confirmedAt: new Date(),
+    confirmedPreviewVersion: current.previewVersion,
+  });
   await recordAuditEvent(db, {
     actorUserId,
     action: "CURRICULUM_IMPORT_CONFIRMED",
@@ -145,13 +230,23 @@ export async function confirmCurriculumImport(db: DbClient, { importId, actorUse
 }
 
 /** V1's only row resolution (spec 19 §9): skip a blocked row so it never blocks confirmation. */
-export async function resolveCurriculumImportRow(db: DbClient, { rowId }: { rowId: string }): Promise<void> {
+export async function resolveCurriculumImportRow(
+  db: DbClient,
+  { rowId }: { rowId: string },
+): Promise<void> {
   await setRowDisposition(db, rowId, "skip");
 }
 
-export async function markCurriculumImportStarted(db: DbClient, importId: string): Promise<void> {
+export async function markCurriculumImportStarted(
+  db: DbClient,
+  importId: string,
+): Promise<void> {
   const current = await lockCurriculumImportForUpdate(db, importId);
-  if (!current) throw new AdminError("CURRICULUM_ITEM_NOT_FOUND", "This import no longer exists.");
+  if (!current)
+    throw new AdminError(
+      "CURRICULUM_ITEM_NOT_FOUND",
+      "This import no longer exists.",
+    );
   if (current.status !== "queued_for_import" && current.status !== "failed") {
     // `failed`: SQS's own automatic redelivery of the same COMMIT_IMPORT
     // message (spec 19 §22 — up to `max_receive_count` attempts before the
@@ -159,44 +254,100 @@ export async function markCurriculumImportStarted(db: DbClient, importId: string
     // not silently no-op it — `commit-job.ts` sets `failed` on every caught
     // error, but SQS doesn't know or care about that status and will
     // redeliver the identical message regardless.
-    throw new AdminError("CURRICULUM_VALIDATION_FAILED", `Cannot start committing from status "${current.status}".`);
+    throw new AdminError(
+      "CURRICULUM_VALIDATION_FAILED",
+      `Cannot start committing from status "${current.status}".`,
+    );
   }
   await incrementAttemptCount(db, importId);
   await setStatus(db, importId, "importing", { importStartedAt: new Date() });
 }
 
-export async function markCurriculumImportCompleted(db: DbClient, importId: string, extra: { skippedCount?: number } = {}): Promise<void> {
-  await setStatus(db, importId, "completed", { completedAt: new Date(), ...(extra.skippedCount !== undefined ? { skippedCount: extra.skippedCount } : {}) });
+export async function markCurriculumImportCompleted(
+  db: DbClient,
+  importId: string,
+  extra: { skippedCount?: number } = {},
+): Promise<void> {
+  await setStatus(db, importId, "completed", {
+    completedAt: new Date(),
+    ...(extra.skippedCount !== undefined
+      ? { skippedCount: extra.skippedCount }
+      : {}),
+  });
 }
 
-export async function markCurriculumImportFailed(db: DbClient, { importId, errorCode, errorSummary }: { importId: string; errorCode: string; errorSummary: string }): Promise<void> {
-  await setStatus(db, importId, "failed", { lastErrorCode: errorCode, lastErrorSummary: errorSummary });
+export async function markCurriculumImportFailed(
+  db: DbClient,
+  {
+    importId,
+    errorCode,
+    errorSummary,
+  }: { importId: string; errorCode: string; errorSummary: string },
+): Promise<void> {
+  await setStatus(db, importId, "failed", {
+    lastErrorCode: errorCode,
+    lastErrorSummary: errorSummary,
+  });
 }
 
 /** Returns a failed import to `queued_for_import` so retry logic can re-run the commit job (spec 19 §22). Does not reset `attemptCount` — a retry is a new attempt, not a fresh import. */
-export async function retryCurriculumImport(db: DbClient, importId: string): Promise<void> {
+export async function retryCurriculumImport(
+  db: DbClient,
+  importId: string,
+): Promise<void> {
   const current = await lockCurriculumImportForUpdate(db, importId);
-  if (!current) throw new AdminError("CURRICULUM_ITEM_NOT_FOUND", "This import no longer exists.");
+  if (!current)
+    throw new AdminError(
+      "CURRICULUM_ITEM_NOT_FOUND",
+      "This import no longer exists.",
+    );
   if (current.status !== "failed") {
-    throw new AdminError("CURRICULUM_VALIDATION_FAILED", "Only a failed import can be retried.");
+    throw new AdminError(
+      "CURRICULUM_VALIDATION_FAILED",
+      "Only a failed import can be retried.",
+    );
   }
   await setStatus(db, importId, "queued_for_import");
 }
 
-export async function archiveCurriculumImport(db: DbClient, { importId, actorUserId }: { importId: string; actorUserId: string }): Promise<void> {
+export async function archiveCurriculumImport(
+  db: DbClient,
+  { importId, actorUserId }: { importId: string; actorUserId: string },
+): Promise<void> {
   const current = await lockCurriculumImportForUpdate(db, importId);
-  if (!current) throw new AdminError("CURRICULUM_ITEM_NOT_FOUND", "This import no longer exists.");
+  if (!current)
+    throw new AdminError(
+      "CURRICULUM_ITEM_NOT_FOUND",
+      "This import no longer exists.",
+    );
   if (current.archivedAt) return; // Already archived — idempotent no-op, not an error.
   await repoArchiveCurriculumImport(db, importId, actorUserId);
-  await recordAuditEvent(db, { actorUserId, action: "CURRICULUM_IMPORT_ARCHIVED", resourceType: "curriculum_import", resourceId: importId });
+  await recordAuditEvent(db, {
+    actorUserId,
+    action: "CURRICULUM_IMPORT_ARCHIVED",
+    resourceType: "curriculum_import",
+    resourceId: importId,
+  });
 }
 
-export async function unarchiveCurriculumImport(db: DbClient, { importId, actorUserId }: { importId: string; actorUserId: string }): Promise<void> {
+export async function unarchiveCurriculumImport(
+  db: DbClient,
+  { importId, actorUserId }: { importId: string; actorUserId: string },
+): Promise<void> {
   const current = await lockCurriculumImportForUpdate(db, importId);
-  if (!current) throw new AdminError("CURRICULUM_ITEM_NOT_FOUND", "This import no longer exists.");
+  if (!current)
+    throw new AdminError(
+      "CURRICULUM_ITEM_NOT_FOUND",
+      "This import no longer exists.",
+    );
   if (!current.archivedAt) return;
   await repoUnarchiveCurriculumImport(db, importId);
-  await recordAuditEvent(db, { actorUserId, action: "CURRICULUM_IMPORT_RESTORED", resourceType: "curriculum_import", resourceId: importId });
+  await recordAuditEvent(db, {
+    actorUserId,
+    action: "CURRICULUM_IMPORT_RESTORED",
+    resourceType: "curriculum_import",
+    resourceId: importId,
+  });
 }
 
 /**
@@ -211,11 +362,21 @@ export async function unarchiveCurriculumImport(db: DbClient, { importId, actorU
  * yet wired up (see `progress-tracker.md` — this ships ahead of the S3/Lambda
  * units); this function only removes the database record.
  */
-export async function permanentlyDeleteCurriculumImport(db: DbClient, { importId, actorUserId }: { importId: string; actorUserId: string }): Promise<void> {
+export async function permanentlyDeleteCurriculumImport(
+  db: DbClient,
+  { importId, actorUserId }: { importId: string; actorUserId: string },
+): Promise<void> {
   const current = await lockCurriculumImportForUpdate(db, importId);
-  if (!current) throw new AdminError("CURRICULUM_ITEM_NOT_FOUND", "This import no longer exists.");
+  if (!current)
+    throw new AdminError(
+      "CURRICULUM_ITEM_NOT_FOUND",
+      "This import no longer exists.",
+    );
   if (!current.archivedAt) {
-    throw new AdminError("CURRICULUM_VALIDATION_FAILED", "Only an archived import can be permanently deleted.");
+    throw new AdminError(
+      "CURRICULUM_VALIDATION_FAILED",
+      "Only an archived import can be permanently deleted.",
+    );
   }
 
   await recordAuditEvent(db, {
@@ -223,7 +384,10 @@ export async function permanentlyDeleteCurriculumImport(db: DbClient, { importId
     action: "CURRICULUM_IMPORT_DELETED",
     resourceType: "curriculum_import",
     resourceId: importId,
-    afterData: { sourceSha256: current.sourceSha256, finalStatus: current.status },
+    afterData: {
+      sourceSha256: current.sourceSha256,
+      finalStatus: current.status,
+    },
   });
   await deleteCurriculumImport(db, importId);
 }

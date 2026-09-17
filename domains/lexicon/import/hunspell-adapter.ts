@@ -85,7 +85,11 @@ export function parseHunspellDictionary(dicContent: string): HunspellEntry[] {
     word = word.replace(/\\\//g, "/");
     if (word.length === 0) continue;
 
-    entries.push({ word, normalizedWord: normalizeLexicalForm(word), affixFlags });
+    entries.push({
+      word,
+      normalizedWord: normalizeLexicalForm(word),
+      affixFlags,
+    });
   }
 
   return entries;

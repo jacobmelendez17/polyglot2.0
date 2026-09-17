@@ -57,8 +57,8 @@ export function DeleteDeckDialog({ deckId, deckName }: DeleteDeckDialogProps) {
         <DialogHeader>
           <DialogTitle>Delete “{deckName}”?</DialogTitle>
           <DialogDescription>
-            This deletes the deck only. The words and grammar points inside it, and all of your review progress on them,
-            stay exactly as they are.
+            This deletes the deck only. The words and grammar points inside it,
+            and all of your review progress on them, stay exactly as they are.
           </DialogDescription>
         </DialogHeader>
 
@@ -72,7 +72,11 @@ export function DeleteDeckDialog({ deckId, deckName }: DeleteDeckDialogProps) {
           <Button variant="outline" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button variant="destructive" onClick={handleDelete} disabled={isPending}>
+          <Button
+            variant="destructive"
+            onClick={handleDelete}
+            disabled={isPending}
+          >
             Delete deck
           </Button>
         </DialogFooter>

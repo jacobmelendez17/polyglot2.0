@@ -16,7 +16,9 @@ export type TestTx = Parameters<Parameters<typeof testDb.transaction>[0]>[0];
  * passed to `fn` — using the top-level `db` inside a test would run outside
  * the transaction and actually persist.
  */
-export async function withTestTransaction<T>(fn: (tx: TestTx) => Promise<T>): Promise<T> {
+export async function withTestTransaction<T>(
+  fn: (tx: TestTx) => Promise<T>,
+): Promise<T> {
   let result: T | undefined;
 
   try {

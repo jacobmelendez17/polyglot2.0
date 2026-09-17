@@ -22,9 +22,16 @@ function assertNotProduction(varName: string): void {
   }
 }
 
-function requireDistinctUrls(varName: string, url: string, otherVarName: string, otherUrl: string | undefined): void {
+function requireDistinctUrls(
+  varName: string,
+  url: string,
+  otherVarName: string,
+  otherUrl: string | undefined,
+): void {
   if (otherUrl && url === otherUrl) {
-    throw new Error(`Refusing to use ${varName}: it must not be equal to ${otherVarName}. Point it at a dedicated branch/database.`);
+    throw new Error(
+      `Refusing to use ${varName}: it must not be equal to ${otherVarName}. Point it at a dedicated branch/database.`,
+    );
   }
 }
 
@@ -39,10 +46,17 @@ export function assertSafeIntegrationDatabaseUrl(): string {
 
   const testUrl = process.env.TEST_DATABASE_URL;
   if (!testUrl) {
-    throw new Error("TEST_DATABASE_URL is required to run database integration tests. Set it in .env.local — see .env.example.");
+    throw new Error(
+      "TEST_DATABASE_URL is required to run database integration tests. Set it in .env.local — see .env.example.",
+    );
   }
 
-  requireDistinctUrls("TEST_DATABASE_URL", testUrl, "DATABASE_URL", process.env.DATABASE_URL);
+  requireDistinctUrls(
+    "TEST_DATABASE_URL",
+    testUrl,
+    "DATABASE_URL",
+    process.env.DATABASE_URL,
+  );
 
   return testUrl;
 }
@@ -58,11 +72,23 @@ export function assertSafeE2EDatabaseUrl(): string {
 
   const e2eUrl = process.env.E2E_DATABASE_URL;
   if (!e2eUrl) {
-    throw new Error("E2E_DATABASE_URL is required to run the E2E suite. Set it in .env.local — see .env.example.");
+    throw new Error(
+      "E2E_DATABASE_URL is required to run the E2E suite. Set it in .env.local — see .env.example.",
+    );
   }
 
-  requireDistinctUrls("E2E_DATABASE_URL", e2eUrl, "DATABASE_URL", process.env.DATABASE_URL);
-  requireDistinctUrls("E2E_DATABASE_URL", e2eUrl, "TEST_DATABASE_URL", process.env.TEST_DATABASE_URL);
+  requireDistinctUrls(
+    "E2E_DATABASE_URL",
+    e2eUrl,
+    "DATABASE_URL",
+    process.env.DATABASE_URL,
+  );
+  requireDistinctUrls(
+    "E2E_DATABASE_URL",
+    e2eUrl,
+    "TEST_DATABASE_URL",
+    process.env.TEST_DATABASE_URL,
+  );
 
   return e2eUrl;
 }

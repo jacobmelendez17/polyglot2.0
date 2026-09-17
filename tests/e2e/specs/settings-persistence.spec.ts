@@ -16,7 +16,10 @@ test.describe("Settings persistence", () => {
     await ensureLearnerOnboarded();
   });
 
-  test("changing timezone persists across refresh and a fresh browser context", async ({ page, browser }) => {
+  test("changing timezone persists across refresh and a fresh browser context", async ({
+    page,
+    browser,
+  }) => {
     await page.goto("/settings/general");
 
     await page.getByRole("combobox", { name: /Timezone/ }).click();
@@ -28,14 +31,22 @@ test.describe("Settings persistence", () => {
     await expect(page.getByText("Saved")).toBeVisible();
 
     await page.reload();
-    await expect(page.getByRole("combobox", { name: /Timezone, America\/Mexico_City/ })).toBeVisible();
+    await expect(
+      page.getByRole("combobox", { name: /Timezone, America\/Mexico_City/ }),
+    ).toBeVisible();
 
     // A fresh browser context for the same authenticated learner — proves
     // the value is server-backed rather than device-local.
-    const freshContext = await browser.newContext({ storageState: "playwright/.auth/learner.json" });
+    const freshContext = await browser.newContext({
+      storageState: "playwright/.auth/learner.json",
+    });
     const freshPage = await freshContext.newPage();
     await freshPage.goto("/settings/general");
-    await expect(freshPage.getByRole("combobox", { name: /Timezone, America\/Mexico_City/ })).toBeVisible();
+    await expect(
+      freshPage.getByRole("combobox", {
+        name: /Timezone, America\/Mexico_City/,
+      }),
+    ).toBeVisible();
     await freshContext.close();
   });
 });

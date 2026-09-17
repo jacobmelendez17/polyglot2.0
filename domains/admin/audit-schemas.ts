@@ -10,7 +10,12 @@ import { ADMIN_AUDIT_ACTIONS } from "./audit-types";
  * e.g. `60000000-0000-0000-0000-000000000002`) deliberately don't have.
  * Confirmed directly: `z.uuid()` rejects that exact fixture ID.
  */
-const uuidLike = z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, "Invalid UUID");
+const uuidLike = z
+  .string()
+  .regex(
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    "Invalid UUID",
+  );
 
 /**
  * Boundary validation for `recordAuditEvent` (code-standards.md's "validate

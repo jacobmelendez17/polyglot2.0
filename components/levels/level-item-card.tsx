@@ -32,8 +32,12 @@ export function LevelItemCard({ item, className }: LevelItemCardProps) {
         className,
       )}
     >
-      <span className="line-clamp-2 text-base font-semibold text-foreground">{item.primary}</span>
-      <span className="line-clamp-2 text-sm text-muted-foreground">{item.secondary}</span>
+      <span className="line-clamp-2 text-base font-semibold text-foreground">
+        {item.primary}
+      </span>
+      <span className="line-clamp-2 text-sm text-muted-foreground">
+        {item.secondary}
+      </span>
     </Link>
   );
 }

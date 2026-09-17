@@ -19,18 +19,24 @@ export default function AppearanceSettingsPage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="rounded-xl border border-border bg-card p-6">
-        <h2 className="font-heading text-lg font-semibold text-foreground">Theme</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Stored on this device — it does not sync between devices.</p>
+        <h2 className="font-heading text-lg font-semibold text-foreground">
+          Theme
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Stored on this device — it does not sync between devices.
+        </p>
         <div className="mt-4">
           <ThemeSelector />
         </div>
       </div>
 
       <div className="rounded-xl border border-border bg-card p-6">
-        <h2 className="font-heading text-lg font-semibold text-foreground">Color Palette</h2>
+        <h2 className="font-heading text-lg font-semibold text-foreground">
+          Color Palette
+        </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Changes the accent used for buttons, links, and highlights — never the meaning-bearing colors for Vocabulary, Grammar, or
-          SRS stages.
+          Changes the accent used for buttons, links, and highlights — never the
+          meaning-bearing colors for Vocabulary, Grammar, or SRS stages.
         </p>
         <div className="mt-4">
           <PaletteSelector />
@@ -38,23 +44,33 @@ export default function AppearanceSettingsPage() {
       </div>
 
       <div className="rounded-xl border border-border bg-card p-6">
-        <h2 className="font-heading text-lg font-semibold text-foreground">Font Family</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Polyglot / Cozy is the default written/handwritten style.</p>
+        <h2 className="font-heading text-lg font-semibold text-foreground">
+          Font Family
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Polyglot / Cozy is the default written/handwritten style.
+        </p>
         <div className="mt-4">
           <FontFamilySelector />
         </div>
       </div>
 
       <div className="rounded-xl border border-border bg-card p-6">
-        <h2 className="font-heading text-lg font-semibold text-foreground">Font Size</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Scales body text, headings, and labels together.</p>
+        <h2 className="font-heading text-lg font-semibold text-foreground">
+          Font Size
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Scales body text, headings, and labels together.
+        </p>
         <div className="mt-4">
           <FontSizeSelector />
         </div>
       </div>
 
       <div className="rounded-xl border border-border bg-card p-6">
-        <h2 className="font-heading text-lg font-semibold text-foreground">Accessibility</h2>
+        <h2 className="font-heading text-lg font-semibold text-foreground">
+          Accessibility
+        </h2>
         <div className="mt-4">
           <ColorBlindToggle />
         </div>

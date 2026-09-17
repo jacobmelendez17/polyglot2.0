@@ -48,7 +48,10 @@ const SLIDE_OFFSET = 48;
  * the next slide mount immediately, so a learner pressing Next repeatedly
  * moves at their own speed rather than the animation's.
  */
-export function OnboardingFlow({ isReplay, returnTo = "/admin/sandbox" }: OnboardingFlowProps) {
+export function OnboardingFlow({
+  isReplay,
+  returnTo = "/admin/sandbox",
+}: OnboardingFlowProps) {
   const router = useRouter();
   const [index, setIndex] = useState(0);
   const [direction, setDirection] = useState<1 | -1>(1);
@@ -130,7 +133,10 @@ export function OnboardingFlow({ isReplay, returnTo = "/admin/sandbox" }: Onboar
             exit={{ opacity: 0, x: direction * -SLIDE_OFFSET }}
             transition={{ duration: 0.28, ease: [0.22, 0.61, 0.36, 1] }}
             aria-labelledby={`onboarding-heading-${slide.id}`}
-            className={cn("flex w-full flex-col items-center gap-6 text-center", ONBOARDING_CONTENT_WIDTH)}
+            className={cn(
+              "flex w-full flex-col items-center gap-6 text-center",
+              ONBOARDING_CONTENT_WIDTH,
+            )}
           >
             <Demonstration />
 
@@ -141,7 +147,9 @@ export function OnboardingFlow({ isReplay, returnTo = "/admin/sandbox" }: Onboar
               >
                 {slide.heading}
               </h1>
-              <p className="text-base text-pretty text-muted-foreground sm:text-lg">{slide.copy}</p>
+              <p className="text-base text-pretty text-muted-foreground sm:text-lg">
+                {slide.copy}
+              </p>
             </div>
           </motion.section>
         </AnimatePresence>
@@ -149,11 +157,17 @@ export function OnboardingFlow({ isReplay, returnTo = "/admin/sandbox" }: Onboar
 
       <div className="pointer-events-none fixed inset-x-0 bottom-20 flex flex-col items-center gap-2 px-4 sm:bottom-24">
         {error ? (
-          <p role="alert" className="pointer-events-auto rounded-lg bg-card px-3 py-1.5 text-sm text-state-error">
+          <p
+            role="alert"
+            className="pointer-events-auto rounded-lg bg-card px-3 py-1.5 text-sm text-state-error"
+          >
             {error}
           </p>
         ) : null}
-        <OnboardingProgress currentIndex={index} total={ONBOARDING_SLIDES.length} />
+        <OnboardingProgress
+          currentIndex={index}
+          total={ONBOARDING_SLIDES.length}
+        />
       </div>
 
       <OnboardingNavigation

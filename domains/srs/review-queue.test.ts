@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import type { CurriculumLearningItem } from "@/domains/curriculum";
 
-import { buildReviewQuestions, interleaveReviewQuestions } from "./review-queue";
+import {
+  buildReviewQuestions,
+  interleaveReviewQuestions,
+} from "./review-queue";
 
 function vocab(id: string): CurriculumLearningItem {
   return {
@@ -31,7 +34,13 @@ function vocab(id: string): CurriculumLearningItem {
   };
 }
 
-function grammar(id: string, requiredQuestions: { format: "translation"; direction: "targetToEnglish" | "englishToTarget" }[]): CurriculumLearningItem {
+function grammar(
+  id: string,
+  requiredQuestions: {
+    format: "translation";
+    direction: "targetToEnglish" | "englishToTarget";
+  }[],
+): CurriculumLearningItem {
   return {
     id,
     languageId: "lang-1",
@@ -58,15 +67,32 @@ describe("buildReviewQuestions", () => {
   it("requires both directions for a vocabulary item (spec 09 §7)", () => {
     const questions = buildReviewQuestions([vocab("v1")]);
     expect(questions).toEqual([
-      { id: "v1::targetToEnglish", itemId: "v1", itemType: "vocabulary", direction: "targetToEnglish" },
-      { id: "v1::englishToTarget", itemId: "v1", itemType: "vocabulary", direction: "englishToTarget" },
+      {
+        id: "v1::targetToEnglish",
+        itemId: "v1",
+        itemType: "vocabulary",
+        direction: "targetToEnglish",
+      },
+      {
+        id: "v1::englishToTarget",
+        itemId: "v1",
+        itemType: "vocabulary",
+        direction: "englishToTarget",
+      },
     ]);
   });
 
   it("uses exactly the grammar item's configured required questions — never assumes bidirectional", () => {
-    const questions = buildReviewQuestions([grammar("g1", [{ format: "translation", direction: "targetToEnglish" }])]);
+    const questions = buildReviewQuestions([
+      grammar("g1", [{ format: "translation", direction: "targetToEnglish" }]),
+    ]);
     expect(questions).toEqual([
-      { id: "g1::targetToEnglish", itemId: "g1", itemType: "grammar", direction: "targetToEnglish" },
+      {
+        id: "g1::targetToEnglish",
+        itemId: "g1",
+        itemType: "grammar",
+        direction: "targetToEnglish",
+      },
     ]);
   });
 
@@ -82,13 +108,27 @@ describe("buildReviewQuestions", () => {
 
   describe("collapseVocabularyToOneQuestion (spec 20 Reviews — Cloze review types)", () => {
     it("asks a vocabulary item as a single englishToTarget question instead of two", () => {
-      const questions = buildReviewQuestions([vocab("v1")], { collapseVocabularyToOneQuestion: true });
-      expect(questions).toEqual([{ id: "v1::englishToTarget", itemId: "v1", itemType: "vocabulary", direction: "englishToTarget" }]);
+      const questions = buildReviewQuestions([vocab("v1")], {
+        collapseVocabularyToOneQuestion: true,
+      });
+      expect(questions).toEqual([
+        {
+          id: "v1::englishToTarget",
+          itemId: "v1",
+          itemType: "vocabulary",
+          direction: "englishToTarget",
+        },
+      ]);
     });
 
     it("never changes a grammar item's configured question count", () => {
       const questions = buildReviewQuestions(
-        [grammar("g2", [{ format: "translation", direction: "targetToEnglish" }, { format: "translation", direction: "englishToTarget" }])],
+        [
+          grammar("g2", [
+            { format: "translation", direction: "targetToEnglish" },
+            { format: "translation", direction: "englishToTarget" },
+          ]),
+        ],
         { collapseVocabularyToOneQuestion: true },
       );
       expect(questions).toHaveLength(2);
@@ -105,15 +145,27 @@ describe("interleaveReviewQuestions", () => {
   });
 
   it("preserves every question exactly once", () => {
-    const questions = buildReviewQuestions([vocab("v1"), grammar("g1", [{ format: "translation", direction: "targetToEnglish" }]), vocab("v2")]);
+    const questions = buildReviewQuestions([
+      vocab("v1"),
+      grammar("g1", [{ format: "translation", direction: "targetToEnglish" }]),
+      vocab("v2"),
+    ]);
     const ordered = interleaveReviewQuestions(questions);
 
     expect(ordered).toHaveLength(questions.length);
-    expect(new Set(ordered.map((q) => q.id))).toEqual(new Set(questions.map((q) => q.id)));
+    expect(new Set(ordered.map((q) => q.id))).toEqual(
+      new Set(questions.map((q) => q.id)),
+    );
   });
 
   it("is deterministic — the same input always produces the same order", () => {
-    const questions = buildReviewQuestions([vocab("v1"), vocab("v2"), vocab("v3")]);
-    expect(interleaveReviewQuestions(questions)).toEqual(interleaveReviewQuestions(questions));
+    const questions = buildReviewQuestions([
+      vocab("v1"),
+      vocab("v2"),
+      vocab("v3"),
+    ]);
+    expect(interleaveReviewQuestions(questions)).toEqual(
+      interleaveReviewQuestions(questions),
+    );
   });
 });

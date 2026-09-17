@@ -9,19 +9,19 @@ application read comes from the database (spec 16, "Do not use the CSV as a
 runtime data source").
 
 Deliberately separate from [`/data-sources`](../../data-sources), which
-holds *third-party* lexical data under its own licences.
+holds _third-party_ lexical data under its own licences.
 
 ## The CSV
 
 Same column contract as the Admin bulk-import dialog
 (`domains/curriculum/vocabulary-import-parsing.ts`):
 
-| Column | Meaning |
-| --- | --- |
-| `word` | The vocabulary term, or the grammar structure |
-| `translation` | The primary meaning |
-| `level` | Plain level number (`1`, not a UUID) |
-| `batch_id` | Vocabulary group position 1–4 within that level, **or `5` for grammar** |
+| Column        | Meaning                                                                 |
+| ------------- | ----------------------------------------------------------------------- |
+| `word`        | The vocabulary term, or the grammar structure                           |
+| `translation` | The primary meaning                                                     |
+| `level`       | Plain level number (`1`, not a UUID)                                    |
+| `batch_id`    | Vocabulary group position 1–4 within that level, **or `5` for grammar** |
 
 `batch_id` is an accepted spelling of the `group` column. Group `5` is the
 grammar sentinel — grammar items have no vocabulary group at all, so one

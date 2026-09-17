@@ -27,7 +27,8 @@ const DEFAULT_MESSAGES: Record<DeckErrorCode, string> = {
   DECK_ITEM_NOT_ELIGIBLE: "You can only add items you have already learned.",
   DECK_ITEM_NOT_FOUND: "That item is not in this deck.",
   DECK_MUST_HAVE_ITEMS: "A deck needs at least one item.",
-  DECK_VALIDATION_FAILED: "That deck couldn't be saved. Check the name and items and try again.",
+  DECK_VALIDATION_FAILED:
+    "That deck couldn't be saved. Check the name and items and try again.",
   RATE_LIMITED: "Please slow down and try again shortly.",
 };
 

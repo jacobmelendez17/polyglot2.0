@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { canAccessAdminArea, canManageCurriculum, canPublishCurriculum, canUseDeveloperTools } from "./authorization";
+import {
+  canAccessAdminArea,
+  canManageCurriculum,
+  canPublishCurriculum,
+  canUseDeveloperTools,
+} from "./authorization";
 import type { PolyglotUser, UserRole } from "@/domains/users";
 
 function withRole(role: UserRole): Pick<PolyglotUser, "role"> {

@@ -167,7 +167,7 @@ Fluent represents completion of the normal scheduled SRS review cycle. What happ
 
 ### Standard Review Intervals
 
-Spec 20's SRS Interval setting (grammar and vocabulary, independently) selects one of five schedules — Shortest, Shorter, Default, Longer, Longest — for how far out a *correct* review is scheduled next. Beginner 1, 2, and 4 are fixed across every mode. The Default schedule:
+Spec 20's SRS Interval setting (grammar and vocabulary, independently) selects one of five schedules — Shortest, Shorter, Default, Longer, Longest — for how far out a _correct_ review is scheduled next. Beginner 1, 2, and 4 are fixed across every mode. The Default schedule:
 
 - Beginner 1 → Beginner 2: 4 hours
 - Beginner 2 → Beginner 3: 8 hours
@@ -223,7 +223,7 @@ For bidirectional SRS items:
 
 ### Ghost Reviews
 
-Ghost Reviews and Leeches are related but distinct (spec 20): a Ghost is repeated supplemental review of one specific *missed sentence*; a Leech is an *item* with a calculated history of repeated difficulty. Ghost Reviews never participate in the Leech calculation.
+Ghost Reviews and Leeches are related but distinct (spec 20): a Ghost is repeated supplemental review of one specific _missed sentence_; a Leech is an _item_ with a calculated history of repeated difficulty. Ghost Reviews never participate in the Leech calculation.
 
 Spec 20's Ghost Reviews setting (Grammar and Vocabulary, independently) has three modes:
 
@@ -246,7 +246,7 @@ Due Ghost reviews appear in the learner's review experience alongside normal rev
 
 ### Leeches
 
-A Leech is *derived*, never a stored flag — always recomputed from the same authoritative counters, never reimplemented client-side:
+A Leech is _derived_, never a stored flag — always recomputed from the same authoritative counters, never reimplemented client-side:
 
 ```
 effectiveCorrectStreak = max(currentCorrectStreak, 1)
@@ -257,7 +257,7 @@ An item is a Leech when `leechScore > 1` **and** it has satisfied its configured
 
 - `incorrectCount` — lifetime incorrect normal-SRS outcomes. Ghost Reviews never contribute.
 - `currentCorrectStreak` — consecutive normal-SRS correct results; resets to 0 on any incorrect one, increments on a correct one.
-- The minimum-SRS check uses `highestSrsStageReached` — the highest normal SRS stage the item has *ever* reached — never its current stage. An item that reached Master and later fell to Beginner 4 still satisfies a Familiar-1 minimum.
+- The minimum-SRS check uses `highestSrsStageReached` — the highest normal SRS stage the item has _ever_ reached — never its current stage. An item that reached Master and later fell to Beginner 4 still satisfies a Familiar-1 minimum.
 
 Both `currentCorrectStreak` and `highestSrsStageReached` are maintained inside the same atomic review-completion transaction as every other normal-SRS counter — never computed asynchronously after the fact.
 
@@ -481,7 +481,7 @@ User-created personal decks were moved into scope and implemented on
 2026-09-08 (spec 14). A personal deck may contain only curriculum items the
 learner has already learned, and referencing a canonical curriculum item is
 the only way a deck holds content — no deck creates or duplicates a learning
-item. Deck *import* remains out of scope.
+item. Deck _import_ remains out of scope.
 
 ## Scope
 

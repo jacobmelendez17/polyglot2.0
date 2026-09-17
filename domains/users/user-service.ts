@@ -3,11 +3,18 @@ import { cookies } from "next/headers";
 
 import { db } from "@/db/client";
 import { getRateLimiter } from "@/providers/rate-limit";
-import { SANDBOX_SESSION_COOKIE, verifySandboxGrant } from "@/domains/sandbox/sandbox-session-token";
+import {
+  SANDBOX_SESSION_COOKIE,
+  verifySandboxGrant,
+} from "@/domains/sandbox/sandbox-session-token";
 import { AppError } from "@/lib/errors/app-error";
 
 import type { ContentPreferences } from "./content-preferences";
-import type { CurriculumMode, GrammarPlacement, LanguageSettings } from "./curriculum-preference";
+import type {
+  CurriculumMode,
+  GrammarPlacement,
+  LanguageSettings,
+} from "./curriculum-preference";
 import type { NotificationPreferences } from "./notification-preferences";
 import {
   completeOnboarding as completeOnboardingInDb,
@@ -72,9 +79,13 @@ export async function resolveCurrentUser(): Promise<PolyglotUser | null> {
  * Nothing here can surface a real learner's account: (4) requires
  * `is_sandbox`, and a sandbox row has no Clerk identity of its own.
  */
-async function resolveSandboxView(actor: PolyglotUser): Promise<PolyglotUser | null> {
+async function resolveSandboxView(
+  actor: PolyglotUser,
+): Promise<PolyglotUser | null> {
   const cookieStore = await cookies();
-  const grant = await verifySandboxGrant(cookieStore.get(SANDBOX_SESSION_COOKIE)?.value);
+  const grant = await verifySandboxGrant(
+    cookieStore.get(SANDBOX_SESSION_COOKIE)?.value,
+  );
   if (!grant || grant.adminUserId !== actor.id) return null;
 
   const target = await findUserById(db, grant.sandboxUserId);
@@ -101,12 +112,18 @@ export async function getUsersByIds(ids: string[]): Promise<PolyglotUser[]> {
  * `NULL`, so a repeated "Start Now!" click cannot produce a second
  * completion or overwrite the first one's timestamp.
  */
-export async function completeOnboarding(userId: string, now: Date = new Date()): Promise<PolyglotUser | null> {
+export async function completeOnboarding(
+  userId: string,
+  now: Date = new Date(),
+): Promise<PolyglotUser | null> {
   return completeOnboardingInDb(db, userId, now);
 }
 
 /** This learner's settings for one language, or `null` when they have not chosen a curriculum mode yet (spec 16). */
-export async function getLanguageSettings(userId: string, languageId: string): Promise<LanguageSettings | null> {
+export async function getLanguageSettings(
+  userId: string,
+  languageId: string,
+): Promise<LanguageSettings | null> {
   return findLanguageSettings(db, userId, languageId);
 }
 
@@ -126,9 +143,15 @@ export async function setCurriculumPreference(input: {
   curriculumMode: CurriculumMode;
   selectedVocabularyGroupId?: string | null;
 }): Promise<LanguageSettings> {
-  const decision = await getRateLimiter().check({ policy: "curriculum-preference", subject: input.userId });
+  const decision = await getRateLimiter().check({
+    policy: "curriculum-preference",
+    subject: input.userId,
+  });
   if (!decision.allowed) {
-    throw new AppError("RATE_LIMITED", `Please slow down and try again in ${decision.retryAfterSeconds}s.`);
+    throw new AppError(
+      "RATE_LIMITED",
+      `Please slow down and try again in ${decision.retryAfterSeconds}s.`,
+    );
   }
   return saveCurriculumPreference(db, input);
 }
@@ -139,9 +162,15 @@ export async function updateGrammarPlacement(input: {
   languageId: string;
   grammarPlacement: GrammarPlacement;
 }): Promise<LanguageSettings> {
-  const decision = await getRateLimiter().check({ policy: "account-settings", subject: input.userId });
+  const decision = await getRateLimiter().check({
+    policy: "account-settings",
+    subject: input.userId,
+  });
   if (!decision.allowed) {
-    throw new AppError("RATE_LIMITED", `Please slow down and try again in ${decision.retryAfterSeconds}s.`);
+    throw new AppError(
+      "RATE_LIMITED",
+      `Please slow down and try again in ${decision.retryAfterSeconds}s.`,
+    );
   }
   return saveGrammarPlacement(db, input);
 }
@@ -152,9 +181,15 @@ export async function updateLessonBatchSize(input: {
   languageId: string;
   lessonBatchSize: number;
 }): Promise<LanguageSettings> {
-  const decision = await getRateLimiter().check({ policy: "account-settings", subject: input.userId });
+  const decision = await getRateLimiter().check({
+    policy: "account-settings",
+    subject: input.userId,
+  });
   if (!decision.allowed) {
-    throw new AppError("RATE_LIMITED", `Please slow down and try again in ${decision.retryAfterSeconds}s.`);
+    throw new AppError(
+      "RATE_LIMITED",
+      `Please slow down and try again in ${decision.retryAfterSeconds}s.`,
+    );
   }
   return saveLessonBatchSize(db, input);
 }
@@ -165,9 +200,15 @@ export async function updateAutoPronounceLessons(input: {
   languageId: string;
   autoPronounceLessons: boolean;
 }): Promise<LanguageSettings> {
-  const decision = await getRateLimiter().check({ policy: "account-settings", subject: input.userId });
+  const decision = await getRateLimiter().check({
+    policy: "account-settings",
+    subject: input.userId,
+  });
   if (!decision.allowed) {
-    throw new AppError("RATE_LIMITED", `Please slow down and try again in ${decision.retryAfterSeconds}s.`);
+    throw new AppError(
+      "RATE_LIMITED",
+      `Please slow down and try again in ${decision.retryAfterSeconds}s.`,
+    );
   }
   return saveAutoPronounceLessons(db, input);
 }
@@ -192,14 +233,23 @@ export async function updateName(input: {
   clerkUserId: string | null;
   displayName: string;
 }): Promise<PolyglotUser> {
-  const decision = await getRateLimiter().check({ policy: "account-settings", subject: input.userId });
+  const decision = await getRateLimiter().check({
+    policy: "account-settings",
+    subject: input.userId,
+  });
   if (!decision.allowed) {
-    throw new AppError("RATE_LIMITED", `Please slow down and try again in ${decision.retryAfterSeconds}s.`);
+    throw new AppError(
+      "RATE_LIMITED",
+      `Please slow down and try again in ${decision.retryAfterSeconds}s.`,
+    );
   }
 
   if (input.clerkUserId) {
     const client = await clerkClient();
-    await client.users.updateUser(input.clerkUserId, splitDisplayNameForClerk(input.displayName));
+    await client.users.updateUser(
+      input.clerkUserId,
+      splitDisplayNameForClerk(input.displayName),
+    );
   }
 
   return updateDisplayName(db, input.userId, input.displayName);
@@ -216,10 +266,19 @@ export async function updateName(input: {
  * `updateUsername`, not here — this function never reads the table for
  * availability first.
  */
-export async function updateUsername(input: { userId: string; username: string }): Promise<PolyglotUser> {
-  const decision = await getRateLimiter().check({ policy: "username-change", subject: input.userId });
+export async function updateUsername(input: {
+  userId: string;
+  username: string;
+}): Promise<PolyglotUser> {
+  const decision = await getRateLimiter().check({
+    policy: "username-change",
+    subject: input.userId,
+  });
   if (!decision.allowed) {
-    throw new AppError("RATE_LIMITED", `Please slow down and try again in ${decision.retryAfterSeconds}s.`);
+    throw new AppError(
+      "RATE_LIMITED",
+      `Please slow down and try again in ${decision.retryAfterSeconds}s.`,
+    );
   }
 
   return updateUsernameInDb(db, input.userId, input.username);
@@ -231,10 +290,19 @@ export async function updateUsername(input: { userId: string; username: string }
  * timezone does not make a review become due early"), not the sensitive
  * category Settings Security calls out for a tighter limit.
  */
-export async function updateTimezone(input: { userId: string; timezone: string }): Promise<PolyglotUser> {
-  const decision = await getRateLimiter().check({ policy: "account-settings", subject: input.userId });
+export async function updateTimezone(input: {
+  userId: string;
+  timezone: string;
+}): Promise<PolyglotUser> {
+  const decision = await getRateLimiter().check({
+    policy: "account-settings",
+    subject: input.userId,
+  });
   if (!decision.allowed) {
-    throw new AppError("RATE_LIMITED", `Please slow down and try again in ${decision.retryAfterSeconds}s.`);
+    throw new AppError(
+      "RATE_LIMITED",
+      `Please slow down and try again in ${decision.retryAfterSeconds}s.`,
+    );
   }
 
   return updateTimezoneInDb(db, input.userId, input.timezone);
@@ -247,7 +315,9 @@ export async function updateTimezone(input: { userId: string; timezone: string }
  * Reads" names exactly this pairing ("Curriculum reads → authoritative
  * NSFW preference").
  */
-export async function getEffectiveContentPreferences(userId: string): Promise<ContentPreferences> {
+export async function getEffectiveContentPreferences(
+  userId: string,
+): Promise<ContentPreferences> {
   return getContentPreferencesFromDb(db, userId);
 }
 
@@ -261,9 +331,15 @@ export async function updateContentPreferences(
   userId: string,
   input: Partial<ContentPreferences>,
 ): Promise<ContentPreferences> {
-  const decision = await getRateLimiter().check({ policy: "account-settings", subject: userId });
+  const decision = await getRateLimiter().check({
+    policy: "account-settings",
+    subject: userId,
+  });
   if (!decision.allowed) {
-    throw new AppError("RATE_LIMITED", `Please slow down and try again in ${decision.retryAfterSeconds}s.`);
+    throw new AppError(
+      "RATE_LIMITED",
+      `Please slow down and try again in ${decision.retryAfterSeconds}s.`,
+    );
   }
 
   return saveContentPreferences(db, userId, input);
@@ -275,7 +351,9 @@ export async function updateContentPreferences(
  * provider/workflow is deferred... do not send fake/nonexistent emails
  * simply because a toggle exists."
  */
-export async function getEffectiveNotificationPreferences(userId: string): Promise<NotificationPreferences> {
+export async function getEffectiveNotificationPreferences(
+  userId: string,
+): Promise<NotificationPreferences> {
   return getNotificationPreferencesFromDb(db, userId);
 }
 
@@ -288,9 +366,15 @@ export async function updateNotificationPreferences(
   userId: string,
   input: Partial<NotificationPreferences>,
 ): Promise<NotificationPreferences> {
-  const decision = await getRateLimiter().check({ policy: "account-settings", subject: userId });
+  const decision = await getRateLimiter().check({
+    policy: "account-settings",
+    subject: userId,
+  });
   if (!decision.allowed) {
-    throw new AppError("RATE_LIMITED", `Please slow down and try again in ${decision.retryAfterSeconds}s.`);
+    throw new AppError(
+      "RATE_LIMITED",
+      `Please slow down and try again in ${decision.retryAfterSeconds}s.`,
+    );
   }
 
   return saveNotificationPreferences(db, userId, input);

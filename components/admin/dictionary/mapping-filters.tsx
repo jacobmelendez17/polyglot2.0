@@ -2,9 +2,18 @@
 
 import { usePathname, useRouter } from "next/navigation";
 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { MATCH_STATUS_LABELS, REGIONAL_STATUS_LABELS } from "@/domains/lexicon";
-import type { DictionaryMatchStatus, RegionalEvidenceStatus } from "@/domains/lexicon";
+import type {
+  DictionaryMatchStatus,
+  RegionalEvidenceStatus,
+} from "@/domains/lexicon";
 
 const ALL_VALUE = "all";
 
@@ -16,7 +25,11 @@ const MATCH_STATUS_OPTIONS: DictionaryMatchStatus[] = [
   "manual",
 ];
 
-const REGIONAL_STATUS_OPTIONS: RegionalEvidenceStatus[] = ["recognized", "not_listed", "unknown"];
+const REGIONAL_STATUS_OPTIONS: RegionalEvidenceStatus[] = [
+  "recognized",
+  "not_listed",
+  "unknown",
+];
 
 type MappingFiltersProps = {
   languages: { id: string; name: string }[];
@@ -41,7 +54,14 @@ type MappingFiltersProps = {
  * `CurriculumFilters` — a filtered queue is bookmarkable and survives a
  * refresh, and changing any filter returns to the first page.
  */
-export function MappingFilters({ languages, levels, groups, partsOfSpeech, regionCodes, value }: MappingFiltersProps) {
+export function MappingFilters({
+  languages,
+  levels,
+  groups,
+  partsOfSpeech,
+  regionCodes,
+  value,
+}: MappingFiltersProps) {
   const router = useRouter();
   const pathname = usePathname();
 
@@ -59,13 +79,20 @@ export function MappingFilters({ languages, levels, groups, partsOfSpeech, regio
   }
 
   const groupOptions = value.levelId
-    ? groups.filter((group) => levels.find((level) => level.id === value.levelId)?.levelNumber === group.levelNumber)
+    ? groups.filter(
+        (group) =>
+          levels.find((level) => level.id === value.levelId)?.levelNumber ===
+          group.levelNumber,
+      )
     : groups;
 
   return (
     <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
       {languages.length > 1 ? (
-        <Select value={value.languageId} onValueChange={(languageId) => navigate({ languageId })}>
+        <Select
+          value={value.languageId}
+          onValueChange={(languageId) => navigate({ languageId })}
+        >
           <SelectTrigger className="sm:w-40" aria-label="Language">
             <SelectValue />
           </SelectTrigger>
@@ -81,7 +108,12 @@ export function MappingFilters({ languages, levels, groups, partsOfSpeech, regio
 
       <Select
         value={value.levelId ?? ALL_VALUE}
-        onValueChange={(levelId) => navigate({ levelId: levelId === ALL_VALUE ? undefined : levelId, groupId: undefined })}
+        onValueChange={(levelId) =>
+          navigate({
+            levelId: levelId === ALL_VALUE ? undefined : levelId,
+            groupId: undefined,
+          })
+        }
       >
         <SelectTrigger className="sm:w-36" aria-label="Level">
           <SelectValue placeholder="All levels" />
@@ -98,7 +130,9 @@ export function MappingFilters({ languages, levels, groups, partsOfSpeech, regio
 
       <Select
         value={value.groupId ?? ALL_VALUE}
-        onValueChange={(groupId) => navigate({ groupId: groupId === ALL_VALUE ? undefined : groupId })}
+        onValueChange={(groupId) =>
+          navigate({ groupId: groupId === ALL_VALUE ? undefined : groupId })
+        }
       >
         <SelectTrigger className="sm:w-40" aria-label="Group">
           <SelectValue placeholder="All groups" />
@@ -116,7 +150,12 @@ export function MappingFilters({ languages, levels, groups, partsOfSpeech, regio
       <Select
         value={value.matchStatus ?? ALL_VALUE}
         onValueChange={(status) =>
-          navigate({ matchStatus: status === ALL_VALUE ? undefined : (status as DictionaryMatchStatus) })
+          navigate({
+            matchStatus:
+              status === ALL_VALUE
+                ? undefined
+                : (status as DictionaryMatchStatus),
+          })
         }
       >
         <SelectTrigger className="sm:w-44" aria-label="Match state">
@@ -134,7 +173,9 @@ export function MappingFilters({ languages, levels, groups, partsOfSpeech, regio
 
       <Select
         value={value.partOfSpeech ?? ALL_VALUE}
-        onValueChange={(pos) => navigate({ partOfSpeech: pos === ALL_VALUE ? undefined : pos })}
+        onValueChange={(pos) =>
+          navigate({ partOfSpeech: pos === ALL_VALUE ? undefined : pos })
+        }
       >
         <SelectTrigger className="sm:w-44" aria-label="Part of speech">
           <SelectValue placeholder="All parts of speech" />
@@ -154,21 +195,31 @@ export function MappingFilters({ languages, levels, groups, partsOfSpeech, regio
           value={value.regionalStatus ?? ALL_VALUE}
           onValueChange={(regional) =>
             navigate({
-              regionalStatus: regional === ALL_VALUE ? undefined : (regional as RegionalEvidenceStatus),
+              regionalStatus:
+                regional === ALL_VALUE
+                  ? undefined
+                  : (regional as RegionalEvidenceStatus),
               // The regional filter is meaningless without a region to
               // filter within, so selecting one pins the primary region.
-              regionCode: regional === ALL_VALUE ? value.regionCode : (value.regionCode ?? regionCodes[0]),
+              regionCode:
+                regional === ALL_VALUE
+                  ? value.regionCode
+                  : (value.regionCode ?? regionCodes[0]),
             })
           }
         >
-          <SelectTrigger className="sm:w-44" aria-label={`Regional status in ${value.regionCode ?? regionCodes[0]}`}>
+          <SelectTrigger
+            className="sm:w-44"
+            aria-label={`Regional status in ${value.regionCode ?? regionCodes[0]}`}
+          >
             <SelectValue placeholder="All regional states" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={ALL_VALUE}>All regional states</SelectItem>
             {REGIONAL_STATUS_OPTIONS.map((status) => (
               <SelectItem key={status} value={status}>
-                {REGIONAL_STATUS_LABELS[status]} in {value.regionCode ?? regionCodes[0]}
+                {REGIONAL_STATUS_LABELS[status]} in{" "}
+                {value.regionCode ?? regionCodes[0]}
               </SelectItem>
             ))}
           </SelectContent>

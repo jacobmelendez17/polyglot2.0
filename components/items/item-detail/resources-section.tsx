@@ -17,7 +17,11 @@ type ResourcesSectionProps = {
  */
 export function ResourcesSection({ resources }: ResourcesSectionProps) {
   if (resources.length === 0) {
-    return <p className="text-base text-muted-foreground">No additional resources for this item yet.</p>;
+    return (
+      <p className="text-base text-muted-foreground">
+        No additional resources for this item yet.
+      </p>
+    );
   }
 
   return (
@@ -32,7 +36,10 @@ export function ResourcesSection({ resources }: ResourcesSectionProps) {
             className="inline-flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-2 text-base font-medium text-foreground ring-1 ring-foreground/5 transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             {resource.label}
-            <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+            <ExternalLink
+              className="h-3.5 w-3.5 text-muted-foreground"
+              aria-hidden="true"
+            />
           </a>
         </li>
       ))}

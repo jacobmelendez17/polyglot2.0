@@ -4,7 +4,15 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 import { deleteItemAction } from "@/app/(admin)/admin/curriculum/actions";
 
@@ -20,17 +28,26 @@ type ArchiveDeleteDialogProps = {
  * checks (never a client-side guess). Both outcomes require this same
  * explicit confirmation step first.
  */
-export function ArchiveDeleteDialog({ learningItemId, itemLabel }: ArchiveDeleteDialogProps) {
+export function ArchiveDeleteDialog({
+  learningItemId,
+  itemLabel,
+}: ArchiveDeleteDialogProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
-  const [result, setResult] = useState<{ outcome: "deleted" | "archived"; reason?: string } | null>(null);
+  const [result, setResult] = useState<{
+    outcome: "deleted" | "archived";
+    reason?: string;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   function handleDelete() {
     setError(null);
     startTransition(async () => {
-      const response = await deleteItemAction({ learningItemId, idempotencyKey: crypto.randomUUID() });
+      const response = await deleteItemAction({
+        learningItemId,
+        idempotencyKey: crypto.randomUUID(),
+      });
       if (!response.ok) {
         setError(response.error.message);
         return;
@@ -53,13 +70,16 @@ export function ArchiveDeleteDialog({ learningItemId, itemLabel }: ArchiveDelete
         <DialogHeader>
           <DialogTitle>Delete &ldquo;{itemLabel}&rdquo;?</DialogTitle>
           <DialogDescription>
-            If this item has any existing learner progress, it will be archived instead of permanently deleted — progress is never destroyed.
+            If this item has any existing learner progress, it will be archived
+            instead of permanently deleted — progress is never destroyed.
           </DialogDescription>
         </DialogHeader>
 
         {result ? (
           <p className="text-sm text-foreground">
-            {result.outcome === "deleted" ? "Permanently deleted." : result.reason}
+            {result.outcome === "deleted"
+              ? "Permanently deleted."
+              : result.reason}
           </p>
         ) : null}
         {error ? (
@@ -72,7 +92,11 @@ export function ArchiveDeleteDialog({ learningItemId, itemLabel }: ArchiveDelete
           <Button variant="outline" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button variant="destructive" onClick={handleDelete} disabled={isPending || result !== null}>
+          <Button
+            variant="destructive"
+            onClick={handleDelete}
+            disabled={isPending || result !== null}
+          >
             Delete
           </Button>
         </DialogFooter>

@@ -5,8 +5,22 @@ import { useMemo, useState, useTransition } from "react";
 import { Check } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import {
   makeSandboxReviewsDueAction,
@@ -17,12 +31,21 @@ import {
   setSandboxTimeOffsetAction,
   simulateLevelAction,
 } from "@/app/(admin)/admin/sandbox/actions";
-import { SRS_STAGE_LABELS, SRS_STAGE_ORDER, type SrsStage } from "@/domains/srs";
+import {
+  SRS_STAGE_LABELS,
+  SRS_STAGE_ORDER,
+  type SrsStage,
+} from "@/domains/srs";
 
 type SandboxControlsProps = {
   languageId: string;
   levels: { id: string; levelNumber: number }[];
-  items: { id: string; itemLabel: string; levelId: string; levelNumber: number }[];
+  items: {
+    id: string;
+    itemLabel: string;
+    levelId: string;
+    levelNumber: number;
+  }[];
   /** The persona's current clock offset from real server time, in seconds. */
   timeOffsetSeconds: number;
 };
@@ -47,7 +70,13 @@ function ActionRow({ children }: { children: React.ReactNode }) {
   return <div className="flex flex-wrap items-end gap-2">{children}</div>;
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <label className="block text-sm">
       <span className="font-medium text-foreground">{label}</span>
@@ -90,7 +119,12 @@ function SuccessBadge({ show }: { show: boolean }) {
  * Tour"). Not omitting `returnTo` is what sends this specific launch point
  * back to `/admin/sandbox` when finished, rather than Settings' default.
  */
-export function SandboxControls({ languageId, levels, items, timeOffsetSeconds }: SandboxControlsProps) {
+export function SandboxControls({
+  languageId,
+  levels,
+  items,
+  timeOffsetSeconds,
+}: SandboxControlsProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -99,8 +133,13 @@ export function SandboxControls({ languageId, levels, items, timeOffsetSeconds }
   const [simulateLevelId, setSimulateLevelId] = useState(levels[0]?.id ?? "");
 
   const [stageLevelId, setStageLevelId] = useState(levels[0]?.id ?? "");
-  const itemsInStageLevel = useMemo(() => items.filter((item) => item.levelId === stageLevelId), [items, stageLevelId]);
-  const [stageItemId, setStageItemId] = useState(itemsInStageLevel[0]?.id ?? "");
+  const itemsInStageLevel = useMemo(
+    () => items.filter((item) => item.levelId === stageLevelId),
+    [items, stageLevelId],
+  );
+  const [stageItemId, setStageItemId] = useState(
+    itemsInStageLevel[0]?.id ?? "",
+  );
   const [stage, setStage] = useState<SrsStage>("beginner_1");
 
   const [confirmingReset, setConfirmingReset] = useState(false);
@@ -112,7 +151,10 @@ export function SandboxControls({ languageId, levels, items, timeOffsetSeconds }
     setStageItemId(firstItem?.id ?? "");
   }
 
-  function run(key: string, action: () => Promise<{ ok: boolean; error?: { message: string } }>) {
+  function run(
+    key: string,
+    action: () => Promise<{ ok: boolean; error?: { message: string } }>,
+  ) {
     setError(null);
     setJustDid(null);
     startTransition(async () => {
@@ -129,15 +171,25 @@ export function SandboxControls({ languageId, levels, items, timeOffsetSeconds }
   return (
     <div className="space-y-6">
       {levels.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No levels are configured yet.</p>
+        <p className="text-sm text-muted-foreground">
+          No levels are configured yet.
+        </p>
       ) : (
         <>
           <section className="rounded-xl border border-border bg-card p-4">
-            <h2 className="mb-3 text-sm font-semibold text-foreground">Simulate a level</h2>
+            <h2 className="mb-3 text-sm font-semibold text-foreground">
+              Simulate a level
+            </h2>
             <ActionRow>
               <Field label="Level">
-                <Select value={simulateLevelId} onValueChange={setSimulateLevelId}>
-                  <SelectTrigger aria-label="Level to simulate" className="w-40">
+                <Select
+                  value={simulateLevelId}
+                  onValueChange={setSimulateLevelId}
+                >
+                  <SelectTrigger
+                    aria-label="Level to simulate"
+                    className="w-40"
+                  >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -152,7 +204,13 @@ export function SandboxControls({ languageId, levels, items, timeOffsetSeconds }
               <Button
                 disabled={isPending || !simulateLevelId}
                 onClick={() =>
-                  run("simulate-level", () => simulateLevelAction({ languageId, levelId: simulateLevelId, idempotencyKey: crypto.randomUUID() }))
+                  run("simulate-level", () =>
+                    simulateLevelAction({
+                      languageId,
+                      levelId: simulateLevelId,
+                      idempotencyKey: crypto.randomUUID(),
+                    }),
+                  )
                 }
               >
                 Simulate level
@@ -162,10 +220,15 @@ export function SandboxControls({ languageId, levels, items, timeOffsetSeconds }
           </section>
 
           <section className="rounded-xl border border-border bg-card p-4">
-            <h2 className="mb-3 text-sm font-semibold text-foreground">Set an item&apos;s SRS stage</h2>
+            <h2 className="mb-3 text-sm font-semibold text-foreground">
+              Set an item&apos;s SRS stage
+            </h2>
             <ActionRow>
               <Field label="Level">
-                <Select value={stageLevelId} onValueChange={handleStageLevelChange}>
+                <Select
+                  value={stageLevelId}
+                  onValueChange={handleStageLevelChange}
+                >
                   <SelectTrigger aria-label="Level" className="w-40">
                     <SelectValue />
                   </SelectTrigger>
@@ -181,7 +244,13 @@ export function SandboxControls({ languageId, levels, items, timeOffsetSeconds }
               <Field label="Item">
                 <Select value={stageItemId} onValueChange={setStageItemId}>
                   <SelectTrigger aria-label="Item" className="w-48">
-                    <SelectValue placeholder={itemsInStageLevel.length === 0 ? "No published items" : "Choose an item"} />
+                    <SelectValue
+                      placeholder={
+                        itemsInStageLevel.length === 0
+                          ? "No published items"
+                          : "Choose an item"
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent>
                     {itemsInStageLevel.map((item) => (
@@ -193,7 +262,10 @@ export function SandboxControls({ languageId, levels, items, timeOffsetSeconds }
                 </Select>
               </Field>
               <Field label="SRS stage">
-                <Select value={stage} onValueChange={(v) => setStage(v as SrsStage)}>
+                <Select
+                  value={stage}
+                  onValueChange={(v) => setStage(v as SrsStage)}
+                >
                   <SelectTrigger aria-label="SRS stage" className="w-40">
                     <SelectValue />
                   </SelectTrigger>
@@ -210,7 +282,12 @@ export function SandboxControls({ languageId, levels, items, timeOffsetSeconds }
                 disabled={isPending || !stageItemId}
                 onClick={() =>
                   run("set-stage", () =>
-                    setSandboxItemStageAction({ languageId, learningItemId: stageItemId, srsStage: stage, idempotencyKey: crypto.randomUUID() }),
+                    setSandboxItemStageAction({
+                      languageId,
+                      learningItemId: stageItemId,
+                      srsStage: stage,
+                      idempotencyKey: crypto.randomUUID(),
+                    }),
                   )
                 }
               >
@@ -221,12 +298,21 @@ export function SandboxControls({ languageId, levels, items, timeOffsetSeconds }
           </section>
 
           <section className="rounded-xl border border-border bg-card p-4">
-            <h2 className="mb-3 text-sm font-semibold text-foreground">Reviews</h2>
+            <h2 className="mb-3 text-sm font-semibold text-foreground">
+              Reviews
+            </h2>
             <ActionRow>
               <Button
                 variant="outline"
                 disabled={isPending}
-                onClick={() => run("make-due", () => makeSandboxReviewsDueAction({ languageId, idempotencyKey: crypto.randomUUID() }))}
+                onClick={() =>
+                  run("make-due", () =>
+                    makeSandboxReviewsDueAction({
+                      languageId,
+                      idempotencyKey: crypto.randomUUID(),
+                    }),
+                  )
+                }
               >
                 Make all reviews due
               </Button>
@@ -235,10 +321,17 @@ export function SandboxControls({ languageId, levels, items, timeOffsetSeconds }
           </section>
 
           <section className="rounded-xl border border-border bg-card p-4">
-            <h2 className="mb-1 text-sm font-semibold text-foreground">Simulate time</h2>
+            <h2 className="mb-1 text-sm font-semibold text-foreground">
+              Simulate time
+            </h2>
             <p className="mb-3 text-xs text-muted-foreground">
-              Moves this sandbox persona&apos;s perceived clock only. Real server time, other users, and every real learner&apos;s schedule are
-              unaffected. Currently: <span className="font-medium text-foreground">{describeOffset(timeOffsetSeconds)}</span>.
+              Moves this sandbox persona&apos;s perceived clock only. Real
+              server time, other users, and every real learner&apos;s schedule
+              are unaffected. Currently:{" "}
+              <span className="font-medium text-foreground">
+                {describeOffset(timeOffsetSeconds)}
+              </span>
+              .
             </p>
             <div className="flex flex-wrap items-center gap-2">
               {TIME_JUMPS.map((jump) => (
@@ -265,7 +358,13 @@ export function SandboxControls({ languageId, levels, items, timeOffsetSeconds }
                 variant="ghost"
                 disabled={isPending || timeOffsetSeconds === 0}
                 onClick={() =>
-                  run("time", () => setSandboxTimeOffsetAction({ languageId, offsetSeconds: 0, idempotencyKey: crypto.randomUUID() }))
+                  run("time", () =>
+                    setSandboxTimeOffsetAction({
+                      languageId,
+                      offsetSeconds: 0,
+                      idempotencyKey: crypto.randomUUID(),
+                    }),
+                  )
                 }
               >
                 Back to present
@@ -275,20 +374,31 @@ export function SandboxControls({ languageId, levels, items, timeOffsetSeconds }
           </section>
 
           <section className="rounded-xl border border-border bg-card p-4">
-            <h2 className="mb-1 text-sm font-semibold text-foreground">Replay onboarding</h2>
+            <h2 className="mb-1 text-sm font-semibold text-foreground">
+              Replay onboarding
+            </h2>
             <p className="mb-3 text-xs text-muted-foreground">
-              Plays the real onboarding slideshow from slide 1, as many times as you like, including the full Start Now
-              flow. Nothing is saved: your own onboarding status and every learner&apos;s progress are left untouched.
+              Plays the real onboarding slideshow from slide 1, as many times as
+              you like, including the full Start Now flow. Nothing is saved:
+              your own onboarding status and every learner&apos;s progress are
+              left untouched.
             </p>
-            <Button variant="outline" disabled={isPending} onClick={() => router.push("/onboarding?replay=1")}>
+            <Button
+              variant="outline"
+              disabled={isPending}
+              onClick={() => router.push("/onboarding?replay=1")}
+            >
               Replay Onboarding
             </Button>
           </section>
 
           <section className="rounded-xl border border-border bg-card p-4">
-            <h2 className="mb-1 text-sm font-semibold text-foreground">Open the sandbox learner experience</h2>
+            <h2 className="mb-1 text-sm font-semibold text-foreground">
+              Open the sandbox learner experience
+            </h2>
             <p className="mb-3 text-xs text-muted-foreground">
-              Browses the app as this persona for up to 30 minutes. A banner stays visible throughout, and you can leave at any time.
+              Browses the app as this persona for up to 30 minutes. A banner
+              stays visible throughout, and you can leave at any time.
             </p>
             <Button
               variant="outline"
@@ -306,7 +416,9 @@ export function SandboxControls({ languageId, levels, items, timeOffsetSeconds }
           </section>
 
           <section className="rounded-xl border border-destructive/30 bg-card p-4">
-            <h2 className="mb-3 text-sm font-semibold text-foreground">Reset</h2>
+            <h2 className="mb-3 text-sm font-semibold text-foreground">
+              Reset
+            </h2>
             <Dialog open={confirmingReset} onOpenChange={setConfirmingReset}>
               <DialogTrigger asChild>
                 <Button variant="destructive">Reset sandbox</Button>
@@ -315,8 +427,10 @@ export function SandboxControls({ languageId, levels, items, timeOffsetSeconds }
                 <DialogHeader>
                   <DialogTitle>Reset your sandbox?</DialogTitle>
                   <DialogDescription>
-                    Clears every tracked item and unlocked level for your sandbox only, then re-unlocks Level 1. This never affects real learner
-                    progress, other sandboxes, or official curriculum.
+                    Clears every tracked item and unlocked level for your
+                    sandbox only, then re-unlocks Level 1. This never affects
+                    real learner progress, other sandboxes, or official
+                    curriculum.
                   </DialogDescription>
                 </DialogHeader>
                 {error ? (
@@ -325,7 +439,10 @@ export function SandboxControls({ languageId, levels, items, timeOffsetSeconds }
                   </p>
                 ) : null}
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setConfirmingReset(false)}>
+                  <Button
+                    variant="outline"
+                    onClick={() => setConfirmingReset(false)}
+                  >
                     Cancel
                   </Button>
                   <Button
@@ -333,7 +450,10 @@ export function SandboxControls({ languageId, levels, items, timeOffsetSeconds }
                     disabled={isPending}
                     onClick={() =>
                       run("reset", async () => {
-                        const result = await resetSandboxAction({ languageId, idempotencyKey: crypto.randomUUID() });
+                        const result = await resetSandboxAction({
+                          languageId,
+                          idempotencyKey: crypto.randomUUID(),
+                        });
                         if (result.ok) setConfirmingReset(false);
                         return result;
                       })
@@ -347,20 +467,30 @@ export function SandboxControls({ languageId, levels, items, timeOffsetSeconds }
           </section>
 
           <section className="rounded-xl border border-destructive/30 bg-card p-4">
-            <h2 className="mb-3 text-sm font-semibold text-foreground">Reset my account progress</h2>
+            <h2 className="mb-3 text-sm font-semibold text-foreground">
+              Reset my account progress
+            </h2>
             <p className="mb-3 text-sm text-muted-foreground">
-              Unlike the sandbox reset above, this clears your real account&apos;s own lesson and review progress — useful for
-              repeatedly testing the live lesson flow without needing a new account each time.
+              Unlike the sandbox reset above, this clears your real
+              account&apos;s own lesson and review progress — useful for
+              repeatedly testing the live lesson flow without needing a new
+              account each time.
             </p>
-            <Dialog open={confirmingAccountReset} onOpenChange={setConfirmingAccountReset}>
+            <Dialog
+              open={confirmingAccountReset}
+              onOpenChange={setConfirmingAccountReset}
+            >
               <DialogTrigger asChild>
                 <Button variant="destructive">Reset my account progress</Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Reset your real account&apos;s progress?</DialogTitle>
+                  <DialogTitle>
+                    Reset your real account&apos;s progress?
+                  </DialogTitle>
                   <DialogDescription>
-                    Clears every tracked item and unlocked level on your own account, then re-unlocks Level 1. This affects your real
+                    Clears every tracked item and unlocked level on your own
+                    account, then re-unlocks Level 1. This affects your real
                     account, not a sandbox persona — it cannot be undone.
                   </DialogDescription>
                 </DialogHeader>
@@ -370,7 +500,10 @@ export function SandboxControls({ languageId, levels, items, timeOffsetSeconds }
                   </p>
                 ) : null}
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setConfirmingAccountReset(false)}>
+                  <Button
+                    variant="outline"
+                    onClick={() => setConfirmingAccountReset(false)}
+                  >
                     Cancel
                   </Button>
                   <Button
@@ -378,7 +511,10 @@ export function SandboxControls({ languageId, levels, items, timeOffsetSeconds }
                     disabled={isPending}
                     onClick={() =>
                       run("account-reset", async () => {
-                        const result = await resetOwnAccountProgressAction({ languageId, idempotencyKey: crypto.randomUUID() });
+                        const result = await resetOwnAccountProgressAction({
+                          languageId,
+                          idempotencyKey: crypto.randomUUID(),
+                        });
                         if (result.ok) setConfirmingAccountReset(false);
                         return result;
                       })

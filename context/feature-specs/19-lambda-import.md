@@ -48,24 +48,24 @@ This feature must reuse, not recreate, the existing Polyglot import system.
 
 The Lambda worker must delegate to the existing domain functions responsible for:
 
-* CSV/TSV parsing;
-* header and field validation;
-* level/group resolution;
-* vocabulary vs. grammar detection;
-* duplicate detection;
-* `resolveImportRow`;
-* `create`;
-* `update`;
-* `move`;
-* `unchanged`;
-* blocked/review-required classification;
-* manually authored field protection;
-* preservation of permanent item identity;
-* draft handling for existing published items;
-* dictionary matching for vocabulary;
-* audit events;
-* idempotency;
-* transaction handling.
+- CSV/TSV parsing;
+- header and field validation;
+- level/group resolution;
+- vocabulary vs. grammar detection;
+- duplicate detection;
+- `resolveImportRow`;
+- `create`;
+- `update`;
+- `move`;
+- `unchanged`;
+- blocked/review-required classification;
+- manually authored field protection;
+- preservation of permanent item identity;
+- draft handling for existing published items;
+- dictionary matching for vocabulary;
+- audit events;
+- idempotency;
+- transaction handling.
 
 There must never be separate rules such as:
 
@@ -148,16 +148,16 @@ A file exceeding either limit must be rejected before curriculum mutation.
 
 Only an authenticated Polyglot **Admin** may:
 
-* create an import;
-* receive an upload URL;
-* upload curriculum for processing;
-* review import results;
-* resolve review-required rows;
-* confirm an import;
-* retry a failed import;
-* archive an import;
-* permanently delete an archived import;
-* promote a development import to production.
+- create an import;
+- receive an upload URL;
+- upload curriculum for processing;
+- review import results;
+- resolve review-required rows;
+- confirm an import;
+- retry a failed import;
+- archive an import;
+- permanently delete an archived import;
+- promote a development import to production.
 
 Authorization must be checked server-side using Polyglot's existing role/authorization model.
 
@@ -216,9 +216,9 @@ The original filename is stored as database metadata but must not determine the 
 
 Presigned upload credentials must:
 
-* be short lived;
-* permit only the intended object;
-* never expose AWS credentials to the browser.
+- be short lived;
+- permit only the intended object;
+- never expose AWS credentials to the browser.
 
 ---
 
@@ -471,14 +471,14 @@ The Admin must review and confirm again.
 
 A commit must return to review when any selected row changes materially in:
 
-* classification;
-* matched curriculum item;
-* destination level;
-* destination group;
-* item type;
-* fields that would be modified;
-* duplicate/homonym status;
-* blocked status.
+- classification;
+- matched curriculum item;
+- destination level;
+- destination group;
+- item type;
+- fields that would be modified;
+- duplicate/homonym status;
+- blocked status.
 
 Changes to unrelated curriculum do not invalidate the import.
 
@@ -543,12 +543,12 @@ A matching existing item is not deleted and recreated.
 
 Its permanent `learning_items` identity is preserved so existing:
 
-* SRS state;
-* learner progress;
-* review history;
-* deck membership;
-* learner content;
-* other references
+- SRS state;
+- learner progress;
+- review history;
+- deck membership;
+- learner content;
+- other references
 
 remain intact.
 
@@ -681,25 +681,25 @@ Sep 9, 2026
 
 An import details page must display:
 
-* original filename;
-* uploader;
-* creation time;
-* content checksum;
-* environment;
-* current status;
-* total rows;
-* create count;
-* update count;
-* move count;
-* unchanged count;
-* skipped count;
-* review-required count;
-* timestamps;
-* retry count;
-* final results;
-* affected curriculum item IDs where relevant;
-* safe failure information;
-* development/production promotion relationship where applicable.
+- original filename;
+- uploader;
+- creation time;
+- content checksum;
+- environment;
+- current status;
+- total rows;
+- create count;
+- update count;
+- move count;
+- unchanged count;
+- skipped count;
+- review-required count;
+- timestamps;
+- retry count;
+- final results;
+- affected curriculum item IDs where relevant;
+- safe failure information;
+- development/production promotion relationship where applicable.
 
 ---
 
@@ -917,13 +917,13 @@ Normal import history provides:
 
 Archiving:
 
-* removes the import from normal history;
-* sets `archived_at`;
-* records `archived_by`;
-* does not change curriculum;
-* does not delete the S3 source early;
-* does not delete audit history;
-* is reversible if an Unarchive control is implemented.
+- removes the import from normal history;
+- sets `archived_at`;
+- records `archived_by`;
+- does not change curriculum;
+- does not delete the S3 source early;
+- does not delete audit history;
+- is reversible if an Unarchive control is implemented.
 
 Provide:
 
@@ -1237,13 +1237,13 @@ console.log(import)
 
 Do not log:
 
-* CSV contents;
-* individual curriculum rows;
-* definitions;
-* translations;
-* imported words;
-* database results;
-* normal successful operations.
+- CSV contents;
+- individual curriculum rows;
+- definitions;
+- translations;
+- imported words;
+- database results;
+- normal successful operations.
 
 Import status, history, errors, and retries belong in Neon.
 
@@ -1623,20 +1623,20 @@ CLI tooling may remain where it serves a separate explicit developer/maintenance
 
 The implementation must ensure:
 
-* only Admin can initiate any import mutation;
-* S3 bucket is not public;
-* public ACLs are disabled;
-* upload URLs expire;
-* S3 keys use generated import IDs;
-* filename is metadata, not trusted path input;
-* Lambda IAM is least privilege;
-* development cannot access production resources;
-* SQS messages contain IDs, not full curriculum content;
-* commit always revalidates against current database state;
-* arbitrary client preview data is never trusted;
-* raw AWS credentials never reach the browser;
-* import deletion does not delete curriculum;
-* publication remains a separate Admin action.
+- only Admin can initiate any import mutation;
+- S3 bucket is not public;
+- public ACLs are disabled;
+- upload URLs expire;
+- S3 keys use generated import IDs;
+- filename is metadata, not trusted path input;
+- Lambda IAM is least privilege;
+- development cannot access production resources;
+- SQS messages contain IDs, not full curriculum content;
+- commit always revalidates against current database state;
+- arbitrary client preview data is never trusted;
+- raw AWS credentials never reach the browser;
+- import deletion does not delete curriculum;
+- publication remains a separate Admin action.
 
 ---
 
@@ -1646,16 +1646,16 @@ The implementation must ensure:
 
 Cover:
 
-* Lambda job message parsing;
-* unsupported job types;
-* import state transitions;
-* stale preview comparison;
-* material-change detection;
-* review-disposition rules;
-* inability to confirm unresolved rows;
-* checksum behavior;
-* idempotency-key generation;
-* archive/delete guards.
+- Lambda job message parsing;
+- unsupported job types;
+- import state transitions;
+- stale preview comparison;
+- material-change detection;
+- review-disposition rules;
+- inability to confirm unresolved rows;
+- checksum behavior;
+- idempotency-key generation;
+- archive/delete guards.
 
 Existing parser/resolver tests remain authoritative for curriculum behavior.
 
@@ -1821,23 +1821,23 @@ Do not remove the existing importer path until the new Lambda path has passed eq
 
 Version 1 does not include:
 
-* arbitrary spreadsheet editing;
-* XLSX imports;
-* user-facing imports;
-* Writer imports;
-* automatic curriculum publication;
-* automatic rollback/undo;
-* million-row data ingestion;
-* WebSocket progress;
-* Step Functions;
-* ECS workers;
-* EC2 workers;
-* NAT Gateway;
-* paid monitoring;
-* X-Ray;
-* permanent raw CSV storage;
-* automatic production import without Admin confirmation;
-* second-Admin approval for deletion.
+- arbitrary spreadsheet editing;
+- XLSX imports;
+- user-facing imports;
+- Writer imports;
+- automatic curriculum publication;
+- automatic rollback/undo;
+- million-row data ingestion;
+- WebSocket progress;
+- Step Functions;
+- ECS workers;
+- EC2 workers;
+- NAT Gateway;
+- paid monitoring;
+- X-Ray;
+- permanent raw CSV storage;
+- automatic production import without Admin confirmation;
+- second-Admin approval for deletion.
 
 ---
 

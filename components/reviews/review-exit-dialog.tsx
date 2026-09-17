@@ -20,19 +20,28 @@ type ReviewExitDialogProps = {
  * transactionally, so exiting never loses them. Only the item currently
  * in progress (not yet fully answered) remains due, unchanged.
  */
-export function ReviewExitDialog({ open, onOpenChange, onConfirm }: ReviewExitDialogProps) {
+export function ReviewExitDialog({
+  open,
+  onOpenChange,
+  onConfirm,
+}: ReviewExitDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Exit this review session?</DialogTitle>
           <DialogDescription>
-            Every item you&apos;ve already completed is saved. The item you&apos;re currently answering hasn&apos;t
-            been fully completed yet, so it will remain due for review — nothing about it changes.
+            Every item you&apos;ve already completed is saved. The item
+            you&apos;re currently answering hasn&apos;t been fully completed
+            yet, so it will remain due for review — nothing about it changes.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+          >
             Keep reviewing
           </Button>
           <Button type="button" variant="destructive" onClick={onConfirm}>

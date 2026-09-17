@@ -1,5 +1,8 @@
 import type { DbClient } from "@/db/client";
-import { getLearningItem, getSentenceById } from "@/domains/curriculum/curriculum-repository";
+import {
+  getLearningItem,
+  getSentenceById,
+} from "@/domains/curriculum/curriculum-repository";
 import { withIdempotency } from "@/domains/idempotency";
 import { checkAnswer } from "@/lib/answer-checking";
 import { ReviewError } from "@/lib/errors/review-errors";
@@ -37,27 +40,41 @@ export type SubmitGhostAnswerResult = {
   expectedAnswer?: string;
 };
 
-export async function submitGhostAnswer(db: DbClient, input: SubmitGhostAnswerInput): Promise<SubmitGhostAnswerResult> {
+export async function submitGhostAnswer(
+  db: DbClient,
+  input: SubmitGhostAnswerInput,
+): Promise<SubmitGhostAnswerResult> {
   const now = new Date(input.now ?? Date.now());
 
-  const ghost = await getGhostProgressById(db, input.userId, input.ghostProgressId);
+  const ghost = await getGhostProgressById(
+    db,
+    input.userId,
+    input.ghostProgressId,
+  );
   if (!ghost || ghost.languageId !== input.languageId || !ghost.ghostStage) {
     throw new ReviewError("ITEM_NOT_FOUND");
   }
 
-  const [item, sentence] = await Promise.all([getLearningItem(db, ghost.learningItemId), getSentenceById(db, ghost.sentenceId)]);
+  const [item, sentence] = await Promise.all([
+    getLearningItem(db, ghost.learningItemId),
+    getSentenceById(db, ghost.sentenceId),
+  ]);
   if (!item || !sentence) throw new ReviewError("ITEM_NOT_FOUND");
 
   // Never trust anything client-supplied for the accepted answer — re-derive
   // the exact same Cloze blank server-side, the same discipline
   // `resolveQuestionPresentation` uses for normal Cloze questions.
-  const targetWord = item.type === "vocabulary" ? item.vocabulary.term : item.grammar.structure;
+  const targetWord =
+    item.type === "vocabulary" ? item.vocabulary.term : item.grammar.structure;
   const cloze = findCompatibleClozeSentence([sentence], targetWord);
   // Defensive only — this exact sentence/item pairing is how the Ghost was created in the first place.
   if (!cloze) throw new ReviewError("ITEM_NOT_FOUND");
 
   const trimmedAnswer = input.answer.trim();
-  const result = checkAnswer({ userAnswer: trimmedAnswer, acceptedAnswers: [cloze.blankedWord] });
+  const result = checkAnswer({
+    userAnswer: trimmedAnswer,
+    acceptedAnswers: [cloze.blankedWord],
+  });
   const isCorrect = result.isCorrect;
 
   return withIdempotency(
@@ -69,7 +86,12 @@ export async function submitGhostAnswer(db: DbClient, input: SubmitGhostAnswerIn
       payload: { ghostProgressId: input.ghostProgressId, isCorrect },
     },
     async (tx) => {
-      const applied = await applyGhostAnswer(tx, { userId: input.userId, ghostProgressId: input.ghostProgressId, isCorrect, now });
+      const applied = await applyGhostAnswer(tx, {
+        userId: input.userId,
+        ghostProgressId: input.ghostProgressId,
+        isCorrect,
+        now,
+      });
       // Unreachable given the check above (same transaction-free read just confirmed this Ghost exists and belongs to this user) — kept as a defensive guard rather than a non-null assertion.
       if (!applied) throw new ReviewError("ITEM_NOT_FOUND");
 

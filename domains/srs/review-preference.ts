@@ -8,14 +8,21 @@ import type { SrsStage } from "./srs-types";
  * (`review-presentation.ts`, `review-hint.ts`, `review-queue.ts`).
  */
 
-export const REVIEW_TYPES = ["cloze_manual", "cloze_flashcard", "flashcard"] as const;
+export const REVIEW_TYPES = [
+  "cloze_manual",
+  "cloze_flashcard",
+  "flashcard",
+] as const;
 export type ReviewType = (typeof REVIEW_TYPES)[number];
 
 /** The spec's own default — shown pre-selected in its mockup, listed first among the three options. */
 export const DEFAULT_REVIEW_TYPE: ReviewType = "cloze_manual";
 
 export function isReviewType(value: unknown): value is ReviewType {
-  return typeof value === "string" && (REVIEW_TYPES as readonly string[]).includes(value);
+  return (
+    typeof value === "string" &&
+    (REVIEW_TYPES as readonly string[]).includes(value)
+  );
 }
 
 /** Whether `reviewType` ever attempts a sentence-blank presentation at all (as opposed to Flashcard, which never does). */
@@ -29,24 +36,42 @@ export type HintOrder = (typeof HINT_ORDERS)[number];
 export const DEFAULT_HINT_ORDER: HintOrder = "nuance_first";
 
 export function isHintOrder(value: unknown): value is HintOrder {
-  return typeof value === "string" && (HINT_ORDERS as readonly string[]).includes(value);
+  return (
+    typeof value === "string" &&
+    (HINT_ORDERS as readonly string[]).includes(value)
+  );
 }
 
-export const HINT_MODES = ["hide", "hint", "show", "more", "always_show_nuance"] as const;
+export const HINT_MODES = [
+  "hide",
+  "hint",
+  "show",
+  "more",
+  "always_show_nuance",
+] as const;
 export type HintMode = (typeof HINT_MODES)[number];
 export const DEFAULT_HINT_MODE: HintMode = "hint";
 
 export function isHintMode(value: unknown): value is HintMode {
-  return typeof value === "string" && (HINT_MODES as readonly string[]).includes(value);
+  return (
+    typeof value === "string" &&
+    (HINT_MODES as readonly string[]).includes(value)
+  );
 }
 
 /** Spec 20 Review UI — Undo Action, for typed review answer fields. */
-export const UNDO_ACTIONS = ["clear_last_character", "clear_all_characters"] as const;
+export const UNDO_ACTIONS = [
+  "clear_last_character",
+  "clear_all_characters",
+] as const;
 export type UndoAction = (typeof UNDO_ACTIONS)[number];
 export const DEFAULT_UNDO_ACTION: UndoAction = "clear_last_character";
 
 export function isUndoAction(value: unknown): value is UndoAction {
-  return typeof value === "string" && (UNDO_ACTIONS as readonly string[]).includes(value);
+  return (
+    typeof value === "string" &&
+    (UNDO_ACTIONS as readonly string[]).includes(value)
+  );
 }
 
 /**
@@ -55,12 +80,21 @@ export function isUndoAction(value: unknown): value is UndoAction {
  * new Polyglot-wide default replacing the old WaniKani-inspired Beginner/
  * Familiar+ split outright (see `domains/srs/review-result.ts`).
  */
-export const SRS_STRICTNESSES = ["one_stage", "two_stages", "three_stages", "half", "full"] as const;
+export const SRS_STRICTNESSES = [
+  "one_stage",
+  "two_stages",
+  "three_stages",
+  "half",
+  "full",
+] as const;
 export type SrsStrictness = (typeof SRS_STRICTNESSES)[number];
 export const DEFAULT_SRS_STRICTNESS: SrsStrictness = "one_stage";
 
 export function isSrsStrictness(value: unknown): value is SrsStrictness {
-  return typeof value === "string" && (SRS_STRICTNESSES as readonly string[]).includes(value);
+  return (
+    typeof value === "string" &&
+    (SRS_STRICTNESSES as readonly string[]).includes(value)
+  );
 }
 
 /**
@@ -70,12 +104,21 @@ export function isSrsStrictness(value: unknown): value is SrsStrictness {
  * "Important Future-Only Rule") — see `domains/srs/srs-config.ts`'s
  * `getConfiguredInterval`.
  */
-export const SRS_INTERVAL_MODES = ["shortest", "shorter", "default", "longer", "longest"] as const;
+export const SRS_INTERVAL_MODES = [
+  "shortest",
+  "shorter",
+  "default",
+  "longer",
+  "longest",
+] as const;
 export type SrsIntervalMode = (typeof SRS_INTERVAL_MODES)[number];
 export const DEFAULT_SRS_INTERVAL_MODE: SrsIntervalMode = "default";
 
 export function isSrsIntervalMode(value: unknown): value is SrsIntervalMode {
-  return typeof value === "string" && (SRS_INTERVAL_MODES as readonly string[]).includes(value);
+  return (
+    typeof value === "string" &&
+    (SRS_INTERVAL_MODES as readonly string[]).includes(value)
+  );
 }
 
 /**
@@ -90,7 +133,10 @@ export type GhostMode = (typeof GHOST_MODES)[number];
 export const DEFAULT_GHOST_MODE: GhostMode = "on";
 
 export function isGhostMode(value: unknown): value is GhostMode {
-  return typeof value === "string" && (GHOST_MODES as readonly string[]).includes(value);
+  return (
+    typeof value === "string" &&
+    (GHOST_MODES as readonly string[]).includes(value)
+  );
 }
 
 /**
@@ -101,12 +147,21 @@ export function isGhostMode(value: unknown): value is GhostMode {
  * names it once. See `domains/srs/review-queue-timing.ts` for the rounding
  * logic itself.
  */
-export const REVIEW_QUEUE_TIMING_MODES = ["start_of_hour", "start_of_day"] as const;
+export const REVIEW_QUEUE_TIMING_MODES = [
+  "start_of_hour",
+  "start_of_day",
+] as const;
 export type ReviewQueueTimingMode = (typeof REVIEW_QUEUE_TIMING_MODES)[number];
-export const DEFAULT_REVIEW_QUEUE_TIMING_MODE: ReviewQueueTimingMode = "start_of_hour";
+export const DEFAULT_REVIEW_QUEUE_TIMING_MODE: ReviewQueueTimingMode =
+  "start_of_hour";
 
-export function isReviewQueueTimingMode(value: unknown): value is ReviewQueueTimingMode {
-  return typeof value === "string" && (REVIEW_QUEUE_TIMING_MODES as readonly string[]).includes(value);
+export function isReviewQueueTimingMode(
+  value: unknown,
+): value is ReviewQueueTimingMode {
+  return (
+    typeof value === "string" &&
+    (REVIEW_QUEUE_TIMING_MODES as readonly string[]).includes(value)
+  );
 }
 
 /**
@@ -184,7 +239,10 @@ export type ReviewPreferences = {
   vocabularyMinimumLeechStage: SrsStage;
 };
 
-export const DEFAULT_REVIEW_PREFERENCES: Omit<ReviewPreferences, "userId" | "languageId"> = {
+export const DEFAULT_REVIEW_PREFERENCES: Omit<
+  ReviewPreferences,
+  "userId" | "languageId"
+> = {
   grammarReviewType: DEFAULT_REVIEW_TYPE,
   vocabularyReviewType: DEFAULT_REVIEW_TYPE,
   grammarHintOrder: DEFAULT_HINT_ORDER,

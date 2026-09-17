@@ -18,7 +18,10 @@ export function ThemeSelector() {
     <fieldset className="flex flex-col gap-2">
       <legend className="sr-only">Theme</legend>
       {THEMES.map((theme) => (
-        <label key={theme} className="flex items-center gap-3 rounded-lg border border-border px-4 py-3 text-sm has-checked:border-primary has-checked:bg-accent/40">
+        <label
+          key={theme}
+          className="flex items-center gap-3 rounded-lg border border-border px-4 py-3 text-sm has-checked:border-primary has-checked:bg-accent/40"
+        >
           <input
             type="radio"
             name="appearance-theme"
@@ -28,7 +31,11 @@ export function ThemeSelector() {
             className="h-4 w-4 accent-primary"
           />
           <span className="font-medium text-foreground">{LABELS[theme]}</span>
-          {theme === "system" && <span className="text-muted-foreground">Follows your device setting</span>}
+          {theme === "system" && (
+            <span className="text-muted-foreground">
+              Follows your device setting
+            </span>
+          )}
         </label>
       ))}
     </fieldset>

@@ -16,8 +16,12 @@ export function ContentPage({
 }) {
   return (
     <section className="mx-auto max-w-3xl px-4 py-16 sm:px-6 sm:py-20">
-      <h1 className="text-3xl font-semibold text-foreground sm:text-4xl">{title}</h1>
-      {lede ? <p className="mt-4 text-lg text-muted-foreground">{lede}</p> : null}
+      <h1 className="text-3xl font-semibold text-foreground sm:text-4xl">
+        {title}
+      </h1>
+      {lede ? (
+        <p className="mt-4 text-lg text-muted-foreground">{lede}</p>
+      ) : null}
       <div className="mt-8 space-y-6">{children}</div>
     </section>
   );

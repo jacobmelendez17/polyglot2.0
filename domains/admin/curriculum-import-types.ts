@@ -1,4 +1,8 @@
-import type { curriculumImportRowClassificationEnum, curriculumImportRowDispositionEnum, curriculumImportStatusEnum } from "@/db/schema";
+import type {
+  curriculumImportRowClassificationEnum,
+  curriculumImportRowDispositionEnum,
+  curriculumImportStatusEnum,
+} from "@/db/schema";
 import type { ImportFieldChange } from "./bulk-import-service";
 
 /**
@@ -9,9 +13,12 @@ import type { ImportFieldChange } from "./bulk-import-service";
  * database row types as a public domain API.
  */
 
-export type CurriculumImportStatus = (typeof curriculumImportStatusEnum.enumValues)[number];
-export type CurriculumImportRowClassification = (typeof curriculumImportRowClassificationEnum.enumValues)[number];
-export type CurriculumImportRowDisposition = (typeof curriculumImportRowDispositionEnum.enumValues)[number];
+export type CurriculumImportStatus =
+  (typeof curriculumImportStatusEnum.enumValues)[number];
+export type CurriculumImportRowClassification =
+  (typeof curriculumImportRowClassificationEnum.enumValues)[number];
+export type CurriculumImportRowDisposition =
+  (typeof curriculumImportRowDispositionEnum.enumValues)[number];
 
 export type CurriculumImportRecord = {
   id: string;
@@ -97,5 +104,11 @@ export type CurriculumImportRowPreviewInput = {
   reviewReason: string | null;
 };
 
-export type CurriculumImportsPage = { items: CurriculumImportRecord[]; nextCursor: string | null };
-export type CurriculumImportRowsPage = { items: CurriculumImportRowRecord[]; nextCursor: string | null };
+export type CurriculumImportsPage = {
+  items: CurriculumImportRecord[];
+  nextCursor: string | null;
+};
+export type CurriculumImportRowsPage = {
+  items: CurriculumImportRowRecord[];
+  nextCursor: string | null;
+};

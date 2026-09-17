@@ -14,7 +14,14 @@ import { languages } from "@/db/schema";
  * (see progress-tracker.md's Architecture Decisions). This takes an injected
  * `DbClient` instead, exactly like every other repository function here.
  */
-export async function getLanguageByCodeRaw(db: DbClient, code: string): Promise<{ id: string; code: string } | null> {
-  const [row] = await db.select({ id: languages.id, code: languages.code }).from(languages).where(eq(languages.code, code)).limit(1);
+export async function getLanguageByCodeRaw(
+  db: DbClient,
+  code: string,
+): Promise<{ id: string; code: string } | null> {
+  const [row] = await db
+    .select({ id: languages.id, code: languages.code })
+    .from(languages)
+    .where(eq(languages.code, code))
+    .limit(1);
   return row ?? null;
 }

@@ -41,7 +41,9 @@ export function ResetEntireAccountPanel() {
     if (!isConfirmed) return;
     setError(null);
     startTransition(async () => {
-      const result = await resetEntireAccountAction({ idempotencyKey: crypto.randomUUID() });
+      const result = await resetEntireAccountAction({
+        idempotencyKey: crypto.randomUUID(),
+      });
       if (!result.ok) {
         setError(result.error.message);
         return;
@@ -55,8 +57,12 @@ export function ResetEntireAccountPanel() {
 
   return (
     <div className="border-b border-border py-4 first:pt-0 last:border-b-0">
-      <h3 className="text-sm font-medium text-foreground">Reset Entire Account</h3>
-      <p className="mt-1 text-sm text-muted-foreground">Return your Polyglot learning account to a fresh state.</p>
+      <h3 className="text-sm font-medium text-foreground">
+        Reset Entire Account
+      </h3>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Return your Polyglot learning account to a fresh state.
+      </p>
 
       <div className="mt-2">
         <Dialog
@@ -73,16 +79,21 @@ export function ResetEntireAccountPanel() {
             <DialogHeader>
               <DialogTitle>Reset Entire Account?</DialogTitle>
               <DialogDescription>
-                This is different from Delete Account — your login, email, and password stay exactly as they are. Everything
-                else about your Polyglot learning is removed: lesson and SRS progress, review history, Ghost Reviews, Level
-                unlocks, every preference, personal decks, notes, synonyms, vacation history, streak adjustments, and your
-                Polyglot username. You will need to complete onboarding again.
+                This is different from Delete Account — your login, email, and
+                password stay exactly as they are. Everything else about your
+                Polyglot learning is removed: lesson and SRS progress, review
+                history, Ghost Reviews, Level unlocks, every preference,
+                personal decks, notes, synonyms, vacation history, streak
+                adjustments, and your Polyglot username. You will need to
+                complete onboarding again.
               </DialogDescription>
             </DialogHeader>
 
             <label htmlFor={inputId} className="block text-sm">
               <span className="text-foreground">
-                Type <span className="font-semibold">{CONFIRMATION_PHRASE}</span> to confirm
+                Type{" "}
+                <span className="font-semibold">{CONFIRMATION_PHRASE}</span> to
+                confirm
               </span>
               <Input
                 id={inputId}
@@ -103,7 +114,11 @@ export function ResetEntireAccountPanel() {
               <Button variant="outline" onClick={() => setOpen(false)}>
                 Cancel
               </Button>
-              <Button variant="destructive" onClick={handleReset} disabled={isPending || !isConfirmed}>
+              <Button
+                variant="destructive"
+                onClick={handleReset}
+                disabled={isPending || !isConfirmed}
+              >
                 Reset Account
               </Button>
             </DialogFooter>

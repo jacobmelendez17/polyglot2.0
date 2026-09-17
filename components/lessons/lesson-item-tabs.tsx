@@ -24,7 +24,11 @@ export function LessonItemTabs({ item, languageCode }: LessonItemTabsProps) {
       </TabsList>
 
       <TabsContent value="details" className="mt-4 flex flex-col gap-4">
-        {item.type === "vocabulary" ? <VocabularyDetails item={item} languageCode={languageCode} /> : <GrammarDetails item={item} />}
+        {item.type === "vocabulary" ? (
+          <VocabularyDetails item={item} languageCode={languageCode} />
+        ) : (
+          <GrammarDetails item={item} />
+        )}
       </TabsContent>
 
       <TabsContent value="examples" className="mt-4">
@@ -38,24 +42,36 @@ export function LessonItemTabs({ item, languageCode }: LessonItemTabsProps) {
   );
 }
 
-function VocabularyDetails({ item, languageCode }: { item: Extract<LearningItem, { type: "vocabulary" }>; languageCode: string }) {
+function VocabularyDetails({
+  item,
+  languageCode,
+}: {
+  item: Extract<LearningItem, { type: "vocabulary" }>;
+  languageCode: string;
+}) {
   return (
     <div className="flex flex-col gap-4">
       {item.definition ? (
         <section className="rounded-lg bg-card p-4 ring-1 ring-foreground/10">
-          <h3 className="text-sm font-medium text-muted-foreground">Definition</h3>
+          <h3 className="text-sm font-medium text-muted-foreground">
+            Definition
+          </h3>
           <p className="mt-1 text-sm text-foreground">{item.definition}</p>
         </section>
       ) : null}
 
       <section className="grid grid-cols-2 gap-4 rounded-lg bg-card p-4 ring-1 ring-foreground/10">
         <div>
-          <h3 className="text-sm font-medium text-muted-foreground">Part of speech</h3>
+          <h3 className="text-sm font-medium text-muted-foreground">
+            Part of speech
+          </h3>
           <p className="mt-1 text-sm text-foreground">{item.partOfSpeech}</p>
         </div>
         {item.article ? (
           <div>
-            <h3 className="text-sm font-medium text-muted-foreground">Article</h3>
+            <h3 className="text-sm font-medium text-muted-foreground">
+              Article
+            </h3>
             <p className="mt-1 text-sm text-foreground">{item.article}</p>
           </div>
         ) : null}
@@ -68,9 +84,13 @@ function VocabularyDetails({ item, languageCode }: { item: Extract<LearningItem,
         rather than as absent content. Audio alone still renders the section,
         since the control is the content in that case.
       */}
-      {item.pronunciation.guide || item.pronunciation.ipa || item.pronunciation.audioUrl ? (
+      {item.pronunciation.guide ||
+      item.pronunciation.ipa ||
+      item.pronunciation.audioUrl ? (
         <section className="rounded-lg bg-card p-4 ring-1 ring-foreground/10">
-          <h3 className="text-sm font-medium text-muted-foreground">Pronunciation</h3>
+          <h3 className="text-sm font-medium text-muted-foreground">
+            Pronunciation
+          </h3>
           <div className="mt-1 flex items-center gap-2">
             <PronunciationButton
               text={item.word}
@@ -83,7 +103,8 @@ function VocabularyDetails({ item, languageCode }: { item: Extract<LearningItem,
               {item.pronunciation.guide}
               {item.pronunciation.ipa ? (
                 <span className="text-muted-foreground">
-                  {item.pronunciation.guide ? " · " : null}/{item.pronunciation.ipa}/
+                  {item.pronunciation.guide ? " · " : null}/
+                  {item.pronunciation.ipa}/
                 </span>
               ) : null}
             </p>
@@ -100,12 +121,16 @@ function VocabularyDetails({ item, languageCode }: { item: Extract<LearningItem,
 
       {item.creatorNotes ? (
         <section className="rounded-lg bg-card p-4 ring-1 ring-foreground/10">
-          <h3 className="text-sm font-medium text-muted-foreground">Creator notes</h3>
+          <h3 className="text-sm font-medium text-muted-foreground">
+            Creator notes
+          </h3>
           <p className="mt-1 text-sm text-foreground">{item.creatorNotes}</p>
         </section>
       ) : null}
 
-      {item.dictionary ? <VocabularyDictionaryInfoSection dictionary={item.dictionary} /> : null}
+      {item.dictionary ? (
+        <VocabularyDictionaryInfoSection dictionary={item.dictionary} />
+      ) : null}
     </div>
   );
 }
@@ -115,18 +140,33 @@ function VocabularyDetails({ item, languageCode }: { item: Extract<LearningItem,
  * the item's mapping is confirmed — `item.dictionary` is absent otherwise
  * (see `curriculum-db-service.ts`'s `withConfirmedDictionaryData`).
  */
-function VocabularyDictionaryInfoSection({ dictionary }: { dictionary: NonNullable<Extract<LearningItem, { type: "vocabulary" }>["dictionary"]> }) {
-  const hasContent = dictionary.synonyms.length > 0 || dictionary.variants.length > 0 || dictionary.usageLabels.length > 0 || dictionary.regionalEvidence.length > 0;
+function VocabularyDictionaryInfoSection({
+  dictionary,
+}: {
+  dictionary: NonNullable<
+    Extract<LearningItem, { type: "vocabulary" }>["dictionary"]
+  >;
+}) {
+  const hasContent =
+    dictionary.synonyms.length > 0 ||
+    dictionary.variants.length > 0 ||
+    dictionary.usageLabels.length > 0 ||
+    dictionary.regionalEvidence.length > 0;
   if (!hasContent) return null;
 
   return (
     <section className="rounded-lg bg-card p-4 ring-1 ring-foreground/10">
-      <h3 className="text-sm font-medium text-muted-foreground">Dictionary information</h3>
+      <h3 className="text-sm font-medium text-muted-foreground">
+        Dictionary information
+      </h3>
       <div className="mt-2 flex flex-col gap-3">
         {dictionary.usageLabels.length > 0 ? (
           <div className="flex flex-wrap gap-1.5">
             {dictionary.usageLabels.map((label) => (
-              <span key={label} className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+              <span
+                key={label}
+                className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
+              >
                 {label}
               </span>
             ))}
@@ -166,16 +206,26 @@ function VocabularyDictionaryInfoSection({ dictionary }: { dictionary: NonNullab
         ) : null}
       </div>
 
-      {dictionary.attributionText ? <p className="mt-3 text-xs text-muted-foreground">{dictionary.attributionText}</p> : null}
+      {dictionary.attributionText ? (
+        <p className="mt-3 text-xs text-muted-foreground">
+          {dictionary.attributionText}
+        </p>
+      ) : null}
     </section>
   );
 }
 
-function GrammarDetails({ item }: { item: Extract<LearningItem, { type: "grammar" }> }) {
+function GrammarDetails({
+  item,
+}: {
+  item: Extract<LearningItem, { type: "grammar" }>;
+}) {
   return (
     <div className="flex flex-col gap-4">
       <section className="rounded-lg bg-card p-4 ring-1 ring-foreground/10">
-        <h3 className="text-sm font-medium text-muted-foreground">Explanation</h3>
+        <h3 className="text-sm font-medium text-muted-foreground">
+          Explanation
+        </h3>
         <p className="mt-1 text-sm text-foreground">{item.explanation}</p>
       </section>
 
@@ -193,7 +243,9 @@ function GrammarDetails({ item }: { item: Extract<LearningItem, { type: "grammar
 
       {item.creatorNotes ? (
         <section className="rounded-lg bg-card p-4 ring-1 ring-foreground/10">
-          <h3 className="text-sm font-medium text-muted-foreground">Creator notes</h3>
+          <h3 className="text-sm font-medium text-muted-foreground">
+            Creator notes
+          </h3>
           <p className="mt-1 text-sm text-foreground">{item.creatorNotes}</p>
         </section>
       ) : null}
@@ -203,24 +255,41 @@ function GrammarDetails({ item }: { item: Extract<LearningItem, { type: "grammar
 
 function ExamplesList({ examples }: { examples: LearningItem["examples"] }) {
   if (examples.length === 0) {
-    return <p className="text-sm text-muted-foreground">No examples for this item yet.</p>;
+    return (
+      <p className="text-sm text-muted-foreground">
+        No examples for this item yet.
+      </p>
+    );
   }
 
   return (
     <ul className="flex flex-col gap-3">
       {examples.map((example, index) => (
-        <li key={index} className="rounded-lg bg-card p-4 ring-1 ring-foreground/10">
+        <li
+          key={index}
+          className="rounded-lg bg-card p-4 ring-1 ring-foreground/10"
+        >
           <p className="text-sm text-foreground">{example.targetText}</p>
-          <p className="mt-1 text-sm text-muted-foreground">{example.englishText}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {example.englishText}
+          </p>
         </li>
       ))}
     </ul>
   );
 }
 
-function ResourcesList({ resources }: { resources: LearningItem["resources"] }) {
+function ResourcesList({
+  resources,
+}: {
+  resources: LearningItem["resources"];
+}) {
   if (resources.length === 0) {
-    return <p className="text-sm text-muted-foreground">No additional resources for this item.</p>;
+    return (
+      <p className="text-sm text-muted-foreground">
+        No additional resources for this item.
+      </p>
+    );
   }
 
   return (

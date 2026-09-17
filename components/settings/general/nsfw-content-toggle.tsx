@@ -19,8 +19,12 @@ export function NsfwContentToggle({ initialValue }: NsfwContentToggleProps) {
       label="Show NSFW Content"
       initialValue={initialValue}
       onSave={async (showNsfwContent) => {
-        const result = await updateContentPreferencesAction({ showNsfwContent });
-        return result.ok ? { ok: true, value: result.data.showNsfwContent } : { ok: false, message: result.error.message };
+        const result = await updateContentPreferencesAction({
+          showNsfwContent,
+        });
+        return result.ok
+          ? { ok: true, value: result.data.showNsfwContent }
+          : { ok: false, message: result.error.message };
       }}
     />
   );

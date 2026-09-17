@@ -37,5 +37,11 @@ export {
 // Spec 18 — the composed item-detail read model. Server-only: it reaches
 // `domains/lexicon/server`, `domains/progress/server`, and
 // `domains/learner-content/server`, all of which touch the database.
-export { getItemAdminEditingData, getItemDetailPageData } from "./item-detail-service";
-export type { ItemAdminEditingData, ItemDetailPageData } from "./item-detail-service";
+export {
+  getItemAdminEditingData,
+  getItemDetailPageData,
+} from "./item-detail-service";
+export type {
+  ItemAdminEditingData,
+  ItemDetailPageData,
+} from "./item-detail-service";

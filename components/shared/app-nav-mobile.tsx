@@ -2,7 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, BookOpen, RotateCcw, Dumbbell, MoreHorizontal } from "lucide-react";
+import {
+  Home,
+  BookOpen,
+  RotateCcw,
+  Dumbbell,
+  MoreHorizontal,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { LevelLink } from "@/components/shared/level-link";
@@ -16,7 +22,10 @@ import {
 } from "@/components/ui/sheet";
 import { LEVEL_NUMBER_MAX, LEVEL_NUMBER_MIN } from "@/domains/curriculum";
 
-const LEVEL_NUMBERS = Array.from({ length: LEVEL_NUMBER_MAX - LEVEL_NUMBER_MIN + 1 }, (_, i) => i + LEVEL_NUMBER_MIN);
+const LEVEL_NUMBERS = Array.from(
+  { length: LEVEL_NUMBER_MAX - LEVEL_NUMBER_MIN + 1 },
+  (_, i) => i + LEVEL_NUMBER_MIN,
+);
 
 const PRIMARY_TABS = [
   { label: "Reviews", href: "/reviews", icon: RotateCcw },
@@ -53,7 +62,9 @@ export function AppNavMobile() {
           aria-current={pathname === "/dashboard" ? "page" : undefined}
           className={cn(
             "flex flex-1 flex-col items-center gap-1 px-2 py-2.5 text-xs font-medium transition-colors",
-            pathname === "/dashboard" ? "text-primary" : "text-muted-foreground hover:text-foreground"
+            pathname === "/dashboard"
+              ? "text-primary"
+              : "text-muted-foreground hover:text-foreground",
           )}
         >
           <Home className="h-5 w-5" aria-hidden="true" />
@@ -65,7 +76,9 @@ export function AppNavMobile() {
           <SheetTrigger
             className={cn(
               "flex flex-1 flex-col items-center gap-1 px-2 py-2.5 text-xs font-medium transition-colors",
-              isOnLevels ? "text-primary" : "text-muted-foreground hover:text-foreground"
+              isOnLevels
+                ? "text-primary"
+                : "text-muted-foreground hover:text-foreground",
             )}
           >
             <BookOpen className="h-5 w-5" aria-hidden="true" />
@@ -78,7 +91,11 @@ export function AppNavMobile() {
             <div className="grid grid-cols-5 gap-2 p-4 pt-0 sm:grid-cols-8">
               {LEVEL_NUMBERS.map((levelNumber) => (
                 <SheetClose asChild key={levelNumber}>
-                  <LevelLink levelNumber={levelNumber} isCurrent={levelNumber === currentLevel} className="h-11 w-full" />
+                  <LevelLink
+                    levelNumber={levelNumber}
+                    isCurrent={levelNumber === currentLevel}
+                    className="h-11 w-full"
+                  />
                 </SheetClose>
               ))}
             </div>
@@ -94,7 +111,9 @@ export function AppNavMobile() {
               aria-current={isActive ? "page" : undefined}
               className={cn(
                 "flex flex-1 flex-col items-center gap-1 px-2 py-2.5 text-xs font-medium transition-colors",
-                isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                isActive
+                  ? "text-primary"
+                  : "text-muted-foreground hover:text-foreground",
               )}
             >
               <Icon className="h-5 w-5" aria-hidden="true" />
@@ -104,9 +123,7 @@ export function AppNavMobile() {
         })}
 
         <Sheet>
-          <SheetTrigger
-            className="flex flex-1 flex-col items-center gap-1 px-2 py-2.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
-          >
+          <SheetTrigger className="flex flex-1 flex-col items-center gap-1 px-2 py-2.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground">
             <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
             More
           </SheetTrigger>

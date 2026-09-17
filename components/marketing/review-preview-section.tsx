@@ -10,7 +10,8 @@ export function ReviewPreviewSection() {
         Reviews, distraction-free
       </h2>
       <p className="mx-auto mt-3 max-w-xl text-center text-muted-foreground">
-        No card, no clutter — just the word, the answer, and the tools to type it correctly.
+        No card, no clutter — just the word, the answer, and the tools to type
+        it correctly.
       </p>
 
       <Reveal className="mx-auto mt-10 max-w-2xl rounded-2xl border border-border bg-card p-6 sm:p-8">
@@ -30,7 +31,9 @@ export function ReviewPreviewSection() {
 
         <div className="mt-10 flex flex-col items-center gap-1 text-center">
           <span className="text-sm text-muted-foreground">el</span>
-          <span className="text-4xl font-semibold text-foreground sm:text-5xl">gato</span>
+          <span className="text-4xl font-semibold text-foreground sm:text-5xl">
+            gato
+          </span>
         </div>
 
         <div className="mt-8 flex flex-col items-center gap-4">
@@ -54,7 +57,11 @@ export function ReviewPreviewSection() {
               </button>
             ))}
           </div>
-          <Button type="button" disabled className="rounded-full disabled:opacity-100">
+          <Button
+            type="button"
+            disabled
+            className="rounded-full disabled:opacity-100"
+          >
             Submit
           </Button>
         </div>

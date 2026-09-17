@@ -12,9 +12,20 @@ import {
   updateVocabularyFieldsFromImport,
 } from "@/domains/curriculum/curriculum-mutation-repository";
 import type { ImportMatchTarget } from "@/domains/curriculum/curriculum-mutation-repository";
-import { getLevelsByLanguage, getVocabularyGroupsByLanguage } from "@/domains/curriculum/curriculum-repository";
-import type { DuplicateCandidate, GrammarFieldsInput, VocabularyFieldsInput } from "@/domains/curriculum/curriculum-mutation-types";
-import type { ImportRowFieldIssue, ParsedImportFields, ValidatedImportRow } from "@/domains/curriculum/vocabulary-import-parsing";
+import {
+  getLevelsByLanguage,
+  getVocabularyGroupsByLanguage,
+} from "@/domains/curriculum/curriculum-repository";
+import type {
+  DuplicateCandidate,
+  GrammarFieldsInput,
+  VocabularyFieldsInput,
+} from "@/domains/curriculum/curriculum-mutation-types";
+import type {
+  ImportRowFieldIssue,
+  ParsedImportFields,
+  ValidatedImportRow,
+} from "@/domains/curriculum/vocabulary-import-parsing";
 import { withIdempotency } from "@/domains/idempotency";
 import { AdminError } from "@/lib/errors/admin-errors";
 import { normalizeForComparison } from "@/lib/answer-checking/normalize";
@@ -53,9 +64,14 @@ import { invalidateCurriculumCache } from "./cache-invalidation";
  * file is now an ordinary thing to do, so every row says which of these it
  * is *before* anything is written.
  */
-export type ImportRowAction = "create" | "update" | "move" | "unchanged" | "blocked";
+export type ImportRowAction =
+  "create" | "update" | "move" | "unchanged" | "blocked";
 
-export type ImportFieldChange = { field: string; from: string | null; to: string | null };
+export type ImportFieldChange = {
+  field: string;
+  from: string | null;
+  to: string | null;
+};
 
 export type ImportRowPlacementChange = {
   fromLevelNumber: number;
@@ -87,9 +103,19 @@ export type ImportRowPreview = {
 
 /** `level 1` -> that level's real id, and `(levelId, position)` -> that group's real id — both batched once per import, never per row. */
 async function loadLevelAndGroupLookups(db: DbClient, languageId: string) {
-  const [levelsForLanguage, groupsForLanguage] = await Promise.all([getLevelsByLanguage(db, languageId), getVocabularyGroupsByLanguage(db, languageId)]);
-  const levelIdByNumber = new Map(levelsForLanguage.map((level) => [level.levelNumber, level.id]));
-  const groupIdByLevelAndPosition = new Map(groupsForLanguage.map((group) => [`${group.levelId}:${group.position}`, group.id]));
+  const [levelsForLanguage, groupsForLanguage] = await Promise.all([
+    getLevelsByLanguage(db, languageId),
+    getVocabularyGroupsByLanguage(db, languageId),
+  ]);
+  const levelIdByNumber = new Map(
+    levelsForLanguage.map((level) => [level.levelNumber, level.id]),
+  );
+  const groupIdByLevelAndPosition = new Map(
+    groupsForLanguage.map((group) => [
+      `${group.levelId}:${group.position}`,
+      group.id,
+    ]),
+  );
   return { levelIdByNumber, groupIdByLevelAndPosition };
 }
 
@@ -104,8 +130,23 @@ function itemResourceType(itemType: "vocabulary" | "grammar"): string {
 
 /** The fields an import row can carry for each item type, in the order a preview lists them. */
 const IMPORTABLE_FIELDS = {
-  vocabulary: ["primaryMeaning", "definition", "article", "partOfSpeech", "pronunciation", "ipa", "context", "creatorNotes"],
-  grammar: ["primaryMeaning", "title", "explanation", "category", "creatorNotes"],
+  vocabulary: [
+    "primaryMeaning",
+    "definition",
+    "article",
+    "partOfSpeech",
+    "pronunciation",
+    "ipa",
+    "context",
+    "creatorNotes",
+  ],
+  grammar: [
+    "primaryMeaning",
+    "title",
+    "explanation",
+    "category",
+    "creatorNotes",
+  ],
 } as const;
 
 /**
@@ -114,7 +155,9 @@ const IMPORTABLE_FIELDS = {
  * everything downstream reads as "say nothing about this", never as "clear
  * it".
  */
-function importedValues(fields: ParsedImportFields): Record<string, string | null> {
+function importedValues(
+  fields: ParsedImportFields,
+): Record<string, string | null> {
   if (fields.itemType === "vocabulary") {
     return {
       primaryMeaning: fields.primaryMeaning,
@@ -159,7 +202,10 @@ type ImportLookups = {
    * to several rows: an archived item the curriculum has moved past, or two
    * approved homonyms.
    */
-  targetsByType: { vocabulary: Map<string, ImportMatchTarget[]>; grammar: Map<string, ImportMatchTarget[]> };
+  targetsByType: {
+    vocabulary: Map<string, ImportMatchTarget[]>;
+    grammar: Map<string, ImportMatchTarget[]>;
+  };
 };
 
 /**
@@ -174,7 +220,10 @@ type ImportLookups = {
  * term column cannot say which it means. That is reported rather than
  * guessed at.
  */
-function chooseMatchTarget(matches: ImportMatchTarget[]): { target: ImportMatchTarget | null; blockedReason: string | null } {
+function chooseMatchTarget(matches: ImportMatchTarget[]): {
+  target: ImportMatchTarget | null;
+  blockedReason: string | null;
+} {
   if (matches.length === 0) return { target: null, blockedReason: null };
 
   const live = matches.filter((match) => match.status !== "archived");
@@ -185,7 +234,11 @@ function chooseMatchTarget(matches: ImportMatchTarget[]): { target: ImportMatchT
       blockedReason: `This word exists ${live.length} times in the curriculum, so a file cannot say which one to update. Edit them in Admin instead.`,
     };
   }
-  return { target: null, blockedReason: "This word is archived. Restore it in Admin before re-importing it." };
+  return {
+    target: null,
+    blockedReason:
+      "This word is archived. Restore it in Admin before re-importing it.",
+  };
 }
 
 /**
@@ -195,32 +248,77 @@ function chooseMatchTarget(matches: ImportMatchTarget[]): { target: ImportMatchT
  * this itself against freshly loaded data rather than trusting a preview
  * response from an earlier request.
  */
-function resolveImportRow(row: ValidatedImportRow, lookups: ImportLookups): ResolvedImportRow {
+function resolveImportRow(
+  row: ValidatedImportRow,
+  lookups: ImportLookups,
+): ResolvedImportRow {
   if (!row.fields) return { kind: "invalid", fieldIssues: row.fieldIssues };
 
   const levelId = lookups.levelIdByNumber.get(row.fields.levelNumber);
   if (!levelId) {
-    return { kind: "invalid", fieldIssues: [{ field: "level", message: `Level ${row.fields.levelNumber} doesn't exist yet.` }] };
+    return {
+      kind: "invalid",
+      fieldIssues: [
+        {
+          field: "level",
+          message: `Level ${row.fields.levelNumber} doesn't exist yet.`,
+        },
+      ],
+    };
   }
 
   let groupId: string | null = null;
   if (row.fields.itemType === "vocabulary") {
-    groupId = lookups.groupIdByLevelAndPosition.get(`${levelId}:${row.fields.groupNumber}`) ?? null;
+    groupId =
+      lookups.groupIdByLevelAndPosition.get(
+        `${levelId}:${row.fields.groupNumber}`,
+      ) ?? null;
     if (!groupId) {
-      return { kind: "invalid", fieldIssues: [{ field: "group", message: `Level ${row.fields.levelNumber} has no group ${row.fields.groupNumber} yet.` }] };
+      return {
+        kind: "invalid",
+        fieldIssues: [
+          {
+            field: "group",
+            message: `Level ${row.fields.levelNumber} has no group ${row.fields.groupNumber} yet.`,
+          },
+        ],
+      };
     }
   }
 
-  const matches = lookups.targetsByType[row.fields.itemType].get(normalizeForComparison(displayFormOf(row.fields))) ?? [];
+  const matches =
+    lookups.targetsByType[row.fields.itemType].get(
+      normalizeForComparison(displayFormOf(row.fields)),
+    ) ?? [];
   const { target, blockedReason } = chooseMatchTarget(matches);
-  const base = { kind: "resolved" as const, fields: row.fields, levelId, groupId, target };
+  const base = {
+    kind: "resolved" as const,
+    fields: row.fields,
+    levelId,
+    groupId,
+    target,
+  };
 
   if (blockedReason) {
-    return { ...base, action: "blocked", blockedReason, changes: [], placement: null, savesAsDraft: false };
+    return {
+      ...base,
+      action: "blocked",
+      blockedReason,
+      changes: [],
+      placement: null,
+      savesAsDraft: false,
+    };
   }
 
   if (!target) {
-    return { ...base, action: "create", blockedReason: null, changes: [], placement: null, savesAsDraft: false };
+    return {
+      ...base,
+      action: "create",
+      blockedReason: null,
+      changes: [],
+      placement: null,
+      savesAsDraft: false,
+    };
   }
 
   // A field an author has taken over is never rewritten by a file (spec 17),
@@ -235,7 +333,8 @@ function resolveImportRow(row: ValidatedImportRow, lookups: ImportLookups): Reso
       return to === null || to === from ? [] : [{ field, from, to }];
     });
 
-  const groupNumber = row.fields.itemType === "vocabulary" ? row.fields.groupNumber : null;
+  const groupNumber =
+    row.fields.itemType === "vocabulary" ? row.fields.groupNumber : null;
   const movesLevel = target.levelNumber !== row.fields.levelNumber;
   const movesGroup = groupNumber !== null && target.groupNumber !== groupNumber;
   const placement =
@@ -248,11 +347,24 @@ function resolveImportRow(row: ValidatedImportRow, lookups: ImportLookups): Reso
         }
       : null;
 
-  const action: ImportRowAction = placement ? "move" : changes.length > 0 ? "update" : "unchanged";
-  return { ...base, action, blockedReason: null, changes, placement, savesAsDraft: target.status === "published" };
+  const action: ImportRowAction = placement
+    ? "move"
+    : changes.length > 0
+      ? "update"
+      : "unchanged";
+  return {
+    ...base,
+    action,
+    blockedReason: null,
+    changes,
+    placement,
+    savesAsDraft: target.status === "published",
+  };
 }
 
-function groupByTerm(targets: ImportMatchTarget[]): Map<string, ImportMatchTarget[]> {
+function groupByTerm(
+  targets: ImportMatchTarget[],
+): Map<string, ImportMatchTarget[]> {
   const byTerm = new Map<string, ImportMatchTarget[]>();
   for (const target of targets) {
     const existing = byTerm.get(target.normalizedTerm) ?? [];
@@ -262,8 +374,15 @@ function groupByTerm(targets: ImportMatchTarget[]): Map<string, ImportMatchTarge
   return byTerm;
 }
 
-async function loadImportLookups(db: DbClient, languageId: string): Promise<ImportLookups> {
-  const [{ levelIdByNumber, groupIdByLevelAndPosition }, vocabularyTargets, grammarTargets] = await Promise.all([
+async function loadImportLookups(
+  db: DbClient,
+  languageId: string,
+): Promise<ImportLookups> {
+  const [
+    { levelIdByNumber, groupIdByLevelAndPosition },
+    vocabularyTargets,
+    grammarTargets,
+  ] = await Promise.all([
     loadLevelAndGroupLookups(db, languageId),
     getImportMatchTargets(db, languageId, "vocabulary"),
     getImportMatchTargets(db, languageId, "grammar"),
@@ -271,19 +390,27 @@ async function loadImportLookups(db: DbClient, languageId: string): Promise<Impo
   return {
     levelIdByNumber,
     groupIdByLevelAndPosition,
-    targetsByType: { vocabulary: groupByTerm(vocabularyTargets), grammar: groupByTerm(grammarTargets) },
+    targetsByType: {
+      vocabulary: groupByTerm(vocabularyTargets),
+      grammar: groupByTerm(grammarTargets),
+    },
   };
 }
 
 export async function previewVocabularyImport(
   db: DbClient,
-  { languageId, validatedRows }: { languageId: string; validatedRows: ValidatedImportRow[] },
+  {
+    languageId,
+    validatedRows,
+  }: { languageId: string; validatedRows: ValidatedImportRow[] },
 ): Promise<ImportRowPreview[]> {
-  const [candidateVocabRows, candidateGrammarRows, lookups] = await Promise.all([
-    getDuplicateCandidateRows(db, languageId, "vocabulary"),
-    getDuplicateCandidateRows(db, languageId, "grammar"),
-    loadImportLookups(db, languageId),
-  ]);
+  const [candidateVocabRows, candidateGrammarRows, lookups] = await Promise.all(
+    [
+      getDuplicateCandidateRows(db, languageId, "vocabulary"),
+      getDuplicateCandidateRows(db, languageId, "grammar"),
+      loadImportLookups(db, languageId),
+    ],
+  );
   const firstRowNumberByKey = new Map<string, number>();
 
   return validatedRows.map((row): ImportRowPreview => {
@@ -301,20 +428,33 @@ export async function previewVocabularyImport(
 
     const resolved = resolveImportRow(row, lookups);
     if (resolved.kind === "invalid") {
-      return { ...empty, fields: null, fieldIssues: resolved.fieldIssues, action: "blocked" };
+      return {
+        ...empty,
+        fields: null,
+        fieldIssues: resolved.fieldIssues,
+        action: "blocked",
+      };
     }
 
     const displayForm = displayFormOf(resolved.fields);
     const key = `${resolved.fields.itemType}:${normalizeForComparison(displayForm)}`;
-    const candidateRows = resolved.fields.itemType === "vocabulary" ? candidateVocabRows : candidateGrammarRows;
+    const candidateRows =
+      resolved.fields.itemType === "vocabulary"
+        ? candidateVocabRows
+        : candidateGrammarRows;
     // The item this row updates is not a duplicate of itself (spec 17):
     // an exact term match is now an update, so homonym approval is left for
     // genuinely different items.
-    const existingDuplicates = findDuplicateCandidates(displayForm, candidateRows).filter(
-      (candidate) => candidate.learningItemId !== resolved.target?.learningItemId,
+    const existingDuplicates = findDuplicateCandidates(
+      displayForm,
+      candidateRows,
+    ).filter(
+      (candidate) =>
+        candidate.learningItemId !== resolved.target?.learningItemId,
     );
     const duplicateOfEarlierRow = firstRowNumberByKey.get(key) ?? null;
-    if (duplicateOfEarlierRow === null) firstRowNumberByKey.set(key, row.rowNumber);
+    if (duplicateOfEarlierRow === null)
+      firstRowNumberByKey.set(key, row.rowNumber);
 
     return {
       ...empty,
@@ -370,10 +510,16 @@ export type BulkImportVocabularyResult = {
  * decision *is* the admin's homonym approval, mirrored as a
  * `DUPLICATE_APPROVED` audit event exactly like the single-item flow's.
  */
-export async function bulkImportVocabulary(db: DbClient, input: BulkImportVocabularyServiceInput): Promise<BulkImportVocabularyResult> {
+export async function bulkImportVocabulary(
+  db: DbClient,
+  input: BulkImportVocabularyServiceInput,
+): Promise<BulkImportVocabularyResult> {
   const importedRows = input.rows.filter((row) => row.decision === "import");
   if (importedRows.length === 0) {
-    throw new AdminError("CURRICULUM_VALIDATION_FAILED", "Nothing was selected to import.");
+    throw new AdminError(
+      "CURRICULUM_VALIDATION_FAILED",
+      "Nothing was selected to import.",
+    );
   }
 
   return withIdempotency(
@@ -382,7 +528,14 @@ export async function bulkImportVocabulary(db: DbClient, input: BulkImportVocabu
       userId: input.actorUserId,
       operation: "admin.curriculum.bulk-import-vocabulary",
       key: input.idempotencyKey,
-      payload: { languageId: input.languageId, rows: importedRows.map((row) => ({ itemType: row.fields.itemType, levelNumber: row.fields.levelNumber, displayForm: displayFormOf(row.fields) })) },
+      payload: {
+        languageId: input.languageId,
+        rows: importedRows.map((row) => ({
+          itemType: row.fields.itemType,
+          levelNumber: row.fields.levelNumber,
+          displayForm: displayFormOf(row.fields),
+        })),
+      },
     },
     async (tx) => {
       const lookups = await loadImportLookups(tx, input.languageId);
@@ -401,15 +554,25 @@ export async function bulkImportVocabulary(db: DbClient, input: BulkImportVocabu
       for (const row of importedRows) {
         // Re-resolved here rather than trusted from the preview, which was a
         // separate request: the curriculum may have moved underneath it.
-        const resolved = resolveImportRow({ rowNumber: 0, raw: {}, fields: row.fields, fieldIssues: [] }, lookups);
+        const resolved = resolveImportRow(
+          { rowNumber: 0, raw: {}, fields: row.fields, fieldIssues: [] },
+          lookups,
+        );
         if (resolved.kind === "invalid") {
-          throw new AdminError("CURRICULUM_VALIDATION_FAILED", resolved.fieldIssues[0]?.message ?? "This file no longer matches the curriculum.");
+          throw new AdminError(
+            "CURRICULUM_VALIDATION_FAILED",
+            resolved.fieldIssues[0]?.message ??
+              "This file no longer matches the curriculum.",
+          );
         }
 
         const displayForm = displayFormOf(resolved.fields);
 
         if (resolved.action === "blocked") {
-          result.blocked.push({ displayForm, reason: resolved.blockedReason ?? "This row cannot be imported." });
+          result.blocked.push({
+            displayForm,
+            reason: resolved.blockedReason ?? "This row cannot be imported.",
+          });
           continue;
         }
 
@@ -419,11 +582,24 @@ export async function bulkImportVocabulary(db: DbClient, input: BulkImportVocabu
         }
 
         if (resolved.target) {
-          await applyImportUpdate(tx, { resolved, target: resolved.target, actorUserId: input.actorUserId, correlationId: input.idempotencyKey, result });
+          await applyImportUpdate(tx, {
+            resolved,
+            target: resolved.target,
+            actorUserId: input.actorUserId,
+            correlationId: input.idempotencyKey,
+            result,
+          });
           continue;
         }
 
-        await applyImportCreate(tx, { resolved, languageId: input.languageId, actorUserId: input.actorUserId, correlationId: input.idempotencyKey, lookups, result });
+        await applyImportCreate(tx, {
+          resolved,
+          languageId: input.languageId,
+          actorUserId: input.actorUserId,
+          correlationId: input.idempotencyKey,
+          lookups,
+          result,
+        });
       }
 
       invalidateCurriculumCache(input.languageId);
@@ -451,14 +627,25 @@ type ApplyContext = {
  */
 async function applyImportCreate(
   tx: DbClient,
-  { resolved, languageId, actorUserId, correlationId, lookups, result }: ApplyContext & { languageId: string; lookups: ImportLookups },
+  {
+    resolved,
+    languageId,
+    actorUserId,
+    correlationId,
+    lookups,
+    result,
+  }: ApplyContext & { languageId: string; lookups: ImportLookups },
 ): Promise<void> {
   const { fields, levelId, groupId } = resolved;
   const position = await getNextPosition(tx, levelId, fields.itemType);
 
   let learningItemId: string;
   if (fields.itemType === "vocabulary") {
-    if (!groupId) throw new AdminError("CURRICULUM_VALIDATION_FAILED", `Level ${fields.levelNumber} no longer has group ${fields.groupNumber}.`);
+    if (!groupId)
+      throw new AdminError(
+        "CURRICULUM_VALIDATION_FAILED",
+        `Level ${fields.levelNumber} no longer has group ${fields.groupNumber}.`,
+      );
     const vocabularyFields: VocabularyFieldsInput = {
       vocabularyGroupId: groupId,
       term: fields.term,
@@ -472,9 +659,23 @@ async function applyImportCreate(
       creatorNotes: fields.creatorNotes,
       acceptedAnswers: fields.acceptedAnswers,
     };
-    learningItemId = await repoCreateLearningItem(tx, { languageId, levelId, position, lessonPriority: position, type: "vocabulary", fields: vocabularyFields });
+    learningItemId = await repoCreateLearningItem(tx, {
+      languageId,
+      levelId,
+      position,
+      lessonPriority: position,
+      type: "vocabulary",
+      fields: vocabularyFields,
+    });
     result.createdVocabularyItemIds.push(learningItemId);
-    await recordAuditEvent(tx, { actorUserId, action: "CURRICULUM_ITEM_CREATED", resourceType: "vocabulary_item", resourceId: learningItemId, afterData: vocabularyFields, correlationId });
+    await recordAuditEvent(tx, {
+      actorUserId,
+      action: "CURRICULUM_ITEM_CREATED",
+      resourceType: "vocabulary_item",
+      resourceId: learningItemId,
+      afterData: vocabularyFields,
+      correlationId,
+    });
   } else {
     const grammarFields: GrammarFieldsInput = {
       title: fields.title,
@@ -486,9 +687,23 @@ async function applyImportCreate(
       requiredQuestions: fields.requiredQuestions,
       acceptedAnswers: fields.acceptedAnswers,
     };
-    learningItemId = await repoCreateLearningItem(tx, { languageId, levelId, position, lessonPriority: position, type: "grammar", fields: grammarFields });
+    learningItemId = await repoCreateLearningItem(tx, {
+      languageId,
+      levelId,
+      position,
+      lessonPriority: position,
+      type: "grammar",
+      fields: grammarFields,
+    });
     result.createdGrammarItemIds.push(learningItemId);
-    await recordAuditEvent(tx, { actorUserId, action: "CURRICULUM_ITEM_CREATED", resourceType: "grammar_item", resourceId: learningItemId, afterData: grammarFields, correlationId });
+    await recordAuditEvent(tx, {
+      actorUserId,
+      action: "CURRICULUM_ITEM_CREATED",
+      resourceType: "grammar_item",
+      resourceId: learningItemId,
+      afterData: grammarFields,
+      correlationId,
+    });
   }
 
   // Registered so a *later row of this same file* naming the same word
@@ -525,17 +740,33 @@ async function applyImportCreate(
  * content: a draft has nowhere to put it, and that is exactly how the
  * existing `moveItem` path already treats a published item.
  */
-async function applyImportUpdate(tx: DbClient, { resolved, target, actorUserId, correlationId, result }: ApplyContext & { target: ImportMatchTarget }): Promise<void> {
-  const { fields, levelId, groupId, placement, changes, savesAsDraft } = resolved;
+async function applyImportUpdate(
+  tx: DbClient,
+  {
+    resolved,
+    target,
+    actorUserId,
+    correlationId,
+    result,
+  }: ApplyContext & { target: ImportMatchTarget },
+): Promise<void> {
+  const { fields, levelId, groupId, placement, changes, savesAsDraft } =
+    resolved;
   const learningItemId = target.learningItemId;
-  const changed = Object.fromEntries(changes.map((change) => [change.field, change.to]));
+  const changed = Object.fromEntries(
+    changes.map((change) => [change.field, change.to]),
+  );
 
   if (placement) {
     await moveLearningItem(tx, {
       learningItemId,
       type: fields.itemType,
-      ...(placement.fromLevelNumber !== placement.toLevelNumber ? { levelId } : {}),
-      ...(groupId && target.vocabularyGroupId !== groupId ? { vocabularyGroupId: groupId } : {}),
+      ...(placement.fromLevelNumber !== placement.toLevelNumber
+        ? { levelId }
+        : {}),
+      ...(groupId && target.vocabularyGroupId !== groupId
+        ? { vocabularyGroupId: groupId }
+        : {}),
     });
     result.movedItemIds.push(learningItemId);
     await recordAuditEvent(tx, {
@@ -543,8 +774,14 @@ async function applyImportUpdate(tx: DbClient, { resolved, target, actorUserId, 
       action: "CURRICULUM_ITEM_MOVED",
       resourceType: itemResourceType(fields.itemType),
       resourceId: learningItemId,
-      beforeData: { levelNumber: placement.fromLevelNumber, groupNumber: placement.fromGroupNumber },
-      afterData: { levelNumber: placement.toLevelNumber, groupNumber: placement.toGroupNumber },
+      beforeData: {
+        levelNumber: placement.fromLevelNumber,
+        groupNumber: placement.fromGroupNumber,
+      },
+      afterData: {
+        levelNumber: placement.toLevelNumber,
+        groupNumber: placement.toGroupNumber,
+      },
       correlationId,
     });
   }
@@ -560,15 +797,26 @@ async function applyImportUpdate(tx: DbClient, { resolved, target, actorUserId, 
             fields: {
               vocabularyGroupId: groupId ?? target.vocabularyGroupId!,
               term: fields.term,
-              primaryMeaning: (changed.primaryMeaning as string) ?? target.current.primaryMeaning!,
-              definition: (changed.definition as string) ?? target.current.definition,
+              primaryMeaning:
+                (changed.primaryMeaning as string) ??
+                target.current.primaryMeaning!,
+              definition:
+                (changed.definition as string) ?? target.current.definition,
               article: (changed.article as string) ?? target.current.article,
-              partOfSpeech: (changed.partOfSpeech as string) ?? target.current.partOfSpeech!,
-              pronunciation: (changed.pronunciation as string) ?? target.current.pronunciation,
+              partOfSpeech:
+                (changed.partOfSpeech as string) ??
+                target.current.partOfSpeech!,
+              pronunciation:
+                (changed.pronunciation as string) ??
+                target.current.pronunciation,
               ipa: (changed.ipa as string) ?? target.current.ipa,
               context: (changed.context as string) ?? target.current.context,
-              creatorNotes: (changed.creatorNotes as string) ?? target.current.creatorNotes,
-              acceptedAnswers: acceptedAnswers.map((answer) => ({ side: answer.side, value: answer.value })),
+              creatorNotes:
+                (changed.creatorNotes as string) ?? target.current.creatorNotes,
+              acceptedAnswers: acceptedAnswers.map((answer) => ({
+                side: answer.side,
+                value: answer.value,
+              })),
             },
           }
         : {
@@ -576,15 +824,27 @@ async function applyImportUpdate(tx: DbClient, { resolved, target, actorUserId, 
             fields: {
               title: (changed.title as string) ?? target.current.title,
               structure: fields.structure,
-              primaryMeaning: (changed.primaryMeaning as string) ?? target.current.primaryMeaning!,
-              explanation: (changed.explanation as string) ?? target.current.explanation!,
+              primaryMeaning:
+                (changed.primaryMeaning as string) ??
+                target.current.primaryMeaning!,
+              explanation:
+                (changed.explanation as string) ?? target.current.explanation!,
               category: (changed.category as string) ?? target.current.category,
-              creatorNotes: (changed.creatorNotes as string) ?? target.current.creatorNotes,
+              creatorNotes:
+                (changed.creatorNotes as string) ?? target.current.creatorNotes,
               requiredQuestions: fields.requiredQuestions,
-              acceptedAnswers: acceptedAnswers.map((answer) => ({ side: answer.side, value: answer.value })),
+              acceptedAnswers: acceptedAnswers.map((answer) => ({
+                side: answer.side,
+                value: answer.value,
+              })),
             },
           };
-    await repoSaveDraft(tx, { learningItemId, baseVersion: target.version, createdBy: actorUserId, data });
+    await repoSaveDraft(tx, {
+      learningItemId,
+      baseVersion: target.version,
+      createdBy: actorUserId,
+      data,
+    });
     result.draftedItemIds.push(learningItemId);
   } else if (fields.itemType === "vocabulary") {
     await updateVocabularyFieldsFromImport(tx, learningItemId, changed);
@@ -592,7 +852,8 @@ async function applyImportUpdate(tx: DbClient, { resolved, target, actorUserId, 
     await updateGrammarFieldsFromImport(tx, learningItemId, changed);
   }
 
-  if (fields.itemType === "vocabulary") result.updatedVocabularyItemIds.push(learningItemId);
+  if (fields.itemType === "vocabulary")
+    result.updatedVocabularyItemIds.push(learningItemId);
   else result.updatedGrammarItemIds.push(learningItemId);
 
   await recordAuditEvent(tx, {
@@ -600,7 +861,9 @@ async function applyImportUpdate(tx: DbClient, { resolved, target, actorUserId, 
     action: "CURRICULUM_ITEM_UPDATED",
     resourceType: itemResourceType(fields.itemType),
     resourceId: learningItemId,
-    beforeData: Object.fromEntries(changes.map((change) => [change.field, change.from])),
+    beforeData: Object.fromEntries(
+      changes.map((change) => [change.field, change.from]),
+    ),
     afterData: { ...changed, source: "import", savedAsDraft: savesAsDraft },
     correlationId,
   });

@@ -24,7 +24,10 @@ export const MATCH_STATUS_LABELS: Record<DictionaryMatchStatus, string> = {
   manual: "Manual",
 };
 
-export const MATCH_CONFIDENCE_LABELS: Record<DictionaryMatchConfidence, string> = {
+export const MATCH_CONFIDENCE_LABELS: Record<
+  DictionaryMatchConfidence,
+  string
+> = {
   high: "High",
   medium: "Medium",
   low: "Low",
@@ -51,4 +54,5 @@ export const REGIONAL_STATUS_LABELS: Record<RegionalEvidenceStatus, string> = {
  * form is invalid in that region, and an admin reading a bare "Not listed"
  * badge would reasonably assume the opposite.
  */
-export const NOT_LISTED_CAVEAT = "Absent from this region's word list. Absence is weak evidence, not proof the form is wrong.";
+export const NOT_LISTED_CAVEAT =
+  "Absent from this region's word list. Absence is weak evidence, not proof the form is wrong.";

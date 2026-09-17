@@ -18,8 +18,16 @@ export function ToursSection() {
   return (
     <div className="border-b border-border py-4 first:pt-0 last:border-b-0">
       <p className="text-sm font-medium text-foreground">Onboarding Tour</p>
-      <p className="mt-1 text-sm text-muted-foreground">Replay Polyglot&apos;s introduction.</p>
-      <Button asChild type="button" variant="outline" size="sm" className="mt-3">
+      <p className="mt-1 text-sm text-muted-foreground">
+        Replay Polyglot&apos;s introduction.
+      </p>
+      <Button
+        asChild
+        type="button"
+        variant="outline"
+        size="sm"
+        className="mt-3"
+      >
         <Link href="/onboarding?replay=1&returnTo=settings">Replay</Link>
       </Button>
     </div>

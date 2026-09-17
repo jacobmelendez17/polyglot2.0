@@ -1,4 +1,7 @@
-import type { DictionaryRelationType, LexicalImportScope } from "../lexicon-types";
+import type {
+  DictionaryRelationType,
+  LexicalImportScope,
+} from "../lexicon-types";
 
 /**
  * Provider-neutral shape every dictionary adapter produces. The importer and
@@ -56,7 +59,10 @@ export interface ProjectedDictionaryRecord {
 
 /** Every normalized form this record can be reached by — its lemma plus each of its forms. Used for scope filtering. */
 export function reachableForms(record: ProjectedDictionaryRecord): string[] {
-  return [record.normalizedLemma, ...record.forms.map((form) => form.normalizedForm)];
+  return [
+    record.normalizedLemma,
+    ...record.forms.map((form) => form.normalizedForm),
+  ];
 }
 
 export interface ImportScopeFilter {

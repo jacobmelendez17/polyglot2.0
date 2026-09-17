@@ -27,11 +27,21 @@ export const handler: SQSHandler = async (event: SQSEvent) => {
     const message = parseJobMessage(record.body);
 
     if (message.kind === "preview") {
-      const storage = new S3CurriculumImportStorage({ bucket: message.bucket, region });
-      await runPreviewJob(db, storage, { bucket: message.bucket, key: message.key });
+      const storage = new S3CurriculumImportStorage({
+        bucket: message.bucket,
+        region,
+      });
+      await runPreviewJob(db, storage, {
+        bucket: message.bucket,
+        key: message.key,
+      });
       continue;
     }
 
-    await runCommitJob(db, (bucket) => new S3CurriculumImportStorage({ bucket, region }), { importId: message.importId, actorUserId: message.actorUserId });
+    await runCommitJob(
+      db,
+      (bucket) => new S3CurriculumImportStorage({ bucket, region }),
+      { importId: message.importId, actorUserId: message.actorUserId },
+    );
   }
 };

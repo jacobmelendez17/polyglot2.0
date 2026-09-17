@@ -24,10 +24,24 @@ import {
   ITEM_ROJO_ID,
   ITEM_Y_ID,
 } from "@/db/seed/test-fixtures";
-import { archiveItem, createLevel, createVocabularyGroup } from "@/domains/admin/publication-service";
-import { bulkImportVocabulary, previewVocabularyImport } from "@/domains/admin/bulk-import-service";
-import type { ImportRowDecision, ImportRowPreview } from "@/domains/admin/bulk-import-service";
-import { GRAMMAR_GROUP_NUMBER, MAX_VOCABULARY_GROUP_NUMBER, validateVocabularyImportRow } from "@/domains/curriculum/vocabulary-import-parsing";
+import {
+  archiveItem,
+  createLevel,
+  createVocabularyGroup,
+} from "@/domains/admin/publication-service";
+import {
+  bulkImportVocabulary,
+  previewVocabularyImport,
+} from "@/domains/admin/bulk-import-service";
+import type {
+  ImportRowDecision,
+  ImportRowPreview,
+} from "@/domains/admin/bulk-import-service";
+import {
+  GRAMMAR_GROUP_NUMBER,
+  MAX_VOCABULARY_GROUP_NUMBER,
+  validateVocabularyImportRow,
+} from "@/domains/curriculum/vocabulary-import-parsing";
 import type { ValidatedImportRow } from "@/domains/curriculum/vocabulary-import-parsing";
 import { parseVocabularyImportFile } from "@/domains/curriculum/vocabulary-import-file-parser";
 import { matchImportedVocabularyItems } from "@/domains/lexicon/lexicon-mapping-service";
@@ -66,7 +80,8 @@ import { AdminError } from "@/lib/errors/admin-errors";
  *   npm run curriculum:import -- --manifest content/curriculum/spanish-level-2.manifest.json --actor <id>
  */
 
-const DEFAULT_MANIFEST_PATH = "content/curriculum/spanish-level-1.manifest.json";
+const DEFAULT_MANIFEST_PATH =
+  "content/curriculum/spanish-level-1.manifest.json";
 
 /**
  * A stable idempotency key for one step of one file's import.
@@ -86,7 +101,13 @@ function stepKey(namespace: string, step: string): string {
 }
 
 /** The seeded demo items `db/seed/test-fixtures.ts` puts in Levels 1-2 — the "dummy data" the authored curriculum replaces. */
-const SEED_FIXTURE_ITEM_IDS = [ITEM_GATO_ID, ITEM_CASA_ID, ITEM_AGUA_ID, ITEM_Y_ID, ITEM_ROJO_ID] as const;
+const SEED_FIXTURE_ITEM_IDS = [
+  ITEM_GATO_ID,
+  ITEM_CASA_ID,
+  ITEM_AGUA_ID,
+  ITEM_Y_ID,
+  ITEM_ROJO_ID,
+] as const;
 
 const manifestSchema = z.object({
   languageCode: z.string().min(1),
@@ -114,7 +135,12 @@ type CliOptions = {
 };
 
 function parseArgs(argv: string[]): CliOptions {
-  const options: CliOptions = { manifestPath: DEFAULT_MANIFEST_PATH, actor: null, dryRun: false, archiveSeedFixtures: false };
+  const options: CliOptions = {
+    manifestPath: DEFAULT_MANIFEST_PATH,
+    actor: null,
+    dryRun: false,
+    archiveSeedFixtures: false,
+  };
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -132,7 +158,9 @@ function parseArgs(argv: string[]): CliOptions {
         options.archiveSeedFixtures = true;
         break;
       default:
-        throw new Error(`Unknown argument "${arg}". See the usage block in scripts/curriculum-import.ts.`);
+        throw new Error(
+          `Unknown argument "${arg}". See the usage block in scripts/curriculum-import.ts.`,
+        );
     }
   }
 
@@ -144,14 +172,19 @@ function parseArgs(argv: string[]): CliOptions {
  * defaulted to "some user": these are real admin curriculum mutations, and
  * an unattributable one is worse than a failed run.
  */
-async function resolveActor(db: DbClient, requested: string | null): Promise<{ id: string; role: string }> {
+async function resolveActor(
+  db: DbClient,
+  requested: string | null,
+): Promise<{ id: string; role: string }> {
   const privileged = await db
     .select({ id: users.id, role: users.role, clerkUserId: users.clerkUserId })
     .from(users)
     .where(or(eq(users.role, "admin"), eq(users.role, "developer")));
 
   if (requested) {
-    const match = privileged.find((user) => user.id === requested || user.clerkUserId === requested);
+    const match = privileged.find(
+      (user) => user.id === requested || user.clerkUserId === requested,
+    );
     if (!match) {
       throw new Error(
         `No admin or developer user matches "${requested}" (matched against both the internal user id and the Clerk user id). ` +
@@ -161,7 +194,8 @@ async function resolveActor(db: DbClient, requested: string | null): Promise<{ i
     return { id: match.id, role: match.role };
   }
 
-  if (privileged.length === 1) return { id: privileged[0]!.id, role: privileged[0]!.role };
+  if (privileged.length === 1)
+    return { id: privileged[0]!.id, role: privileged[0]!.role };
 
   throw new Error(
     privileged.length === 0
@@ -170,11 +204,22 @@ async function resolveActor(db: DbClient, requested: string | null): Promise<{ i
   );
 }
 
-async function resolveLevelId(db: DbClient, manifest: Manifest, languageId: string, actorUserId: string, keyPrefix: string): Promise<string> {
+async function resolveLevelId(
+  db: DbClient,
+  manifest: Manifest,
+  languageId: string,
+  actorUserId: string,
+  keyPrefix: string,
+): Promise<string> {
   const [existing] = await db
     .select({ id: levels.id })
     .from(levels)
-    .where(and(eq(levels.languageId, languageId), eq(levels.levelNumber, manifest.levelNumber)))
+    .where(
+      and(
+        eq(levels.languageId, languageId),
+        eq(levels.levelNumber, manifest.levelNumber),
+      ),
+    )
     .limit(1);
   if (existing) return existing.id;
 
@@ -199,19 +244,37 @@ async function resolveLevelId(db: DbClient, manifest: Manifest, languageId: stri
 async function ensureThemeGroups(
   db: DbClient,
   manifest: Manifest,
-  { languageId, levelId, actorUserId, keyPrefix }: { languageId: string; levelId: string; actorUserId: string; keyPrefix: string },
+  {
+    languageId,
+    levelId,
+    actorUserId,
+    keyPrefix,
+  }: {
+    languageId: string;
+    levelId: string;
+    actorUserId: string;
+    keyPrefix: string;
+  },
 ): Promise<void> {
   const existing = await db
-    .select({ id: vocabularyGroups.id, name: vocabularyGroups.name, position: vocabularyGroups.position })
+    .select({
+      id: vocabularyGroups.id,
+      name: vocabularyGroups.name,
+      position: vocabularyGroups.position,
+    })
     .from(vocabularyGroups)
     .where(eq(vocabularyGroups.levelId, levelId));
   const byPosition = new Map(existing.map((group) => [group.position, group]));
 
-  for (const theme of [...manifest.themes].sort((a, b) => a.groupNumber - b.groupNumber)) {
+  for (const theme of [...manifest.themes].sort(
+    (a, b) => a.groupNumber - b.groupNumber,
+  )) {
     const current = byPosition.get(theme.groupNumber);
     if (current) {
       if (current.name !== theme.name) {
-        console.warn(`  ! group ${theme.groupNumber} is named "${current.name}" in the database, not "${theme.name}" — left as it is. Rename it in Admin if the manifest is right.`);
+        console.warn(
+          `  ! group ${theme.groupNumber} is named "${current.name}" in the database, not "${theme.name}" — left as it is. Rename it in Admin if the manifest is right.`,
+        );
       }
       continue;
     }
@@ -222,7 +285,9 @@ async function ensureThemeGroups(
     // group at the wrong number, so refuse rather than mis-number it.
     const nextPosition = Math.max(0, ...[...byPosition.keys()]) + 1;
     if (nextPosition !== theme.groupNumber) {
-      throw new Error(`Cannot create group ${theme.groupNumber} ("${theme.name}"): the next free position in this level is ${nextPosition}. Fill the gap in the manifest, or create the group in Admin.`);
+      throw new Error(
+        `Cannot create group ${theme.groupNumber} ("${theme.name}"): the next free position in this level is ${nextPosition}. Fill the gap in the manifest, or create the group in Admin.`,
+      );
     }
 
     const { groupId } = await createVocabularyGroup(db, {
@@ -232,13 +297,20 @@ async function ensureThemeGroups(
       actorUserId,
       idempotencyKey: stepKey(keyPrefix, `group-${theme.groupNumber}`),
     });
-    byPosition.set(theme.groupNumber, { id: groupId, name: theme.name, position: theme.groupNumber });
+    byPosition.set(theme.groupNumber, {
+      id: groupId,
+      name: theme.name,
+      position: theme.groupNumber,
+    });
     console.log(`  created group ${theme.groupNumber} "${theme.name}"`);
   }
 }
 
 /** Archives the seeded demo items so the authored curriculum is the only teachable Level 1 content. Archive, never delete: learner progress and notes reference these rows. */
-async function archiveSeedFixtures(db: DbClient, { actorUserId, keyPrefix }: { actorUserId: string; keyPrefix: string }): Promise<void> {
+async function archiveSeedFixtures(
+  db: DbClient,
+  { actorUserId, keyPrefix }: { actorUserId: string; keyPrefix: string },
+): Promise<void> {
   const present = await db
     .select({ id: learningItems.id, status: learningItems.status })
     .from(learningItems)
@@ -258,17 +330,29 @@ async function archiveSeedFixtures(db: DbClient, { actorUserId, keyPrefix }: { a
       // `db/seed/test-fixtures.ts` did, before it learned not to) is a
       // genuinely new operation, and a key that ignored the transition would
       // replay the first archive's stored result and quietly write nothing.
-      idempotencyKey: stepKey(keyPrefix, `archive:${item.id}:from-${item.status}`),
+      idempotencyKey: stepKey(
+        keyPrefix,
+        `archive:${item.id}:from-${item.status}`,
+      ),
     });
     console.log(`  archived seeded item ${item.id}`);
   }
 
-  const missing = SEED_FIXTURE_ITEM_IDS.filter((id) => !present.some((item) => item.id === id));
-  if (missing.length > 0) console.log(`  ${missing.length} seeded item(s) not present in this database — nothing to archive`);
+  const missing = SEED_FIXTURE_ITEM_IDS.filter(
+    (id) => !present.some((item) => item.id === id),
+  );
+  if (missing.length > 0)
+    console.log(
+      `  ${missing.length} seeded item(s) not present in this database — nothing to archive`,
+    );
 }
 
 function describeRow(preview: ImportRowPreview): string {
-  const label = preview.fields ? (preview.fields.itemType === "vocabulary" ? preview.fields.term : preview.fields.structure) : (preview.raw.word ?? "?");
+  const label = preview.fields
+    ? preview.fields.itemType === "vocabulary"
+      ? preview.fields.term
+      : preview.fields.structure
+    : (preview.raw.word ?? "?");
   return `row ${preview.rowNumber} (${label})`;
 }
 
@@ -280,9 +364,19 @@ function describeRow(preview: ImportRowPreview): string {
  * here would mean the CLI and the Admin dialog disagreed about what
  * "import this row" means.
  */
-function reportPreview(previews: ImportRowPreview[]): { importable: ImportRowDecision[]; blocked: number; counts: Record<string, number> } {
+function reportPreview(previews: ImportRowPreview[]): {
+  importable: ImportRowDecision[];
+  blocked: number;
+  counts: Record<string, number>;
+} {
   const importable: ImportRowDecision[] = [];
-  const counts: Record<string, number> = { create: 0, update: 0, move: 0, unchanged: 0, blocked: 0 };
+  const counts: Record<string, number> = {
+    create: 0,
+    update: 0,
+    move: 0,
+    unchanged: 0,
+    blocked: 0,
+  };
   let blocked = 0;
 
   for (const preview of previews) {
@@ -290,12 +384,16 @@ function reportPreview(previews: ImportRowPreview[]): { importable: ImportRowDec
 
     if (!preview.fields) {
       blocked += 1;
-      console.warn(`  ! ${describeRow(preview)} skipped: ${preview.fieldIssues.map((issue) => issue.message).join(" ")}`);
+      console.warn(
+        `  ! ${describeRow(preview)} skipped: ${preview.fieldIssues.map((issue) => issue.message).join(" ")}`,
+      );
       continue;
     }
     if (preview.action === "blocked") {
       blocked += 1;
-      console.warn(`  ! ${describeRow(preview)} skipped: ${preview.blockedReason}`);
+      console.warn(
+        `  ! ${describeRow(preview)} skipped: ${preview.blockedReason}`,
+      );
       continue;
     }
     if (preview.action === "update") {
@@ -304,11 +402,16 @@ function reportPreview(previews: ImportRowPreview[]): { importable: ImportRowDec
       );
     }
     if (preview.action === "move" && preview.placement) {
-      const { fromLevelNumber, toLevelNumber, fromGroupNumber, toGroupNumber } = preview.placement;
-      console.log(`  → ${describeRow(preview)} moves L${fromLevelNumber}·G${fromGroupNumber ?? "-"} → L${toLevelNumber}·G${toGroupNumber ?? "-"}`);
+      const { fromLevelNumber, toLevelNumber, fromGroupNumber, toGroupNumber } =
+        preview.placement;
+      console.log(
+        `  → ${describeRow(preview)} moves L${fromLevelNumber}·G${fromGroupNumber ?? "-"} → L${toLevelNumber}·G${toGroupNumber ?? "-"}`,
+      );
     }
     if (preview.duplicateOfEarlierRow !== null) {
-      console.warn(`  ! ${describeRow(preview)} repeats row ${preview.duplicateOfEarlierRow} in this same file — importing both.`);
+      console.warn(
+        `  ! ${describeRow(preview)} repeats row ${preview.duplicateOfEarlierRow} in this same file — importing both.`,
+      );
     }
     if (preview.existingDuplicates.length > 0) {
       console.warn(
@@ -344,15 +447,36 @@ type ImportContext = {
 async function prepareAndPreview(
   db: DbClient,
   context: ImportContext,
-): Promise<{ importable: ImportRowDecision[]; blocked: number; counts: Record<string, number> }> {
-  const levelId = await resolveLevelId(db, context.manifest, context.languageId, context.actorUserId, context.keyPrefix);
-  await ensureThemeGroups(db, context.manifest, { languageId: context.languageId, levelId, actorUserId: context.actorUserId, keyPrefix: context.keyPrefix });
+): Promise<{
+  importable: ImportRowDecision[];
+  blocked: number;
+  counts: Record<string, number>;
+}> {
+  const levelId = await resolveLevelId(
+    db,
+    context.manifest,
+    context.languageId,
+    context.actorUserId,
+    context.keyPrefix,
+  );
+  await ensureThemeGroups(db, context.manifest, {
+    languageId: context.languageId,
+    levelId,
+    actorUserId: context.actorUserId,
+    keyPrefix: context.keyPrefix,
+  });
 
   if (context.archiveSeedFixtures) {
-    await archiveSeedFixtures(db, { actorUserId: context.actorUserId, keyPrefix: context.keyPrefix });
+    await archiveSeedFixtures(db, {
+      actorUserId: context.actorUserId,
+      keyPrefix: context.keyPrefix,
+    });
   }
 
-  const previews = await previewVocabularyImport(db, { languageId: context.languageId, validatedRows: context.validatedRows });
+  const previews = await previewVocabularyImport(db, {
+    languageId: context.languageId,
+    validatedRows: context.validatedRows,
+  });
   return reportPreview(previews);
 }
 
@@ -360,13 +484,19 @@ async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
 
   const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) throw new Error("DATABASE_URL is required. Set it in .env.local.");
+  if (!databaseUrl)
+    throw new Error("DATABASE_URL is required. Set it in .env.local.");
 
   const manifestPath = resolve(process.cwd(), options.manifestPath);
-  const manifest = manifestSchema.parse(JSON.parse(readFileSync(manifestPath, "utf8")));
+  const manifest = manifestSchema.parse(
+    JSON.parse(readFileSync(manifestPath, "utf8")),
+  );
   const csvPath = resolve(dirname(manifestPath), manifest.file);
   const csvContent = readFileSync(csvPath, "utf8");
-  const contentHash = createHash("sha256").update(csvContent).digest("hex").slice(0, 16);
+  const contentHash = createHash("sha256")
+    .update(csvContent)
+    .digest("hex")
+    .slice(0, 16);
   const keyPrefix = `curriculum-import:${manifest.languageCode}:level-${manifest.levelNumber}:${contentHash}`;
 
   const parsed = parseVocabularyImportFile(csvContent, manifest.delimiter);
@@ -380,19 +510,34 @@ async function main(): Promise<void> {
     );
   }
 
-  const validatedRows = parsed.rows.map((row, index) => validateVocabularyImportRow(row, index));
-  const vocabularyRows = validatedRows.filter((row) => row.fields?.itemType === "vocabulary").length;
-  const grammarRows = validatedRows.filter((row) => row.fields?.itemType === "grammar").length;
+  const validatedRows = parsed.rows.map((row, index) =>
+    validateVocabularyImportRow(row, index),
+  );
+  const vocabularyRows = validatedRows.filter(
+    (row) => row.fields?.itemType === "vocabulary",
+  ).length;
+  const grammarRows = validatedRows.filter(
+    (row) => row.fields?.itemType === "grammar",
+  ).length;
 
   console.log(`Curriculum import — ${manifest.file} (${contentHash})`);
-  console.log(`  ${validatedRows.length} rows: ${vocabularyRows} vocabulary, ${grammarRows} grammar (group ${GRAMMAR_GROUP_NUMBER})`);
+  console.log(
+    `  ${validatedRows.length} rows: ${vocabularyRows} vocabulary, ${grammarRows} grammar (group ${GRAMMAR_GROUP_NUMBER})`,
+  );
 
   const pool = new Pool({ connectionString: databaseUrl });
   try {
     const db = drizzle(pool, { schema });
 
-    const [language] = await db.select({ id: schema.languages.id }).from(schema.languages).where(eq(schema.languages.code, manifest.languageCode)).limit(1);
-    if (!language) throw new Error(`Language "${manifest.languageCode}" does not exist in this database.`);
+    const [language] = await db
+      .select({ id: schema.languages.id })
+      .from(schema.languages)
+      .where(eq(schema.languages.code, manifest.languageCode))
+      .limit(1);
+    if (!language)
+      throw new Error(
+        `Language "${manifest.languageCode}" does not exist in this database.`,
+      );
 
     const actor = await resolveActor(db, options.actor);
     console.log(`  actor: ${actor.id} (${actor.role})`);
@@ -409,7 +554,10 @@ async function main(): Promise<void> {
     if (options.dryRun) {
       try {
         await db.transaction(async (tx) => {
-          const { importable, blocked, counts } = await prepareAndPreview(tx, context);
+          const { importable, blocked, counts } = await prepareAndPreview(
+            tx,
+            context,
+          );
           console.log(
             `Dry run: ${counts.create} new, ${counts.update} updated, ${counts.move} moved, ${counts.unchanged} already current, ${blocked} blocked ` +
               `(${importable.length} row(s) would be sent). Rolling back — nothing was written.`,
@@ -423,7 +571,10 @@ async function main(): Promise<void> {
     }
 
     const { importable, blocked } = await prepareAndPreview(db, context);
-    if (importable.length === 0) throw new Error("No importable rows — fix the reported problems and re-run.");
+    if (importable.length === 0)
+      throw new Error(
+        "No importable rows — fix the reported problems and re-run.",
+      );
 
     const outcome = await bulkImportVocabulary(db, {
       languageId: language.id,
@@ -431,27 +582,45 @@ async function main(): Promise<void> {
       idempotencyKey: stepKey(keyPrefix, "import"),
       rows: importable,
     });
-    const { createdVocabularyItemIds, createdGrammarItemIds, updatedVocabularyItemIds, updatedGrammarItemIds } = outcome;
+    const {
+      createdVocabularyItemIds,
+      createdGrammarItemIds,
+      updatedVocabularyItemIds,
+      updatedGrammarItemIds,
+    } = outcome;
     console.log(
       `Created ${createdVocabularyItemIds.length + createdGrammarItemIds.length} item(s) as Pending; ` +
         `updated ${updatedVocabularyItemIds.length + updatedGrammarItemIds.length} in place; moved ${outcome.movedItemIds.length}; ` +
         `${outcome.unchangedCount} already current; ${blocked + outcome.blocked.length} blocked.`,
     );
     if (outcome.draftedItemIds.length > 0) {
-      console.log(`  ${outcome.draftedItemIds.length} published item(s) updated as a draft — publish them in Admin to make the change live.`);
+      console.log(
+        `  ${outcome.draftedItemIds.length} published item(s) updated as a draft — publish them in Admin to make the change live.`,
+      );
     }
-    for (const blockedRow of outcome.blocked) console.warn(`  ! ${blockedRow.displayForm}: ${blockedRow.reason}`);
+    for (const blockedRow of outcome.blocked)
+      console.warn(`  ! ${blockedRow.displayForm}: ${blockedRow.reason}`);
 
-    const touchedVocabularyIds = [...createdVocabularyItemIds, ...updatedVocabularyItemIds];
+    const touchedVocabularyIds = [
+      ...createdVocabularyItemIds,
+      ...updatedVocabularyItemIds,
+    ];
     if (touchedVocabularyIds.length > 0) {
-      const matched = await matchImportedVocabularyItems(db, touchedVocabularyIds);
+      const matched = await matchImportedVocabularyItems(
+        db,
+        touchedVocabularyIds,
+      );
       const summary = Object.entries(matched.byStatus)
         .map(([status, count]) => `${status}: ${count}`)
         .join(", ");
-      console.log(`Dictionary matching: ${matched.processed} processed${summary ? ` — ${summary}` : ""}. Ambiguous and unmatched words are in the Admin dictionary review queue.`);
+      console.log(
+        `Dictionary matching: ${matched.processed} processed${summary ? ` — ${summary}` : ""}. Ambiguous and unmatched words are in the Admin dictionary review queue.`,
+      );
     }
 
-    console.log("Nothing was published. Review and publish from /admin/curriculum.");
+    console.log(
+      "Nothing was published. Review and publish from /admin/curriculum.",
+    );
   } finally {
     await pool.end();
   }

@@ -14,19 +14,51 @@ const STREAK = [
   { date: "2026-08-30", label: "Sun", isActive: false, isToday: true },
 ];
 
-const INACTIVE_STREAK = STREAK.map((day, index) => ({ ...day, isActive: false, isToday: index === 6 }));
+const INACTIVE_STREAK = STREAK.map((day, index) => ({
+  ...day,
+  isActive: false,
+  isToday: index === 6,
+}));
 
 const POPULATED_DASHBOARD: DashboardData = {
   lessons: { availableCount: 6 },
   reviews: { availableCount: 14, nextReviewAt: null },
   forecast: {
-    "24h": [{ timestamp: "2026-08-30T12:00:00.000Z", label: "12p", vocabularyCount: 3, grammarCount: 1 }],
-    "7d": [{ timestamp: "2026-08-30T12:00:00.000Z", label: "Sun", vocabularyCount: 12, grammarCount: 5 }],
+    "24h": [
+      {
+        timestamp: "2026-08-30T12:00:00.000Z",
+        label: "12p",
+        vocabularyCount: 3,
+        grammarCount: 1,
+      },
+    ],
+    "7d": [
+      {
+        timestamp: "2026-08-30T12:00:00.000Z",
+        label: "Sun",
+        vocabularyCount: 12,
+        grammarCount: 5,
+      },
+    ],
   },
   reviewHistory: {
-    "24h": [{ timestamp: "2026-08-30T09:00:00.000Z", label: "9a", completedCount: 5 }],
-    "7d": [{ timestamp: "2026-08-24T12:00:00.000Z", label: "Mon", completedCount: 18 }],
-    "30d": [{ timestamp: "2026-08-01T12:00:00.000Z", label: "8/1", completedCount: 45 }],
+    "24h": [
+      { timestamp: "2026-08-30T09:00:00.000Z", label: "9a", completedCount: 5 },
+    ],
+    "7d": [
+      {
+        timestamp: "2026-08-24T12:00:00.000Z",
+        label: "Mon",
+        completedCount: 18,
+      },
+    ],
+    "30d": [
+      {
+        timestamp: "2026-08-01T12:00:00.000Z",
+        label: "8/1",
+        completedCount: 45,
+      },
+    ],
   },
   levelProgress: {
     currentLevel: 3,
@@ -55,12 +87,24 @@ describe("DashboardView", () => {
   it("renders every required section for a populated dashboard", () => {
     render(<DashboardView data={POPULATED_DASHBOARD} />);
 
-    expect(screen.getByRole("heading", { name: "Lessons" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Reviews" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Item Forecast" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Review History" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Level Progress" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Practice" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Lessons" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Reviews" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Item Forecast" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Review History" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Level Progress" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Practice" }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Speaking" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Listening" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Reading" })).toBeInTheDocument();
@@ -73,6 +117,8 @@ describe("DashboardView", () => {
     expect(screen.getByText("No reviews due yet")).toBeInTheDocument();
     expect(screen.getByText("No reviews forecasted")).toBeInTheDocument();
     expect(screen.getByText("No review history yet")).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "Start lessons" }).length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByRole("link", { name: "Start lessons" }).length,
+    ).toBeGreaterThan(0);
   });
 });

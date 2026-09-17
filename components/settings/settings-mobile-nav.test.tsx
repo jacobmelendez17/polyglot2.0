@@ -13,9 +13,17 @@ describe("SettingsMobileNav", () => {
     const user = userEvent.setup();
     render(<SettingsMobileNav />);
 
-    await user.click(screen.getByRole("button", { name: "Open Settings navigation" }));
+    await user.click(
+      screen.getByRole("button", { name: "Open Settings navigation" }),
+    );
 
-    expect(screen.getByRole("link", { name: "Account" })).toHaveAttribute("href", "/settings/account");
-    expect(screen.getByRole("link", { name: "Danger Zone" })).toHaveAttribute("href", "/settings/danger");
+    expect(screen.getByRole("link", { name: "Account" })).toHaveAttribute(
+      "href",
+      "/settings/account",
+    );
+    expect(screen.getByRole("link", { name: "Danger Zone" })).toHaveAttribute(
+      "href",
+      "/settings/danger",
+    );
   });
 });

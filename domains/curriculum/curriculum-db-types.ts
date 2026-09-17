@@ -1,5 +1,9 @@
-import type { CefrLevel, DictionaryOverridableField, GrammarContentBlockType, Register } from "@/db/schema";
-
+import type {
+  CefrLevel,
+  DictionaryOverridableField,
+  GrammarContentBlockType,
+  Register,
+} from "@/db/schema";
 
 /**
  * Real, database-backed curriculum domain types (spec 08 §30, §31) —
@@ -62,7 +66,8 @@ export interface CurriculumVocabularyDetail {
   dictionaryFieldOverrides: DictionaryOverridableField[];
 }
 
-export type CurriculumGrammarQuestionDirection = "targetToEnglish" | "englishToTarget";
+export type CurriculumGrammarQuestionDirection =
+  "targetToEnglish" | "englishToTarget";
 export type CurriculumGrammarQuestionFormat = "translation";
 export type CurriculumGrammarQuestionRequirement = {
   format: CurriculumGrammarQuestionFormat;
@@ -94,8 +99,14 @@ interface CurriculumLearningItemBase {
 }
 
 export type CurriculumLearningItem =
-  | (CurriculumLearningItemBase & { type: "vocabulary"; vocabulary: CurriculumVocabularyDetail })
-  | (CurriculumLearningItemBase & { type: "grammar"; grammar: CurriculumGrammarDetail });
+  | (CurriculumLearningItemBase & {
+      type: "vocabulary";
+      vocabulary: CurriculumVocabularyDetail;
+    })
+  | (CurriculumLearningItemBase & {
+      type: "grammar";
+      grammar: CurriculumGrammarDetail;
+    });
 
 /**
  * One ordered block of a grammar item's About content (spec 18). The union
@@ -104,8 +115,19 @@ export type CurriculumLearningItem =
  * is unrepresentable in the type as well as in the database.
  */
 export type CurriculumGrammarContentBlock =
-  | { id: string; position: number; type: Extract<GrammarContentBlockType, "text" | "note">; body: string }
-  | { id: string; position: number; type: Extract<GrammarContentBlockType, "example">; targetText: string; translation: string };
+  | {
+      id: string;
+      position: number;
+      type: Extract<GrammarContentBlockType, "text" | "note">;
+      body: string;
+    }
+  | {
+      id: string;
+      position: number;
+      type: Extract<GrammarContentBlockType, "example">;
+      targetText: string;
+      translation: string;
+    };
 
 /** One admin-authored external resource link (spec 18). Official content only — never learner-private material. */
 export interface CurriculumItemResource {

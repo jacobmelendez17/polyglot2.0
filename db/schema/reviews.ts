@@ -1,4 +1,13 @@
-import { foreignKey, index, integer, pgEnum, pgTable, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import {
+  foreignKey,
+  index,
+  integer,
+  pgEnum,
+  pgTable,
+  timestamp,
+  unique,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 import { timestamps } from "./columns";
 import { learningItems, learningItemTypeEnum, sentences } from "./curriculum";
@@ -7,7 +16,10 @@ import { srsStageEnum } from "./progress";
 import { users } from "./users";
 
 /** Spec 09 §14 — a small stable domain value, matching `domains/srs`'s `ReviewResultCategory`. */
-export const reviewResultEnum = pgEnum("review_result", ["advanced", "penalized"]);
+export const reviewResultEnum = pgEnum("review_result", [
+  "advanced",
+  "penalized",
+]);
 
 /**
  * Durable review-outcome history (spec 09 §14). One row per fully completed
@@ -34,9 +46,13 @@ export const reviewEvents = pgTable(
     stageBefore: srsStageEnum("stage_before").notNull(),
     stageAfter: srsStageEnum("stage_after").notNull(),
     requiredQuestionCount: integer("required_question_count").notNull(),
-    incorrectAdjustmentCount: integer("incorrect_adjustment_count").notNull().default(0),
+    incorrectAdjustmentCount: integer("incorrect_adjustment_count")
+      .notNull()
+      .default(0),
     result: reviewResultEnum("result").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (t) => [
     foreignKey({
@@ -45,9 +61,18 @@ export const reviewEvents = pgTable(
       foreignColumns: [learningItems.id, learningItems.languageId],
     }).onDelete("restrict"),
     // Review history, keyset-paginated (spec 09 §14): (user, language, reviewed_at desc, id desc).
-    index("review_events_history_idx").on(t.userId, t.languageId, t.reviewedAt.desc(), t.id.desc()),
+    index("review_events_history_idx").on(
+      t.userId,
+      t.languageId,
+      t.reviewedAt.desc(),
+      t.id.desc(),
+    ),
     // Future leech-window calculations: (user, learning item, reviewed_at desc).
-    index("review_events_item_window_idx").on(t.userId, t.learningItemId, t.reviewedAt.desc()),
+    index("review_events_item_window_idx").on(
+      t.userId,
+      t.learningItemId,
+      t.reviewedAt.desc(),
+    ),
   ],
 );
 
@@ -57,7 +82,12 @@ export const reviewEvents = pgTable(
  * use one stage field to represent both"). Represents whichever Ghost
  * review is next due, not the one just completed.
  */
-export const ghostStageEnum = pgEnum("ghost_stage", ["ghost_1", "ghost_2", "ghost_3", "ghost_4"]);
+export const ghostStageEnum = pgEnum("ghost_stage", [
+  "ghost_1",
+  "ghost_2",
+  "ghost_3",
+  "ghost_4",
+]);
 
 /**
  * Spec 20 Ghost Reviews — one row per (learner, learning item, sentence)
@@ -108,13 +138,21 @@ export const userSentenceGhostProgress = pgTable(
     // user/language/learning item/sentence" — `learningItemId` alone already
     // determines `languageId` via the compound FK below, so this triple is
     // the real identity.
-    unique("user_sentence_ghost_progress_identity_key").on(t.userId, t.learningItemId, t.sentenceId),
+    unique("user_sentence_ghost_progress_identity_key").on(
+      t.userId,
+      t.learningItemId,
+      t.sentenceId,
+    ),
     foreignKey({
       name: "user_sentence_ghost_progress_learning_item_language_fk",
       columns: [t.learningItemId, t.languageId],
       foreignColumns: [learningItems.id, learningItems.languageId],
     }).onDelete("restrict"),
     // The Ghost due-review path, mirroring `user_item_progress_due_review_idx`.
-    index("user_sentence_ghost_progress_due_review_idx").on(t.userId, t.languageId, t.nextReviewAt),
+    index("user_sentence_ghost_progress_due_review_idx").on(
+      t.userId,
+      t.languageId,
+      t.nextReviewAt,
+    ),
   ],
 );

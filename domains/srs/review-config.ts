@@ -37,7 +37,10 @@ export function getReviewRetrySpacingMinimum(): number {
  * a single `englishToTarget` question instead of reading this constant, per
  * that unit's recorded decision.
  */
-export const VOCABULARY_REQUIRED_DIRECTIONS = ["targetToEnglish", "englishToTarget"] as const;
+export const VOCABULARY_REQUIRED_DIRECTIONS = [
+  "targetToEnglish",
+  "englishToTarget",
+] as const;
 
 /**
  * Level-unlock threshold (spec 09 §15, architecture.md's "Level Unlock

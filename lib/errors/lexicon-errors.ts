@@ -32,15 +32,21 @@ const DEFAULT_MESSAGES: Record<LexiconErrorCode, string> = {
   UNAUTHENTICATED: "You must be signed in to do that.",
   FORBIDDEN: "You don't have access to do that.",
   RATE_LIMITED: "Please slow down and try again shortly.",
-  LEXICAL_SOURCE_NOT_CONFIGURED: "No dictionary source is configured for this language.",
+  LEXICAL_SOURCE_NOT_CONFIGURED:
+    "No dictionary source is configured for this language.",
   VOCABULARY_ITEM_NOT_FOUND: "That vocabulary item could not be found.",
   DICTIONARY_ENTRY_NOT_FOUND: "That dictionary entry could not be found.",
   MAPPING_NOT_FOUND: "This vocabulary item has no dictionary mapping yet.",
-  MAPPING_LOCKED: "This mapping was set manually and cannot be replaced automatically.",
-  SENSE_NOT_IN_MAPPED_ENTRY: "That definition doesn't belong to this item's mapped dictionary entry.",
-  PRONUNCIATION_NOT_IN_MAPPED_ENTRY: "That pronunciation doesn't belong to this item's mapped dictionary entry.",
-  IMPORT_SOURCE_UNAVAILABLE: "The configured dictionary source file could not be read.",
-  IMPORT_VALIDATION_FAILED: "The dictionary source failed validation and was not applied.",
+  MAPPING_LOCKED:
+    "This mapping was set manually and cannot be replaced automatically.",
+  SENSE_NOT_IN_MAPPED_ENTRY:
+    "That definition doesn't belong to this item's mapped dictionary entry.",
+  PRONUNCIATION_NOT_IN_MAPPED_ENTRY:
+    "That pronunciation doesn't belong to this item's mapped dictionary entry.",
+  IMPORT_SOURCE_UNAVAILABLE:
+    "The configured dictionary source file could not be read.",
+  IMPORT_VALIDATION_FAILED:
+    "The dictionary source failed validation and was not applied.",
 };
 
 export class LexiconError extends Error {

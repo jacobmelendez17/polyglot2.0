@@ -47,7 +47,9 @@ export function Footer({ className }: { className?: string }) {
               <Languages aria-hidden="true" className="h-5 w-5 text-primary" />
               {APP_NAME}
             </Link>
-            <p className="mt-2 max-w-[22ch] text-sm text-muted-foreground">{APP_TAGLINE}</p>
+            <p className="mt-2 max-w-[22ch] text-sm text-muted-foreground">
+              {APP_TAGLINE}
+            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-x-10 gap-y-8 sm:flex sm:justify-end sm:gap-x-16">
@@ -72,7 +74,13 @@ export function Footer({ className }: { className?: string }) {
   );
 }
 
-function FooterNavColumn({ title, links }: { title: string; links: readonly FooterLink[] }) {
+function FooterNavColumn({
+  title,
+  links,
+}: {
+  title: string;
+  links: readonly FooterLink[];
+}) {
   return (
     <nav aria-label={title}>
       <p className="text-sm font-semibold text-foreground">{title}</p>

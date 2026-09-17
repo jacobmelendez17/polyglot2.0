@@ -14,7 +14,9 @@ type LandingCtaProps = {
  * neither applies — one "Go to dashboard" button replaces both. */
 export function LandingCta({ className }: LandingCtaProps) {
   return (
-    <div className={cn("flex flex-col items-center gap-3 sm:flex-row", className)}>
+    <div
+      className={cn("flex flex-col items-center gap-3 sm:flex-row", className)}
+    >
       <Show when="signed-in">
         <Button asChild size="lg" className="rounded-full">
           <Link href="/dashboard">Go to dashboard</Link>

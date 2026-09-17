@@ -19,7 +19,10 @@ describe("notices-repository", () => {
       const removedCount = await deleteDismissedNotices(tx, learnerId);
 
       expect(removedCount).toBe(2);
-      const remaining = await tx.select().from(userDismissedNotices).where(eq(userDismissedNotices.userId, learnerId));
+      const remaining = await tx
+        .select()
+        .from(userDismissedNotices)
+        .where(eq(userDismissedNotices.userId, learnerId));
       expect(remaining).toHaveLength(0);
     });
   });
@@ -34,7 +37,10 @@ describe("notices-repository", () => {
 
       await deleteDismissedNotices(tx, learnerId);
 
-      const developerRows = await tx.select().from(userDismissedNotices).where(eq(userDismissedNotices.userId, developerId));
+      const developerRows = await tx
+        .select()
+        .from(userDismissedNotices)
+        .where(eq(userDismissedNotices.userId, developerId));
       expect(developerRows).toHaveLength(1);
     });
   });

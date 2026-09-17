@@ -49,7 +49,9 @@ export function CurriculumModePicker({
               className={cn(
                 "flex cursor-pointer items-start gap-3 rounded-xl border p-4 text-left transition-colors",
                 "hover:border-accent-primary/60 focus-within:ring-2 focus-within:ring-ring",
-                isSelected ? "border-accent-primary bg-accent-primary/10" : "border-border bg-card",
+                isSelected
+                  ? "border-accent-primary bg-accent-primary/10"
+                  : "border-border bg-card",
                 disabled && "cursor-not-allowed opacity-60",
               )}
             >
@@ -65,14 +67,20 @@ export function CurriculumModePicker({
                 aria-hidden="true"
                 className={cn(
                   "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border",
-                  isSelected ? "border-accent-primary bg-accent-primary text-accent-foreground" : "border-border",
+                  isSelected
+                    ? "border-accent-primary bg-accent-primary text-accent-foreground"
+                    : "border-border",
                 )}
               >
                 {isSelected ? <Check className="h-3 w-3" /> : null}
               </span>
               <span className="flex flex-col gap-1">
-                <span className="font-medium text-foreground">{option.label}</span>
-                <span className="text-sm text-muted-foreground">{option.description}</span>
+                <span className="font-medium text-foreground">
+                  {option.label}
+                </span>
+                <span className="text-sm text-muted-foreground">
+                  {option.description}
+                </span>
               </span>
             </label>
           );
@@ -81,7 +89,9 @@ export function CurriculumModePicker({
 
       {selectedMode === "choose_group" && themes.length > 0 ? (
         <fieldset disabled={disabled} className="flex flex-col gap-3">
-          <legend className="mb-1 font-medium text-foreground">Which theme first?</legend>
+          <legend className="mb-1 font-medium text-foreground">
+            Which theme first?
+          </legend>
           <div className="flex flex-wrap gap-2">
             {themes.map((theme) => {
               const isSelected = selectedThemeId === theme.id;
@@ -91,7 +101,9 @@ export function CurriculumModePicker({
                   className={cn(
                     "cursor-pointer rounded-full border px-4 py-2 text-sm transition-colors",
                     "hover:border-accent-primary/60 focus-within:ring-2 focus-within:ring-ring",
-                    isSelected ? "border-accent-primary bg-accent-primary/10 text-foreground" : "border-border bg-card text-muted-foreground",
+                    isSelected
+                      ? "border-accent-primary bg-accent-primary/10 text-foreground"
+                      : "border-border bg-card text-muted-foreground",
                     disabled && "cursor-not-allowed opacity-60",
                   )}
                 >
@@ -104,7 +116,9 @@ export function CurriculumModePicker({
                     className="sr-only"
                   />
                   {theme.name}
-                  <span className="ml-2 text-xs text-muted-foreground">{theme.remainingCount} left</span>
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    {theme.remainingCount} left
+                  </span>
                 </label>
               );
             })}

@@ -44,7 +44,12 @@ function toCardItem(item: CurriculumLearningItem): LevelCardItem {
     };
   }
 
-  return { id: item.id, itemType: "grammar", primary: item.grammar.structure, secondary: item.grammar.primaryMeaning };
+  return {
+    id: item.id,
+    itemType: "grammar",
+    primary: item.grammar.structure,
+    secondary: item.grammar.primaryMeaning,
+  };
 }
 
 /**
@@ -54,7 +59,9 @@ function toCardItem(item: CurriculumLearningItem): LevelCardItem {
  * (spec 10 §27). Pure and React-free so ordering/empty-state behavior is
  * unit-testable on its own (spec 10 §36).
  */
-export function buildLevelViewModel(items: CurriculumLearningItem[]): LevelViewModel {
+export function buildLevelViewModel(
+  items: CurriculumLearningItem[],
+): LevelViewModel {
   const grammar: LevelCardItem[] = [];
   const vocabulary: LevelCardItem[] = [];
 

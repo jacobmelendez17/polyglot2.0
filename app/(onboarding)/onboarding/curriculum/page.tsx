@@ -33,7 +33,9 @@ type CurriculumPreferencePageProps = {
  * exactly: same production component, nothing persisted, and Admin access
  * re-checked here so the parameter is a request rather than a permission.
  */
-export default async function CurriculumPreferencePage({ searchParams }: CurriculumPreferencePageProps) {
+export default async function CurriculumPreferencePage({
+  searchParams,
+}: CurriculumPreferencePageProps) {
   const { replay } = await searchParams;
   const user = await requireUser();
 
@@ -41,8 +43,17 @@ export default async function CurriculumPreferencePage({ searchParams }: Curricu
     if (!canAccessAdminArea(user)) {
       forbidden();
     }
-    const themes = await listAvailableThemes({ userId: user.id, languageId: user.activeLanguageId });
-    return <CurriculumChoiceView themes={themes} continueHref="/admin/sandbox" isPreview />;
+    const themes = await listAvailableThemes({
+      userId: user.id,
+      languageId: user.activeLanguageId,
+    });
+    return (
+      <CurriculumChoiceView
+        themes={themes}
+        continueHref="/admin/sandbox"
+        isPreview
+      />
+    );
   }
 
   // The slideshow comes first: a learner who arrives here without finishing

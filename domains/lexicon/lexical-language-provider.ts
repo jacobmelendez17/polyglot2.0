@@ -49,7 +49,9 @@ export interface LexicalLanguageProvider {
    * "`la` means feminine" is Spanish morphology, and a language without
    * gendered articles must not inherit it.
    */
-  grammaticalGenderForArticle(article: string | null | undefined): GrammaticalGender | null;
+  grammaticalGenderForArticle(
+    article: string | null | undefined,
+  ): GrammaticalGender | null;
 }
 
 /** Grammatical genders Polyglot can currently derive. Spanish needs two; the union grows when a language that needs more gets a provider. */
@@ -61,7 +63,16 @@ export type GrammaticalGender = "masculine" | "feminine";
  * different word, and normalization preserves the accent precisely so this
  * set can't accidentally match it.
  */
-const SPANISH_ARTICLES = new Set(["el", "la", "los", "las", "un", "una", "unos", "unas"]);
+const SPANISH_ARTICLES = new Set([
+  "el",
+  "la",
+  "los",
+  "las",
+  "un",
+  "una",
+  "unos",
+  "unas",
+]);
 
 /**
  * Gender implied by each article in `SPANISH_ARTICLES`. Plural articles map
@@ -135,7 +146,9 @@ export const spanishLexicalProvider: LexicalLanguageProvider = {
     return SPANISH_REGION_LABELS[normalizeLexicalForm(label)] ?? null;
   },
 
-  grammaticalGenderForArticle(article: string | null | undefined): GrammaticalGender | null {
+  grammaticalGenderForArticle(
+    article: string | null | undefined,
+  ): GrammaticalGender | null {
     if (!article) return null;
     return SPANISH_ARTICLE_GENDERS[normalizeLexicalForm(article)] ?? null;
   },
@@ -172,8 +185,12 @@ const PROVIDERS: Record<string, LexicalLanguageProvider> = {
  * `es-MX` and `es` both reach the Spanish provider today. Falls back to
  * exact-match-only behavior for languages without one.
  */
-export function getLexicalLanguageProvider(languageCode: string): LexicalLanguageProvider {
-  return resolveByLanguageCode(PROVIDERS, languageCode) ?? defaultLexicalProvider;
+export function getLexicalLanguageProvider(
+  languageCode: string,
+): LexicalLanguageProvider {
+  return (
+    resolveByLanguageCode(PROVIDERS, languageCode) ?? defaultLexicalProvider
+  );
 }
 
 /**
@@ -182,6 +199,9 @@ export function getLexicalLanguageProvider(languageCode: string): LexicalLanguag
  * the display word learners see is the two composed — the same composition
  * `domains/curriculum/level-view.ts` already performs for level cards.
  */
-export function composeVocabularyDisplayWord(term: string, article: string | null | undefined): string {
+export function composeVocabularyDisplayWord(
+  term: string,
+  article: string | null | undefined,
+): string {
   return article ? `${article} ${term}` : term;
 }

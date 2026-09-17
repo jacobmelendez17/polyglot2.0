@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { isCurriculumChoiceRequired, isCurriculumMode, isGrammarPlacement, isThemeSelectionRequired, isValidLessonBatchSize } from "./curriculum-preference";
+import {
+  isCurriculumChoiceRequired,
+  isCurriculumMode,
+  isGrammarPlacement,
+  isThemeSelectionRequired,
+  isValidLessonBatchSize,
+} from "./curriculum-preference";
 import type { LanguageSettings } from "./curriculum-preference";
 
 function settings(overrides: Partial<LanguageSettings> = {}): LanguageSettings {
@@ -54,7 +60,9 @@ describe("isCurriculumChoiceRequired", () => {
   });
 
   it("does not ask again once a mode is stored", () => {
-    expect(isCurriculumChoiceRequired({ isSandbox: false }, settings())).toBe(false);
+    expect(isCurriculumChoiceRequired({ isSandbox: false }, settings())).toBe(
+      false,
+    );
   });
 
   it("never routes a sandbox persona onto the choice screen", () => {
@@ -64,23 +72,42 @@ describe("isCurriculumChoiceRequired", () => {
 
 describe("isThemeSelectionRequired", () => {
   it("is irrelevant outside Choose Group as You Go", () => {
-    expect(isThemeSelectionRequired(settings({ curriculumMode: "variety" }), [])).toBe(false);
-    expect(isThemeSelectionRequired(settings({ curriculumMode: "default_order" }), [])).toBe(false);
+    expect(
+      isThemeSelectionRequired(settings({ curriculumMode: "variety" }), []),
+    ).toBe(false);
+    expect(
+      isThemeSelectionRequired(
+        settings({ curriculumMode: "default_order" }),
+        [],
+      ),
+    ).toBe(false);
     expect(isThemeSelectionRequired(null, ["theme-1"])).toBe(false);
   });
 
   it("asks when Choose Group as You Go has no group picked yet", () => {
-    expect(isThemeSelectionRequired(settings({ curriculumMode: "choose_group" }), ["theme-1"])).toBe(true);
+    expect(
+      isThemeSelectionRequired(settings({ curriculumMode: "choose_group" }), [
+        "theme-1",
+      ]),
+    ).toBe(true);
   });
 
   it("asks again once the chosen group has nothing left in it", () => {
-    const chosen = settings({ curriculumMode: "choose_group", selectedVocabularyGroupId: "theme-finished" });
+    const chosen = settings({
+      curriculumMode: "choose_group",
+      selectedVocabularyGroupId: "theme-finished",
+    });
     expect(isThemeSelectionRequired(chosen, ["theme-1", "theme-2"])).toBe(true);
   });
 
   it("stays out of the way while the chosen group still has items", () => {
-    const chosen = settings({ curriculumMode: "choose_group", selectedVocabularyGroupId: "theme-1" });
-    expect(isThemeSelectionRequired(chosen, ["theme-1", "theme-2"])).toBe(false);
+    const chosen = settings({
+      curriculumMode: "choose_group",
+      selectedVocabularyGroupId: "theme-1",
+    });
+    expect(isThemeSelectionRequired(chosen, ["theme-1", "theme-2"])).toBe(
+      false,
+    );
   });
 });
 

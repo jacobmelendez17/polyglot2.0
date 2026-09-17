@@ -18,7 +18,8 @@ const REVIEW_TERMS = [
   { term: "verde", meaning: "green", toEnglish: "green", toSpanish: "verde" },
 ] as const;
 
-const REVIEW_ANSWERS: Record<string, { toEnglish: string; toSpanish: string }> = {};
+const REVIEW_ANSWERS: Record<string, { toEnglish: string; toSpanish: string }> =
+  {};
 for (const { term, meaning, toEnglish, toSpanish } of REVIEW_TERMS) {
   REVIEW_ANSWERS[term] = { toEnglish, toSpanish };
   REVIEW_ANSWERS[meaning] = { toEnglish, toSpanish };
@@ -32,7 +33,9 @@ for (const { term, meaning, toEnglish, toSpanish } of REVIEW_TERMS) {
  */
 export async function completeAllDueReviews(page: Page): Promise<void> {
   const answerInput = page.getByLabel("Your answer");
-  const completeHeading = page.getByRole("heading", { name: "Session complete!" });
+  const completeHeading = page.getByRole("heading", {
+    name: "Session complete!",
+  });
 
   for (let attempt = 0; attempt < 20; attempt++) {
     // `isVisible()` is an instant, non-waiting check — right after the
@@ -42,8 +45,12 @@ export async function completeAllDueReviews(page: Page): Promise<void> {
     // then sees neither a due review nor "Session complete!"). Wait for
     // whichever of the two real end states actually appears instead.
     const state = await Promise.race([
-      answerInput.waitFor({ state: "visible", timeout: 15_000 }).then(() => "question" as const),
-      completeHeading.waitFor({ state: "visible", timeout: 15_000 }).then(() => "complete" as const),
+      answerInput
+        .waitFor({ state: "visible", timeout: 15_000 })
+        .then(() => "question" as const),
+      completeHeading
+        .waitFor({ state: "visible", timeout: 15_000 })
+        .then(() => "complete" as const),
     ]);
     if (state === "complete") return;
 
@@ -56,14 +63,23 @@ export async function completeAllDueReviews(page: Page): Promise<void> {
     // quiz's is.
     const lines = text.split("\n").map((line) => line.trim().toLowerCase());
     const term = lines.find((line) => line in REVIEW_ANSWERS);
-    const direction: "toEnglish" | "toSpanish" = text.includes("Spanish → English") ? "toEnglish" : "toSpanish";
+    const direction: "toEnglish" | "toSpanish" = text.includes(
+      "Spanish → English",
+    )
+      ? "toEnglish"
+      : "toSpanish";
     const answer = term ? REVIEW_ANSWERS[term]?.[direction] : undefined;
-    if (!term || !answer) throw new Error(`No known review prompt found (${direction}). Body: ${text.slice(0, 300)}`);
+    if (!term || !answer)
+      throw new Error(
+        `No known review prompt found (${direction}). Body: ${text.slice(0, 300)}`,
+      );
 
     await answerInput.fill(answer);
     await page.getByRole("button", { name: "Submit" }).click();
     await page.getByRole("button", { name: "Continue" }).click();
   }
 
-  throw new Error("Review session did not finish within the expected number of attempts.");
+  throw new Error(
+    "Review session did not finish within the expected number of attempts.",
+  );
 }

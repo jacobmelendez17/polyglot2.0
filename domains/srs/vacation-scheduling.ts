@@ -50,7 +50,8 @@ export function calculateVacationAdjustedReview({
   vacationEndedAt,
 }: CalculateVacationAdjustedReviewInput): Date {
   if (waitStartedAt.getTime() <= vacationStartedAt.getTime()) {
-    const vacationDurationMs = vacationEndedAt.getTime() - vacationStartedAt.getTime();
+    const vacationDurationMs =
+      vacationEndedAt.getTime() - vacationStartedAt.getTime();
     return new Date(nextReviewAt.getTime() + vacationDurationMs);
   }
 

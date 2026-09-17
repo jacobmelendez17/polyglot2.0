@@ -56,8 +56,16 @@ describe("findReviewPreferences", () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, languageId } = await seedTestFixtures(tx);
 
-      const preferences = await findReviewPreferences(tx, learnerId, languageId);
-      expect(preferences).toEqual({ userId: learnerId, languageId, ...DEFAULTS });
+      const preferences = await findReviewPreferences(
+        tx,
+        learnerId,
+        languageId,
+      );
+      expect(preferences).toEqual({
+        userId: learnerId,
+        languageId,
+        ...DEFAULTS,
+      });
     });
   });
 });
@@ -67,11 +75,25 @@ describe("saveGrammarReviewType / saveVocabularyReviewType", () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, languageId } = await seedTestFixtures(tx);
 
-      const afterFirstSave = await saveVocabularyReviewType(tx, { userId: learnerId, languageId, reviewType: "flashcard" });
-      expect(afterFirstSave).toEqual({ userId: learnerId, languageId, ...DEFAULTS, vocabularyReviewType: "flashcard" });
+      const afterFirstSave = await saveVocabularyReviewType(tx, {
+        userId: learnerId,
+        languageId,
+        reviewType: "flashcard",
+      });
+      expect(afterFirstSave).toEqual({
+        userId: learnerId,
+        languageId,
+        ...DEFAULTS,
+        vocabularyReviewType: "flashcard",
+      });
 
       const stored = await findReviewPreferences(tx, learnerId, languageId);
-      expect(stored).toEqual({ userId: learnerId, languageId, ...DEFAULTS, vocabularyReviewType: "flashcard" });
+      expect(stored).toEqual({
+        userId: learnerId,
+        languageId,
+        ...DEFAULTS,
+        vocabularyReviewType: "flashcard",
+      });
     });
   });
 
@@ -79,8 +101,16 @@ describe("saveGrammarReviewType / saveVocabularyReviewType", () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, languageId } = await seedTestFixtures(tx);
 
-      await saveVocabularyReviewType(tx, { userId: learnerId, languageId, reviewType: "cloze_flashcard" });
-      const afterSecondSave = await saveGrammarReviewType(tx, { userId: learnerId, languageId, reviewType: "flashcard" });
+      await saveVocabularyReviewType(tx, {
+        userId: learnerId,
+        languageId,
+        reviewType: "cloze_flashcard",
+      });
+      const afterSecondSave = await saveGrammarReviewType(tx, {
+        userId: learnerId,
+        languageId,
+        reviewType: "flashcard",
+      });
 
       expect(afterSecondSave).toEqual({
         userId: learnerId,
@@ -98,9 +128,21 @@ describe("Review Hints saves", () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, languageId } = await seedTestFixtures(tx);
 
-      await saveGrammarHintOrder(tx, { userId: learnerId, languageId, hintOrder: "translation_first" });
-      await saveVocabularyHintMode(tx, { userId: learnerId, languageId, hintMode: "show" });
-      const afterAll = await saveGrammarHintMode(tx, { userId: learnerId, languageId, hintMode: "always_show_nuance" });
+      await saveGrammarHintOrder(tx, {
+        userId: learnerId,
+        languageId,
+        hintOrder: "translation_first",
+      });
+      await saveVocabularyHintMode(tx, {
+        userId: learnerId,
+        languageId,
+        hintMode: "show",
+      });
+      const afterAll = await saveGrammarHintMode(tx, {
+        userId: learnerId,
+        languageId,
+        hintMode: "always_show_nuance",
+      });
 
       expect(afterAll).toEqual({
         userId: learnerId,
@@ -120,7 +162,11 @@ describe("Review Hints saves", () => {
   it("saveVocabularyHintOrder is independent of saveGrammarHintOrder", async () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, languageId } = await seedTestFixtures(tx);
-      const result = await saveVocabularyHintOrder(tx, { userId: learnerId, languageId, hintOrder: "translation_first" });
+      const result = await saveVocabularyHintOrder(tx, {
+        userId: learnerId,
+        languageId,
+        hintOrder: "translation_first",
+      });
       expect(result.vocabularyHintOrder).toBe("translation_first");
       expect(result.grammarHintOrder).toBe("nuance_first");
     });
@@ -132,19 +178,49 @@ describe("Review UI saves", () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, languageId } = await seedTestFixtures(tx);
 
-      const afterFirst = await saveReviewUiToggle(tx, { userId: learnerId, languageId, field: "lightningMode", value: true });
-      expect(afterFirst).toEqual({ userId: learnerId, languageId, ...DEFAULTS, lightningMode: true });
+      const afterFirst = await saveReviewUiToggle(tx, {
+        userId: learnerId,
+        languageId,
+        field: "lightningMode",
+        value: true,
+      });
+      expect(afterFirst).toEqual({
+        userId: learnerId,
+        languageId,
+        ...DEFAULTS,
+        lightningMode: true,
+      });
 
-      const afterSecond = await saveReviewUiToggle(tx, { userId: learnerId, languageId, field: "focusMode", value: true });
-      expect(afterSecond).toEqual({ userId: learnerId, languageId, ...DEFAULTS, lightningMode: true, focusMode: true });
+      const afterSecond = await saveReviewUiToggle(tx, {
+        userId: learnerId,
+        languageId,
+        field: "focusMode",
+        value: true,
+      });
+      expect(afterSecond).toEqual({
+        userId: learnerId,
+        languageId,
+        ...DEFAULTS,
+        lightningMode: true,
+        focusMode: true,
+      });
     });
   });
 
   it("saveUndoAction persists independently of the boolean toggles", async () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, languageId } = await seedTestFixtures(tx);
-      const result = await saveUndoAction(tx, { userId: learnerId, languageId, undoAction: "clear_all_characters" });
-      expect(result).toEqual({ userId: learnerId, languageId, ...DEFAULTS, undoAction: "clear_all_characters" });
+      const result = await saveUndoAction(tx, {
+        userId: learnerId,
+        languageId,
+        undoAction: "clear_all_characters",
+      });
+      expect(result).toEqual({
+        userId: learnerId,
+        languageId,
+        ...DEFAULTS,
+        undoAction: "clear_all_characters",
+      });
     });
   });
 });
@@ -154,10 +230,23 @@ describe("SRS Strictness saves", () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, languageId } = await seedTestFixtures(tx);
 
-      const afterGrammar = await saveGrammarSrsStrictness(tx, { userId: learnerId, languageId, srsStrictness: "full" });
-      expect(afterGrammar).toEqual({ userId: learnerId, languageId, ...DEFAULTS, grammarSrsStrictness: "full" });
+      const afterGrammar = await saveGrammarSrsStrictness(tx, {
+        userId: learnerId,
+        languageId,
+        srsStrictness: "full",
+      });
+      expect(afterGrammar).toEqual({
+        userId: learnerId,
+        languageId,
+        ...DEFAULTS,
+        grammarSrsStrictness: "full",
+      });
 
-      const afterVocabulary = await saveVocabularySrsStrictness(tx, { userId: learnerId, languageId, srsStrictness: "half" });
+      const afterVocabulary = await saveVocabularySrsStrictness(tx, {
+        userId: learnerId,
+        languageId,
+        srsStrictness: "half",
+      });
       expect(afterVocabulary).toEqual({
         userId: learnerId,
         languageId,
@@ -174,10 +263,23 @@ describe("SRS Interval saves", () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, languageId } = await seedTestFixtures(tx);
 
-      const afterGrammar = await saveGrammarSrsIntervalMode(tx, { userId: learnerId, languageId, srsIntervalMode: "longest" });
-      expect(afterGrammar).toEqual({ userId: learnerId, languageId, ...DEFAULTS, grammarSrsIntervalMode: "longest" });
+      const afterGrammar = await saveGrammarSrsIntervalMode(tx, {
+        userId: learnerId,
+        languageId,
+        srsIntervalMode: "longest",
+      });
+      expect(afterGrammar).toEqual({
+        userId: learnerId,
+        languageId,
+        ...DEFAULTS,
+        grammarSrsIntervalMode: "longest",
+      });
 
-      const afterVocabulary = await saveVocabularySrsIntervalMode(tx, { userId: learnerId, languageId, srsIntervalMode: "shortest" });
+      const afterVocabulary = await saveVocabularySrsIntervalMode(tx, {
+        userId: learnerId,
+        languageId,
+        srsIntervalMode: "shortest",
+      });
       expect(afterVocabulary).toEqual({
         userId: learnerId,
         languageId,
@@ -194,8 +296,17 @@ describe("Review Queue Timing saves", () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, languageId } = await seedTestFixtures(tx);
 
-      const result = await saveReviewQueueTiming(tx, { userId: learnerId, languageId, reviewQueueTiming: "start_of_day" });
-      expect(result).toEqual({ userId: learnerId, languageId, ...DEFAULTS, reviewQueueTiming: "start_of_day" });
+      const result = await saveReviewQueueTiming(tx, {
+        userId: learnerId,
+        languageId,
+        reviewQueueTiming: "start_of_day",
+      });
+      expect(result).toEqual({
+        userId: learnerId,
+        languageId,
+        ...DEFAULTS,
+        reviewQueueTiming: "start_of_day",
+      });
     });
   });
 });
@@ -205,10 +316,23 @@ describe("Fluent Mode saves", () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, languageId } = await seedTestFixtures(tx);
 
-      const afterGrammar = await saveGrammarFluentMode(tx, { userId: learnerId, languageId, fluentMode: false });
-      expect(afterGrammar).toEqual({ userId: learnerId, languageId, ...DEFAULTS, grammarFluentMode: false });
+      const afterGrammar = await saveGrammarFluentMode(tx, {
+        userId: learnerId,
+        languageId,
+        fluentMode: false,
+      });
+      expect(afterGrammar).toEqual({
+        userId: learnerId,
+        languageId,
+        ...DEFAULTS,
+        grammarFluentMode: false,
+      });
 
-      const afterVocabulary = await saveVocabularyFluentMode(tx, { userId: learnerId, languageId, fluentMode: false });
+      const afterVocabulary = await saveVocabularyFluentMode(tx, {
+        userId: learnerId,
+        languageId,
+        fluentMode: false,
+      });
       expect(afterVocabulary).toEqual({
         userId: learnerId,
         languageId,
@@ -225,10 +349,23 @@ describe("Ghost Reviews saves", () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, languageId } = await seedTestFixtures(tx);
 
-      const afterGrammar = await saveGrammarGhostMode(tx, { userId: learnerId, languageId, ghostMode: "off" });
-      expect(afterGrammar).toEqual({ userId: learnerId, languageId, ...DEFAULTS, grammarGhostMode: "off" });
+      const afterGrammar = await saveGrammarGhostMode(tx, {
+        userId: learnerId,
+        languageId,
+        ghostMode: "off",
+      });
+      expect(afterGrammar).toEqual({
+        userId: learnerId,
+        languageId,
+        ...DEFAULTS,
+        grammarGhostMode: "off",
+      });
 
-      const afterVocabulary = await saveVocabularyGhostMode(tx, { userId: learnerId, languageId, ghostMode: "minimal" });
+      const afterVocabulary = await saveVocabularyGhostMode(tx, {
+        userId: learnerId,
+        languageId,
+        ghostMode: "minimal",
+      });
       expect(afterVocabulary).toEqual({
         userId: learnerId,
         languageId,

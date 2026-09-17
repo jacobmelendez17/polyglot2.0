@@ -7,7 +7,10 @@ import { findUserById } from "@/domains/users/user-repository";
 import { getVacationPeriodsForUser } from "@/domains/users/vacation-repository";
 import { dateKeyInTimeZone } from "@/lib/time/zoned-date";
 
-import { getLatestStreakAdjustment, insertStreakAdjustment } from "./streak-repository";
+import {
+  getLatestStreakAdjustment,
+  insertStreakAdjustment,
+} from "./streak-repository";
 
 /**
  * Injectable core (see `reset-service.ts`'s docstring for why this split
@@ -18,14 +21,22 @@ import { getLatestStreakAdjustment, insertStreakAdjustment } from "./streak-repo
  * precedent of reaching into other domains' repository files directly.
  */
 
-export type SetManualStreakInput = { userId: string; value: number; idempotencyKey: string; now?: Date };
+export type SetManualStreakInput = {
+  userId: string;
+  value: number;
+  idempotencyKey: string;
+  now?: Date;
+};
 
 /**
  * Spec 20 Danger Zone — Manually Set Streak. "Do not insert fake review
  * events" — this only ever writes `user_streak_adjustments`, never
  * `review_events`.
  */
-export async function setManualStreak(db: DbClient, input: SetManualStreakInput): Promise<{ value: number }> {
+export async function setManualStreak(
+  db: DbClient,
+  input: SetManualStreakInput,
+): Promise<{ value: number }> {
   const now = input.now ?? (await resolveUserNow(db, input.userId));
   return withIdempotency(
     db,
@@ -36,7 +47,11 @@ export async function setManualStreak(db: DbClient, input: SetManualStreakInput)
       payload: { value: input.value },
     },
     async (tx) => {
-      const adjustment = await insertStreakAdjustment(tx, { userId: input.userId, value: input.value, now });
+      const adjustment = await insertStreakAdjustment(tx, {
+        userId: input.userId,
+        value: input.value,
+        now,
+      });
       return { value: adjustment.value };
     },
   );
@@ -45,7 +60,11 @@ export async function setManualStreak(db: DbClient, input: SetManualStreakInput)
 // Generous enough for any real account's history at this app's current age, without scanning unbounded history for a plain read.
 const STREAK_LOOKBACK_DAYS = 400;
 
-export type GetCurrentStreakInput = { userId: string; languageId: string; now?: Date };
+export type GetCurrentStreakInput = {
+  userId: string;
+  languageId: string;
+  now?: Date;
+};
 
 /**
  * Spec 20 Danger Zone — the current authoritative streak length, per
@@ -57,30 +76,50 @@ export type GetCurrentStreakInput = { userId: string; languageId: string; now?: 
  * codebase — a Server Component calling this has no direct `db` access to
  * do that resolution itself; `now` is overridable for deterministic tests.
  */
-export async function getCurrentStreak(db: DbClient, input: GetCurrentStreakInput): Promise<number> {
+export async function getCurrentStreak(
+  db: DbClient,
+  input: GetCurrentStreakInput,
+): Promise<number> {
   const user = await findUserById(db, input.userId);
   if (!user) return 0;
 
   const now = input.now ?? (await resolveUserNow(db, input.userId));
-  const since = new Date(now.getTime() - STREAK_LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
-  const [reviewTimestamps, vacationPeriods, latestAdjustment] = await Promise.all([
-    getReviewTimestampsInWindow(db, input.userId, input.languageId, { since, until: now }),
-    getVacationPeriodsForUser(db, input.userId),
-    getLatestStreakAdjustment(db, input.userId),
-  ]);
+  const since = new Date(
+    now.getTime() - STREAK_LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
+  );
+  const [reviewTimestamps, vacationPeriods, latestAdjustment] =
+    await Promise.all([
+      getReviewTimestampsInWindow(db, input.userId, input.languageId, {
+        since,
+        until: now,
+      }),
+      getVacationPeriodsForUser(db, input.userId),
+      getLatestStreakAdjustment(db, input.userId),
+    ]);
 
-  const qualifyingDates = new Set(reviewTimestamps.map((timestamp) => dateKeyInTimeZone(timestamp, user.timezone)));
+  const qualifyingDates = new Set(
+    reviewTimestamps.map((timestamp) =>
+      dateKeyInTimeZone(timestamp, user.timezone),
+    ),
+  );
 
   const vacationNeutralDates = new Set<string>();
   for (const period of vacationPeriods) {
     const end = period.endedAt ?? now;
-    for (let cursor = new Date(period.startedAt); cursor <= end; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
+    for (
+      let cursor = new Date(period.startedAt);
+      cursor <= end;
+      cursor.setUTCDate(cursor.getUTCDate() + 1)
+    ) {
       vacationNeutralDates.add(dateKeyInTimeZone(cursor, user.timezone));
     }
   }
 
   const manualAdjustment = latestAdjustment
-    ? { value: latestAdjustment.value, setOnDate: dateKeyInTimeZone(latestAdjustment.createdAt, user.timezone) }
+    ? {
+        value: latestAdjustment.value,
+        setOnDate: dateKeyInTimeZone(latestAdjustment.createdAt, user.timezone),
+      }
     : null;
 
   return calculateCurrentStreakLength({

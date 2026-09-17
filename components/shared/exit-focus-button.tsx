@@ -1,7 +1,11 @@
 import { X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 type ExitFocusButtonProps = {
   label: string;
@@ -19,7 +23,13 @@ export function ExitFocusButton({ label, onClick }: ExitFocusButtonProps) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button type="button" variant="ghost" size="icon" aria-label={label} onClick={onClick}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label={label}
+          onClick={onClick}
+        >
           <X aria-hidden="true" />
         </Button>
       </TooltipTrigger>

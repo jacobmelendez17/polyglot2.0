@@ -14,7 +14,12 @@ const QUESTION: QuizQuestionView = {
   directionLabel: "Spanish → English",
 };
 
-const STATS: QuizStats = { requiredCount: 12, satisfiedCount: 4, attempts: 5, correctAttempts: 4 };
+const STATS: QuizStats = {
+  requiredCount: 12,
+  satisfiedCount: 4,
+  attempts: 5,
+  correctAttempts: 4,
+};
 
 describe("QuizView", () => {
   it("renders no card, panel, or bordered container around the prompt, input, or feedback", () => {
@@ -72,7 +77,10 @@ describe("QuizView", () => {
       />,
     );
 
-    await user.type(screen.getByRole("textbox", { name: "Your answer" }), "cat{Enter}");
+    await user.type(
+      screen.getByRole("textbox", { name: "Your answer" }),
+      "cat{Enter}",
+    );
     expect(onSubmit).toHaveBeenCalledWith("cat");
   });
 
@@ -93,7 +101,10 @@ describe("QuizView", () => {
       />,
     );
 
-    await user.type(screen.getByRole("textbox", { name: "Your answer" }), "{Enter}");
+    await user.type(
+      screen.getByRole("textbox", { name: "Your answer" }),
+      "{Enter}",
+    );
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
@@ -114,7 +125,10 @@ describe("QuizView", () => {
       />,
     );
 
-    await user.type(screen.getByRole("textbox", { name: "Your answer" }), "{Enter}");
+    await user.type(
+      screen.getByRole("textbox", { name: "Your answer" }),
+      "{Enter}",
+    );
     expect(onAdvance).toHaveBeenCalledOnce();
   });
 
@@ -122,7 +136,12 @@ describe("QuizView", () => {
     render(
       <QuizView
         question={QUESTION}
-        feedback={{ kind: "incorrect", reason: "no_match", userAnswer: "dog", expectedAnswer: "cat" }}
+        feedback={{
+          kind: "incorrect",
+          reason: "no_match",
+          userAnswer: "dog",
+          expectedAnswer: "cat",
+        }}
         awaitingAdvance
         quizStats={STATS}
         characterHelpers={[]}
@@ -182,7 +201,13 @@ describe("QuizView", () => {
     render(
       <QuizView
         question={QUESTION}
-        feedback={{ kind: "incorrect", reason: "missing_article", article: "el", userAnswer: "gato", expectedAnswer: "el gato" }}
+        feedback={{
+          kind: "incorrect",
+          reason: "missing_article",
+          article: "el",
+          userAnswer: "gato",
+          expectedAnswer: "el gato",
+        }}
         awaitingAdvance
         quizStats={STATS}
         characterHelpers={[]}

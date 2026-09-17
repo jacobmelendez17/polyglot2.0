@@ -3,7 +3,10 @@ import type { CurriculumLearningItem } from "@/domains/curriculum";
 import { VOCABULARY_REQUIRED_DIRECTIONS } from "./review-config";
 import type { ReviewQuestion, ReviewQuestionDirection } from "./review-types";
 
-function questionId(itemId: string, direction: ReviewQuestionDirection): string {
+function questionId(
+  itemId: string,
+  direction: ReviewQuestionDirection,
+): string {
   return `${itemId}::${direction}`;
 }
 
@@ -45,9 +48,16 @@ export function buildReviewQuestions(
 
   for (const item of items) {
     if (item.type === "vocabulary") {
-      const directions = collapseVocabularyToOneQuestion ? (["englishToTarget"] as const) : VOCABULARY_REQUIRED_DIRECTIONS;
+      const directions = collapseVocabularyToOneQuestion
+        ? (["englishToTarget"] as const)
+        : VOCABULARY_REQUIRED_DIRECTIONS;
       for (const direction of directions) {
-        questions.push({ id: questionId(item.id, direction), itemId: item.id, itemType: "vocabulary", direction });
+        questions.push({
+          id: questionId(item.id, direction),
+          itemId: item.id,
+          itemType: "vocabulary",
+          direction,
+        });
       }
     } else {
       for (const required of item.grammar.requiredQuestions) {
@@ -73,7 +83,9 @@ export function buildReviewQuestions(
  * `domains/lessons` and `domains/srs` are intentionally independent domain
  * boundaries and the function is a handful of lines with no shared state.
  */
-export function interleaveReviewQuestions(questions: ReviewQuestion[]): ReviewQuestion[] {
+export function interleaveReviewQuestions(
+  questions: ReviewQuestion[],
+): ReviewQuestion[] {
   const byItem = new Map<string, ReviewQuestion[]>();
   const itemOrder: string[] = [];
 

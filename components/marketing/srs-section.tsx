@@ -1,7 +1,8 @@
 import { cn } from "@/lib/utils";
 import { Reveal } from "@/components/shared/reveal";
 
-type StageColorGroup = "beginner" | "familiar" | "intermediate" | "master" | "fluent";
+type StageColorGroup =
+  "beginner" | "familiar" | "intermediate" | "master" | "fluent";
 
 type SrsStage = {
   name: string;
@@ -13,13 +14,48 @@ type SrsStage = {
 // Names and intervals are the "Standard Review Intervals" from project-overview.md —
 // the accelerated Level 1/2 intervals don't apply to this general, level-agnostic explanation.
 const SRS_STAGES: SrsStage[] = [
-  { name: "Beginner 1", position: 1, interval: "4 hours", colorGroup: "beginner" },
-  { name: "Beginner 2", position: 2, interval: "8 hours", colorGroup: "beginner" },
-  { name: "Beginner 3", position: 3, interval: "1 day", colorGroup: "beginner" },
-  { name: "Beginner 4", position: 4, interval: "2 days", colorGroup: "beginner" },
-  { name: "Familiar 1", position: 5, interval: "1 week", colorGroup: "familiar" },
-  { name: "Familiar 2", position: 6, interval: "2 weeks", colorGroup: "familiar" },
-  { name: "Intermediate", position: 7, interval: "1 month", colorGroup: "intermediate" },
+  {
+    name: "Beginner 1",
+    position: 1,
+    interval: "4 hours",
+    colorGroup: "beginner",
+  },
+  {
+    name: "Beginner 2",
+    position: 2,
+    interval: "8 hours",
+    colorGroup: "beginner",
+  },
+  {
+    name: "Beginner 3",
+    position: 3,
+    interval: "1 day",
+    colorGroup: "beginner",
+  },
+  {
+    name: "Beginner 4",
+    position: 4,
+    interval: "2 days",
+    colorGroup: "beginner",
+  },
+  {
+    name: "Familiar 1",
+    position: 5,
+    interval: "1 week",
+    colorGroup: "familiar",
+  },
+  {
+    name: "Familiar 2",
+    position: 6,
+    interval: "2 weeks",
+    colorGroup: "familiar",
+  },
+  {
+    name: "Intermediate",
+    position: 7,
+    interval: "1 month",
+    colorGroup: "intermediate",
+  },
   { name: "Master", position: 8, interval: "4 months", colorGroup: "master" },
   { name: "Fluent", position: 9, interval: null, colorGroup: "fluent" },
 ];
@@ -42,8 +78,9 @@ export function SrsSection() {
           One shared schedule for everything you learn
         </h2>
         <p className="mt-3 text-muted-foreground">
-          Vocabulary and grammar move through the same nine-stage review schedule. Answer correctly
-          and an item advances to the next stage; miss it and it comes back sooner.
+          Vocabulary and grammar move through the same nine-stage review
+          schedule. Answer correctly and an item advances to the next stage;
+          miss it and it comes back sooner.
         </p>
       </Reveal>
 
@@ -52,7 +89,7 @@ export function SrsSection() {
           <Reveal key={stage.name} delayMs={index * 60}>
             <div
               className={cn(
-                "h-full rounded-xl border border-l-4 border-border bg-card p-5"
+                "h-full rounded-xl border border-l-4 border-border bg-card p-5",
               )}
               style={{ borderLeftColor: STAGE_ACCENT_VAR[stage.colorGroup] }}
             >
@@ -68,13 +105,18 @@ export function SrsSection() {
                   <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
                     Stage {stage.position} of {SRS_STAGES.length}
                   </p>
-                  <p data-testid="srs-stage-name" className="text-lg font-semibold text-foreground">
+                  <p
+                    data-testid="srs-stage-name"
+                    className="text-lg font-semibold text-foreground"
+                  >
                     {stage.name}
                   </p>
                 </div>
               </div>
               <p className="mt-3 text-sm text-muted-foreground">
-                {stage.interval ? `Next review in ${stage.interval}` : "No further reviews scheduled"}
+                {stage.interval
+                  ? `Next review in ${stage.interval}`
+                  : "No further reviews scheduled"}
               </p>
             </div>
           </Reveal>
@@ -83,9 +125,10 @@ export function SrsSection() {
 
       <Reveal className="mt-8 rounded-xl border border-border bg-muted/40 p-5 text-sm text-muted-foreground">
         <p>
-          A level unlocks once about five out of every six of its vocabulary and grammar items reach
-          at least Familiar 1 — for a standard 60-item level, that&apos;s 50 items. Once a level is
-          earned it stays unlocked, even if an item&apos;s stage later slips back below Familiar 1.
+          A level unlocks once about five out of every six of its vocabulary and
+          grammar items reach at least Familiar 1 — for a standard 60-item
+          level, that&apos;s 50 items. Once a level is earned it stays unlocked,
+          even if an item&apos;s stage later slips back below Familiar 1.
         </p>
       </Reveal>
     </section>

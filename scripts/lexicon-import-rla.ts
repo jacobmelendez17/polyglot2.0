@@ -52,7 +52,8 @@ function fileStemForRegion(regionCode: string): string {
 
 async function main() {
   const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) throw new Error("DATABASE_URL is required. Set it in .env.local.");
+  if (!databaseUrl)
+    throw new Error("DATABASE_URL is required. Set it in .env.local.");
 
   const sourceConfig = getLexiconSourceConfig();
   // Defaults to the project's own configured language code ("es-MX"), not a
@@ -63,21 +64,28 @@ async function main() {
   const provider = getLexicalLanguageProvider(languageCode);
 
   if (provider.regionCodes.length === 0) {
-    throw new Error(`Language "${languageCode}" has no configured regions, so there is no regional data to import.`);
+    throw new Error(
+      `Language "${languageCode}" has no configured regions, so there is no regional data to import.`,
+    );
   }
 
   const pool = new Pool({ connectionString: databaseUrl });
   try {
     const db = drizzle(pool, { schema });
     const language = await getLanguageByCodeRaw(db, languageCode);
-    if (!language) throw new Error(`Language "${languageCode}" does not exist. Seed it before importing.`);
+    if (!language)
+      throw new Error(
+        `Language "${languageCode}" does not exist. Seed it before importing.`,
+      );
 
     const now = new Date();
 
     for (const regionCode of provider.regionCodes) {
       const sourceCode = getRegionalSourceCodeForRegion(regionCode);
       if (!sourceCode) {
-        console.log(`No regional source registered for ${regionCode} — skipping.`);
+        console.log(
+          `No regional source registered for ${regionCode} — skipping.`,
+        );
         continue;
       }
 
@@ -91,7 +99,9 @@ async function main() {
       });
 
       if (result.alreadyImported) {
-        console.log(`${regionCode}: this exact word list has already been imported. Nothing to do.`);
+        console.log(
+          `${regionCode}: this exact word list has already been imported. Nothing to do.`,
+        );
         continue;
       }
 
@@ -105,15 +115,22 @@ async function main() {
           action: "DICTIONARY_IMPORT_COMPLETED",
           resourceType: "lexical_import",
           resourceId: result.importId,
-          afterData: { sourceCode, regionCode, recordsRetained: result.recordsRetained },
+          afterData: {
+            sourceCode,
+            regionCode,
+            recordsRetained: result.recordsRetained,
+          },
         });
       }
     }
 
     // A new word list changes the answer for entries that already existed,
     // so evidence is always recomputed — not only for entries imported today.
-    const dictionarySourceCode = getDictionarySourceCodeForLanguage(languageCode);
-    const dictionarySource = dictionarySourceCode ? await getLexicalSourceByCode(db, dictionarySourceCode) : null;
+    const dictionarySourceCode =
+      getDictionarySourceCodeForLanguage(languageCode);
+    const dictionarySource = dictionarySourceCode
+      ? await getLexicalSourceByCode(db, dictionarySourceCode)
+      : null;
     if (dictionarySource) {
       const evidence = await refreshRegionalEvidence(db, {
         languageId: language.id,
@@ -123,7 +140,9 @@ async function main() {
       });
       console.log(`Regional evidence refreshed: ${evidence.evaluated} rows`);
     } else {
-      console.log("No dictionary entries imported yet — regional evidence will be computed on the next dictionary import.");
+      console.log(
+        "No dictionary entries imported yet — regional evidence will be computed on the next dictionary import.",
+      );
     }
   } finally {
     await pool.end();
@@ -131,6 +150,9 @@ async function main() {
 }
 
 main().catch((error: unknown) => {
-  console.error("Regional import failed:", error instanceof Error ? error.message : "Unknown error");
+  console.error(
+    "Regional import failed:",
+    error instanceof Error ? error.message : "Unknown error",
+  );
   process.exitCode = 1;
 });

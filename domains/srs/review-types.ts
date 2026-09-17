@@ -17,7 +17,9 @@ import type {
 import type { SrsStage } from "./srs-types";
 
 export type ReviewItemType = z.infer<typeof reviewItemTypeSchema>;
-export type ReviewQuestionDirection = z.infer<typeof reviewQuestionDirectionSchema>;
+export type ReviewQuestionDirection = z.infer<
+  typeof reviewQuestionDirectionSchema
+>;
 export type ReviewQuestion = z.infer<typeof reviewQuestionSchema>;
 export type ReviewItemSnapshot = z.infer<typeof reviewItemSnapshotSchema>;
 export type ReviewSessionStats = z.infer<typeof reviewSessionStatsSchema>;
@@ -156,5 +158,9 @@ export type ReviewSessionResult = {
 };
 
 export type ReviewStartResult =
-  | { kind: "empty"; nextReviewAt: Date | null; ghostReviews: GhostReviewView[] }
+  | {
+      kind: "empty";
+      nextReviewAt: Date | null;
+      ghostReviews: GhostReviewView[];
+    }
   | ({ kind: "session" } & ReviewSessionResult);

@@ -12,7 +12,11 @@ import { MotionConfig } from "motion/react";
  * `globals.css`. Between the two, reduced motion removes movement without
  * removing any content or control.
  */
-export default function OnboardingLayout({ children }: { children: ReactNode }) {
+export default function OnboardingLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
   return (
     <MotionConfig reducedMotion="user">
       <main id="main" className="flex-1">

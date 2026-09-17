@@ -6,7 +6,12 @@
  * Future publication/sandbox orchestration (spec 11 §76) follows the same
  * split as it's added.
  */
-export { canAccessAdminArea, canManageCurriculum, canPublishCurriculum, canUseDeveloperTools } from "./authorization";
+export {
+  canAccessAdminArea,
+  canManageCurriculum,
+  canPublishCurriculum,
+  canUseDeveloperTools,
+} from "./authorization";
 export { ADMIN_AUDIT_ACTIONS } from "./audit-types";
 export type {
   AdminAuditAction,

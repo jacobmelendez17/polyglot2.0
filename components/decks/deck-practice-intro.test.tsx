@@ -4,7 +4,9 @@ import userEvent from "@testing-library/user-event";
 
 import { DeckPracticeIntro } from "@/components/decks/deck-practice-intro";
 
-function renderIntro(overrides: Partial<Parameters<typeof DeckPracticeIntro>[0]> = {}) {
+function renderIntro(
+  overrides: Partial<Parameters<typeof DeckPracticeIntro>[0]> = {},
+) {
   const props = {
     deckName: "Kitchen words",
     itemCount: 12,
@@ -22,7 +24,9 @@ function renderIntro(overrides: Partial<Parameters<typeof DeckPracticeIntro>[0]>
 describe("DeckPracticeIntro", () => {
   it("names the deck and what the session will cover", () => {
     renderIntro();
-    expect(screen.getByRole("heading", { name: "Kitchen words" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Kitchen words" }),
+    ).toBeInTheDocument();
     expect(screen.getByText("12 items · 24 questions")).toBeInTheDocument();
   });
 
@@ -41,7 +45,9 @@ describe("DeckPracticeIntro", () => {
   it("tells the learner up front that practice will not touch their SRS progress", () => {
     renderIntro();
     expect(
-      screen.getByText("Deck practice never changes your SRS stages, review times, or curriculum progress."),
+      screen.getByText(
+        "Deck practice never changes your SRS stages, review times, or curriculum progress.",
+      ),
     ).toBeInTheDocument();
   });
 

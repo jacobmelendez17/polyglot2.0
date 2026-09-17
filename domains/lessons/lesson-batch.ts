@@ -1,4 +1,8 @@
-import type { LearningItem, VocabularyItem, VocabularyTheme } from "@/domains/curriculum";
+import type {
+  LearningItem,
+  VocabularyItem,
+  VocabularyTheme,
+} from "@/domains/curriculum";
 import type { CurriculumMode, GrammarPlacement } from "@/domains/users";
 
 import type { LessonBatchItem } from "./lesson-types";
@@ -37,7 +41,8 @@ function isVocabulary(item: LearningItem): item is VocabularyItem {
 
 function byLessonPriority(a: LearningItem, b: LearningItem): number {
   if (a.levelNumber !== b.levelNumber) return a.levelNumber - b.levelNumber;
-  if (a.lessonPriority !== b.lessonPriority) return a.lessonPriority - b.lessonPriority;
+  if (a.lessonPriority !== b.lessonPriority)
+    return a.lessonPriority - b.lessonPriority;
   // Final tiebreak so two items sharing a priority never depend on the
   // order the database happened to return them in.
   return a.id.localeCompare(b.id);
@@ -45,7 +50,9 @@ function byLessonPriority(a: LearningItem, b: LearningItem): number {
 
 /** Vocabulary in authored order: by group position, then lesson priority within the group — Default Order's "Group 1, then Group 2, ..." (spec 20). */
 function byGroupThenPriority(a: VocabularyItem, b: VocabularyItem): number {
-  const positionDifference = (a.theme?.position ?? Number.MAX_SAFE_INTEGER) - (b.theme?.position ?? Number.MAX_SAFE_INTEGER);
+  const positionDifference =
+    (a.theme?.position ?? Number.MAX_SAFE_INTEGER) -
+    (b.theme?.position ?? Number.MAX_SAFE_INTEGER);
   return positionDifference !== 0 ? positionDifference : byLessonPriority(a, b);
 }
 
@@ -57,7 +64,9 @@ function byGroupThenPriority(a: VocabularyItem, b: VocabularyItem): number {
  */
 function currentLevelItems(eligibleItems: LearningItem[]): LearningItem[] {
   if (eligibleItems.length === 0) return [];
-  const currentLevel = Math.min(...eligibleItems.map((item) => item.levelNumber));
+  const currentLevel = Math.min(
+    ...eligibleItems.map((item) => item.levelNumber),
+  );
   return eligibleItems.filter((item) => item.levelNumber === currentLevel);
 }
 
@@ -84,13 +93,17 @@ function grammarShareOf(vocabularyCount: number, grammarCount: number): number {
  * without tracking group completion separately (spec 16's scope limit: no
  * permanent per-group progress system).
  */
-export function getAvailableThemes(eligibleItems: LearningItem[]): VocabularyTheme[] {
+export function getAvailableThemes(
+  eligibleItems: LearningItem[],
+): VocabularyTheme[] {
   const byId = new Map<string, VocabularyTheme>();
   for (const item of currentLevelItems(eligibleItems)) {
     if (!isVocabulary(item) || !item.theme) continue;
     if (!byId.has(item.theme.id)) byId.set(item.theme.id, item.theme);
   }
-  return [...byId.values()].sort((a, b) => a.position - b.position || a.name.localeCompare(b.name));
+  return [...byId.values()].sort(
+    (a, b) => a.position - b.position || a.name.localeCompare(b.name),
+  );
 }
 
 /**
@@ -101,7 +114,10 @@ export function getAvailableThemes(eligibleItems: LearningItem[]): VocabularyThe
  * ("redistribute naturally when a group has fewer remaining items") — no
  * attempt is made to force exactly equal counts.
  */
-function selectVarietyVocabulary(vocabulary: VocabularyItem[], slots: number): VocabularyItem[] {
+function selectVarietyVocabulary(
+  vocabulary: VocabularyItem[],
+  slots: number,
+): VocabularyItem[] {
   const queues = new Map<string, VocabularyItem[]>();
   for (const item of [...vocabulary].sort(byLessonPriority)) {
     const key = item.theme?.id ?? "";
@@ -110,7 +126,9 @@ function selectVarietyVocabulary(vocabulary: VocabularyItem[], slots: number): V
     queues.set(key, queue);
   }
 
-  const ordered = [...queues.entries()].sort(([, a], [, b]) => byGroupThenPriority(a[0]!, b[0]!));
+  const ordered = [...queues.entries()].sort(([, a], [, b]) =>
+    byGroupThenPriority(a[0]!, b[0]!),
+  );
 
   const selected: VocabularyItem[] = [];
   let round = 0;
@@ -192,7 +210,9 @@ export function selectLessonBatch({
   const candidates = currentLevelItems(eligibleItems);
   if (candidates.length === 0) return [];
 
-  const grammar = candidates.filter((item) => item.type === "grammar").sort(byLessonPriority);
+  const grammar = candidates
+    .filter((item) => item.type === "grammar")
+    .sort(byLessonPriority);
   const vocabulary = candidates.filter(isVocabulary).sort(byLessonPriority);
 
   if (mode === "default_order") {
@@ -222,18 +242,26 @@ export function selectLessonBatch({
 
   const selectedVocabulary =
     mode === "choose_group"
-      ? vocabulary.filter((item) => item.theme?.id === selectedThemeId).slice(0, vocabularySlots)
+      ? vocabulary
+          .filter((item) => item.theme?.id === selectedThemeId)
+          .slice(0, vocabularySlots)
       : selectVarietyVocabulary(vocabulary, vocabularySlots);
 
-  const grammarSlots = selectedVocabulary.length === 0 ? batchSize : reservedGrammar;
+  const grammarSlots =
+    selectedVocabulary.length === 0 ? batchSize : reservedGrammar;
   const selectedGrammar = grammar.slice(0, grammarSlots);
 
   // Grammar Placement only applies to Variety — Choose Group as You Go
   // ignores it and always appends grammar after vocabulary (spec 20: "the
   // setting does not affect Choose Group as You Go").
   if (mode === "variety") {
-    if (grammarPlacement === "first") return [...selectedGrammar, ...selectedVocabulary];
-    if (grammarPlacement === "no_preference") return interleaveEvenly<LearningItem>(selectedVocabulary, selectedGrammar);
+    if (grammarPlacement === "first")
+      return [...selectedGrammar, ...selectedVocabulary];
+    if (grammarPlacement === "no_preference")
+      return interleaveEvenly<LearningItem>(
+        selectedVocabulary,
+        selectedGrammar,
+      );
   }
   return [...selectedVocabulary, ...selectedGrammar];
 }

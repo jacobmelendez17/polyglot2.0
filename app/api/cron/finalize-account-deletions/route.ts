@@ -23,7 +23,10 @@ export async function GET(request: Request): Promise<Response> {
     // Not configured for this environment (local/test, or a deployment
     // that hasn't set it yet) — nothing to authenticate against, so refuse
     // rather than silently running an unauthenticated finalize job.
-    return NextResponse.json({ error: "CRON_SECRET is not configured" }, { status: 501 });
+    return NextResponse.json(
+      { error: "CRON_SECRET is not configured" },
+      { status: 501 },
+    );
   }
 
   const authorizationHeader = request.headers.get("authorization");

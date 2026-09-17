@@ -1,6 +1,13 @@
 import type { DbClient } from "@/db/client";
 import { languages, userLevelProgress, users } from "@/db/schema";
-import { createItem, createLevel, createVocabularyGroup, publishItem, updateLevel, updateVocabularyGroup } from "@/domains/admin/publication-service";
+import {
+  createItem,
+  createLevel,
+  createVocabularyGroup,
+  publishItem,
+  updateLevel,
+  updateVocabularyGroup,
+} from "@/domains/admin/publication-service";
 import { getDefaultLanguageCode } from "@/domains/users";
 
 /**
@@ -19,9 +26,24 @@ export const E2E_VOCAB_GROUPS = [
   {
     name: "Casa y Familia",
     items: [
-      { term: "gato", primaryMeaning: "cat", article: "el", partOfSpeech: "noun" },
-      { term: "casa", primaryMeaning: "house", article: "la", partOfSpeech: "noun" },
-      { term: "agua", primaryMeaning: "water", article: "el", partOfSpeech: "noun" },
+      {
+        term: "gato",
+        primaryMeaning: "cat",
+        article: "el",
+        partOfSpeech: "noun",
+      },
+      {
+        term: "casa",
+        primaryMeaning: "house",
+        article: "la",
+        partOfSpeech: "noun",
+      },
+      {
+        term: "agua",
+        primaryMeaning: "water",
+        article: "el",
+        partOfSpeech: "noun",
+      },
     ],
   },
   {
@@ -35,12 +57,24 @@ export const E2E_VOCAB_GROUPS = [
 ] as const;
 
 export const E2E_GRAMMAR_ITEMS = [
-  { structure: "y", primaryMeaning: "and", explanation: "Connects two words, phrases, or clauses." },
-  { structure: "pero", primaryMeaning: "but", explanation: "Introduces a contrast between two ideas." },
+  {
+    structure: "y",
+    primaryMeaning: "and",
+    explanation: "Connects two words, phrases, or clauses.",
+  },
+  {
+    structure: "pero",
+    primaryMeaning: "but",
+    explanation: "Introduces a contrast between two ideas.",
+  },
 ] as const;
 
 export const E2E_ADMIN_TEST_GROUP_NAME = "Admin Test Content";
-export const E2E_PENDING_ITEM = { term: "amarillo", primaryMeaning: "yellow", partOfSpeech: "adjective" } as const;
+export const E2E_PENDING_ITEM = {
+  term: "amarillo",
+  primaryMeaning: "yellow",
+  partOfSpeech: "adjective",
+} as const;
 
 export interface E2EFixtureIds {
   languageId: string;
@@ -61,9 +95,15 @@ export interface SeedE2EFixturesOptions {
   adminClerkUserId: string;
 }
 
-export async function seedE2EFixtures(db: DbClient, options: SeedE2EFixturesOptions): Promise<E2EFixtureIds> {
+export async function seedE2EFixtures(
+  db: DbClient,
+  options: SeedE2EFixturesOptions,
+): Promise<E2EFixtureIds> {
   const languageCode = getDefaultLanguageCode();
-  const [language] = await db.insert(languages).values({ code: languageCode, slug: "spanish", name: "Spanish" }).returning();
+  const [language] = await db
+    .insert(languages)
+    .values({ code: languageCode, slug: "spanish", name: "Spanish" })
+    .returning();
   const languageId = language!.id;
 
   // The admin identity is provisioned directly (not through
@@ -74,13 +114,23 @@ export async function seedE2EFixtures(db: DbClient, options: SeedE2EFixturesOpti
   // admin: a direct row, not a self-serve elevation flow.
   const [adminUser] = await db
     .insert(users)
-    .values({ clerkUserId: options.adminClerkUserId, role: "admin", timezone: "UTC", activeLanguageId: languageId })
+    .values({
+      clerkUserId: options.adminClerkUserId,
+      role: "admin",
+      timezone: "UTC",
+      activeLanguageId: languageId,
+    })
     .returning();
   const adminId = adminUser!.id;
 
   const [learnerUser] = await db
     .insert(users)
-    .values({ clerkUserId: options.learnerClerkUserId, role: "user", timezone: "UTC", activeLanguageId: languageId })
+    .values({
+      clerkUserId: options.learnerClerkUserId,
+      role: "user",
+      timezone: "UTC",
+      activeLanguageId: languageId,
+    })
     .returning();
   const learnerId = learnerUser!.id;
 
@@ -95,7 +145,9 @@ export async function seedE2EFixtures(db: DbClient, options: SeedE2EFixturesOpti
   // Every new learner has Level 1 unlocked from the start (see
   // domains/users/user-repository.ts's provisionUser) — reproduced directly
   // here since this identity bypasses that function.
-  await db.insert(userLevelProgress).values({ userId: learnerId, levelId, unlockedAt: new Date() });
+  await db
+    .insert(userLevelProgress)
+    .values({ userId: learnerId, levelId, unlockedAt: new Date() });
 
   const vocabularyItemIdByTerm: Record<string, string> = {};
   for (const group of E2E_VOCAB_GROUPS) {
@@ -106,7 +158,12 @@ export async function seedE2EFixtures(db: DbClient, options: SeedE2EFixturesOpti
       actorUserId: adminId,
       idempotencyKey: crypto.randomUUID(),
     });
-    await updateVocabularyGroup(db, { groupId, actorUserId: adminId, status: "published", idempotencyKey: crypto.randomUUID() });
+    await updateVocabularyGroup(db, {
+      groupId,
+      actorUserId: adminId,
+      status: "published",
+      idempotencyKey: crypto.randomUUID(),
+    });
 
     for (const item of group.items) {
       const { learningItemId } = await createItem(db, {
@@ -124,7 +181,12 @@ export async function seedE2EFixtures(db: DbClient, options: SeedE2EFixturesOpti
         },
         idempotencyKey: crypto.randomUUID(),
       });
-      await publishItem(db, { learningItemId, actorUserId: adminId, expectedVersion: 1, idempotencyKey: crypto.randomUUID() });
+      await publishItem(db, {
+        learningItemId,
+        actorUserId: adminId,
+        expectedVersion: 1,
+        idempotencyKey: crypto.randomUUID(),
+      });
       vocabularyItemIdByTerm[item.term] = learningItemId;
     }
   }
@@ -140,12 +202,19 @@ export async function seedE2EFixtures(db: DbClient, options: SeedE2EFixturesOpti
         structure: item.structure,
         primaryMeaning: item.primaryMeaning,
         explanation: item.explanation,
-        requiredQuestions: [{ format: "translation", direction: "targetToEnglish" }],
+        requiredQuestions: [
+          { format: "translation", direction: "targetToEnglish" },
+        ],
         acceptedAnswers: [],
       },
       idempotencyKey: crypto.randomUUID(),
     });
-    await publishItem(db, { learningItemId, actorUserId: adminId, expectedVersion: 1, idempotencyKey: crypto.randomUUID() });
+    await publishItem(db, {
+      learningItemId,
+      actorUserId: adminId,
+      expectedVersion: 1,
+      idempotencyKey: crypto.randomUUID(),
+    });
     grammarItemIdByStructure[item.structure] = learningItemId;
   }
 
@@ -158,7 +227,12 @@ export async function seedE2EFixtures(db: DbClient, options: SeedE2EFixturesOpti
     actorUserId: adminId,
     idempotencyKey: crypto.randomUUID(),
   });
-  await updateVocabularyGroup(db, { groupId: pendingGroupId, actorUserId: adminId, status: "published", idempotencyKey: crypto.randomUUID() });
+  await updateVocabularyGroup(db, {
+    groupId: pendingGroupId,
+    actorUserId: adminId,
+    status: "published",
+    idempotencyKey: crypto.randomUUID(),
+  });
 
   const { learningItemId: pendingItemId } = await createItem(db, {
     languageId,
@@ -176,7 +250,12 @@ export async function seedE2EFixtures(db: DbClient, options: SeedE2EFixturesOpti
   });
   // Deliberately never published.
 
-  await updateLevel(db, { levelId, actorUserId: adminId, status: "published", idempotencyKey: crypto.randomUUID() });
+  await updateLevel(db, {
+    levelId,
+    actorUserId: adminId,
+    status: "published",
+    idempotencyKey: crypto.randomUUID(),
+  });
 
   return {
     languageId,

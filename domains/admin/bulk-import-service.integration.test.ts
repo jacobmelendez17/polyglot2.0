@@ -18,10 +18,17 @@ import {
   updateVocabularyFieldsFromImport,
 } from "@/domains/curriculum/curriculum-mutation-repository";
 import { GRAMMAR_GROUP_NUMBER } from "@/domains/curriculum/vocabulary-import-parsing";
-import type { ParsedGrammarFields, ParsedVocabularyFields, ValidatedImportRow } from "@/domains/curriculum/vocabulary-import-parsing";
+import type {
+  ParsedGrammarFields,
+  ParsedVocabularyFields,
+  ValidatedImportRow,
+} from "@/domains/curriculum/vocabulary-import-parsing";
 
 import { getAuditEvents } from "./audit-repository";
-import { bulkImportVocabulary, previewVocabularyImport } from "./bulk-import-service";
+import {
+  bulkImportVocabulary,
+  previewVocabularyImport,
+} from "./bulk-import-service";
 import type { ImportRowDecision } from "./bulk-import-service";
 
 // The fixture's own levels, not the application's (2026-09-09): fixtures
@@ -35,7 +42,10 @@ const LEVEL_1_GROUP_1 = 1;
 const LEVEL_2_NUMBER = FIXTURE_NEXT_LEVEL_NUMBER;
 const NONEXISTENT_LEVEL_NUMBER = 999;
 
-function vocabFields(overrides: Partial<ParsedVocabularyFields> & Pick<ParsedVocabularyFields, "term" | "primaryMeaning">): ParsedVocabularyFields {
+function vocabFields(
+  overrides: Partial<ParsedVocabularyFields> &
+    Pick<ParsedVocabularyFields, "term" | "primaryMeaning">,
+): ParsedVocabularyFields {
   return {
     itemType: "vocabulary",
     levelNumber: LEVEL_1_NUMBER,
@@ -52,7 +62,10 @@ function vocabFields(overrides: Partial<ParsedVocabularyFields> & Pick<ParsedVoc
   };
 }
 
-function grammarFields(overrides: Partial<ParsedGrammarFields> & Pick<ParsedGrammarFields, "structure" | "primaryMeaning">): ParsedGrammarFields {
+function grammarFields(
+  overrides: Partial<ParsedGrammarFields> &
+    Pick<ParsedGrammarFields, "structure" | "primaryMeaning">,
+): ParsedGrammarFields {
   return {
     itemType: "grammar",
     levelNumber: LEVEL_1_NUMBER,
@@ -60,37 +73,70 @@ function grammarFields(overrides: Partial<ParsedGrammarFields> & Pick<ParsedGram
     explanation: "",
     category: null,
     creatorNotes: null,
-    requiredQuestions: [{ format: "translation", direction: "targetToEnglish" }],
+    requiredQuestions: [
+      { format: "translation", direction: "targetToEnglish" },
+    ],
     acceptedAnswers: [],
     ...overrides,
   };
 }
 
-function validRow(rowNumber: number, term: string, primaryMeaning: string): ValidatedImportRow {
-  return { rowNumber, raw: { word: term, translation: primaryMeaning, level: String(LEVEL_1_NUMBER), group: String(LEVEL_1_GROUP_1) }, fields: vocabFields({ term, primaryMeaning }), fieldIssues: [] };
+function validRow(
+  rowNumber: number,
+  term: string,
+  primaryMeaning: string,
+): ValidatedImportRow {
+  return {
+    rowNumber,
+    raw: {
+      word: term,
+      translation: primaryMeaning,
+      level: String(LEVEL_1_NUMBER),
+      group: String(LEVEL_1_GROUP_1),
+    },
+    fields: vocabFields({ term, primaryMeaning }),
+    fieldIssues: [],
+  };
 }
 
 describe("previewVocabularyImport", () => {
   it("flags no issues for unique, well-formed rows", async () => {
     await withTestTransaction(async (tx) => {
       const { languageId } = await seedTestFixtures(tx);
-      const preview = await previewVocabularyImport(tx, { languageId, validatedRows: [validRow(2, "perro", "dog"), validRow(3, "pajaro", "bird")] });
+      const preview = await previewVocabularyImport(tx, {
+        languageId,
+        validatedRows: [
+          validRow(2, "perro", "dog"),
+          validRow(3, "pajaro", "bird"),
+        ],
+      });
 
-      expect(preview.every((row) => row.existingDuplicates.length === 0 && row.duplicateOfEarlierRow === null)).toBe(true);
+      expect(
+        preview.every(
+          (row) =>
+            row.existingDuplicates.length === 0 &&
+            row.duplicateOfEarlierRow === null,
+        ),
+      ).toBe(true);
     });
   });
 
   it("treats a row matching an existing item as an update of it, not a duplicate of it", async () => {
     await withTestTransaction(async (tx) => {
       const { languageId } = await seedTestFixtures(tx);
-      const preview = await previewVocabularyImport(tx, { languageId, validatedRows: [validRow(2, "gato", "cat (again)")] });
+      const preview = await previewVocabularyImport(tx, {
+        languageId,
+        validatedRows: [validRow(2, "gato", "cat (again)")],
+      });
 
       // Before spec 17 this row was a duplicate an admin had to approve as a
       // homonym; re-importing a corrected file is now ordinary, so the row
       // resolves to the item it names and reports what it would change.
       expect(preview[0]!.action).toBe("update");
       expect(preview[0]!.matchedItemId).toBe(ITEM_GATO_ID);
-      expect(preview[0]!.changes).toEqual([{ field: "primaryMeaning", from: "cat", to: "cat (again)" }]);
+      expect(preview[0]!.changes).toEqual([
+        { field: "primaryMeaning", from: "cat", to: "cat (again)" },
+      ]);
       expect(preview[0]!.existingDuplicates).toHaveLength(0);
     });
   });
@@ -98,7 +144,13 @@ describe("previewVocabularyImport", () => {
   it("flags the second of two same-term rows in the same file, referencing the first row's number", async () => {
     await withTestTransaction(async (tx) => {
       const { languageId } = await seedTestFixtures(tx);
-      const preview = await previewVocabularyImport(tx, { languageId, validatedRows: [validRow(2, "perro", "dog"), validRow(5, "PERRO", "dog again")] });
+      const preview = await previewVocabularyImport(tx, {
+        languageId,
+        validatedRows: [
+          validRow(2, "perro", "dog"),
+          validRow(5, "PERRO", "dog again"),
+        ],
+      });
 
       expect(preview[0]!.duplicateOfEarlierRow).toBeNull();
       expect(preview[1]!.duplicateOfEarlierRow).toBe(2);
@@ -108,8 +160,16 @@ describe("previewVocabularyImport", () => {
   it("passes field issues through unchanged for a row with no usable fields, without checking duplicates for it", async () => {
     await withTestTransaction(async (tx) => {
       const { languageId } = await seedTestFixtures(tx);
-      const invalidRow: ValidatedImportRow = { rowNumber: 2, raw: { word: "", translation: "", level: "", group: "" }, fields: null, fieldIssues: [{ field: "word", message: "Missing word." }] };
-      const preview = await previewVocabularyImport(tx, { languageId, validatedRows: [invalidRow] });
+      const invalidRow: ValidatedImportRow = {
+        rowNumber: 2,
+        raw: { word: "", translation: "", level: "", group: "" },
+        fields: null,
+        fieldIssues: [{ field: "word", message: "Missing word." }],
+      };
+      const preview = await previewVocabularyImport(tx, {
+        languageId,
+        validatedRows: [invalidRow],
+      });
 
       expect(preview[0]).toMatchObject({
         rowNumber: 2,
@@ -128,14 +188,31 @@ describe("previewVocabularyImport", () => {
       const { languageId } = await seedTestFixtures(tx);
       const row: ValidatedImportRow = {
         rowNumber: 2,
-        raw: { word: "perro", translation: "dog", level: String(NONEXISTENT_LEVEL_NUMBER), group: "1" },
-        fields: vocabFields({ term: "perro", primaryMeaning: "dog", levelNumber: NONEXISTENT_LEVEL_NUMBER }),
+        raw: {
+          word: "perro",
+          translation: "dog",
+          level: String(NONEXISTENT_LEVEL_NUMBER),
+          group: "1",
+        },
+        fields: vocabFields({
+          term: "perro",
+          primaryMeaning: "dog",
+          levelNumber: NONEXISTENT_LEVEL_NUMBER,
+        }),
         fieldIssues: [],
       };
-      const preview = await previewVocabularyImport(tx, { languageId, validatedRows: [row] });
+      const preview = await previewVocabularyImport(tx, {
+        languageId,
+        validatedRows: [row],
+      });
 
       expect(preview[0]!.fields).toBeNull();
-      expect(preview[0]!.fieldIssues).toEqual([{ field: "level", message: `Level ${NONEXISTENT_LEVEL_NUMBER} doesn't exist yet.` }]);
+      expect(preview[0]!.fieldIssues).toEqual([
+        {
+          field: "level",
+          message: `Level ${NONEXISTENT_LEVEL_NUMBER} doesn't exist yet.`,
+        },
+      ]);
     });
   });
 
@@ -144,14 +221,32 @@ describe("previewVocabularyImport", () => {
       const { languageId } = await seedTestFixtures(tx);
       const row: ValidatedImportRow = {
         rowNumber: 2,
-        raw: { word: "perro", translation: "dog", level: String(LEVEL_2_NUMBER), group: "1" },
-        fields: vocabFields({ term: "perro", primaryMeaning: "dog", levelNumber: LEVEL_2_NUMBER, groupNumber: 1 }),
+        raw: {
+          word: "perro",
+          translation: "dog",
+          level: String(LEVEL_2_NUMBER),
+          group: "1",
+        },
+        fields: vocabFields({
+          term: "perro",
+          primaryMeaning: "dog",
+          levelNumber: LEVEL_2_NUMBER,
+          groupNumber: 1,
+        }),
         fieldIssues: [],
       };
-      const preview = await previewVocabularyImport(tx, { languageId, validatedRows: [row] });
+      const preview = await previewVocabularyImport(tx, {
+        languageId,
+        validatedRows: [row],
+      });
 
       expect(preview[0]!.fields).toBeNull();
-      expect(preview[0]!.fieldIssues).toEqual([{ field: "group", message: `Level ${LEVEL_2_NUMBER} has no group 1 yet.` }]);
+      expect(preview[0]!.fieldIssues).toEqual([
+        {
+          field: "group",
+          message: `Level ${LEVEL_2_NUMBER} has no group 1 yet.`,
+        },
+      ]);
     });
   });
 
@@ -160,11 +255,22 @@ describe("previewVocabularyImport", () => {
       const { languageId } = await seedTestFixtures(tx);
       const row: ValidatedImportRow = {
         rowNumber: 2,
-        raw: { word: "ser vs estar", translation: "to be", level: String(LEVEL_1_NUMBER), group: String(GRAMMAR_GROUP_NUMBER) },
-        fields: grammarFields({ structure: "ser vs estar", primaryMeaning: "to be" }),
+        raw: {
+          word: "ser vs estar",
+          translation: "to be",
+          level: String(LEVEL_1_NUMBER),
+          group: String(GRAMMAR_GROUP_NUMBER),
+        },
+        fields: grammarFields({
+          structure: "ser vs estar",
+          primaryMeaning: "to be",
+        }),
         fieldIssues: [],
       };
-      const preview = await previewVocabularyImport(tx, { languageId, validatedRows: [row] });
+      const preview = await previewVocabularyImport(tx, {
+        languageId,
+        validatedRows: [row],
+      });
 
       expect(preview[0]!.fields).not.toBeNull();
       expect(preview[0]!.fieldIssues).toEqual([]);
@@ -178,12 +284,29 @@ describe("bulkImportVocabulary", () => {
       const { languageId } = await seedTestFixtures(tx);
       const idempotencyKey = crypto.randomUUID();
       const rows: ImportRowDecision[] = [
-        { fields: vocabFields({ term: "perro", primaryMeaning: "dog" }), decision: "import" },
-        { fields: vocabFields({ term: "gato_duplicate_skip_me", primaryMeaning: "should not be created" }), decision: "skip" },
-        { fields: vocabFields({ term: "pajaro", primaryMeaning: "bird" }), decision: "import" },
+        {
+          fields: vocabFields({ term: "perro", primaryMeaning: "dog" }),
+          decision: "import",
+        },
+        {
+          fields: vocabFields({
+            term: "gato_duplicate_skip_me",
+            primaryMeaning: "should not be created",
+          }),
+          decision: "skip",
+        },
+        {
+          fields: vocabFields({ term: "pajaro", primaryMeaning: "bird" }),
+          decision: "import",
+        },
       ];
 
-      const result = await bulkImportVocabulary(tx, { languageId, actorUserId: DEVELOPER_ID, idempotencyKey, rows });
+      const result = await bulkImportVocabulary(tx, {
+        languageId,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey,
+        rows,
+      });
 
       expect(result.createdVocabularyItemIds).toHaveLength(2);
       expect(result.createdGrammarItemIds).toHaveLength(0);
@@ -192,8 +315,13 @@ describe("bulkImportVocabulary", () => {
         expect(item?.status).toBe("pending");
       }
 
-      const audit = await getAuditEvents(tx, { action: "CURRICULUM_ITEM_CREATED", limit: 10 });
-      const forThisBatch = audit.items.filter((e) => e.correlationId === idempotencyKey);
+      const audit = await getAuditEvents(tx, {
+        action: "CURRICULUM_ITEM_CREATED",
+        limit: 10,
+      });
+      const forThisBatch = audit.items.filter(
+        (e) => e.correlationId === idempotencyKey,
+      );
       expect(forThisBatch).toHaveLength(2);
     });
   });
@@ -202,15 +330,32 @@ describe("bulkImportVocabulary", () => {
     await withTestTransaction(async (tx) => {
       const { languageId } = await seedTestFixtures(tx);
       const rows: ImportRowDecision[] = [
-        { fields: vocabFields({ term: "perro", primaryMeaning: "dog" }), decision: "import" },
-        { fields: grammarFields({ structure: "ser vs estar", primaryMeaning: "to be" }), decision: "import" },
+        {
+          fields: vocabFields({ term: "perro", primaryMeaning: "dog" }),
+          decision: "import",
+        },
+        {
+          fields: grammarFields({
+            structure: "ser vs estar",
+            primaryMeaning: "to be",
+          }),
+          decision: "import",
+        },
       ];
 
-      const result = await bulkImportVocabulary(tx, { languageId, actorUserId: DEVELOPER_ID, idempotencyKey: crypto.randomUUID(), rows });
+      const result = await bulkImportVocabulary(tx, {
+        languageId,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+        rows,
+      });
 
       expect(result.createdVocabularyItemIds).toHaveLength(1);
       expect(result.createdGrammarItemIds).toHaveLength(1);
-      const grammarItem = await lockLearningItemForEdit(tx, result.createdGrammarItemIds[0]!);
+      const grammarItem = await lockLearningItemForEdit(
+        tx,
+        result.createdGrammarItemIds[0]!,
+      );
       expect(grammarItem?.type).toBe("grammar");
       expect(grammarItem?.status).toBe("pending");
     });
@@ -225,7 +370,15 @@ describe("bulkImportVocabulary", () => {
         languageId,
         actorUserId: DEVELOPER_ID,
         idempotencyKey,
-        rows: [{ fields: vocabFields({ term: "gato", primaryMeaning: "cat (deliberate homonym)" }), decision: "import" }],
+        rows: [
+          {
+            fields: vocabFields({
+              term: "gato",
+              primaryMeaning: "cat (deliberate homonym)",
+            }),
+            decision: "import",
+          },
+        ],
       });
 
       // Until spec 17 this created a second `gato` and recorded
@@ -236,8 +389,13 @@ describe("bulkImportVocabulary", () => {
       // be told apart.
       expect(result.createdVocabularyItemIds).toHaveLength(0);
       expect(result.draftedItemIds).toEqual([ITEM_GATO_ID]);
-      const audit = await getAuditEvents(tx, { action: "DUPLICATE_APPROVED", limit: 10 });
-      expect(audit.items.some((e) => e.correlationId === idempotencyKey)).toBe(false);
+      const audit = await getAuditEvents(tx, {
+        action: "DUPLICATE_APPROVED",
+        limit: 10,
+      });
+      expect(audit.items.some((e) => e.correlationId === idempotencyKey)).toBe(
+        false,
+      );
     });
   });
 
@@ -249,7 +407,12 @@ describe("bulkImportVocabulary", () => {
           languageId,
           actorUserId: DEVELOPER_ID,
           idempotencyKey: crypto.randomUUID(),
-          rows: [{ fields: vocabFields({ term: "perro", primaryMeaning: "dog" }), decision: "skip" }],
+          rows: [
+            {
+              fields: vocabFields({ term: "perro", primaryMeaning: "dog" }),
+              decision: "skip",
+            },
+          ],
         }),
       ).rejects.toThrow();
     });
@@ -263,7 +426,16 @@ describe("bulkImportVocabulary", () => {
           languageId,
           actorUserId: DEVELOPER_ID,
           idempotencyKey: crypto.randomUUID(),
-          rows: [{ fields: vocabFields({ term: "perro", primaryMeaning: "dog", levelNumber: NONEXISTENT_LEVEL_NUMBER }), decision: "import" }],
+          rows: [
+            {
+              fields: vocabFields({
+                term: "perro",
+                primaryMeaning: "dog",
+                levelNumber: NONEXISTENT_LEVEL_NUMBER,
+              }),
+              decision: "import",
+            },
+          ],
         }),
       ).rejects.toThrow();
     });
@@ -277,7 +449,17 @@ describe("bulkImportVocabulary", () => {
           languageId,
           actorUserId: DEVELOPER_ID,
           idempotencyKey: crypto.randomUUID(),
-          rows: [{ fields: vocabFields({ term: "perro", primaryMeaning: "dog", levelNumber: LEVEL_2_NUMBER, groupNumber: 1 }), decision: "import" }],
+          rows: [
+            {
+              fields: vocabFields({
+                term: "perro",
+                primaryMeaning: "dog",
+                levelNumber: LEVEL_2_NUMBER,
+                groupNumber: 1,
+              }),
+              decision: "import",
+            },
+          ],
         }),
       ).rejects.toThrow();
     });
@@ -291,19 +473,31 @@ describe("bulkImportVocabulary", () => {
         actorUserId: DEVELOPER_ID,
         idempotencyKey: crypto.randomUUID(),
         rows: [
-          { fields: vocabFields({ term: "perro", primaryMeaning: "dog" }), decision: "import" },
-          { fields: vocabFields({ term: "pajaro", primaryMeaning: "bird" }), decision: "import" },
+          {
+            fields: vocabFields({ term: "perro", primaryMeaning: "dog" }),
+            decision: "import",
+          },
+          {
+            fields: vocabFields({ term: "pajaro", primaryMeaning: "bird" }),
+            decision: "import",
+          },
         ],
       });
 
-      const [first, second] = await Promise.all(result.createdVocabularyItemIds.map((id) => lockLearningItemForEdit(tx, id)));
+      const [first, second] = await Promise.all(
+        result.createdVocabularyItemIds.map((id) =>
+          lockLearningItemForEdit(tx, id),
+        ),
+      );
       expect(second!.position).toBe(first!.position + 1);
     });
   });
 });
 
 describe("re-importing words that already exist (spec 17)", () => {
-  function importRow(fields: ParsedVocabularyFields | ParsedGrammarFields): ImportRowDecision {
+  function importRow(
+    fields: ParsedVocabularyFields | ParsedGrammarFields,
+  ): ImportRowDecision {
     return { fields, decision: "import" };
   }
 
@@ -317,7 +511,11 @@ describe("re-importing words that already exist (spec 17)", () => {
         languageId,
         actorUserId: DEVELOPER_ID,
         idempotencyKey: crypto.randomUUID(),
-        rows: [importRow(vocabFields({ term: "murcielago", primaryMeaning: "bat (typo)" }))],
+        rows: [
+          importRow(
+            vocabFields({ term: "murcielago", primaryMeaning: "bat (typo)" }),
+          ),
+        ],
       });
       const createdId = first.createdVocabularyItemIds[0]!;
 
@@ -325,13 +523,17 @@ describe("re-importing words that already exist (spec 17)", () => {
         languageId,
         actorUserId: DEVELOPER_ID,
         idempotencyKey: crypto.randomUUID(),
-        rows: [importRow(vocabFields({ term: "murcielago", primaryMeaning: "bat" }))],
+        rows: [
+          importRow(vocabFields({ term: "murcielago", primaryMeaning: "bat" })),
+        ],
       });
 
       // The same row a learner's progress, SRS state, and decks point at.
       expect(second.updatedVocabularyItemIds).toEqual([createdId]);
       expect(second.createdVocabularyItemIds).toEqual([]);
-      expect((await getVocabularyDictionaryFields(tx, createdId))?.primaryMeaning).toBe("bat");
+      expect(
+        (await getVocabularyDictionaryFields(tx, createdId))?.primaryMeaning,
+      ).toBe("bat");
     });
   });
 
@@ -345,13 +547,24 @@ describe("re-importing words that already exist (spec 17)", () => {
         idempotencyKey: crypto.randomUUID(),
         rows: [
           importRow(vocabFields({ term: "lechuza", primaryMeaning: "owl" })),
-          importRow(vocabFields({ term: "lechuza", primaryMeaning: "barn owl" })),
+          importRow(
+            vocabFields({ term: "lechuza", primaryMeaning: "barn owl" }),
+          ),
         ],
       });
 
       expect(result.createdVocabularyItemIds).toHaveLength(1);
-      expect(result.updatedVocabularyItemIds).toEqual(result.createdVocabularyItemIds);
-      expect((await getVocabularyDictionaryFields(tx, result.createdVocabularyItemIds[0]!))?.primaryMeaning).toBe("barn owl");
+      expect(result.updatedVocabularyItemIds).toEqual(
+        result.createdVocabularyItemIds,
+      );
+      expect(
+        (
+          await getVocabularyDictionaryFields(
+            tx,
+            result.createdVocabularyItemIds[0]!,
+          )
+        )?.primaryMeaning,
+      ).toBe("barn owl");
     });
   });
 
@@ -363,7 +576,15 @@ describe("re-importing words that already exist (spec 17)", () => {
         actorUserId: DEVELOPER_ID,
         idempotencyKey: crypto.randomUUID(),
         rows: [
-          importRow(vocabFields({ term: "murcielago", primaryMeaning: "bat", article: "el", creatorNotes: "authored note", partOfSpeech: "noun" })),
+          importRow(
+            vocabFields({
+              term: "murcielago",
+              primaryMeaning: "bat",
+              article: "el",
+              creatorNotes: "authored note",
+              partOfSpeech: "noun",
+            }),
+          ),
         ],
       });
       const createdId = first.createdVocabularyItemIds[0]!;
@@ -375,7 +596,15 @@ describe("re-importing words that already exist (spec 17)", () => {
         languageId,
         actorUserId: DEVELOPER_ID,
         idempotencyKey: crypto.randomUUID(),
-        rows: [importRow(vocabFields({ term: "murcielago", primaryMeaning: "bat, the mammal", partOfSpeech: "" }))],
+        rows: [
+          importRow(
+            vocabFields({
+              term: "murcielago",
+              primaryMeaning: "bat, the mammal",
+              partOfSpeech: "",
+            }),
+          ),
+        ],
       });
 
       const after = await getVocabularyDictionaryFields(tx, createdId);
@@ -390,11 +619,24 @@ describe("re-importing words that already exist (spec 17)", () => {
     await withTestTransaction(async (tx) => {
       const { languageId } = await seedTestFixtures(tx);
       await setDictionaryFieldOverrides(tx, ITEM_GATO_ID, ["definition"]);
-      await updateVocabularyFieldsFromImport(tx, ITEM_GATO_ID, { definition: "authored by hand" });
+      await updateVocabularyFieldsFromImport(tx, ITEM_GATO_ID, {
+        definition: "authored by hand",
+      });
 
       const preview = await previewVocabularyImport(tx, {
         languageId,
-        validatedRows: [{ rowNumber: 2, raw: {}, fields: vocabFields({ term: "gato", primaryMeaning: "cat", definition: "a dictionary definition" }), fieldIssues: [] }],
+        validatedRows: [
+          {
+            rowNumber: 2,
+            raw: {},
+            fields: vocabFields({
+              term: "gato",
+              primaryMeaning: "cat",
+              definition: "a dictionary definition",
+            }),
+            fieldIssues: [],
+          },
+        ],
       });
       expect(preview[0]!.changes).toEqual([]);
       expect(preview[0]!.action).toBe("unchanged");
@@ -409,14 +651,23 @@ describe("re-importing words that already exist (spec 17)", () => {
         languageId,
         actorUserId: DEVELOPER_ID,
         idempotencyKey: crypto.randomUUID(),
-        rows: [importRow(vocabFields({ term: "gato", primaryMeaning: "cat, revised" }))],
+        rows: [
+          importRow(
+            vocabFields({ term: "gato", primaryMeaning: "cat, revised" }),
+          ),
+        ],
       });
 
       expect(result.draftedItemIds).toEqual([ITEM_GATO_ID]);
       // Live curriculum is untouched until an Admin publishes.
-      expect((await getVocabularyDictionaryFields(tx, ITEM_GATO_ID))?.primaryMeaning).toBe("cat");
+      expect(
+        (await getVocabularyDictionaryFields(tx, ITEM_GATO_ID))?.primaryMeaning,
+      ).toBe("cat");
       const draft = await getDraft(tx, ITEM_GATO_ID);
-      expect(draft?.data).toMatchObject({ type: "vocabulary", fields: { primaryMeaning: "cat, revised", term: "gato" } });
+      expect(draft?.data).toMatchObject({
+        type: "vocabulary",
+        fields: { primaryMeaning: "cat, revised", term: "gato" },
+      });
     });
   });
 
@@ -425,7 +676,10 @@ describe("re-importing words that already exist (spec 17)", () => {
       const { languageId } = await seedTestFixtures(tx);
       await archiveLearningItem(tx, ITEM_GATO_ID);
 
-      const preview = await previewVocabularyImport(tx, { languageId, validatedRows: [validRow(2, "gato", "cat")] });
+      const preview = await previewVocabularyImport(tx, {
+        languageId,
+        validatedRows: [validRow(2, "gato", "cat")],
+      });
       expect(preview[0]!.action).toBe("blocked");
       expect(preview[0]!.blockedReason).toMatch(/archived/i);
 
@@ -445,7 +699,10 @@ describe("re-importing words that already exist (spec 17)", () => {
     await withTestTransaction(async (tx) => {
       const { languageId } = await seedTestFixtures(tx);
 
-      const preview = await previewVocabularyImport(tx, { languageId, validatedRows: [validRow(2, "gato", "cat")] });
+      const preview = await previewVocabularyImport(tx, {
+        languageId,
+        validatedRows: [validRow(2, "gato", "cat")],
+      });
       expect(preview[0]!.action).toBe("unchanged");
 
       const result = await bulkImportVocabulary(tx, {
@@ -463,13 +720,30 @@ describe("re-importing words that already exist (spec 17)", () => {
     await withTestTransaction(async (tx) => {
       const { languageId, level2Id } = await seedTestFixtures(tx);
 
-      const moved = vocabFields({ term: "gato", primaryMeaning: "cat", levelNumber: LEVEL_2_NUMBER, groupNumber: LEVEL_1_GROUP_1 });
+      const moved = vocabFields({
+        term: "gato",
+        primaryMeaning: "cat",
+        levelNumber: LEVEL_2_NUMBER,
+        groupNumber: LEVEL_1_GROUP_1,
+      });
       // Level 2 needs a group before a vocabulary row can land in it.
-      await repoCreateVocabularyGroup(tx, { levelId: level2Id, languageId, name: "Level 2 group" });
+      await repoCreateVocabularyGroup(tx, {
+        levelId: level2Id,
+        languageId,
+        name: "Level 2 group",
+      });
 
-      const preview = await previewVocabularyImport(tx, { languageId, validatedRows: [{ rowNumber: 2, raw: {}, fields: moved, fieldIssues: [] }] });
+      const preview = await previewVocabularyImport(tx, {
+        languageId,
+        validatedRows: [
+          { rowNumber: 2, raw: {}, fields: moved, fieldIssues: [] },
+        ],
+      });
       expect(preview[0]!.action).toBe("move");
-      expect(preview[0]!.placement).toMatchObject({ fromLevelNumber: LEVEL_1_NUMBER, toLevelNumber: LEVEL_2_NUMBER });
+      expect(preview[0]!.placement).toMatchObject({
+        fromLevelNumber: LEVEL_1_NUMBER,
+        toLevelNumber: LEVEL_2_NUMBER,
+      });
 
       const result = await bulkImportVocabulary(tx, {
         languageId,
@@ -478,7 +752,9 @@ describe("re-importing words that already exist (spec 17)", () => {
         rows: [importRow(moved)],
       });
       expect(result.movedItemIds).toEqual([ITEM_GATO_ID]);
-      expect((await lockLearningItemForEdit(tx, ITEM_GATO_ID))?.levelId).toBe(level2Id);
+      expect((await lockLearningItemForEdit(tx, ITEM_GATO_ID))?.levelId).toBe(
+        level2Id,
+      );
     });
   });
 
@@ -489,7 +765,9 @@ describe("re-importing words that already exist (spec 17)", () => {
         languageId,
         actorUserId: DEVELOPER_ID,
         idempotencyKey: crypto.randomUUID(),
-        rows: [importRow(vocabFields({ term: "murcielago", primaryMeaning: "bat" }))],
+        rows: [
+          importRow(vocabFields({ term: "murcielago", primaryMeaning: "bat" })),
+        ],
       });
       expect(result.createdVocabularyItemIds).toHaveLength(1);
       expect(result.updatedVocabularyItemIds).toEqual([]);

@@ -25,7 +25,9 @@ const s3EventRecordSchema = z.object({
   }),
 });
 
-const s3NotificationSchema = z.object({ Records: z.array(s3EventRecordSchema).min(1) });
+const s3NotificationSchema = z.object({
+  Records: z.array(s3EventRecordSchema).min(1),
+});
 
 const commitImportJobSchema = z.object({
   version: z.literal(1),
@@ -34,8 +36,16 @@ const commitImportJobSchema = z.object({
   actorUserId: z.string().min(1),
 });
 
-export type PreviewJobMessage = { kind: "preview"; bucket: string; key: string };
-export type CommitJobMessage = { kind: "commit"; importId: string; actorUserId: string };
+export type PreviewJobMessage = {
+  kind: "preview";
+  bucket: string;
+  key: string;
+};
+export type CommitJobMessage = {
+  kind: "commit";
+  importId: string;
+  actorUserId: string;
+};
 export type ParsedJobMessage = PreviewJobMessage | CommitJobMessage;
 
 /** S3 notification keys are form/URL-encoded (spaces as `+`, everything else percent-encoded) — decode before this key ever reaches `parseCurriculumImportObjectKey`. */
@@ -48,13 +58,21 @@ export function parseJobMessage(body: string): ParsedJobMessage {
 
   const commitResult = commitImportJobSchema.safeParse(json);
   if (commitResult.success) {
-    return { kind: "commit", importId: commitResult.data.importId, actorUserId: commitResult.data.actorUserId };
+    return {
+      kind: "commit",
+      importId: commitResult.data.importId,
+      actorUserId: commitResult.data.actorUserId,
+    };
   }
 
   const s3Result = s3NotificationSchema.safeParse(json);
   if (s3Result.success) {
     const record = s3Result.data.Records[0]!;
-    return { kind: "preview", bucket: record.s3.bucket.name, key: decodeS3ObjectKey(record.s3.object.key) };
+    return {
+      kind: "preview",
+      bucket: record.s3.bucket.name,
+      key: decodeS3ObjectKey(record.s3.object.key),
+    };
   }
 
   throw new Error("Unrecognized curriculum-import job message shape.");

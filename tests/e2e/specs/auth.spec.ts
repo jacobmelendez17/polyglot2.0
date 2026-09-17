@@ -5,7 +5,10 @@ import { ensureLearnerOnboarded } from "../support/e2e-state";
 
 function requiredEnv(name: string): string {
   const value = process.env[name];
-  if (!value) throw new Error(`${name} is required. Set it in .env.local — see .env.example.`);
+  if (!value)
+    throw new Error(
+      `${name} is required. Set it in .env.local — see .env.example.`,
+    );
   return value;
 }
 
@@ -18,7 +21,9 @@ function requiredEnv(name: string): string {
 test.describe("signed-out route protection", () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test("a signed-out browser visiting a protected route is redirected to sign-in", async ({ page }) => {
+  test("a signed-out browser visiting a protected route is redirected to sign-in", async ({
+    page,
+  }) => {
     await page.goto("/dashboard");
     await expect(page).toHaveURL(/sign-in/);
   });
@@ -33,7 +38,9 @@ test.describe("authenticated learner", () => {
     await ensureLearnerOnboarded();
   });
 
-  test("can reach dashboard, lessons, reviews, and settings", async ({ page }) => {
+  test("can reach dashboard, lessons, reviews, and settings", async ({
+    page,
+  }) => {
     await page.goto("/dashboard");
     await expect(page).toHaveURL(/dashboard/);
 
@@ -57,7 +64,6 @@ test.describe("authenticated learner", () => {
     }
     await expect(page.getByRole("heading", { name: /admin/i })).toHaveCount(0);
   });
-
 });
 
 test.describe("sign out", () => {
@@ -68,11 +74,16 @@ test.describe("sign out", () => {
   // action scoped to this one test.
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test("a signed-in learner can sign out and loses access to protected pages", async ({ page }) => {
+  test("a signed-in learner can sign out and loses access to protected pages", async ({
+    page,
+  }) => {
     await clerkSetup();
     await page.goto("/");
     await page.waitForFunction(() => Boolean(window.Clerk?.loaded));
-    await clerk.signIn({ page, emailAddress: requiredEnv("E2E_LEARNER_EMAIL") });
+    await clerk.signIn({
+      page,
+      emailAddress: requiredEnv("E2E_LEARNER_EMAIL"),
+    });
 
     await page.goto("/dashboard");
     await expect(page).not.toHaveURL(/sign-in/);
@@ -86,9 +97,14 @@ test.describe("sign out", () => {
     // `playwright/.auth/learner.json` would otherwise die with it — so
     // re-establish a good one immediately, regardless of which behavior
     // Clerk actually implements.
-    await clerk.signIn({ page, emailAddress: requiredEnv("E2E_LEARNER_EMAIL") });
+    await clerk.signIn({
+      page,
+      emailAddress: requiredEnv("E2E_LEARNER_EMAIL"),
+    });
     await page.goto("/dashboard");
-    await page.context().storageState({ path: "playwright/.auth/learner.json" });
+    await page
+      .context()
+      .storageState({ path: "playwright/.auth/learner.json" });
   });
 });
 

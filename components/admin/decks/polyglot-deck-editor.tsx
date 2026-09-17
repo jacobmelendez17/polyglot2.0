@@ -27,7 +27,10 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { DECK_DESCRIPTION_MAX_LENGTH, DECK_NAME_MAX_LENGTH } from "@/domains/decks";
+import {
+  DECK_DESCRIPTION_MAX_LENGTH,
+  DECK_NAME_MAX_LENGTH,
+} from "@/domains/decks";
 import type { DeckAvailability, DeckItemRow } from "@/domains/decks";
 
 type PolyglotDeckEditorProps = {
@@ -66,16 +69,28 @@ export function PolyglotDeckEditor({
     availability: DeckAvailability;
     gateLevelId: string | null;
   }>({ availability, gateLevelId });
-  const [order, setOrder] = useState(() => items.map((item) => item.learningItemId));
+  const [order, setOrder] = useState(() =>
+    items.map((item) => item.learningItemId),
+  );
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isAddOpen, setAddOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const byId = useMemo(() => new Map(items.map((item) => [item.learningItemId, item])), [items]);
-  const isOrderDirty = order.some((id, index) => id !== items[index]?.learningItemId);
+  const byId = useMemo(
+    () => new Map(items.map((item) => [item.learningItemId, item])),
+    [items],
+  );
+  const isOrderDirty = order.some(
+    (id, index) => id !== items[index]?.learningItemId,
+  );
   const isLastItem = items.length === 1;
 
-  function run(action: () => Promise<{ ok: true } | { ok: false; error: { message: string } }>, after?: () => void) {
+  function run(
+    action: () => Promise<
+      { ok: true } | { ok: false; error: { message: string } }
+    >,
+    after?: () => void,
+  ) {
     setError(null);
     startTransition(async () => {
       const result = await action();
@@ -105,7 +120,9 @@ export function PolyglotDeckEditor({
       ) : null}
 
       <section className="space-y-3 rounded-xl border border-border bg-card p-4">
-        <h2 className="font-heading text-base font-semibold text-foreground">Details</h2>
+        <h2 className="font-heading text-base font-semibold text-foreground">
+          Details
+        </h2>
 
         <label className="block text-sm">
           <span className="font-medium text-foreground">Name</span>
@@ -118,7 +135,9 @@ export function PolyglotDeckEditor({
         </label>
 
         <label className="block text-sm">
-          <span className="font-medium text-foreground">Description (optional)</span>
+          <span className="font-medium text-foreground">
+            Description (optional)
+          </span>
           <Textarea
             className="mt-1"
             rows={2}
@@ -144,7 +163,10 @@ export function PolyglotDeckEditor({
                 name: nameDraft,
                 description: descriptionDraft,
                 ...(availabilityDraft.availability === "level"
-                  ? { availability: "level" as const, gateLevelId: availabilityDraft.gateLevelId ?? "" }
+                  ? {
+                      availability: "level" as const,
+                      gateLevelId: availabilityDraft.gateLevelId ?? "",
+                    }
                   : { availability: "theme" as const, gateLevelId: null }),
               }),
             )
@@ -165,13 +187,22 @@ export function PolyglotDeckEditor({
                 <Button
                   variant="ghost"
                   disabled={isPending}
-                  onClick={() => setOrder(items.map((item) => item.learningItemId))}
+                  onClick={() =>
+                    setOrder(items.map((item) => item.learningItemId))
+                  }
                 >
                   Reset order
                 </Button>
                 <Button
                   disabled={isPending}
-                  onClick={() => run(() => reorderPolyglotDeckItemsAction({ deckId, orderedLearningItemIds: order }))}
+                  onClick={() =>
+                    run(() =>
+                      reorderPolyglotDeckItemsAction({
+                        deckId,
+                        orderedLearningItemIds: order,
+                      }),
+                    )
+                  }
                 >
                   Save order
                 </Button>
@@ -191,12 +222,17 @@ export function PolyglotDeckEditor({
               <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-lg">
                 <DialogHeader>
                   <DialogTitle>Add items</DialogTitle>
-                  <DialogDescription>Only published curriculum items can be added to an official deck.</DialogDescription>
+                  <DialogDescription>
+                    Only published curriculum items can be added to an official
+                    deck.
+                  </DialogDescription>
                 </DialogHeader>
                 <DeckItemPicker
                   selectedIds={selectedIds}
                   onChange={setSelectedIds}
-                  search={(query) => searchPublishedItemsAction({ languageId, search: query })}
+                  search={(query) =>
+                    searchPublishedItemsAction({ languageId, search: query })
+                  }
                   alreadyInDeckIds={items.map((item) => item.learningItemId)}
                   emptyMessage="No published curriculum items match."
                 />
@@ -207,10 +243,17 @@ export function PolyglotDeckEditor({
                   <Button
                     disabled={isPending || selectedIds.length === 0}
                     onClick={() =>
-                      run(() => addPolyglotDeckItemsAction({ deckId, learningItemIds: selectedIds }), () => {
-                        setAddOpen(false);
-                        setSelectedIds([]);
-                      })
+                      run(
+                        () =>
+                          addPolyglotDeckItemsAction({
+                            deckId,
+                            learningItemIds: selectedIds,
+                          }),
+                        () => {
+                          setAddOpen(false);
+                          setSelectedIds([]);
+                        },
+                      )
                     }
                   >
                     Add items
@@ -228,9 +271,12 @@ export function PolyglotDeckEditor({
             return (
               <li key={id} className="flex items-center gap-2 px-3 py-2">
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium text-foreground">{item.primary}</span>
+                  <span className="block truncate text-sm font-medium text-foreground">
+                    {item.primary}
+                  </span>
                   <span className="block truncate text-xs text-muted-foreground">
-                    {item.secondary} · {item.itemType === "vocabulary" ? "Vocabulary" : "Grammar"}
+                    {item.secondary} ·{" "}
+                    {item.itemType === "vocabulary" ? "Vocabulary" : "Grammar"}
                   </span>
                 </span>
                 <div className="flex shrink-0 items-center gap-1">
@@ -256,12 +302,23 @@ export function PolyglotDeckEditor({
                     variant="ghost"
                     size="icon-sm"
                     aria-label={`Remove ${item.primary} from this deck`}
-                    title={isLastItem ? "A deck needs at least one item" : undefined}
+                    title={
+                      isLastItem ? "A deck needs at least one item" : undefined
+                    }
                     disabled={isLastItem || isPending}
                     onClick={() =>
                       run(
-                        () => removePolyglotDeckItemAction({ deckId, learningItemId: item.learningItemId }),
-                        () => setOrder((current) => current.filter((current_) => current_ !== item.learningItemId)),
+                        () =>
+                          removePolyglotDeckItemAction({
+                            deckId,
+                            learningItemId: item.learningItemId,
+                          }),
+                        () =>
+                          setOrder((current) =>
+                            current.filter(
+                              (current_) => current_ !== item.learningItemId,
+                            ),
+                          ),
                       )
                     }
                   >
@@ -275,21 +332,29 @@ export function PolyglotDeckEditor({
 
         {isLastItem ? (
           <p className="text-xs text-muted-foreground">
-            A deck needs at least one item. Add another before removing this one, or delete the deck.
+            A deck needs at least one item. Add another before removing this
+            one, or delete the deck.
           </p>
         ) : null}
       </section>
 
       <section className="space-y-2 rounded-xl border border-destructive/30 bg-card p-4">
-        <h2 className="font-heading text-base font-semibold text-foreground">Delete deck</h2>
+        <h2 className="font-heading text-base font-semibold text-foreground">
+          Delete deck
+        </h2>
         <p className="text-sm text-muted-foreground">
-          Removes the deck for every learner. The curriculum items it references, and all learner progress on them, are
-          untouched.
+          Removes the deck for every learner. The curriculum items it
+          references, and all learner progress on them, are untouched.
         </p>
         <Button
           variant="destructive"
           disabled={isPending}
-          onClick={() => run(() => deletePolyglotDeckAction({ deckId }), () => router.push("/admin/decks"))}
+          onClick={() =>
+            run(
+              () => deletePolyglotDeckAction({ deckId }),
+              () => router.push("/admin/decks"),
+            )
+          }
         >
           Delete deck
         </Button>

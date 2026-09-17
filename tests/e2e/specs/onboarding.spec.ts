@@ -17,9 +17,13 @@ test.describe("New Learner flow", () => {
     await resetLearnerToNewAccountState();
   });
 
-  test("completes onboarding, sets a curriculum preference, and reaches the dashboard", async ({ page }) => {
+  test("completes onboarding, sets a curriculum preference, and reaches the dashboard", async ({
+    page,
+  }) => {
     await page.goto("/onboarding");
-    await expect(page.getByRole("heading", { name: "Welcome to Polyglot" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Welcome to Polyglot" }),
+    ).toBeVisible();
 
     // Five slides total; the final one swaps "Next" for "Start Now!".
     // `exact: true` — Next.js's own dev-tools button is also named "Open
@@ -34,12 +38,16 @@ test.describe("New Learner flow", () => {
     // Generous timeout: this is `next dev`'s first-ever hit on this route
     // in a fresh E2E run, so it pays a real compile cost on top of the
     // completion mutation itself.
-    await expect(page).toHaveURL(/\/onboarding\/curriculum/, { timeout: 15_000 });
+    await expect(page).toHaveURL(/\/onboarding\/curriculum/, {
+      timeout: 15_000,
+    });
     // The radio input is visually `sr-only` (its wrapping <label> carries
     // the visible styling), so a normal click is intercepted by the label
     // covering it at that position — force targets the accessible element
     // itself, still a real click/change event on the correct control.
-    await page.getByRole("radio", { name: /Default Order/ }).click({ force: true });
+    await page
+      .getByRole("radio", { name: /Default Order/ })
+      .click({ force: true });
     await page.getByRole("button", { name: "Start learning" }).click();
 
     await expect(page).toHaveURL(/\/dashboard/, { timeout: 15_000 });

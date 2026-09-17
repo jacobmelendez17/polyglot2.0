@@ -13,11 +13,11 @@ The Levels feature is primarily a curriculum-browsing interface.
 
 Viewing a level or curriculum item does **not**:
 
-* unlock the level
-* enroll an item into SRS
-* modify learner progress
-* bypass lesson eligibility
-* bypass normal curriculum progression
+- unlock the level
+- enroll an item into SRS
+- modify learner progress
+- bypass lesson eligibility
+- bypass normal curriculum progression
 
 All displayed curriculum data must come from the real database-backed `curriculum` domain.
 
@@ -102,15 +102,15 @@ The dropdown should remain visually compact rather than becoming a large navigat
 
 The dropdown should:
 
-* open from the existing Levels navigation control
-* close when a level is selected
-* close when clicking outside
-* close with `Escape`
-* support keyboard navigation
-* use the existing Polyglot visual language
-* use rounded but compact level buttons
-* clearly communicate hover/focus state
-* avoid excessive decoration
+- open from the existing Levels navigation control
+- close when a level is selected
+- close when clicking outside
+- close with `Escape`
+- support keyboard navigation
+- use the existing Polyglot visual language
+- use rounded but compact level buttons
+- clearly communicate hover/focus state
+- avoid excessive decoration
 
 If the learner is currently on a level page, the corresponding number may receive a subtle selected/current treatment.
 
@@ -138,8 +138,8 @@ The page should use nearly the full available width.
 
 Unlike the dashboard's more constrained content areas, this page should have **small left and right margins** because it needs to display:
 
-* the complete 50-level selector
-* dense curriculum grids
+- the complete 50-level selector
+- dense curriculum grids
 
 Do not put the entire page inside a narrow centered column.
 
@@ -205,10 +205,10 @@ Example:
 
 Use:
 
-* stronger border
-* stronger surface
-* font weight
-* or another existing semantic treatment
+- stronger border
+- stronger surface
+- font weight
+- or another existing semantic treatment
 
 Do not use color alone.
 
@@ -366,12 +366,12 @@ Grammar and vocabulary both use the same general card shape.
 
 Cards should be:
 
-* slightly taller than they are wide
-* moderately compact
-* slightly rounded
-* clearly clickable
-* consistent across both content types
-* comfortable enough to scan rapidly
+- slightly taller than they are wide
+- moderately compact
+- slightly rounded
+- clearly clickable
+- consistent across both content types
+- comfortable enough to scan rapidly
 
 Approximate visual character:
 
@@ -400,15 +400,15 @@ cat
 
 Primary item:
 
-* large
-* visually dominant
-* target-language text
+- large
+- visually dominant
+- target-language text
 
 Translation:
 
-* smaller
-* beneath the target-language item
-* muted compared with the primary text
+- smaller
+- beneath the target-language item
+- muted compared with the primary text
 
 Example:
 
@@ -472,10 +472,10 @@ The category treatment should remain restrained.
 
 Suitable uses include:
 
-* subtle card accent
-* small category marker
-* border treatment
-* section heading treatment
+- subtle card accent
+- small category marker
+- border treatment
+- section heading treatment
 
 Do not create unrelated new grammar/vocabulary colors.
 
@@ -657,10 +657,10 @@ It must never affect curriculum or learner progress.
 
 Target:
 
-* very small side margins
-* 2–3 rows for the 50-level selector
-* default 8 curriculum cards per row
-* header dropdown uses exact 10×5 grid
+- very small side margins
+- 2–3 rows for the 50-level selector
+- default 8 curriculum cards per row
+- header dropdown uses exact 10×5 grid
 
 ## Smaller desktop / tablet
 
@@ -777,12 +777,12 @@ Merely opening:
 
 must not:
 
-* create `user_item_progress`
-* unlock Level 30
-* enroll Level 30 items
-* modify lesson eligibility
-* modify review state
-* advance curriculum progress
+- create `user_item_progress`
+- unlock Level 30
+- enroll Level 30 items
+- modify lesson eligibility
+- modify review state
+- advance curriculum progress
 
 Official progression continues to be controlled by lessons, SRS, and permanent unlock state.
 
@@ -798,9 +798,9 @@ Vocabulary should use its configured curriculum order.
 
 Do not rely on:
 
-* insertion order
-* database IDs
-* alphabetical ordering
+- insertion order
+- database IDs
+- alphabetical ordering
 
 unless curriculum configuration explicitly says to do so.
 
@@ -828,10 +828,10 @@ The page should keep its overall layout stable while curriculum data resolves.
 
 If a loading state is needed:
 
-* preserve the level selector area
-* use card-shaped skeletons
-* approximate the selected grid density
-* avoid full-page spinners
+- preserve the level selector area
+- use card-shaped skeletons
+- approximate the selected grid density
+- avoid full-page spinners
 
 Do not briefly render fake curriculum content.
 
@@ -869,17 +869,17 @@ Do not treat this as a server error.
 
 If curriculum data cannot load:
 
-* show a safe learner-facing error
-* offer Retry when practical
-* retain navigation back to other levels/dashboard
-* never render fabricated placeholder curriculum
+- show a safe learner-facing error
+- offer Retry when practical
+- retain navigation back to other levels/dashboard
+- never render fabricated placeholder curriculum
 
 Do not expose:
 
-* SQL errors
-* internal UUID relationships
-* stack traces
-* database connection information
+- SQL errors
+- internal UUID relationships
+- stack traces
+- database connection information
 
 ---
 
@@ -887,15 +887,15 @@ Do not expose:
 
 Required:
 
-* dropdown keyboard navigation
-* `Escape` closes header dropdown
-* visible focus states
-* appropriate minimum touch targets
-* current level communicated without color alone
-* collapsible sections use `aria-expanded`
-* view controls have accessible names
-* card links have meaningful accessible labels
-* list rows remain keyboard-accessible
+- dropdown keyboard navigation
+- `Escape` closes header dropdown
+- visible focus states
+- appropriate minimum touch targets
+- current level communicated without color alone
+- collapsible sections use `aria-expanded`
+- view controls have accessible names
+- card links have meaningful accessible labels
+- list rows remain keyboard-accessible
 
 Example card accessible label:
 
@@ -917,16 +917,16 @@ Keep animation restrained because this is a dense browsing screen.
 
 Appropriate:
 
-* dropdown open/close transition
-* subtle hover/tap feedback
-* collapse/expand transition
-* view-mode layout transition where inexpensive
+- dropdown open/close transition
+- subtle hover/tap feedback
+- collapse/expand transition
+- view-mode layout transition where inexpensive
 
 Do not:
 
-* delay navigation for animation
-* animate dozens of cards heavily
-* introduce elaborate entrances every time the level changes
+- delay navigation for animation
+- animate dozens of cards heavily
+- introduce elaborate entrances every time the level changes
 
 Respect:
 
@@ -1004,12 +1004,12 @@ Build the server-side data shape required by one Level page.
 
 Include:
 
-* selected level
-* ordered grammar items
-* ordered vocabulary items
-* stable item IDs
-* display text
-* translations/descriptions
+- selected level
+- ordered grammar items
+- ordered vocabulary items
+- stable item IDs
+- display text
+- translations/descriptions
 
 Use real PostgreSQL-backed curriculum data.
 
@@ -1023,12 +1023,12 @@ Replace the current Levels link.
 
 Implement:
 
-* dropdown trigger
-* 10×5 desktop grid
-* Levels 1–50
-* keyboard/focus behavior
-* responsive mobile equivalent
-* dynamic level links
+- dropdown trigger
+- 10×5 desktop grid
+- Levels 1–50
+- keyboard/focus behavior
+- responsive mobile equivalent
+- dynamic level links
 
 Verify the rest of the header still behaves correctly.
 
@@ -1046,11 +1046,11 @@ plus the dense page-level 1–50 selector.
 
 Verify:
 
-* valid level routing
-* invalid level handling
-* current-level indication
-* 2–3 row desktop target
-* small horizontal margins
+- valid level routing
+- invalid level handling
+- current-level indication
+- 2–3 row desktop target
+- small horizontal margins
 
 ---
 
@@ -1058,13 +1058,13 @@ Verify:
 
 Implement:
 
-* Grammar first
-* Vocabulary second
-* section headers
-* collapsible behavior
-* default-open state
-* curriculum ordering
-* empty states
+- Grammar first
+- Vocabulary second
+- section headers
+- collapsible behavior
+- default-open state
+- curriculum ordering
+- empty states
 
 ---
 
@@ -1112,17 +1112,17 @@ Changing modes must not alter the selected level.
 
 Verify:
 
-* desktop
-* tablet
-* mobile
-* keyboard-only interaction
-* reduced motion
-* dropdown usability
-* collapse controls
-* grid density
-* list mode
-* item navigation
-* no horizontal overflow
+- desktop
+- tablet
+- mobile
+- keyboard-only interaction
+- reduced motion
+- dropdown usability
+- collapse controls
+- grid density
+- list mode
+- item navigation
+- no horizontal overflow
 
 Update `progress-tracker.md` after completion.
 
@@ -1181,39 +1181,39 @@ item card links to stable item route
 
 Verify:
 
-* Levels no longer navigates immediately
-* clicking Levels opens dropdown
-* dropdown is 10×5 on desktop
-* all 50 numbers are visible
-* selecting Level 17 navigates to `/levels/17`
-* keyboard interaction works
+- Levels no longer navigates immediately
+- clicking Levels opens dropdown
+- dropdown is 10×5 on desktop
+- all 50 numbers are visible
+- selecting Level 17 navigates to `/levels/17`
+- keyboard interaction works
 
 ### Level page
 
 Verify:
 
-* all 50 levels appear at top
-* desktop selector fits approximately 2–3 rows
-* horizontal margins remain small
-* active level is visually clear
-* Grammar appears first
-* Vocabulary appears second
-* both collapse correctly
-* default mode shows approximately 8 cards per row
-* larger cards show fewer per row
-* smaller cards show more per row
-* list mode works
-* cards navigate correctly
+- all 50 levels appear at top
+- desktop selector fits approximately 2–3 rows
+- horizontal margins remain small
+- active level is visually clear
+- Grammar appears first
+- Vocabulary appears second
+- both collapse correctly
+- default mode shows approximately 8 cards per row
+- larger cards show fewer per row
+- smaller cards show more per row
+- list mode works
+- cards navigate correctly
 
 ### Responsive
 
 Verify:
 
-* no horizontal page overflow
-* level controls remain usable on mobile
-* curriculum cards remain readable
-* list view fits the viewport
-* touch targets remain usable
+- no horizontal page overflow
+- level controls remain usable on mobile
+- curriculum cards remain readable
+- list view fits the viewport
+- touch targets remain usable
 
 ---
 
@@ -1221,21 +1221,21 @@ Verify:
 
 Do not implement as part of this spec:
 
-* full Item Detail page
-* editing curriculum
-* curriculum admin UI
-* lesson launching from a card
-* direct SRS actions
-* manual level unlocking
-* review actions
-* vocabulary-group filtering
-* grammar filtering
-* search
-* sorting controls
-* favorites
-* user notes editing
-* item progress reset
-* progress statistics inside cards
+- full Item Detail page
+- editing curriculum
+- curriculum admin UI
+- lesson launching from a card
+- direct SRS actions
+- manual level unlocking
+- review actions
+- vocabulary-group filtering
+- grammar filtering
+- search
+- sorting controls
+- favorites
+- user notes editing
+- item progress reset
+- progress statistics inside cards
 
 Those belong to later feature specs.
 

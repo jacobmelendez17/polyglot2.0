@@ -31,7 +31,11 @@ type BuildAdminSlotsInput = {
  * refuse to edit one — offering a control that is guaranteed to fail is
  * worse than offering none.
  */
-export function buildItemAdminSlots({ data, status, canSeedFromDictionary }: BuildAdminSlotsInput): {
+export function buildItemAdminSlots({
+  data,
+  status,
+  canSeedFromDictionary,
+}: BuildAdminSlotsInput): {
   banner?: ReactNode;
   details?: ReactNode;
   about?: ReactNode;
@@ -42,7 +46,15 @@ export function buildItemAdminSlots({ data, status, canSeedFromDictionary }: Bui
   const { item } = data;
 
   if (status === "archived") {
-    return { banner: <AdminBanner status={status} hasOpenDraft={data.hasOpenDraft} itemId={item.id} /> };
+    return {
+      banner: (
+        <AdminBanner
+          status={status}
+          hasOpenDraft={data.hasOpenDraft}
+          itemId={item.id}
+        />
+      ),
+    };
   }
 
   const existing =
@@ -76,13 +88,21 @@ export function buildItemAdminSlots({ data, status, canSeedFromDictionary }: Bui
             category: item.grammar.category ?? "",
             creatorNotes: item.grammar.creatorNotes ?? "",
             register: toRegisterEditorValue(item.grammar.register),
-            requiredDirections: item.grammar.requiredQuestions.map((question) => question.direction),
+            requiredDirections: item.grammar.requiredQuestions.map(
+              (question) => question.direction,
+            ),
             acceptedAnswers: data.acceptedAnswers,
           },
         };
 
   return {
-    banner: <AdminBanner status={status} hasOpenDraft={data.hasOpenDraft} itemId={item.id} />,
+    banner: (
+      <AdminBanner
+        status={status}
+        hasOpenDraft={data.hasOpenDraft}
+        itemId={item.id}
+      />
+    ),
 
     details: (
       <AdminSectionEditor
@@ -107,13 +127,22 @@ export function buildItemAdminSlots({ data, status, canSeedFromDictionary }: Bui
     // ordered block collection rather than a field.
     about:
       item.type === "grammar" ? (
-        <AdminSectionEditor title="Edit About content" description="Text, example sentences, and Polyglot notes, in the order they appear.">
-          <GrammarContentBlockEditor learningItemId={item.id} blocks={data.blocks} />
+        <AdminSectionEditor
+          title="Edit About content"
+          description="Text, example sentences, and Polyglot notes, in the order they appear."
+        >
+          <GrammarContentBlockEditor
+            learningItemId={item.id}
+            blocks={data.blocks}
+          />
         </AdminSectionEditor>
       ) : undefined,
 
     context: (
-      <AdminSectionEditor title="Edit patterns of use" description="The tabs a learner sees, and which examples belong to each.">
+      <AdminSectionEditor
+        title="Edit patterns of use"
+        description="The tabs a learner sees, and which examples belong to each."
+      >
         <UsageContextEditor
           learningItemId={item.id}
           itemType={item.type}
@@ -125,7 +154,10 @@ export function buildItemAdminSlots({ data, status, canSeedFromDictionary }: Bui
     ),
 
     examples: (
-      <AdminSectionEditor title="Edit examples" description="The same editor as Patterns of use — examples and their tabs are authored together.">
+      <AdminSectionEditor
+        title="Edit examples"
+        description="The same editor as Patterns of use — examples and their tabs are authored together."
+      >
         <UsageContextEditor
           learningItemId={item.id}
           itemType={item.type}
@@ -137,8 +169,14 @@ export function buildItemAdminSlots({ data, status, canSeedFromDictionary }: Bui
     ),
 
     resources: (
-      <AdminSectionEditor title="Edit resources" description="External links shown to learners.">
-        <ItemResourceEditor learningItemId={item.id} resources={data.resources} />
+      <AdminSectionEditor
+        title="Edit resources"
+        description="External links shown to learners."
+      >
+        <ItemResourceEditor
+          learningItemId={item.id}
+          resources={data.resources}
+        />
       </AdminSectionEditor>
     ),
   };
@@ -150,7 +188,15 @@ export function buildItemAdminSlots({ data, status, canSeedFromDictionary }: Bui
  * cannot be edited at all. Without this an admin could reasonably save a
  * field, see nothing change, and conclude the save failed.
  */
-function AdminBanner({ status, hasOpenDraft, itemId }: { status: CurriculumStatus; hasOpenDraft: boolean; itemId: string }) {
+function AdminBanner({
+  status,
+  hasOpenDraft,
+  itemId,
+}: {
+  status: CurriculumStatus;
+  hasOpenDraft: boolean;
+  itemId: string;
+}) {
   const message =
     status === "archived"
       ? "This item is archived. Archived items cannot be edited — restore it from Admin curriculum first."
@@ -164,7 +210,10 @@ function AdminBanner({ status, hasOpenDraft, itemId }: { status: CurriculumStatu
     <div className="rounded-xl border border-state-warning/50 bg-state-warning/5 px-4 py-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <p className="flex items-start gap-2 text-base text-foreground">
-          <FileClock className="mt-0.5 h-4 w-4 shrink-0 text-state-warning" aria-hidden="true" />
+          <FileClock
+            className="mt-0.5 h-4 w-4 shrink-0 text-state-warning"
+            aria-hidden="true"
+          />
           {message}
         </p>
         <Link

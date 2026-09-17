@@ -34,7 +34,9 @@ type OnboardingPageProps = {
  * arbitrary client-supplied path — accepting one would be an open-redirect
  * hazard for zero benefit, since every real caller is one of these two.
  */
-export default async function OnboardingPage({ searchParams }: OnboardingPageProps) {
+export default async function OnboardingPage({
+  searchParams,
+}: OnboardingPageProps) {
   const { replay, returnTo } = await searchParams;
   const isReplayRequested = replay === "1";
 
@@ -44,7 +46,14 @@ export default async function OnboardingPage({ searchParams }: OnboardingPagePro
   const user = await requireUser();
 
   if (isReplayRequested) {
-    return <OnboardingFlow isReplay returnTo={returnTo === "settings" ? "/settings/account" : "/admin/sandbox"} />;
+    return (
+      <OnboardingFlow
+        isReplay
+        returnTo={
+          returnTo === "settings" ? "/settings/account" : "/admin/sandbox"
+        }
+      />
+    );
   }
 
   if (!isOnboardingRequired(user)) {

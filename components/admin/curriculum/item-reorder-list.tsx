@@ -26,12 +26,19 @@ type ItemReorderListProps = {
  * `reorderLearningItems`'s own constraint that `position` is unique within
  * `(level, type)`, never across either.
  */
-export function ItemReorderList({ levelId, type, items }: ItemReorderListProps) {
+export function ItemReorderList({
+  levelId,
+  type,
+  items,
+}: ItemReorderListProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [order, setOrder] = useState(() => items.map((item) => item.id));
   const [error, setError] = useState<string | null>(null);
-  const byId = useMemo(() => new Map(items.map((item) => [item.id, item])), [items]);
+  const byId = useMemo(
+    () => new Map(items.map((item) => [item.id, item])),
+    [items],
+  );
   const dirty = order.some((id, index) => id !== items[index]?.id);
 
   function move(index: number, direction: -1 | 1) {
@@ -45,7 +52,12 @@ export function ItemReorderList({ levelId, type, items }: ItemReorderListProps) 
   function handleSaveOrder() {
     setError(null);
     startTransition(async () => {
-      const result = await reorderItemsAction({ levelId, type, orderedLearningItemIds: order, idempotencyKey: crypto.randomUUID() });
+      const result = await reorderItemsAction({
+        levelId,
+        type,
+        orderedLearningItemIds: order,
+        idempotencyKey: crypto.randomUUID(),
+      });
       if (!result.ok) {
         setError(result.error.message);
         return;
@@ -55,7 +67,11 @@ export function ItemReorderList({ levelId, type, items }: ItemReorderListProps) 
   }
 
   if (items.length === 0) {
-    return <p className="text-sm text-muted-foreground">No items match these filters yet.</p>;
+    return (
+      <p className="text-sm text-muted-foreground">
+        No items match these filters yet.
+      </p>
+    );
   }
 
   return (
@@ -65,10 +81,17 @@ export function ItemReorderList({ levelId, type, items }: ItemReorderListProps) 
           const item = byId.get(id);
           if (!item) return null;
           return (
-            <li key={id} className="flex items-center justify-between gap-3 px-4 py-3">
+            <li
+              key={id}
+              className="flex items-center justify-between gap-3 px-4 py-3"
+            >
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-foreground">{item.itemLabel}</p>
-                <p className="truncate text-xs text-muted-foreground">{item.meaningLabel}</p>
+                <p className="truncate text-sm font-medium text-foreground">
+                  {item.itemLabel}
+                </p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {item.meaningLabel}
+                </p>
               </div>
               <CurriculumStatusBadge status={item.status} />
               <div className="flex items-center gap-1">

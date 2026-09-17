@@ -28,15 +28,22 @@ import { LessonError } from "@/lib/errors/lesson-errors";
  * foreign keys require real `users`/`learning_items`/`languages` rows.
  */
 
-export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: { code: string; message: string } };
+export type ActionResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: { code: string; message: string } };
 
 /** The authenticated learner plus the language they are actually studying. */
-async function requireLearner(): Promise<{ userId: string; languageId: string }> {
+async function requireLearner(): Promise<{
+  userId: string;
+  languageId: string;
+}> {
   const user = await requireUser();
   return { userId: user.id, languageId: user.activeLanguageId };
 }
 
-async function runLessonAction<T>(fn: () => Promise<T>): Promise<ActionResult<T>> {
+async function runLessonAction<T>(
+  fn: () => Promise<T>,
+): Promise<ActionResult<T>> {
   try {
     return { ok: true, data: await fn() };
   } catch (error) {
@@ -44,15 +51,30 @@ async function runLessonAction<T>(fn: () => Promise<T>): Promise<ActionResult<T>
       return { ok: false, error: { code: error.code, message: error.message } };
     }
     if (error instanceof z.ZodError) {
-      return { ok: false, error: { code: "LESSON_STATE_INVALID", message: "That request could not be understood." } };
+      return {
+        ok: false,
+        error: {
+          code: "LESSON_STATE_INVALID",
+          message: "That request could not be understood.",
+        },
+      };
     }
     // Never log the token, its decoded contents, or the learner's answer (spec 07 §7 Observability).
     console.error("Unexpected lesson action error", error);
-    return { ok: false, error: { code: "UNKNOWN", message: "Something went wrong. Please try again." } };
+    return {
+      ok: false,
+      error: {
+        code: "UNKNOWN",
+        message: "Something went wrong. Please try again.",
+      },
+    };
   }
 }
 
-const openItemInputSchema = z.object({ token: z.string().min(1), itemId: z.string().min(1) });
+const openItemInputSchema = z.object({
+  token: z.string().min(1),
+  itemId: z.string().min(1),
+});
 
 export async function openLessonItemAction(
   input: z.infer<typeof openItemInputSchema>,
@@ -138,12 +160,27 @@ export async function chooseLessonThemeAction(
     const user = await requireUser();
 
     if (user.isSandbox) {
-      return { ok: false, error: { code: "FORBIDDEN", message: "Sandbox previews don't change your preference." } };
+      return {
+        ok: false,
+        error: {
+          code: "FORBIDDEN",
+          message: "Sandbox previews don't change your preference.",
+        },
+      };
     }
 
-    const themes = await listAvailableThemes({ userId: user.id, languageId: user.activeLanguageId });
+    const themes = await listAvailableThemes({
+      userId: user.id,
+      languageId: user.activeLanguageId,
+    });
     if (!themes.some((theme) => theme.id === themeId)) {
-      return { ok: false, error: { code: "THEME_UNAVAILABLE", message: "That theme isn't available to study right now." } };
+      return {
+        ok: false,
+        error: {
+          code: "THEME_UNAVAILABLE",
+          message: "That theme isn't available to study right now.",
+        },
+      };
     }
 
     await setCurriculumPreference({
@@ -158,9 +195,21 @@ export async function chooseLessonThemeAction(
       return { ok: false, error: { code: error.code, message: error.message } };
     }
     if (error instanceof z.ZodError) {
-      return { ok: false, error: { code: "LESSON_STATE_INVALID", message: "That request could not be understood." } };
+      return {
+        ok: false,
+        error: {
+          code: "LESSON_STATE_INVALID",
+          message: "That request could not be understood.",
+        },
+      };
     }
     console.error("Unexpected lesson theme action error", error);
-    return { ok: false, error: { code: "UNKNOWN", message: "Something went wrong. Please try again." } };
+    return {
+      ok: false,
+      error: {
+        code: "UNKNOWN",
+        message: "Something went wrong. Please try again.",
+      },
+    };
   }
 }

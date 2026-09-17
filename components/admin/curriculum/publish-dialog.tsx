@@ -4,7 +4,15 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 import { publishItemAction } from "@/app/(admin)/admin/curriculum/actions";
 
@@ -22,7 +30,12 @@ type PublishDialogProps = {
  * blind would publish the admin's now-outdated view on top of whatever
  * changed underneath them.
  */
-export function PublishDialog({ learningItemId, itemLabel, expectedVersion, isDraftEdit }: PublishDialogProps) {
+export function PublishDialog({
+  learningItemId,
+  itemLabel,
+  expectedVersion,
+  isDraftEdit,
+}: PublishDialogProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
@@ -33,7 +46,11 @@ export function PublishDialog({ learningItemId, itemLabel, expectedVersion, isDr
     setError(null);
     setConflict(false);
     startTransition(async () => {
-      const result = await publishItemAction({ learningItemId, expectedVersion, idempotencyKey: crypto.randomUUID() });
+      const result = await publishItemAction({
+        learningItemId,
+        expectedVersion,
+        idempotencyKey: crypto.randomUUID(),
+      });
       if (!result.ok) {
         if (result.error.code === "ADMIN_EDIT_CONFLICT") {
           setConflict(true);
@@ -64,7 +81,8 @@ export function PublishDialog({ learningItemId, itemLabel, expectedVersion, isDr
 
         {conflict ? (
           <p role="alert" className="text-sm text-state-error">
-            This item changed after you opened it. Reload the latest version before publishing.
+            This item changed after you opened it. Reload the latest version
+            before publishing.
           </p>
         ) : null}
         {error ? (

@@ -19,7 +19,12 @@ type ReviewUiToggleProps = {
  * `review-preference-repository.ts`'s `saveReviewUiToggle` already made on
  * the server side.
  */
-export function ReviewUiToggle({ field, label, description, initialValue }: ReviewUiToggleProps) {
+export function ReviewUiToggle({
+  field,
+  label,
+  description,
+  initialValue,
+}: ReviewUiToggleProps) {
   return (
     <InlineToggleSettingField
       label={label}
@@ -27,7 +32,9 @@ export function ReviewUiToggle({ field, label, description, initialValue }: Revi
       initialValue={initialValue}
       onSave={async (value) => {
         const result = await updateReviewUiToggleAction({ field, value });
-        return result.ok ? { ok: true, value: result.data.value } : { ok: false, message: result.error.message };
+        return result.ok
+          ? { ok: true, value: result.data.value }
+          : { ok: false, message: result.error.message };
       }}
     />
   );

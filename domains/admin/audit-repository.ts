@@ -3,8 +3,16 @@ import { and, desc, eq, gte, lt, lte, or } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { adminAuditEvents } from "@/db/schema";
 
-import { getAuditEventsInputSchema, recordAuditEventInputSchema } from "./audit-schemas";
-import type { AdminAuditEvent, AuditEventsPage, GetAuditEventsInput, RecordAuditEventInput } from "./audit-types";
+import {
+  getAuditEventsInputSchema,
+  recordAuditEventInputSchema,
+} from "./audit-schemas";
+import type {
+  AdminAuditEvent,
+  AuditEventsPage,
+  GetAuditEventsInput,
+  RecordAuditEventInput,
+} from "./audit-types";
 
 /**
  * Admin audit persistence (spec 11 §47/§49) — takes an injected `DbClient`,
@@ -33,7 +41,10 @@ function toAdminAuditEvent(row: AdminAuditEventRow): AdminAuditEvent {
   };
 }
 
-export async function recordAuditEvent(db: DbClient, input: RecordAuditEventInput): Promise<AdminAuditEvent> {
+export async function recordAuditEvent(
+  db: DbClient,
+  input: RecordAuditEventInput,
+): Promise<AdminAuditEvent> {
   const parsed = recordAuditEventInputSchema.parse(input);
   const [row] = await db
     .insert(adminAuditEvents)
@@ -71,13 +82,27 @@ function decodeCursor(value: string): Cursor {
  * Keyset-paginated, filterable audit log (spec 11 §49), newest first —
  * never an unbounded result set. Filters combine with AND.
  */
-export async function getAuditEvents(db: DbClient, input: GetAuditEventsInput): Promise<AuditEventsPage> {
-  const { actorUserId, action, resourceType, resourceId, from, to, limit, cursor } = getAuditEventsInputSchema.parse(input);
+export async function getAuditEvents(
+  db: DbClient,
+  input: GetAuditEventsInput,
+): Promise<AuditEventsPage> {
+  const {
+    actorUserId,
+    action,
+    resourceType,
+    resourceId,
+    from,
+    to,
+    limit,
+    cursor,
+  } = getAuditEventsInputSchema.parse(input);
 
   const conditions = [];
-  if (actorUserId) conditions.push(eq(adminAuditEvents.actorUserId, actorUserId));
+  if (actorUserId)
+    conditions.push(eq(adminAuditEvents.actorUserId, actorUserId));
   if (action) conditions.push(eq(adminAuditEvents.action, action));
-  if (resourceType) conditions.push(eq(adminAuditEvents.resourceType, resourceType));
+  if (resourceType)
+    conditions.push(eq(adminAuditEvents.resourceType, resourceType));
   if (resourceId) conditions.push(eq(adminAuditEvents.resourceId, resourceId));
   if (from) conditions.push(gte(adminAuditEvents.createdAt, from));
   if (to) conditions.push(lte(adminAuditEvents.createdAt, to));
@@ -88,7 +113,10 @@ export async function getAuditEvents(db: DbClient, input: GetAuditEventsInput): 
     conditions.push(
       or(
         lt(adminAuditEvents.createdAt, cursorCreatedAt),
-        and(eq(adminAuditEvents.createdAt, cursorCreatedAt), lt(adminAuditEvents.id, decoded.id)),
+        and(
+          eq(adminAuditEvents.createdAt, cursorCreatedAt),
+          lt(adminAuditEvents.id, decoded.id),
+        ),
       )!,
     );
   }
@@ -109,6 +137,8 @@ export async function getAuditEvents(db: DbClient, input: GetAuditEventsInput): 
   return {
     items: pageRows.map(toAdminAuditEvent),
     nextCursor:
-      hasNextPage && last ? encodeCursor({ createdAt: last.createdAt.toISOString(), id: last.id }) : null,
+      hasNextPage && last
+        ? encodeCursor({ createdAt: last.createdAt.toISOString(), id: last.id })
+        : null,
   };
 }

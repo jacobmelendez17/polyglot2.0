@@ -16,8 +16,14 @@ describe("AppNavMobile", () => {
     expect(home).toHaveAttribute("href", "/dashboard");
     expect(home).toHaveAttribute("aria-current", "page");
 
-    expect(screen.getByRole("link", { name: "Reviews" })).toHaveAttribute("href", "/reviews");
-    expect(screen.getByRole("link", { name: "Practice" })).toHaveAttribute("href", "/practice");
+    expect(screen.getByRole("link", { name: "Reviews" })).toHaveAttribute(
+      "href",
+      "/reviews",
+    );
+    expect(screen.getByRole("link", { name: "Practice" })).toHaveAttribute(
+      "href",
+      "/practice",
+    );
   });
 
   it("exposes the same Levels 1-50 navigation as desktop, via a bottom sheet rather than the 10-column grid (spec 10 §4 Mobile)", async () => {
@@ -26,10 +32,18 @@ describe("AppNavMobile", () => {
 
     await user.click(screen.getByRole("button", { name: "Learn" }));
 
-    const levelLinks = screen.getAllByRole("link").filter((el) => /^\/levels\/\d+$/.test(el.getAttribute("href") ?? ""));
+    const levelLinks = screen
+      .getAllByRole("link")
+      .filter((el) => /^\/levels\/\d+$/.test(el.getAttribute("href") ?? ""));
     expect(levelLinks).toHaveLength(50);
-    expect(screen.getByRole("link", { name: "1" })).toHaveAttribute("href", "/levels/1");
-    expect(screen.getByRole("link", { name: "50" })).toHaveAttribute("href", "/levels/50");
+    expect(screen.getByRole("link", { name: "1" })).toHaveAttribute(
+      "href",
+      "/levels/1",
+    );
+    expect(screen.getByRole("link", { name: "50" })).toHaveAttribute(
+      "href",
+      "/levels/50",
+    );
   });
 
   it("reveals Decks, Journey, and Settings under More", async () => {
@@ -38,8 +52,17 @@ describe("AppNavMobile", () => {
 
     await user.click(screen.getByRole("button", { name: "More" }));
 
-    expect(screen.getByRole("link", { name: "Decks" })).toHaveAttribute("href", "/decks");
-    expect(screen.getByRole("link", { name: "Journey" })).toHaveAttribute("href", "/journey");
-    expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/settings");
+    expect(screen.getByRole("link", { name: "Decks" })).toHaveAttribute(
+      "href",
+      "/decks",
+    );
+    expect(screen.getByRole("link", { name: "Journey" })).toHaveAttribute(
+      "href",
+      "/journey",
+    );
+    expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute(
+      "href",
+      "/settings",
+    );
   });
 });

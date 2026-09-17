@@ -4,7 +4,11 @@ import { applyGhostVacationSchedulingAdjustment } from "@/domains/srs/ghost-repo
 import { getRateLimiter } from "@/providers/rate-limit";
 import { AppError } from "@/lib/errors/app-error";
 
-import { endVacationPeriod, findActiveVacationPeriod, startVacationPeriod } from "./vacation-repository";
+import {
+  endVacationPeriod,
+  findActiveVacationPeriod,
+  startVacationPeriod,
+} from "./vacation-repository";
 import type { VacationPeriod } from "./vacation-repository";
 
 export type { VacationPeriod };
@@ -15,14 +19,23 @@ export async function isVacationModeActive(userId: string): Promise<boolean> {
 }
 
 async function checkAccountSettingsRateLimit(userId: string): Promise<void> {
-  const decision = await getRateLimiter().check({ policy: "account-settings", subject: userId });
+  const decision = await getRateLimiter().check({
+    policy: "account-settings",
+    subject: userId,
+  });
   if (!decision.allowed) {
-    throw new AppError("RATE_LIMITED", `Please slow down and try again in ${decision.retryAfterSeconds}s.`);
+    throw new AppError(
+      "RATE_LIMITED",
+      `Please slow down and try again in ${decision.retryAfterSeconds}s.`,
+    );
   }
 }
 
 /** Idempotent enable (spec 20 Vacation Concurrency) — see `startVacationPeriod`. */
-export async function enableVacationMode(userId: string, now: Date = new Date()): Promise<VacationPeriod> {
+export async function enableVacationMode(
+  userId: string,
+  now: Date = new Date(),
+): Promise<VacationPeriod> {
   await checkAccountSettingsRateLimit(userId);
   return startVacationPeriod(db, userId, now);
 }
@@ -41,7 +54,10 @@ export async function enableVacationMode(userId: string, now: Date = new Date())
  * the reconciliation steps are skipped entirely in that case, which is what
  * makes a repeated disable produce zero additional schedule shift.
  */
-export async function disableVacationMode(userId: string, now: Date = new Date()): Promise<VacationPeriod | null> {
+export async function disableVacationMode(
+  userId: string,
+  now: Date = new Date(),
+): Promise<VacationPeriod | null> {
   await checkAccountSettingsRateLimit(userId);
 
   return db.transaction(async (tx) => {
@@ -49,7 +65,12 @@ export async function disableVacationMode(userId: string, now: Date = new Date()
     if (!closed) return null;
 
     await applyVacationSchedulingAdjustment(tx, userId, closed.startedAt, now);
-    await applyGhostVacationSchedulingAdjustment(tx, userId, closed.startedAt, now);
+    await applyGhostVacationSchedulingAdjustment(
+      tx,
+      userId,
+      closed.startedAt,
+      now,
+    );
     return closed;
   });
 }

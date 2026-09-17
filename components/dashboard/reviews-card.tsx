@@ -1,7 +1,13 @@
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import type { DashboardData } from "@/domains/dashboard";
 import { formatRelativeTime } from "@/lib/time/format-relative-time";
 
@@ -24,7 +30,9 @@ export function ReviewsCard({ reviews }: ReviewsCardProps) {
       <CardHeader>
         <CardTitle>Reviews</CardTitle>
         <CardDescription>
-          {hasReviews ? `${reviews.availableCount} ready for review` : "No reviews due yet"}
+          {hasReviews
+            ? `${reviews.availableCount} ready for review`
+            : "No reviews due yet"}
         </CardDescription>
       </CardHeader>
       <CardContent>

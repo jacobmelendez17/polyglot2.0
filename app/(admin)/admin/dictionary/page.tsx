@@ -6,10 +6,23 @@ import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { MappingFilters } from "@/components/admin/dictionary/mapping-filters";
 import { MappingQueueTableSection } from "@/components/admin/dictionary/mapping-queue-table-section";
 import { canManageCurriculum } from "@/domains/admin";
-import { getLanguages, getLevelsByLanguage, getVocabularyGroupsByLanguage } from "@/domains/curriculum/server";
-import { MATCH_STATUS_LABELS, getLexicalLanguageProvider } from "@/domains/lexicon";
-import type { DictionaryMatchStatus, RegionalEvidenceStatus } from "@/domains/lexicon";
-import { getMappingQueue, getMappingStatusCounts } from "@/domains/lexicon/server";
+import {
+  getLanguages,
+  getLevelsByLanguage,
+  getVocabularyGroupsByLanguage,
+} from "@/domains/curriculum/server";
+import {
+  MATCH_STATUS_LABELS,
+  getLexicalLanguageProvider,
+} from "@/domains/lexicon";
+import type {
+  DictionaryMatchStatus,
+  RegionalEvidenceStatus,
+} from "@/domains/lexicon";
+import {
+  getMappingQueue,
+  getMappingStatusCounts,
+} from "@/domains/lexicon/server";
 import { requireUser } from "@/domains/users/server";
 
 export const metadata: Metadata = {
@@ -25,13 +38,26 @@ const MATCH_STATUSES: DictionaryMatchStatus[] = [
   "review_required",
   "manual",
 ];
-const REGIONAL_STATUSES: RegionalEvidenceStatus[] = ["recognized", "not_listed", "unknown"];
+const REGIONAL_STATUSES: RegionalEvidenceStatus[] = [
+  "recognized",
+  "not_listed",
+  "unknown",
+];
 
 // The parts of speech an admin can filter by. Curriculum stores this as free
 // text, so this is the set the editors actually offer rather than a
 // database-derived list — a `SELECT DISTINCT` over every item would grow
 // unboundedly with typos.
-const PART_OF_SPEECH_OPTIONS = ["noun", "verb", "adjective", "adverb", "pronoun", "preposition", "conjunction", "phrase"];
+const PART_OF_SPEECH_OPTIONS = [
+  "noun",
+  "verb",
+  "adjective",
+  "adverb",
+  "pronoun",
+  "preposition",
+  "conjunction",
+  "phrase",
+];
 
 type SearchParams = {
   language?: string;
@@ -54,7 +80,11 @@ type SearchParams = {
  * where the mapping panel owns every mutation. One place that changes a
  * mapping, not two.
  */
-export default async function AdminDictionaryPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+export default async function AdminDictionaryPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
   const user = await requireUser();
   if (!canManageCurriculum(user)) forbidden();
 
@@ -64,25 +94,41 @@ export default async function AdminDictionaryPage({ searchParams }: { searchPara
   if (languages.length === 0) {
     return (
       <div>
-        <AdminPageHeader title="Dictionary" description="Review how curriculum vocabulary maps onto dictionary entries." />
-        <p className="text-sm text-muted-foreground">No languages are configured yet.</p>
+        <AdminPageHeader
+          title="Dictionary"
+          description="Review how curriculum vocabulary maps onto dictionary entries."
+        />
+        <p className="text-sm text-muted-foreground">
+          No languages are configured yet.
+        </p>
       </div>
     );
   }
 
-  const language = languages.find((candidate) => candidate.id === params.language) ?? languages[0]!;
+  const language =
+    languages.find((candidate) => candidate.id === params.language) ??
+    languages[0]!;
   const provider = getLexicalLanguageProvider(language.code);
-  const matchStatus = MATCH_STATUSES.includes(params.status as DictionaryMatchStatus)
+  const matchStatus = MATCH_STATUSES.includes(
+    params.status as DictionaryMatchStatus,
+  )
     ? (params.status as DictionaryMatchStatus)
     : undefined;
-  const regionalStatus = REGIONAL_STATUSES.includes(params.regional as RegionalEvidenceStatus)
+  const regionalStatus = REGIONAL_STATUSES.includes(
+    params.regional as RegionalEvidenceStatus,
+  )
     ? (params.regional as RegionalEvidenceStatus)
     : undefined;
   const regionCode =
-    params.region && provider.regionCodes.includes(params.region) ? params.region : (provider.regionCodes[0] ?? null);
-  const partOfSpeech = PART_OF_SPEECH_OPTIONS.includes(params.pos ?? "") ? params.pos : undefined;
+    params.region && provider.regionCodes.includes(params.region)
+      ? params.region
+      : (provider.regionCodes[0] ?? null);
+  const partOfSpeech = PART_OF_SPEECH_OPTIONS.includes(params.pos ?? "")
+    ? params.pos
+    : undefined;
   const parsedOffset = Number.parseInt(params.offset ?? "0", 10);
-  const offset = Number.isFinite(parsedOffset) && parsedOffset > 0 ? parsedOffset : 0;
+  const offset =
+    Number.isFinite(parsedOffset) && parsedOffset > 0 ? parsedOffset : 0;
 
   const [levels, groups, counts, page] = await Promise.all([
     getLevelsByLanguage(language.id),
@@ -101,10 +147,18 @@ export default async function AdminDictionaryPage({ searchParams }: { searchPara
     }),
   ]);
 
-  const levelNumberById = new Map(levels.map((level) => [level.id, level.levelNumber]));
+  const levelNumberById = new Map(
+    levels.map((level) => [level.id, level.levelNumber]),
+  );
   const groupOptions = groups
-    .map((group) => ({ id: group.id, name: group.name, levelNumber: levelNumberById.get(group.levelId) ?? 0 }))
-    .sort((a, b) => a.levelNumber - b.levelNumber || a.name.localeCompare(b.name));
+    .map((group) => ({
+      id: group.id,
+      name: group.name,
+      levelNumber: levelNumberById.get(group.levelId) ?? 0,
+    }))
+    .sort(
+      (a, b) => a.levelNumber - b.levelNumber || a.name.localeCompare(b.name),
+    );
 
   function pageHref(nextOffset: number): string {
     const next = new URLSearchParams();
@@ -132,7 +186,9 @@ export default async function AdminDictionaryPage({ searchParams }: { searchPara
       <dl className="mb-4 flex flex-wrap gap-4 text-sm">
         {MATCH_STATUSES.map((status) => (
           <div key={status} className="flex items-baseline gap-1.5">
-            <dt className="text-muted-foreground">{MATCH_STATUS_LABELS[status]}</dt>
+            <dt className="text-muted-foreground">
+              {MATCH_STATUS_LABELS[status]}
+            </dt>
             <dd className="font-medium text-foreground">{counts[status]}</dd>
           </div>
         ))}
@@ -145,8 +201,14 @@ export default async function AdminDictionaryPage({ searchParams }: { searchPara
       </dl>
 
       <MappingFilters
-        languages={languages.map((candidate) => ({ id: candidate.id, name: candidate.name }))}
-        levels={levels.map((level) => ({ id: level.id, levelNumber: level.levelNumber }))}
+        languages={languages.map((candidate) => ({
+          id: candidate.id,
+          name: candidate.name,
+        }))}
+        levels={levels.map((level) => ({
+          id: level.id,
+          levelNumber: level.levelNumber,
+        }))}
         groups={groupOptions}
         partsOfSpeech={PART_OF_SPEECH_OPTIONS}
         regionCodes={[...provider.regionCodes]}
@@ -164,7 +226,10 @@ export default async function AdminDictionaryPage({ searchParams }: { searchPara
       <MappingQueueTableSection rows={page.rows} regionCode={regionCode} />
 
       {page.total > PAGE_SIZE ? (
-        <nav aria-label="Mapping queue pages" className="mt-4 flex items-center justify-between gap-3 text-sm">
+        <nav
+          aria-label="Mapping queue pages"
+          className="mt-4 flex items-center justify-between gap-3 text-sm"
+        >
           <p className="text-muted-foreground">
             {shownFrom}–{shownTo} of {page.total}
           </p>

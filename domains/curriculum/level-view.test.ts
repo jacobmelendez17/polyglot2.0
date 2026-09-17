@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { buildLevelViewModel, LEVEL_NUMBER_MAX, LEVEL_NUMBER_MIN, parseLevelNumber } from "./level-view";
+import {
+  buildLevelViewModel,
+  LEVEL_NUMBER_MAX,
+  LEVEL_NUMBER_MIN,
+  parseLevelNumber,
+} from "./level-view";
 import type { CurriculumLearningItem } from "./curriculum-db-types";
 
 describe("parseLevelNumber", () => {
@@ -31,7 +36,10 @@ describe("parseLevelNumber", () => {
   });
 });
 
-type VocabularyLearningItem = Extract<CurriculumLearningItem, { type: "vocabulary" }>;
+type VocabularyLearningItem = Extract<
+  CurriculumLearningItem,
+  { type: "vocabulary" }
+>;
 
 function vocab(id: string, position: number): VocabularyLearningItem {
   return {
@@ -54,8 +62,8 @@ function vocab(id: string, position: number): VocabularyLearningItem {
       ipa: null,
       context: null,
       creatorNotes: null,
-    register: null,
-    dictionaryFieldOverrides: [],
+      register: null,
+      dictionaryFieldOverrides: [],
     },
   };
 }
@@ -78,7 +86,9 @@ function grammar(id: string, position: number): CurriculumLearningItem {
       category: null,
       creatorNotes: null,
       register: null,
-      requiredQuestions: [{ format: "translation", direction: "targetToEnglish" }],
+      requiredQuestions: [
+        { format: "translation", direction: "targetToEnglish" },
+      ],
     },
   };
 }
@@ -120,7 +130,12 @@ describe("buildLevelViewModel", () => {
     item.vocabulary.article = "el";
     item.vocabulary.primaryMeaning = "cat";
     const result = buildLevelViewModel([item]);
-    expect(result.vocabulary[0]).toEqual({ id: "gato", itemType: "vocabulary", primary: "el gato", secondary: "cat" });
+    expect(result.vocabulary[0]).toEqual({
+      id: "gato",
+      itemType: "vocabulary",
+      primary: "el gato",
+      secondary: "cat",
+    });
   });
 
   it("does not add an article prefix when the item has none", () => {
@@ -135,6 +150,11 @@ describe("buildLevelViewModel", () => {
   it("uses structure/primaryMeaning for a grammar card (spec 10 §14)", () => {
     const item = grammar("y", 1);
     const result = buildLevelViewModel([item]);
-    expect(result.grammar[0]).toEqual({ id: "y", itemType: "grammar", primary: "structure-y", secondary: "meaning-y" });
+    expect(result.grammar[0]).toEqual({
+      id: "y",
+      itemType: "grammar",
+      primary: "structure-y",
+      secondary: "meaning-y",
+    });
   });
 });

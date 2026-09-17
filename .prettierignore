@@ -1,0 +1,19 @@
+# Drizzle-generated migration metadata — owned by drizzle-kit's own output
+# format, not hand-authored. Reformatting it would just be undone (and
+# re-diffed) the next time `db:generate` runs.
+db/migrations/
+
+# Terraform state and its local cache — never hand-formatted, and
+# terraform.tfstate's committed dev copy (see infra/terraform/environments/dev/main.tf)
+# should only ever change via `terraform apply`.
+infra/terraform/**/*.tfstate
+infra/terraform/**/*.tfstate.backup
+**/.terraform/
+
+# Build output and generated reports.
+.next/
+.next-e2e/
+dist/
+playwright-report/
+test-results/
+coverage/

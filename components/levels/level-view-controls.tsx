@@ -4,7 +4,11 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 export type LevelViewMode = "large" | "normal" | "compact" | "list";
 
-const VIEW_MODE_OPTIONS: { value: LevelViewMode; label: string; icon: typeof Grid2x2 }[] = [
+const VIEW_MODE_OPTIONS: {
+  value: LevelViewMode;
+  label: string;
+  icon: typeof Grid2x2;
+}[] = [
   { value: "large", label: "Larger cards", icon: Grid2x2 },
   { value: "normal", label: "Default cards", icon: LayoutGrid },
   { value: "compact", label: "Smaller cards", icon: Grid3x3 },
@@ -35,7 +39,12 @@ export function LevelViewControls({ value, onChange }: LevelViewControlsProps) {
       aria-label="Curriculum display mode"
     >
       {VIEW_MODE_OPTIONS.map(({ value: optionValue, label, icon: Icon }) => (
-        <ToggleGroupItem key={optionValue} value={optionValue} aria-label={label} title={label}>
+        <ToggleGroupItem
+          key={optionValue}
+          value={optionValue}
+          aria-label={label}
+          title={label}
+        >
           <Icon aria-hidden="true" />
         </ToggleGroupItem>
       ))}

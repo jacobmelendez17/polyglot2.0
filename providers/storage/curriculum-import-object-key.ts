@@ -7,7 +7,10 @@
  * import, and this is a pure function so every one of them can be tested
  * without touching S3.
  */
-export function curriculumImportObjectKey(importId: string, fileExtension: "csv" | "tsv"): string {
+export function curriculumImportObjectKey(
+  importId: string,
+  fileExtension: "csv" | "tsv",
+): string {
   return `imports/${importId}/source.${fileExtension}`;
 }
 
@@ -21,7 +24,9 @@ const OBJECT_KEY_PATTERN = /^imports\/([0-9a-fA-F-]{36})\/source\.(csv|tsv)$/;
  * receiving an unexpected key (a stray object, a hand-crafted test upload)
  * can decide how to handle it instead of crashing the whole batch.
  */
-export function parseCurriculumImportObjectKey(key: string): { importId: string; fileExtension: "csv" | "tsv" } | null {
+export function parseCurriculumImportObjectKey(
+  key: string,
+): { importId: string; fileExtension: "csv" | "tsv" } | null {
   const match = OBJECT_KEY_PATTERN.exec(key);
   if (!match) return null;
   return { importId: match[1]!, fileExtension: match[2] as "csv" | "tsv" };

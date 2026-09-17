@@ -23,7 +23,9 @@ export function UndoActionSelect({ initialValue }: UndoActionSelectProps) {
       options={OPTIONS}
       onSave={async (undoAction) => {
         const result = await updateUndoActionAction({ undoAction });
-        return result.ok ? { ok: true, value: result.data.undoAction as UndoAction } : { ok: false, message: result.error.message };
+        return result.ok
+          ? { ok: true, value: result.data.undoAction as UndoAction }
+          : { ok: false, message: result.error.message };
       }}
     />
   );

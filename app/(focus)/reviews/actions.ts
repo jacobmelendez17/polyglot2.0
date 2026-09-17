@@ -23,9 +23,13 @@ import { ReviewError } from "@/lib/errors/review-errors";
  * `activeLanguageId` in one call.
  */
 
-export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: { code: string; message: string } };
+export type ActionResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: { code: string; message: string } };
 
-async function runReviewAction<T>(fn: () => Promise<T>): Promise<ActionResult<T>> {
+async function runReviewAction<T>(
+  fn: () => Promise<T>,
+): Promise<ActionResult<T>> {
   try {
     return { ok: true, data: await fn() };
   } catch (error) {
@@ -36,11 +40,23 @@ async function runReviewAction<T>(fn: () => Promise<T>): Promise<ActionResult<T>
       return { ok: false, error: { code: error.code, message: error.message } };
     }
     if (error instanceof z.ZodError) {
-      return { ok: false, error: { code: "INVALID_REVIEW_STATE", message: "That request could not be understood." } };
+      return {
+        ok: false,
+        error: {
+          code: "INVALID_REVIEW_STATE",
+          message: "That request could not be understood.",
+        },
+      };
     }
     // Never log the token, its decoded contents, or the learner's answer (spec 09 §20 Privacy and Logging).
     console.error("Unexpected review action error", error);
-    return { ok: false, error: { code: "UNKNOWN", message: "Something went wrong. Please try again." } };
+    return {
+      ok: false,
+      error: {
+        code: "UNKNOWN",
+        message: "Something went wrong. Please try again.",
+      },
+    };
   }
 }
 
@@ -58,7 +74,8 @@ export async function submitReviewAnswerAction(
   input: z.infer<typeof submitAnswerInputSchema>,
 ): Promise<ActionResult<ReviewSessionResult>> {
   return runReviewAction(async () => {
-    const { token, questionId, idempotencyKey, submission } = submitAnswerInputSchema.parse(input);
+    const { token, questionId, idempotencyKey, submission } =
+      submitAnswerInputSchema.parse(input);
     const user = await requireUser();
     return submitReviewAnswer({
       token,

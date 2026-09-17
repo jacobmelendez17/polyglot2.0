@@ -13,7 +13,10 @@ export const lessonPhaseSchema = z.enum(["study", "quiz", "complete"]);
 
 export const learningItemTypeSchema = z.enum(["vocabulary", "grammar"]);
 
-export const quizQuestionDirectionSchema = z.enum(["targetToEnglish", "englishToTarget"]);
+export const quizQuestionDirectionSchema = z.enum([
+  "targetToEnglish",
+  "englishToTarget",
+]);
 
 export const lessonBatchItemSchema = z.object({
   itemId: z.string().min(1),

@@ -1,4 +1,15 @@
-import { and, asc, desc, eq, gt, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gt,
+  isNotNull,
+  isNull,
+  lt,
+  or,
+  sql,
+} from "drizzle-orm";
 
 import type { DbClient } from "@/db/client";
 import { curriculumImportRows, curriculumImports } from "@/db/schema";
@@ -29,7 +40,9 @@ import type {
 type CurriculumImportRow = typeof curriculumImports.$inferSelect;
 type CurriculumImportRowRow = typeof curriculumImportRows.$inferSelect;
 
-function toCurriculumImportRecord(row: CurriculumImportRow): CurriculumImportRecord {
+function toCurriculumImportRecord(
+  row: CurriculumImportRow,
+): CurriculumImportRecord {
   return {
     id: row.id,
     environment: row.environment,
@@ -67,7 +80,9 @@ function toCurriculumImportRecord(row: CurriculumImportRow): CurriculumImportRec
   };
 }
 
-function toCurriculumImportRowRecord(row: CurriculumImportRowRow): CurriculumImportRowRecord {
+function toCurriculumImportRowRecord(
+  row: CurriculumImportRowRow,
+): CurriculumImportRowRecord {
   return {
     id: row.id,
     importId: row.importId,
@@ -79,7 +94,8 @@ function toCurriculumImportRowRecord(row: CurriculumImportRowRow): CurriculumImp
     classification: row.classification,
     previousClassification: row.previousClassification,
     resolvedLearningItemId: row.resolvedLearningItemId,
-    changedFields: row.changedFields as CurriculumImportRowRecord["changedFields"],
+    changedFields:
+      row.changedFields as CurriculumImportRowRecord["changedFields"],
     reviewReasonCode: row.reviewReasonCode,
     reviewReason: row.reviewReason,
     adminDisposition: row.adminDisposition,
@@ -89,7 +105,10 @@ function toCurriculumImportRowRecord(row: CurriculumImportRowRow): CurriculumImp
   };
 }
 
-export async function createCurriculumImport(db: DbClient, input: CreateCurriculumImportInput): Promise<CurriculumImportRecord> {
+export async function createCurriculumImport(
+  db: DbClient,
+  input: CreateCurriculumImportInput,
+): Promise<CurriculumImportRecord> {
   const [row] = await db
     .insert(curriculumImports)
     .values({
@@ -108,14 +127,29 @@ export async function createCurriculumImport(db: DbClient, input: CreateCurricul
   return toCurriculumImportRecord(row!);
 }
 
-export async function getCurriculumImportById(db: DbClient, importId: string): Promise<CurriculumImportRecord | null> {
-  const [row] = await db.select().from(curriculumImports).where(eq(curriculumImports.id, importId)).limit(1);
+export async function getCurriculumImportById(
+  db: DbClient,
+  importId: string,
+): Promise<CurriculumImportRecord | null> {
+  const [row] = await db
+    .select()
+    .from(curriculumImports)
+    .where(eq(curriculumImports.id, importId))
+    .limit(1);
   return row ? toCurriculumImportRecord(row) : null;
 }
 
 /** Locks the import row for the duration of the caller's transaction — required before any state-machine transition, so two concurrent requests can't both act on the same stale status (mirrors `domains/decks`' row-lock pattern). */
-export async function lockCurriculumImportForUpdate(db: DbClient, importId: string): Promise<CurriculumImportRecord | null> {
-  const [row] = await db.select().from(curriculumImports).where(eq(curriculumImports.id, importId)).limit(1).for("update");
+export async function lockCurriculumImportForUpdate(
+  db: DbClient,
+  importId: string,
+): Promise<CurriculumImportRecord | null> {
+  const [row] = await db
+    .select()
+    .from(curriculumImports)
+    .where(eq(curriculumImports.id, importId))
+    .limit(1)
+    .for("update");
   return row ? toCurriculumImportRecord(row) : null;
 }
 
@@ -135,15 +169,36 @@ function decodeCursor(value: string): Cursor {
 
 async function listByArchivedState(
   db: DbClient,
-  { languageId, cursor, limit, archived }: { languageId: string; cursor?: string | null; limit: number; archived: boolean },
+  {
+    languageId,
+    cursor,
+    limit,
+    archived,
+  }: {
+    languageId: string;
+    cursor?: string | null;
+    limit: number;
+    archived: boolean;
+  },
 ): Promise<CurriculumImportsPage> {
-  const conditions = [eq(curriculumImports.languageId, languageId), archived ? isNotNull(curriculumImports.archivedAt) : isNull(curriculumImports.archivedAt)];
+  const conditions = [
+    eq(curriculumImports.languageId, languageId),
+    archived
+      ? isNotNull(curriculumImports.archivedAt)
+      : isNull(curriculumImports.archivedAt),
+  ];
 
   if (cursor) {
     const decoded = decodeCursor(cursor);
     const cursorCreatedAt = new Date(decoded.createdAt);
     conditions.push(
-      or(lt(curriculumImports.createdAt, cursorCreatedAt), and(eq(curriculumImports.createdAt, cursorCreatedAt), lt(curriculumImports.id, decoded.id)))!,
+      or(
+        lt(curriculumImports.createdAt, cursorCreatedAt),
+        and(
+          eq(curriculumImports.createdAt, cursorCreatedAt),
+          lt(curriculumImports.id, decoded.id),
+        ),
+      )!,
     );
   }
 
@@ -160,12 +215,18 @@ async function listByArchivedState(
 
   return {
     items: pageRows.map(toCurriculumImportRecord),
-    nextCursor: hasNextPage && last ? encodeCursor({ createdAt: last.createdAt.toISOString(), id: last.id }) : null,
+    nextCursor:
+      hasNextPage && last
+        ? encodeCursor({ createdAt: last.createdAt.toISOString(), id: last.id })
+        : null,
   };
 }
 
 /** Normal (non-archived) import history, newest first (spec 19 §19). */
-export async function listCurriculumImports(db: DbClient, input: { languageId: string; cursor?: string | null; limit: number }): Promise<CurriculumImportsPage> {
+export async function listCurriculumImports(
+  db: DbClient,
+  input: { languageId: string; cursor?: string | null; limit: number },
+): Promise<CurriculumImportsPage> {
   return listByArchivedState(db, { ...input, archived: false });
 }
 
@@ -201,7 +262,13 @@ export async function listCurriculumImportRows(
   if (input.cursor) {
     const decoded = decodeRowCursor(input.cursor);
     conditions.push(
-      or(gt(curriculumImportRows.rowNumber, decoded.rowNumber), and(eq(curriculumImportRows.rowNumber, decoded.rowNumber), gt(curriculumImportRows.id, decoded.id)))!,
+      or(
+        gt(curriculumImportRows.rowNumber, decoded.rowNumber),
+        and(
+          eq(curriculumImportRows.rowNumber, decoded.rowNumber),
+          gt(curriculumImportRows.id, decoded.id),
+        ),
+      )!,
     );
   }
 
@@ -218,23 +285,41 @@ export async function listCurriculumImportRows(
 
   return {
     items: pageRows.map(toCurriculumImportRowRecord),
-    nextCursor: hasNextPage && last ? encodeRowCursor({ rowNumber: last.rowNumber, id: last.id }) : null,
+    nextCursor:
+      hasNextPage && last
+        ? encodeRowCursor({ rowNumber: last.rowNumber, id: last.id })
+        : null,
   };
 }
 
 /** Every row still needing an explicit disposition before the import can be confirmed (spec 19 §9) — a blocked row with no admin call yet. */
-export async function countUnresolvedRows(db: DbClient, importId: string): Promise<number> {
+export async function countUnresolvedRows(
+  db: DbClient,
+  importId: string,
+): Promise<number> {
   const [row] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(curriculumImportRows)
-    .where(and(eq(curriculumImportRows.importId, importId), eq(curriculumImportRows.classification, "blocked"), isNull(curriculumImportRows.adminDisposition)));
+    .where(
+      and(
+        eq(curriculumImportRows.importId, importId),
+        eq(curriculumImportRows.classification, "blocked"),
+        isNull(curriculumImportRows.adminDisposition),
+      ),
+    );
   return row?.count ?? 0;
 }
 
 /** Every current row's classification, by row number — what a re-preview needs to compute `changedSincePreview` (spec 19 §12/§13) without paginating through full row records for a comparison that only needs one enum column. Bounded by the 5,000-row import cap (spec 19 §4), so one unpaginated query is fine. */
-export async function getCurrentRowClassifications(db: DbClient, importId: string): Promise<Map<number, CurriculumImportRowClassification>> {
+export async function getCurrentRowClassifications(
+  db: DbClient,
+  importId: string,
+): Promise<Map<number, CurriculumImportRowClassification>> {
   const rows = await db
-    .select({ rowNumber: curriculumImportRows.rowNumber, classification: curriculumImportRows.classification })
+    .select({
+      rowNumber: curriculumImportRows.rowNumber,
+      classification: curriculumImportRows.classification,
+    })
     .from(curriculumImportRows)
     .where(eq(curriculumImportRows.importId, importId));
   return new Map(rows.map((row) => [row.rowNumber, row.classification]));
@@ -263,7 +348,10 @@ export async function setStatus(
     .where(eq(curriculumImports.id, importId));
 }
 
-export async function incrementAttemptCount(db: DbClient, importId: string): Promise<void> {
+export async function incrementAttemptCount(
+  db: DbClient,
+  importId: string,
+): Promise<void> {
   await db
     .update(curriculumImports)
     .set({ attemptCount: sql`${curriculumImports.attemptCount} + 1` })
@@ -279,8 +367,17 @@ export type PreviewCounts = {
   reviewCount: number;
 };
 
-function countsFromRows(rows: CurriculumImportRowPreviewInput[]): PreviewCounts {
-  const counts: PreviewCounts = { totalRows: rows.length, createCount: 0, updateCount: 0, moveCount: 0, unchangedCount: 0, reviewCount: 0 };
+function countsFromRows(
+  rows: CurriculumImportRowPreviewInput[],
+): PreviewCounts {
+  const counts: PreviewCounts = {
+    totalRows: rows.length,
+    createCount: 0,
+    updateCount: 0,
+    moveCount: 0,
+    unchangedCount: 0,
+    reviewCount: 0,
+  };
   for (const row of rows) {
     if (row.classification === "create") counts.createCount += 1;
     else if (row.classification === "update") counts.updateCount += 1;
@@ -306,9 +403,16 @@ export async function recordPreviewResult(
     rows,
     previousRows,
     sourceSha256,
-  }: { importId: string; rows: CurriculumImportRowPreviewInput[]; previousRows?: Map<number, CurriculumImportRowClassification>; sourceSha256?: string },
+  }: {
+    importId: string;
+    rows: CurriculumImportRowPreviewInput[];
+    previousRows?: Map<number, CurriculumImportRowClassification>;
+    sourceSha256?: string;
+  },
 ): Promise<PreviewCounts> {
-  await db.delete(curriculumImportRows).where(eq(curriculumImportRows.importId, importId));
+  await db
+    .delete(curriculumImportRows)
+    .where(eq(curriculumImportRows.importId, importId));
 
   if (rows.length > 0) {
     await db.insert(curriculumImportRows).values(
@@ -327,7 +431,8 @@ export async function recordPreviewResult(
           changedFields: row.changedFields,
           reviewReasonCode: row.reviewReasonCode,
           reviewReason: row.reviewReason,
-          changedSincePreview: previous !== null && previous !== row.classification,
+          changedSincePreview:
+            previous !== null && previous !== row.classification,
         };
       }),
     );
@@ -354,19 +459,42 @@ export async function recordPreviewResult(
   return counts;
 }
 
-export async function setRowDisposition(db: DbClient, rowId: string, disposition: "skip"): Promise<void> {
-  await db.update(curriculumImportRows).set({ adminDisposition: disposition }).where(eq(curriculumImportRows.id, rowId));
+export async function setRowDisposition(
+  db: DbClient,
+  rowId: string,
+  disposition: "skip",
+): Promise<void> {
+  await db
+    .update(curriculumImportRows)
+    .set({ adminDisposition: disposition })
+    .where(eq(curriculumImportRows.id, rowId));
 }
 
-export async function archiveCurriculumImport(db: DbClient, importId: string, archivedByUserId: string): Promise<void> {
-  await db.update(curriculumImports).set({ archivedAt: new Date(), archivedByUserId }).where(eq(curriculumImports.id, importId));
+export async function archiveCurriculumImport(
+  db: DbClient,
+  importId: string,
+  archivedByUserId: string,
+): Promise<void> {
+  await db
+    .update(curriculumImports)
+    .set({ archivedAt: new Date(), archivedByUserId })
+    .where(eq(curriculumImports.id, importId));
 }
 
-export async function unarchiveCurriculumImport(db: DbClient, importId: string): Promise<void> {
-  await db.update(curriculumImports).set({ archivedAt: null, archivedByUserId: null }).where(eq(curriculumImports.id, importId));
+export async function unarchiveCurriculumImport(
+  db: DbClient,
+  importId: string,
+): Promise<void> {
+  await db
+    .update(curriculumImports)
+    .set({ archivedAt: null, archivedByUserId: null })
+    .where(eq(curriculumImports.id, importId));
 }
 
 /** Permanent history deletion (spec 19 §26) — the import row's `ON DELETE CASCADE` FK removes its rows automatically. Never touches curriculum. */
-export async function deleteCurriculumImport(db: DbClient, importId: string): Promise<void> {
+export async function deleteCurriculumImport(
+  db: DbClient,
+  importId: string,
+): Promise<void> {
   await db.delete(curriculumImports).where(eq(curriculumImports.id, importId));
 }

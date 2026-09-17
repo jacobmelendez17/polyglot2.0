@@ -27,12 +27,17 @@ export type AdminErrorCode = (typeof ADMIN_ERROR_CODES)[number];
 const DEFAULT_MESSAGES: Record<AdminErrorCode, string> = {
   UNAUTHENTICATED: "You must be signed in to do that.",
   FORBIDDEN: "You don't have access to do that.",
-  ADMIN_EDIT_CONFLICT: "This item changed after you opened it. Reload the latest version before saving or publishing.",
+  ADMIN_EDIT_CONFLICT:
+    "This item changed after you opened it. Reload the latest version before saving or publishing.",
   CURRICULUM_ITEM_NOT_FOUND: "That curriculum item could not be found.",
-  CURRICULUM_VALIDATION_FAILED: "That curriculum content couldn't be validated.",
-  DUPLICATE_ITEM: "A matching item already exists. Resolve the duplicate before continuing.",
-  DUPLICATE_REVIEW_REQUIRED: "This near-duplicate needs a decision before it can be saved.",
-  ITEM_REFERENCED: "This item has existing learner progress and cannot be permanently deleted. It will be archived instead.",
+  CURRICULUM_VALIDATION_FAILED:
+    "That curriculum content couldn't be validated.",
+  DUPLICATE_ITEM:
+    "A matching item already exists. Resolve the duplicate before continuing.",
+  DUPLICATE_REVIEW_REQUIRED:
+    "This near-duplicate needs a decision before it can be saved.",
+  ITEM_REFERENCED:
+    "This item has existing learner progress and cannot be permanently deleted. It will be archived instead.",
   IMPORT_FILE_INVALID: "This file couldn't be read as a vocabulary import.",
   SANDBOX_NOT_FOUND: "No sandbox exists for this account.",
   SANDBOX_OPERATION_FORBIDDEN: "That sandbox operation isn't allowed.",

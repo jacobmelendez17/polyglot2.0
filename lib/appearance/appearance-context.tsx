@@ -1,10 +1,20 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import type { ReactNode } from "react";
 
 import type { AppearanceSettings } from "./appearance-settings";
-import { applyAppearanceToDocument, readAppearanceSettings, writeAppearanceSettings } from "./appearance-storage";
+import {
+  applyAppearanceToDocument,
+  readAppearanceSettings,
+  writeAppearanceSettings,
+} from "./appearance-storage";
 
 type AppearanceContextValue = {
   settings: AppearanceSettings;
@@ -23,7 +33,9 @@ const AppearanceContext = createContext<AppearanceContextValue | null>(null);
  * ever runs, by `appearance-bootstrap.ts`'s inline script) does.
  */
 export function AppearanceProvider({ children }: { children: ReactNode }) {
-  const [settings, setSettings] = useState<AppearanceSettings>(() => readAppearanceSettings());
+  const [settings, setSettings] = useState<AppearanceSettings>(() =>
+    readAppearanceSettings(),
+  );
 
   useEffect(() => {
     applyAppearanceToDocument(settings);
@@ -48,11 +60,16 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  return <AppearanceContext.Provider value={{ settings, updateSettings }}>{children}</AppearanceContext.Provider>;
+  return (
+    <AppearanceContext.Provider value={{ settings, updateSettings }}>
+      {children}
+    </AppearanceContext.Provider>
+  );
 }
 
 export function useAppearance(): AppearanceContextValue {
   const context = useContext(AppearanceContext);
-  if (!context) throw new Error("useAppearance must be used within an AppearanceProvider");
+  if (!context)
+    throw new Error("useAppearance must be used within an AppearanceProvider");
   return context;
 }

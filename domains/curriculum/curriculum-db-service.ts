@@ -10,7 +10,10 @@ import {
   getDraft as repoGetDraft,
   getLevelContentCounts as repoGetLevelContentCounts,
 } from "./curriculum-mutation-repository";
-import { getEligibleLessonItems, getLessonItemsByIds } from "./lesson-curriculum-repository";
+import {
+  getEligibleLessonItems,
+  getLessonItemsByIds,
+} from "./lesson-curriculum-repository";
 import * as repository from "./curriculum-repository";
 import type { CurriculumVisibility } from "./curriculum-repository";
 import type { GetAdminCurriculumItemsInput } from "./curriculum-admin-types";
@@ -38,8 +41,17 @@ export async function getLevelsByLanguage(languageId: string) {
   return repository.getLevelsByLanguage(db, languageId);
 }
 
-export async function getLevelByLanguageAndNumber(languageId: string, levelNumber: number, options?: CurriculumVisibility) {
-  return repository.getLevelByLanguageAndNumber(db, languageId, levelNumber, options);
+export async function getLevelByLanguageAndNumber(
+  languageId: string,
+  levelNumber: number,
+  options?: CurriculumVisibility,
+) {
+  return repository.getLevelByLanguageAndNumber(
+    db,
+    languageId,
+    levelNumber,
+    options,
+  );
 }
 
 export async function getVocabularyGroup(id: string) {
@@ -62,7 +74,10 @@ export async function getLearningItemExamples(learningItemId: string) {
   return repository.getLearningItemExamples(db, learningItemId);
 }
 
-export async function getLevelItems(levelId: string, options?: CurriculumVisibility) {
+export async function getLevelItems(
+  levelId: string,
+  options?: CurriculumVisibility,
+) {
   return repository.getLevelItems(db, levelId, options);
 }
 
@@ -70,7 +85,9 @@ export async function getLanguages() {
   return repository.getLanguages(db);
 }
 
-export async function getAdminCurriculumItems(input: GetAdminCurriculumItemsInput) {
+export async function getAdminCurriculumItems(
+  input: GetAdminCurriculumItemsInput,
+) {
   return adminRepository.getAdminCurriculumItems(db, input);
 }
 
@@ -99,11 +116,19 @@ export async function getLevelContentCounts(levelId: string) {
  * docstring; this function is the one place `domains/curriculum` and
  * `domains/lexicon` meet.
  */
-async function withConfirmedDictionaryData(items: LearningItem[]): Promise<LearningItem[]> {
-  const vocabularyItemIds = items.filter((item): item is Extract<LearningItem, { type: "vocabulary" }> => item.type === "vocabulary").map((item) => item.id);
+async function withConfirmedDictionaryData(
+  items: LearningItem[],
+): Promise<LearningItem[]> {
+  const vocabularyItemIds = items
+    .filter(
+      (item): item is Extract<LearningItem, { type: "vocabulary" }> =>
+        item.type === "vocabulary",
+    )
+    .map((item) => item.id);
   if (vocabularyItemIds.length === 0) return items;
 
-  const dictionaryByItemId = await getConfirmedDictionaryDataForItems(vocabularyItemIds);
+  const dictionaryByItemId =
+    await getConfirmedDictionaryDataForItems(vocabularyItemIds);
   if (dictionaryByItemId.size === 0) return items;
 
   return items.map((item) => {
@@ -151,10 +176,13 @@ export const databaseCurriculumReader = {
   getEligibleLearningItems: async (userId: string, languageId: string) => {
     const { showNsfwContent } = await getEffectiveContentPreferences(userId);
     return withConfirmedDictionaryData(
-      await getEligibleLessonItems(db, userId, languageId, { includeNsfw: showNsfwContent }),
+      await getEligibleLessonItems(db, userId, languageId, {
+        includeNsfw: showNsfwContent,
+      }),
     );
   },
-  getLearningItemsByIds: async (ids: string[]) => withConfirmedDictionaryData(await getLessonItemsByIds(db, ids)),
+  getLearningItemsByIds: async (ids: string[]) =>
+    withConfirmedDictionaryData(await getLessonItemsByIds(db, ids)),
 };
 
 /** Everything awaiting Admin verification in one language (spec 17). */

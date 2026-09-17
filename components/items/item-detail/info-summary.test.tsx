@@ -5,7 +5,9 @@ import { InfoSummary } from "@/components/items/item-detail/info-summary";
 import { buildItemDetailView } from "@/domains/curriculum";
 import type { ItemDetailSource } from "@/domains/curriculum";
 
-function vocabulary(overrides: Partial<Extract<ItemDetailSource, { type: "vocabulary" }>> = {}): ItemDetailSource {
+function vocabulary(
+  overrides: Partial<Extract<ItemDetailSource, { type: "vocabulary" }>> = {},
+): ItemDetailSource {
   return {
     type: "vocabulary",
     itemId: "item-1",
@@ -34,14 +36,21 @@ function vocabulary(overrides: Partial<Extract<ItemDetailSource, { type: "vocabu
 }
 
 function renderSummary(source: ItemDetailSource) {
-  return render(<InfoSummary view={buildItemDetailView(source)} languageCode="es-MX" />);
+  return render(
+    <InfoSummary view={buildItemDetailView(source)} languageCode="es-MX" />,
+  );
 }
 
 describe("InfoSummary", () => {
   it("renders all four cards, including the empty ones", () => {
     renderSummary(vocabulary());
 
-    for (const title of ["Details", "Pronunciation", "Synonyms", "Variations"]) {
+    for (const title of [
+      "Details",
+      "Pronunciation",
+      "Synonyms",
+      "Variations",
+    ]) {
       expect(screen.getByRole("heading", { name: title })).toBeInTheDocument();
     }
     expect(screen.getByText("No synonyms yet.")).toBeInTheDocument();
@@ -72,7 +81,9 @@ describe("InfoSummary", () => {
   });
 
   it("labels the learner's own synonyms rather than merging them into the official list", () => {
-    renderSummary(vocabulary({ officialSynonyms: ["feline"], personalSynonyms: ["kitty"] }));
+    renderSummary(
+      vocabulary({ officialSynonyms: ["feline"], personalSynonyms: ["kitty"] }),
+    );
 
     expect(screen.getByText("feline")).toBeInTheDocument();
     expect(screen.getByText("kitty")).toBeInTheDocument();
@@ -100,6 +111,8 @@ describe("InfoSummary", () => {
     });
 
     expect(screen.getByText("Structure")).toBeInTheDocument();
-    expect(screen.getByText("Grammar points are not pronounced as single words.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Grammar points are not pronounced as single words."),
+    ).toBeInTheDocument();
   });
 });

@@ -3,7 +3,15 @@
 import { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 import { bulkConfirmVocabularyMappingsAction } from "@/app/(admin)/admin/dictionary/actions";
 
@@ -13,7 +21,10 @@ type BulkConfirmMappingsBarProps = {
 };
 
 /** Spec 13's "batch confirmation of reviewed mappings" — mirrors `components/admin/curriculum/bulk-actions-bar.tsx`'s exact shape. */
-export function BulkConfirmMappingsBar({ vocabularyItemIds, onDone }: BulkConfirmMappingsBarProps) {
+export function BulkConfirmMappingsBar({
+  vocabularyItemIds,
+  onDone,
+}: BulkConfirmMappingsBarProps) {
   const [isPending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +33,10 @@ export function BulkConfirmMappingsBar({ vocabularyItemIds, onDone }: BulkConfir
   function handleConfirm() {
     setError(null);
     startTransition(async () => {
-      const result = await bulkConfirmVocabularyMappingsAction({ vocabularyItemIds, idempotencyKey: crypto.randomUUID() });
+      const result = await bulkConfirmVocabularyMappingsAction({
+        vocabularyItemIds,
+        idempotencyKey: crypto.randomUUID(),
+      });
       if (!result.ok) {
         setError(result.error.message);
         return;
@@ -34,7 +48,9 @@ export function BulkConfirmMappingsBar({ vocabularyItemIds, onDone }: BulkConfir
 
   return (
     <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-muted/40 px-3 py-2">
-      <span className="text-sm font-medium text-foreground">{count} selected</span>
+      <span className="text-sm font-medium text-foreground">
+        {count} selected
+      </span>
       <Button variant="ghost" size="sm" onClick={onDone}>
         Clear
       </Button>
@@ -49,7 +65,8 @@ export function BulkConfirmMappingsBar({ vocabularyItemIds, onDone }: BulkConfir
                 Confirm {count} mapping{count === 1 ? "" : "s"}?
               </DialogTitle>
               <DialogDescription>
-                Each selected match becomes locked against future automatic changes. Only confirm rows you&apos;ve actually reviewed — this
+                Each selected match becomes locked against future automatic
+                changes. Only confirm rows you&apos;ve actually reviewed — this
                 doesn&apos;t re-check them for you.
               </DialogDescription>
             </DialogHeader>

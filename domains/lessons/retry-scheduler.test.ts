@@ -27,7 +27,11 @@ describe("rescheduleAfterIncorrect", () => {
 
   it("supports multiple failed questions without forcing either to repeat immediately", () => {
     // A B C D E F; A incorrect (popped), reschedule.
-    let queue = rescheduleAfterIncorrect(["B", "C", "D", "E", "F"], "A", SPACING);
+    let queue = rescheduleAfterIncorrect(
+      ["B", "C", "D", "E", "F"],
+      "A",
+      SPACING,
+    );
     expect(queue).toEqual(["B", "C", "D", "A", "E", "F"]);
 
     // B answered correctly, removed from the front.

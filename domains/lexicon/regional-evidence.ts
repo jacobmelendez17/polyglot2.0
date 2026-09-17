@@ -32,10 +32,16 @@ export async function getRegionalEvidence(
   regionCode: string,
 ): Promise<{ status: RegionalEvidenceStatus; matchedForm: string | null }> {
   const normalized = normalizeLexicalForm(term);
-  const match = await findRegionalLexeme(db, { regionCode, normalizedWord: normalized });
+  const match = await findRegionalLexeme(db, {
+    regionCode,
+    normalizedWord: normalized,
+  });
   if (match) return { status: "recognized", matchedForm: match.word };
   const regionHasData = await hasRegionalData(db, regionCode);
-  return { status: regionHasData ? "not_listed" : "unknown", matchedForm: null };
+  return {
+    status: regionHasData ? "not_listed" : "unknown",
+    matchedForm: null,
+  };
 }
 
 export interface RefreshRegionalEvidenceInput {
@@ -79,17 +85,33 @@ export async function refreshRegionalEvidence(
     afterId = batch[batch.length - 1].entryId;
 
     for (const regionCode of input.regionCodes) {
-      const words = [...new Set(batch.flatMap((entry) => [entry.normalizedLemma, ...entry.normalizedForms]))];
-      const matches = await findRegionalLexemes(db, { regionCode, normalizedWords: words });
-      const absentStatus: RegionalEvidenceStatus = regionHasData.get(regionCode) ? "not_listed" : "unknown";
+      const words = [
+        ...new Set(
+          batch.flatMap((entry) => [
+            entry.normalizedLemma,
+            ...entry.normalizedForms,
+          ]),
+        ),
+      ];
+      const matches = await findRegionalLexemes(db, {
+        regionCode,
+        normalizedWords: words,
+      });
+      const absentStatus: RegionalEvidenceStatus = regionHasData.get(regionCode)
+        ? "not_listed"
+        : "unknown";
 
       const rows = batch.map((entry) => {
         const candidates = [entry.normalizedLemma, ...entry.normalizedForms];
-        const hit = candidates.map((form) => matches.get(form)).find((value) => value !== undefined);
+        const hit = candidates
+          .map((form) => matches.get(form))
+          .find((value) => value !== undefined);
         return {
           dictionaryEntryId: entry.entryId,
           regionCode,
-          status: (hit ? "recognized" : absentStatus) satisfies RegionalEvidenceStatus as RegionalEvidenceStatus,
+          status: (hit
+            ? "recognized"
+            : absentStatus) satisfies RegionalEvidenceStatus as RegionalEvidenceStatus,
           sourceId: hit?.sourceId ?? null,
           lexicalImportId: hit?.lexicalImportId ?? null,
           matchedForm: hit?.word ?? null,

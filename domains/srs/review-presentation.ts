@@ -28,10 +28,17 @@ export type ReviewQuestionPresentation =
   | { kind: "typed"; prompt: string }
   | { kind: "reveal"; prompt: string; revealAnswer: string }
   | { kind: "cloze_typed"; sentenceBefore: string; sentenceAfter: string }
-  | { kind: "cloze_reveal"; sentenceBefore: string; sentenceAfter: string; revealAnswer: string };
+  | {
+      kind: "cloze_reveal";
+      sentenceBefore: string;
+      sentenceAfter: string;
+      revealAnswer: string;
+    };
 
 /** Whether this presentation expects a typed, server-checked answer (`true`) or a self-graded Know/Don't Know (`false`). */
-export function isTypedPresentation(presentation: ReviewQuestionPresentation): boolean {
+export function isTypedPresentation(
+  presentation: ReviewQuestionPresentation,
+): boolean {
   return presentation.kind === "typed" || presentation.kind === "cloze_typed";
 }
 
@@ -62,9 +69,17 @@ export function resolveReviewPresentation(input: {
 }): ReviewQuestionPresentation {
   const { reviewType, direction, answerSpec, clozeSentence } = input;
 
-  if (isClozeReviewType(reviewType) && direction === "englishToTarget" && clozeSentence) {
+  if (
+    isClozeReviewType(reviewType) &&
+    direction === "englishToTarget" &&
+    clozeSentence
+  ) {
     return reviewType === "cloze_manual"
-      ? { kind: "cloze_typed", sentenceBefore: clozeSentence.sentenceBefore, sentenceAfter: clozeSentence.sentenceAfter }
+      ? {
+          kind: "cloze_typed",
+          sentenceBefore: clozeSentence.sentenceBefore,
+          sentenceAfter: clozeSentence.sentenceAfter,
+        }
       : {
           kind: "cloze_reveal",
           sentenceBefore: clozeSentence.sentenceBefore,
@@ -79,5 +94,9 @@ export function resolveReviewPresentation(input: {
   // review prompt" applies (typed, matching today's behavior exactly).
   return reviewType === "cloze_manual"
     ? { kind: "typed", prompt: answerSpec.prompt }
-    : { kind: "reveal", prompt: answerSpec.prompt, revealAnswer: answerSpec.expectedAnswerDisplay };
+    : {
+        kind: "reveal",
+        prompt: answerSpec.prompt,
+        revealAnswer: answerSpec.expectedAnswerDisplay,
+      };
 }

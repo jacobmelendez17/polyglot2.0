@@ -25,7 +25,11 @@ const CONFIRMATION_PHRASE = "DELETE";
 type DeleteAccountPanelProps = { initialStatus: AccountDeletionStatus };
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+  return new Date(iso).toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
 }
 
 /**
@@ -50,7 +54,10 @@ export function DeleteAccountPanel({ initialStatus }: DeleteAccountPanelProps) {
         setError(result.error.message);
         return;
       }
-      setStatus({ status: "pending_confirmation", requestedAt: new Date(result.data.requestedAt) });
+      setStatus({
+        status: "pending_confirmation",
+        requestedAt: new Date(result.data.requestedAt),
+      });
     });
   }
 
@@ -62,7 +69,10 @@ export function DeleteAccountPanel({ initialStatus }: DeleteAccountPanelProps) {
         setError(result.error.message);
         return;
       }
-      setStatus({ status: "pending_deletion", deleteAfter: new Date(result.data.deleteAfter) });
+      setStatus({
+        status: "pending_deletion",
+        deleteAfter: new Date(result.data.deleteAfter),
+      });
     });
   }
 
@@ -88,21 +98,39 @@ export function DeleteAccountPanel({ initialStatus }: DeleteAccountPanelProps) {
         </p>
       ) : null}
 
-      {status.status === "none" && <RequestDeletionStep onRequest={handleRequest} isPending={isPending} />}
+      {status.status === "none" && (
+        <RequestDeletionStep onRequest={handleRequest} isPending={isPending} />
+      )}
       {status.status === "pending_confirmation" && (
-        <PendingConfirmationStep onConfirm={handleConfirm} onCancel={handleCancel} isPending={isPending} />
+        <PendingConfirmationStep
+          onConfirm={handleConfirm}
+          onCancel={handleCancel}
+          isPending={isPending}
+        />
       )}
       {status.status === "pending_deletion" && (
-        <PendingDeletionStep deleteAfter={status.deleteAfter.toISOString()} onCancel={handleCancel} isPending={isPending} />
+        <PendingDeletionStep
+          deleteAfter={status.deleteAfter.toISOString()}
+          onCancel={handleCancel}
+          isPending={isPending}
+        />
       )}
     </div>
   );
 }
 
-function RequestDeletionStep({ onRequest, isPending }: { onRequest: () => void; isPending: boolean }) {
+function RequestDeletionStep({
+  onRequest,
+  isPending,
+}: {
+  onRequest: () => void;
+  isPending: boolean;
+}) {
   return (
     <>
-      <p className="mt-1 text-sm text-muted-foreground">Permanently delete your Polyglot account.</p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Permanently delete your Polyglot account.
+      </p>
       <div className="mt-2">
         <Button variant="destructive" onClick={onRequest} disabled={isPending}>
           Start Account Deletion
@@ -129,7 +157,8 @@ function PendingConfirmationStep({
   return (
     <>
       <p className="mt-1 text-sm text-muted-foreground">
-        A deletion request is pending confirmation. Confirming starts your 7-day recovery period.
+        A deletion request is pending confirmation. Confirming starts your 7-day
+        recovery period.
       </p>
       <div className="mt-2 flex flex-wrap gap-2">
         <Dialog
@@ -146,16 +175,25 @@ function PendingConfirmationStep({
             <DialogHeader>
               <DialogTitle>Confirm account deletion?</DialogTitle>
               <DialogDescription>
-                This starts a 7-day recovery period. Your account will be permanently deleted after that unless you cancel
-                first — from your Settings, at any time before then.
+                This starts a 7-day recovery period. Your account will be
+                permanently deleted after that unless you cancel first — from
+                your Settings, at any time before then.
               </DialogDescription>
             </DialogHeader>
 
             <label htmlFor={inputId} className="block text-sm">
               <span className="text-foreground">
-                Type <span className="font-semibold">{CONFIRMATION_PHRASE}</span> to confirm
+                Type{" "}
+                <span className="font-semibold">{CONFIRMATION_PHRASE}</span> to
+                confirm
               </span>
-              <Input id={inputId} value={confirmationText} onChange={(event) => setConfirmationText(event.target.value)} autoComplete="off" className="mt-1" />
+              <Input
+                id={inputId}
+                value={confirmationText}
+                onChange={(event) => setConfirmationText(event.target.value)}
+                autoComplete="off"
+                className="mt-1"
+              />
             </label>
 
             <DialogFooter>
@@ -184,10 +222,20 @@ function PendingConfirmationStep({
   );
 }
 
-function PendingDeletionStep({ deleteAfter, onCancel, isPending }: { deleteAfter: string; onCancel: () => void; isPending: boolean }) {
+function PendingDeletionStep({
+  deleteAfter,
+  onCancel,
+  isPending,
+}: {
+  deleteAfter: string;
+  onCancel: () => void;
+  isPending: boolean;
+}) {
   return (
     <>
-      <p className="mt-1 text-sm text-muted-foreground">Your account is scheduled for deletion on {formatDate(deleteAfter)}.</p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Your account is scheduled for deletion on {formatDate(deleteAfter)}.
+      </p>
       <div className="mt-2">
         <Button variant="outline" onClick={onCancel} disabled={isPending}>
           Cancel Account Deletion

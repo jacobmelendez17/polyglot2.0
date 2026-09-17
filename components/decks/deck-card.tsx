@@ -30,7 +30,9 @@ export function DeckCard({ deck }: DeckCardProps) {
   const accentKey = deck.contentType ?? "none";
   const accent = DECK_ACCENT_CLASSES[accentKey];
   const Icon = CONTENT_ICONS[accentKey];
-  const typeLabel = deck.contentType ? DECK_CONTENT_TYPE_LABELS[deck.contentType] : "Empty";
+  const typeLabel = deck.contentType
+    ? DECK_CONTENT_TYPE_LABELS[deck.contentType]
+    : "Empty";
 
   return (
     <Link
@@ -40,13 +42,24 @@ export function DeckCard({ deck }: DeckCardProps) {
         accent.border,
       )}
     >
-      <span className={cn("flex h-10 w-10 items-center justify-center rounded-lg", accent.iconBackground)}>
+      <span
+        className={cn(
+          "flex h-10 w-10 items-center justify-center rounded-lg",
+          accent.iconBackground,
+        )}
+      >
         <Icon className={cn("h-5 w-5", accent.icon)} aria-hidden="true" />
       </span>
 
       <div className="min-w-0 flex-1">
-        <h3 className="font-heading text-base font-semibold text-foreground">{deck.name}</h3>
-        {deck.description ? <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{deck.description}</p> : null}
+        <h3 className="font-heading text-base font-semibold text-foreground">
+          {deck.name}
+        </h3>
+        {deck.description ? (
+          <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+            {deck.description}
+          </p>
+        ) : null}
       </div>
 
       <p className="text-xs text-muted-foreground">

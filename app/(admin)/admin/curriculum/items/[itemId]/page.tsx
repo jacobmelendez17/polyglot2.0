@@ -13,7 +13,10 @@ import { UsageContextEditor } from "@/components/admin/curriculum/usage-context-
 import { toRegisterEditorValue } from "@/components/admin/curriculum/register-value";
 import type { Register } from "@/db/schema";
 import { canManageCurriculum } from "@/domains/admin";
-import type { AcceptedAnswerInput, CurriculumLearningItem } from "@/domains/curriculum";
+import type {
+  AcceptedAnswerInput,
+  CurriculumLearningItem,
+} from "@/domains/curriculum";
 import {
   getAcceptedAnswers,
   getItemDraft,
@@ -23,14 +26,25 @@ import {
   getUsageContexts,
   getVocabularyGroupsByLanguage,
 } from "@/domains/curriculum/server";
-import { composeVocabularyDisplayWord, resolveConfirmedDictionaryFields } from "@/domains/lexicon";
+import {
+  composeVocabularyDisplayWord,
+  resolveConfirmedDictionaryFields,
+} from "@/domains/lexicon";
 import { getVocabularyMappingView } from "@/domains/lexicon/server";
 import { requireUser } from "@/domains/users/server";
 
-export async function generateMetadata({ params }: { params: Promise<{ itemId: string }> }): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ itemId: string }>;
+}): Promise<Metadata> {
   const { itemId } = await params;
   const item = await getLearningItem(itemId);
-  const label = item ? (item.type === "vocabulary" ? item.vocabulary.term : item.grammar.structure) : "Item";
+  const label = item
+    ? item.type === "vocabulary"
+      ? item.vocabulary.term
+      : item.grammar.structure
+    : "Item";
   return { title: `${label} — Polyglot Admin` };
 }
 
@@ -65,7 +79,10 @@ type GrammarDetailLike = {
   requiredQuestions: { direction: "targetToEnglish" | "englishToTarget" }[];
 };
 
-function toVocabularyFormValue(detail: VocabularyDetailLike, acceptedAnswers: AcceptedAnswerInput[]): VocabularyEditorValue {
+function toVocabularyFormValue(
+  detail: VocabularyDetailLike,
+  acceptedAnswers: AcceptedAnswerInput[],
+): VocabularyEditorValue {
   return {
     vocabularyGroupId: detail.vocabularyGroupId,
     term: detail.term,
@@ -82,7 +99,10 @@ function toVocabularyFormValue(detail: VocabularyDetailLike, acceptedAnswers: Ac
   };
 }
 
-function toGrammarFormValue(detail: GrammarDetailLike, acceptedAnswers: AcceptedAnswerInput[]): GrammarEditorValue {
+function toGrammarFormValue(
+  detail: GrammarDetailLike,
+  acceptedAnswers: AcceptedAnswerInput[],
+): GrammarEditorValue {
   return {
     title: detail.title ?? "",
     structure: detail.structure,
@@ -108,7 +128,11 @@ function toGrammarFormValue(detail: GrammarDetailLike, acceptedAnswers: Accepted
  * is a full field snapshot, not a diff), so its `data.fields.acceptedAnswers`
  * is used as-is instead of the live `getAcceptedAnswers` result.
  */
-export default async function EditCurriculumItemPage({ params }: { params: Promise<{ itemId: string }> }) {
+export default async function EditCurriculumItemPage({
+  params,
+}: {
+  params: Promise<{ itemId: string }>;
+}) {
   const user = await requireUser();
   if (!canManageCurriculum(user)) forbidden();
 
@@ -116,14 +140,24 @@ export default async function EditCurriculumItemPage({ params }: { params: Promi
   const item: CurriculumLearningItem | null = await getLearningItem(itemId);
   if (!item) notFound();
 
-  const [liveAcceptedAnswers, draft, levels, groups, mappingView, usageContexts, examples] = await Promise.all([
+  const [
+    liveAcceptedAnswers,
+    draft,
+    levels,
+    groups,
+    mappingView,
+    usageContexts,
+    examples,
+  ] = await Promise.all([
     getAcceptedAnswers(itemId),
     getItemDraft(itemId),
     getLevelsByLanguage(item.languageId),
     getVocabularyGroupsByLanguage(item.languageId),
     // Spec 12 — the dictionary half of the editor. Vocabulary only:
     // dictionary integration applies to vocabulary, not grammar.
-    item.type === "vocabulary" ? getVocabularyMappingView(itemId) : Promise.resolve(null),
+    item.type === "vocabulary"
+      ? getVocabularyMappingView(itemId)
+      : Promise.resolve(null),
     getUsageContexts(itemId),
     getItemExamples(itemId),
   ]);
@@ -137,15 +171,27 @@ export default async function EditCurriculumItemPage({ params }: { params: Promi
   // regardless of item status.
   const resolvedVocabulary =
     mappingView && item.type === "vocabulary"
-      ? { ...resolveConfirmedDictionaryFields(mappingView), overrides: item.vocabulary.dictionaryFieldOverrides }
+      ? {
+          ...resolveConfirmedDictionaryFields(mappingView),
+          overrides: item.vocabulary.dictionaryFieldOverrides,
+        }
       : undefined;
 
-  const levelNumberById = new Map(levels.map((level) => [level.id, level.levelNumber]));
+  const levelNumberById = new Map(
+    levels.map((level) => [level.id, level.levelNumber]),
+  );
   const groupOptions = groups
-    .map((group) => ({ id: group.id, name: group.name, levelNumber: levelNumberById.get(group.levelId) ?? 0 }))
-    .sort((a, b) => a.levelNumber - b.levelNumber || a.name.localeCompare(b.name));
+    .map((group) => ({
+      id: group.id,
+      name: group.name,
+      levelNumber: levelNumberById.get(group.levelId) ?? 0,
+    }))
+    .sort(
+      (a, b) => a.levelNumber - b.levelNumber || a.name.localeCompare(b.name),
+    );
 
-  const itemLabel = item.type === "vocabulary" ? item.vocabulary.term : item.grammar.structure;
+  const itemLabel =
+    item.type === "vocabulary" ? item.vocabulary.term : item.grammar.structure;
   const isDraftEdit = draft !== null;
 
   const existing =
@@ -155,7 +201,10 @@ export default async function EditCurriculumItemPage({ params }: { params: Promi
           type: "vocabulary" as const,
           vocabulary:
             draft?.data.type === "vocabulary"
-              ? toVocabularyFormValue(draft.data.fields, draft.data.fields.acceptedAnswers)
+              ? toVocabularyFormValue(
+                  draft.data.fields,
+                  draft.data.fields.acceptedAnswers,
+                )
               : toVocabularyFormValue(item.vocabulary, liveAcceptedAnswers),
         }
       : {
@@ -163,18 +212,31 @@ export default async function EditCurriculumItemPage({ params }: { params: Promi
           type: "grammar" as const,
           grammar:
             draft?.data.type === "grammar"
-              ? toGrammarFormValue(draft.data.fields, draft.data.fields.acceptedAnswers)
+              ? toGrammarFormValue(
+                  draft.data.fields,
+                  draft.data.fields.acceptedAnswers,
+                )
               : toGrammarFormValue(item.grammar, liveAcceptedAnswers),
         };
 
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <AdminPageHeader title={itemLabel} description={item.type === "vocabulary" ? "Vocabulary item" : "Grammar item"} />
+        <AdminPageHeader
+          title={itemLabel}
+          description={
+            item.type === "vocabulary" ? "Vocabulary item" : "Grammar item"
+          }
+        />
         <div className="flex items-center gap-2">
           <CurriculumStatusBadge status={isDraftEdit ? "draft" : item.status} />
           {item.status !== "archived" ? (
-            <PublishDialog learningItemId={item.id} itemLabel={itemLabel} expectedVersion={item.version} isDraftEdit={isDraftEdit} />
+            <PublishDialog
+              learningItemId={item.id}
+              itemLabel={itemLabel}
+              expectedVersion={item.version}
+              isDraftEdit={isDraftEdit}
+            />
           ) : null}
           <ArchiveDeleteDialog learningItemId={item.id} itemLabel={itemLabel} />
         </div>
@@ -200,7 +262,10 @@ export default async function EditCurriculumItemPage({ params }: { params: Promi
             targetText: example.targetText,
             translation: example.translation,
           }))}
-          canSeedFromDictionary={mappingView?.mapping?.matchStatus === "manual" && mappingView.entry !== null}
+          canSeedFromDictionary={
+            mappingView?.mapping?.matchStatus === "manual" &&
+            mappingView.entry !== null
+          }
         />
       </div>
 
@@ -209,7 +274,10 @@ export default async function EditCurriculumItemPage({ params }: { params: Promi
           <DictionaryMappingPanel
             vocabularyItemId={item.id}
             languageId={item.languageId}
-            displayWord={composeVocabularyDisplayWord(item.vocabulary.term, item.vocabulary.article)}
+            displayWord={composeVocabularyDisplayWord(
+              item.vocabulary.term,
+              item.vocabulary.article,
+            )}
             mapping={mappingView.mapping}
             entry={mappingView.entry}
             selectedSenseIds={mappingView.selectedSenseIds}

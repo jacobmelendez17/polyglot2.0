@@ -71,15 +71,26 @@ export default async function AdminCurriculumPage({
   if (languages.length === 0) {
     return (
       <div>
-        <AdminPageHeader title="Curriculum" description="Search, filter, create, edit, and publish official curriculum." />
-        <p className="text-sm text-muted-foreground">No languages are configured yet.</p>
+        <AdminPageHeader
+          title="Curriculum"
+          description="Search, filter, create, edit, and publish official curriculum."
+        />
+        <p className="text-sm text-muted-foreground">
+          No languages are configured yet.
+        </p>
       </div>
     );
   }
 
-  const languageId = languages.some((l) => l.id === params.language) ? params.language! : languages[0]!.id;
-  const type = ITEM_TYPES.includes(params.type as (typeof ITEM_TYPES)[number]) ? (params.type as "vocabulary" | "grammar") : undefined;
-  const status = STATUSES.includes(params.status as CurriculumStatus) ? (params.status as CurriculumStatus) : undefined;
+  const languageId = languages.some((l) => l.id === params.language)
+    ? params.language!
+    : languages[0]!.id;
+  const type = ITEM_TYPES.includes(params.type as (typeof ITEM_TYPES)[number])
+    ? (params.type as "vocabulary" | "grammar")
+    : undefined;
+  const status = STATUSES.includes(params.status as CurriculumStatus)
+    ? (params.status as CurriculumStatus)
+    : undefined;
   // Reordering only makes sense scoped to exactly one level and one type —
   // `position` is uniquely constrained within `(level, type)`, never across
   // either (see reorderLearningItems).
@@ -101,10 +112,18 @@ export default async function AdminCurriculumPage({
     }),
   ]);
 
-  const levelNumberById = new Map(levels.map((level) => [level.id, level.levelNumber]));
+  const levelNumberById = new Map(
+    levels.map((level) => [level.id, level.levelNumber]),
+  );
   const groupOptions = groups
-    .map((group) => ({ id: group.id, name: group.name, levelNumber: levelNumberById.get(group.levelId) ?? 0 }))
-    .sort((a, b) => a.levelNumber - b.levelNumber || a.name.localeCompare(b.name));
+    .map((group) => ({
+      id: group.id,
+      name: group.name,
+      levelNumber: levelNumberById.get(group.levelId) ?? 0,
+    }))
+    .sort(
+      (a, b) => a.levelNumber - b.levelNumber || a.name.localeCompare(b.name),
+    );
 
   const baseParams = new URLSearchParams();
   baseParams.set("language", languageId);
@@ -123,13 +142,20 @@ export default async function AdminCurriculumPage({
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <AdminPageHeader title="Curriculum" description="Search, filter, create, edit, and publish official curriculum." />
+        <AdminPageHeader
+          title="Curriculum"
+          description="Search, filter, create, edit, and publish official curriculum."
+        />
         <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline">
-            <Link href={`/admin/curriculum/imports/new?language=${languageId}`}>Import</Link>
+            <Link href={`/admin/curriculum/imports/new?language=${languageId}`}>
+              Import
+            </Link>
           </Button>
           <Button asChild>
-            <Link href={`/admin/curriculum/items/new?language=${languageId}`}>Add item</Link>
+            <Link href={`/admin/curriculum/items/new?language=${languageId}`}>
+              Add item
+            </Link>
           </Button>
         </div>
       </div>
@@ -138,17 +164,30 @@ export default async function AdminCurriculumPage({
         languages={languages}
         levels={levels.map((l) => ({ id: l.id, levelNumber: l.levelNumber }))}
         groups={groupOptions}
-        value={{ languageId, levelId: params.level, type, status, groupId: params.group, search: params.search }}
+        value={{
+          languageId,
+          levelId: params.level,
+          type,
+          status,
+          groupId: params.group,
+          search: params.search,
+        }}
       />
 
       {canReorder ? (
         <div className="mb-4">
           {reorderMode ? (
-            <Link href={`/admin/curriculum?${baseParams.toString()}`} className="text-sm font-medium text-primary underline-offset-4 hover:underline">
+            <Link
+              href={`/admin/curriculum?${baseParams.toString()}`}
+              className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+            >
               ← Back to browsing
             </Link>
           ) : (
-            <Link href={`/admin/curriculum?${reorderParams.toString()}`} className="text-sm font-medium text-primary underline-offset-4 hover:underline">
+            <Link
+              href={`/admin/curriculum?${reorderParams.toString()}`}
+              className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+            >
               Reorder items in this level/type
             </Link>
           )}
@@ -156,11 +195,26 @@ export default async function AdminCurriculumPage({
       ) : null}
 
       {reorderMode ? (
-        <ItemReorderList levelId={params.level!} type={type!} items={page.items} />
+        <ItemReorderList
+          levelId={params.level!}
+          type={type!}
+          items={page.items}
+        />
       ) : (
         <>
-          <CurriculumTableSection items={page.items} levels={levels.map((l) => ({ id: l.id, levelNumber: l.levelNumber }))} groups={groupOptions} />
-          {page.nextCursor ? <CurriculumPagination nextHref={`/admin/curriculum?${nextParams.toString()}`} /> : null}
+          <CurriculumTableSection
+            items={page.items}
+            levels={levels.map((l) => ({
+              id: l.id,
+              levelNumber: l.levelNumber,
+            }))}
+            groups={groupOptions}
+          />
+          {page.nextCursor ? (
+            <CurriculumPagination
+              nextHref={`/admin/curriculum?${nextParams.toString()}`}
+            />
+          ) : null}
         </>
       )}
     </div>

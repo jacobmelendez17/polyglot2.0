@@ -26,13 +26,13 @@ Use a full-screen slideshow.
 
 Each slide should have:
 
-* its own distinct background/theme color
-* large heading
-* short supporting copy
-* animated feature demonstration
-* centered progress dots near the bottom
-* sticky `Back` button bottom-left
-* sticky `Next` button bottom-right
+- its own distinct background/theme color
+- large heading
+- short supporting copy
+- animated feature demonstration
+- centered progress dots near the bottom
+- sticky `Back` button bottom-left
+- sticky `Next` button bottom-right
 
 Keep navigation positions consistent between slides.
 
@@ -40,9 +40,9 @@ Hide or disable `Back` on Slide 1.
 
 Progress dots should clearly show:
 
-* completed slides
-* current slide
-* remaining slides
+- completed slides
+- current slide
+- remaining slides
 
 Do not allow the progress indicator to shift position between screens.
 
@@ -81,11 +81,11 @@ Showcase speaking and listening practice.
 
 Use looping UI demonstrations such as:
 
-* microphone interaction
-* speaking response
-* waveform/listening animation
-* audio playback
-* correct/feedback states
+- microphone interaction
+- speaking response
+- waveform/listening animation
+- audio playback
+- correct/feedback states
 
 Animations should resemble real Polyglot UI rather than generic illustrations where practical.
 
@@ -95,10 +95,10 @@ Introduce Decks as supplementary practice.
 
 Show:
 
-* a deck selection
-* vocabulary/grammar cards
-* practice progression
-* optional Know / Don't Know interaction
+- a deck selection
+- vocabulary/grammar cards
+- practice progression
+- optional Know / Don't Know interaction
 
 Make clear that decks are additional practice rather than the main curriculum progression system.
 
@@ -125,9 +125,9 @@ Run this emphasis animation once when Slide 5 becomes active.
 
 Clicking `Start Now!`:
 
-* marks onboarding completed server-side
-* redirects into the normal application
-* must not create duplicate completion effects if clicked repeatedly
+- marks onboarding completed server-side
+- redirects into the normal application
+- must not create duplicate completion effects if clicked repeatedly
 
 ## Slide Transitions
 
@@ -135,10 +135,10 @@ Use smooth animated transitions between slides.
 
 Recommended behavior:
 
-* outgoing content moves/fades away
-* incoming content slides/fades into place
-* direction should reflect Back vs Next navigation
-* background/theme transition should feel coordinated with content
+- outgoing content moves/fades away
+- incoming content slides/fades into place
+- direction should reflect Back vs Next navigation
+- background/theme transition should feel coordinated with content
 
 Avoid excessive motion, long transition delays, or animations that block navigation.
 
@@ -167,11 +167,11 @@ Each slide owns its visual demonstration.
 
 The main slideshow only owns:
 
-* current slide
-* navigation
-* transition direction
-* completion
-* progress dots
+- current slide
+- navigation
+- transition direction
+- completion
+- progress dots
 
 Do not put every animation inside one large component.
 
@@ -179,20 +179,20 @@ Do not put every animation inside one large component.
 
 Design slide animations behind simple components so they can later be replaced with:
 
-* custom React animations
-* SVG
-* Lottie
-* video
-* image sequences
-* other custom assets
+- custom React animations
+- SVG
+- Lottie
+- video
+- image sequences
+- other custom assets
 
 Replacing the visual animation for a slide should not require changing:
 
-* navigation
-* onboarding state
-* progress tracking
-* completion logic
-* slide transitions
+- navigation
+- onboarding state
+- progress tracking
+- completion logic
+- slide transitions
 
 Do not couple business logic to animation timing.
 
@@ -200,13 +200,13 @@ Do not couple business logic to animation timing.
 
 Keep onboarding lightweight.
 
-* prefer CSS transforms/opacity for motion
-* avoid unnecessary rerenders during loops
-* do not continuously update React state for purely visual animation
-* lazy-load heavy animation assets when appropriate
-* avoid loading future large videos/images before required
-* respect existing reduced-motion preferences
-* clean up timers/listeners when slides unmount
+- prefer CSS transforms/opacity for motion
+- avoid unnecessary rerenders during loops
+- do not continuously update React state for purely visual animation
+- lazy-load heavy animation assets when appropriate
+- avoid loading future large videos/images before required
+- respect existing reduced-motion preferences
+- clean up timers/listeners when slides unmount
 
 Animations should remain smooth on mobile and desktop.
 
@@ -218,11 +218,11 @@ Desktop may use larger feature demonstrations.
 
 Mobile should:
 
-* preserve the full-screen experience
-* keep navigation reachable
-* avoid clipped animation content
-* maintain readable headings/copy
-* keep progress dots visible
+- preserve the full-screen experience
+- keep navigation reachable
+- avoid clipped animation content
+- maintain readable headings/copy
+- keep progress dots visible
 
 Do not require scrolling to reach `Back`, `Next`, or `Start Now!`.
 
@@ -230,18 +230,18 @@ Do not require scrolling to reach `Back`, `Next`, or `Start Now!`.
 
 Support:
 
-* keyboard navigation
-* visible focus states
-* semantic buttons
-* accessible progress state
-* sufficient contrast on every slide color
-* reduced-motion mode
+- keyboard navigation
+- visible focus states
+- semantic buttons
+- accessible progress state
+- sufficient contrast on every slide color
+- reduced-motion mode
 
 When `prefers-reduced-motion` is enabled:
 
-* remove repetitive decorative movement
-* simplify slide transitions
-* retain all information and controls
+- remove repetitive decorative movement
+- simplify slide transitions
+- retain all information and controls
 
 Animations must never be required to understand the slide.
 
@@ -259,11 +259,11 @@ The sandbox should allow repeated onboarding playback regardless of whether onbo
 
 Sandbox replay must:
 
-* use the same production onboarding components
-* start at Slide 1
-* allow the full Start Now flow to be previewed
-* avoid modifying real learner progress
-* avoid modifying the real user's onboarding completion state
+- use the same production onboarding components
+- start at Slide 1
+- allow the full Start Now flow to be previewed
+- avoid modifying real learner progress
+- avoid modifying the real user's onboarding completion state
 
 Do not create a separate fake onboarding implementation for the sandbox.
 
@@ -281,42 +281,42 @@ Server-side routing should determine whether onboarding is required.
 
 Do not rely only on:
 
-* localStorage
-* browser state
-* a client-only redirect
+- localStorage
+- browser state
+- a client-only redirect
 
 Sandbox replay explicitly bypasses this requirement without changing the stored value.
 
 ## Scope Limits
 
-* no onboarding personalization yet
-* no branching slides
-* no language-specific onboarding variants
-* no user-selectable onboarding themes
-* no permanent analytics requirement beyond existing safe product analytics
-* no custom video assets required in this spec
-* no rebuilding existing SRS, Decks, or practice functionality inside onboarding
+- no onboarding personalization yet
+- no branching slides
+- no language-specific onboarding variants
+- no user-selectable onboarding themes
+- no permanent analytics requirement beyond existing safe product analytics
+- no custom video assets required in this spec
+- no rebuilding existing SRS, Decks, or practice functionality inside onboarding
 
 The animations are visual demonstrations only.
 
 ## Check When Done
 
-* New users are routed through onboarding once after sign-up.
-* Existing completed users are not automatically shown onboarding again.
-* Five slides render in the correct order.
-* Every slide has a different visual color/theme.
-* Back/Next navigation works correctly.
-* Progress dots accurately reflect the current slide.
-* Slide transitions animate smoothly in both directions.
-* Each feature animation loops independently.
-* Slide 5 changes `Next` to `Start Now!`.
-* `Start Now!` performs the one-time inflate/shrink/color animation.
-* Completion persists server-side and redirects correctly.
-* Repeated completion clicks are safe.
-* Admin/Developer Sandbox can replay onboarding indefinitely.
-* Sandbox replay does not alter real onboarding state.
-* Animations can later be replaced without changing slideshow logic.
-* Reduced-motion behavior works.
-* Mobile and desktop layouts work.
-* Tests pass.
-* `npm run build` passes.
+- New users are routed through onboarding once after sign-up.
+- Existing completed users are not automatically shown onboarding again.
+- Five slides render in the correct order.
+- Every slide has a different visual color/theme.
+- Back/Next navigation works correctly.
+- Progress dots accurately reflect the current slide.
+- Slide transitions animate smoothly in both directions.
+- Each feature animation loops independently.
+- Slide 5 changes `Next` to `Start Now!`.
+- `Start Now!` performs the one-time inflate/shrink/color animation.
+- Completion persists server-side and redirects correctly.
+- Repeated completion clicks are safe.
+- Admin/Developer Sandbox can replay onboarding indefinitely.
+- Sandbox replay does not alter real onboarding state.
+- Animations can later be replaced without changing slideshow logic.
+- Reduced-motion behavior works.
+- Mobile and desktop layouts work.
+- Tests pass.
+- `npm run build` passes.

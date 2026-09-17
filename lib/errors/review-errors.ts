@@ -27,8 +27,10 @@ const DEFAULT_MESSAGES: Record<ReviewErrorCode, string> = {
   STALE_REVIEW:
     "This review was already updated elsewhere. No additional progress change was applied.",
   RATE_LIMITED: "Please slow down and try again shortly.",
-  INVALID_REVIEW_STATE: "Your review session is no longer valid. Please start a new review session.",
-  EXPIRED_REVIEW_STATE: "Your review session has expired. Please start a new review session.",
+  INVALID_REVIEW_STATE:
+    "Your review session is no longer valid. Please start a new review session.",
+  EXPIRED_REVIEW_STATE:
+    "Your review session has expired. Please start a new review session.",
 };
 
 /**

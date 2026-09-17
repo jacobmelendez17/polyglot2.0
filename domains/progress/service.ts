@@ -16,7 +16,10 @@ export async function hasItemProgress(userId: string, learningItemId: string) {
   return repository.hasItemProgress(db, userId, learningItemId);
 }
 
-export async function getUserProgressForLanguage(userId: string, languageId: string) {
+export async function getUserProgressForLanguage(
+  userId: string,
+  languageId: string,
+) {
   return repository.getUserProgressForLanguage(db, userId, languageId);
 }
 
@@ -27,20 +30,35 @@ export async function getUserProgressForLanguage(userId: string, languageId: str
  * `domains/srs`'s review session and the dashboard's due-count both call
  * this one function, so neither needs its own vacation check.
  */
-export async function getDueReviewItems(userId: string, languageId: string, now: Date) {
+export async function getDueReviewItems(
+  userId: string,
+  languageId: string,
+  now: Date,
+) {
   if (await isVacationModeActive(userId)) return [];
   return repository.getDueReviewItems(db, userId, languageId, now);
 }
 
-export async function getNextUpcomingReviewAt(userId: string, languageId: string, now: Date) {
+export async function getNextUpcomingReviewAt(
+  userId: string,
+  languageId: string,
+  now: Date,
+) {
   return repository.getNextUpcomingReviewAt(db, userId, languageId, now);
 }
 
-export async function getUpcomingReviewForecast(userId: string, languageId: string, window: { after: Date; until: Date }) {
+export async function getUpcomingReviewForecast(
+  userId: string,
+  languageId: string,
+  window: { after: Date; until: Date },
+) {
   return repository.getUpcomingReviewForecast(db, userId, languageId, window);
 }
 
-export async function countProgressForItems(userId: string, learningItemIds: string[]) {
+export async function countProgressForItems(
+  userId: string,
+  learningItemIds: string[],
+) {
   return repository.countProgressForItems(db, userId, learningItemIds);
 }
 

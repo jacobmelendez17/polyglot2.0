@@ -14,7 +14,9 @@ type ReviewQueueTimingSelectProps = {
 };
 
 /** Spec 20 Review Queue Timing — one value per language, unlike most other Reviews settings. */
-export function ReviewQueueTimingSelect({ initialValue }: ReviewQueueTimingSelectProps) {
+export function ReviewQueueTimingSelect({
+  initialValue,
+}: ReviewQueueTimingSelectProps) {
   return (
     <InlineSelectSettingField
       label="Review Queue Timing"
@@ -22,9 +24,14 @@ export function ReviewQueueTimingSelect({ initialValue }: ReviewQueueTimingSelec
       initialValue={initialValue}
       options={OPTIONS}
       onSave={async (reviewQueueTiming) => {
-        const result = await updateReviewQueueTimingAction({ reviewQueueTiming });
+        const result = await updateReviewQueueTimingAction({
+          reviewQueueTiming,
+        });
         return result.ok
-          ? { ok: true, value: result.data.reviewQueueTiming as ReviewQueueTimingMode }
+          ? {
+              ok: true,
+              value: result.data.reviewQueueTiming as ReviewQueueTimingMode,
+            }
           : { ok: false, message: result.error.message };
       }}
     />

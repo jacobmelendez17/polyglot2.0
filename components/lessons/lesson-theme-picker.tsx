@@ -44,9 +44,12 @@ export function LessonThemePicker({ themes }: { themes: LessonThemeChoice[] }) {
   return (
     <div className="mx-auto flex min-h-svh w-full max-w-2xl flex-col gap-8 px-5 py-10 sm:px-8">
       <div className="flex flex-col gap-2">
-        <h1 className="font-heading text-3xl font-semibold text-balance text-foreground">What next?</h1>
+        <h1 className="font-heading text-3xl font-semibold text-balance text-foreground">
+          What next?
+        </h1>
         <p className="text-base text-pretty text-muted-foreground">
-          You&apos;re learning one theme at a time. Pick the one you&apos;d like to study now.
+          You&apos;re learning one theme at a time. Pick the one you&apos;d like
+          to study now.
         </p>
       </div>
 
@@ -59,7 +62,9 @@ export function LessonThemePicker({ themes }: { themes: LessonThemeChoice[] }) {
                 className={cn(
                   "flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-4 transition-colors",
                   "hover:border-accent-primary/60 focus-within:ring-2 focus-within:ring-ring",
-                  isSelected ? "border-accent-primary bg-accent-primary/10" : "border-border bg-card",
+                  isSelected
+                    ? "border-accent-primary bg-accent-primary/10"
+                    : "border-border bg-card",
                   isSaving && "cursor-not-allowed opacity-60",
                 )}
               >
@@ -72,9 +77,12 @@ export function LessonThemePicker({ themes }: { themes: LessonThemeChoice[] }) {
                   onChange={() => setSelectedId(theme.id)}
                   className="sr-only"
                 />
-                <span className="font-medium text-foreground">{theme.name}</span>
+                <span className="font-medium text-foreground">
+                  {theme.name}
+                </span>
                 <span className="text-sm text-muted-foreground">
-                  {theme.remainingCount} word{theme.remainingCount === 1 ? "" : "s"} left
+                  {theme.remainingCount} word
+                  {theme.remainingCount === 1 ? "" : "s"} left
                 </span>
               </label>
             </li>
@@ -89,7 +97,13 @@ export function LessonThemePicker({ themes }: { themes: LessonThemeChoice[] }) {
       ) : null}
 
       <div className="flex flex-wrap items-center gap-3">
-        <Button type="button" size="lg" className="cursor-pointer" disabled={!selectedId || isSaving} onClick={handleStart}>
+        <Button
+          type="button"
+          size="lg"
+          className="cursor-pointer"
+          disabled={!selectedId || isSaving}
+          onClick={handleStart}
+        >
           {isSaving ? "Starting…" : "Start lesson"}
         </Button>
         <Button asChild variant="ghost" size="lg">

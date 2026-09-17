@@ -14,10 +14,15 @@ export const metadata: Metadata = {
 };
 
 // Same permissive UUID-shape check as the other deck routes.
-const UUID_LIKE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_LIKE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Spec 14's Admin deck editor. A personal deck reaching this route 404s — it is not administrable content. */
-export default async function AdminDeckDetailPage({ params }: { params: Promise<{ deckId: string }> }) {
+export default async function AdminDeckDetailPage({
+  params,
+}: {
+  params: Promise<{ deckId: string }>;
+}) {
   const user = await requireUser();
   if (!canPublishCurriculum(user)) forbidden();
 
@@ -31,15 +36,24 @@ export default async function AdminDeckDetailPage({ params }: { params: Promise<
     notFound();
   }
 
-  const [items, levels] = await Promise.all([getPolyglotDeckItems(deckId), getLevelsByLanguage(deck.languageId)]);
+  const [items, levels] = await Promise.all([
+    getPolyglotDeckItems(deckId),
+    getLevelsByLanguage(deck.languageId),
+  ]);
 
   return (
     <div>
-      <Link href="/admin/decks" className="text-sm text-muted-foreground underline-offset-4 hover:underline">
+      <Link
+        href="/admin/decks"
+        className="text-sm text-muted-foreground underline-offset-4 hover:underline"
+      >
         ← All decks
       </Link>
       <div className="mt-2 mb-4">
-        <AdminPageHeader title={deck.name} description="Official deck — learners can practice it but never change it." />
+        <AdminPageHeader
+          title={deck.name}
+          description="Official deck — learners can practice it but never change it."
+        />
       </div>
 
       <PolyglotDeckEditor
@@ -49,7 +63,10 @@ export default async function AdminDeckDetailPage({ params }: { params: Promise<
         description={deck.description}
         availability={deck.availability}
         gateLevelId={deck.gateLevelId}
-        levels={levels.map((level) => ({ id: level.id, levelNumber: level.levelNumber }))}
+        levels={levels.map((level) => ({
+          id: level.id,
+          levelNumber: level.levelNumber,
+        }))}
         items={items}
       />
     </div>

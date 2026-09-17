@@ -1,5 +1,15 @@
 import { sql } from "drizzle-orm";
-import { check, foreignKey, index, integer, pgEnum, pgTable, text, unique, uuid } from "drizzle-orm/pg-core";
+import {
+  check,
+  foreignKey,
+  index,
+  integer,
+  pgEnum,
+  pgTable,
+  text,
+  unique,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 import { timestamps } from "./columns";
 import { languages } from "./languages";
@@ -28,7 +38,10 @@ export const deckKindEnum = pgEnum("deck_kind", ["polyglot", "personal"]);
  * and the same per-item filter keeps a deck coherent after an account or
  * level reset removes the underlying progress.
  */
-export const deckAvailabilityEnum = pgEnum("deck_availability", ["level", "theme"]);
+export const deckAvailabilityEnum = pgEnum("deck_availability", [
+  "level",
+  "theme",
+]);
 
 /**
  * A study deck (spec 14). Deck study is deliberately disconnected from
@@ -48,12 +61,16 @@ export const decks = pgTable(
       .references(() => languages.id, { onDelete: "restrict" }),
     kind: deckKindEnum("kind").notNull(),
     /** The owning learner for a personal deck; always NULL for a Polyglot deck. */
-    ownerUserId: uuid("owner_user_id").references(() => users.id, { onDelete: "cascade" }),
+    ownerUserId: uuid("owner_user_id").references(() => users.id, {
+      onDelete: "cascade",
+    }),
     name: text("name").notNull(),
     description: text("description"),
     availability: deckAvailabilityEnum("availability").notNull(),
     /** Required by, and only meaningful for, a `level` deck — the level whose unlock reveals it. */
-    gateLevelId: uuid("gate_level_id").references(() => levels.id, { onDelete: "restrict" }),
+    gateLevelId: uuid("gate_level_id").references(() => levels.id, {
+      onDelete: "restrict",
+    }),
     ...timestamps(),
   },
   (t) => [
@@ -104,7 +121,10 @@ export const deckItems = pgTable(
     // An item appears at most once in a given deck; it may appear in any
     // number of different decks (spec 14's "The same curriculum item may
     // appear in multiple decks").
-    unique("deck_items_deck_id_learning_item_id_key").on(t.deckId, t.learningItemId),
+    unique("deck_items_deck_id_learning_item_id_key").on(
+      t.deckId,
+      t.learningItemId,
+    ),
     // Deck order is explicit and never insertion order. Reordering writes
     // negative placeholder positions first — see `reorderDeckItems`.
     unique("deck_items_deck_id_position_key").on(t.deckId, t.position),

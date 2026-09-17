@@ -21,7 +21,10 @@ import type { LearningItem } from "@/domains/curriculum";
  */
 export type LessonCurriculumReader = {
   /** Published items in the language that the user has not already enrolled. */
-  getEligibleLearningItems(userId: string, languageId: string): Promise<LearningItem[]>;
+  getEligibleLearningItems(
+    userId: string,
+    languageId: string,
+  ): Promise<LearningItem[]>;
   /** Authoritative content for known IDs. Unresolvable or unpublished IDs are omitted, never invented. */
   getLearningItemsByIds(ids: string[]): Promise<LearningItem[]>;
 };

@@ -1,5 +1,9 @@
 import { db } from "@/db/client";
-import { composeVocabularyDisplayWord, getLexicalLanguageProvider, resolveVocabularyPresentation } from "@/domains/lexicon";
+import {
+  composeVocabularyDisplayWord,
+  getLexicalLanguageProvider,
+  resolveVocabularyPresentation,
+} from "@/domains/lexicon";
 import { getVocabularyDetail } from "@/domains/lexicon/server";
 import { getSynonyms } from "@/domains/learner-content/server";
 import { getItemProgress, getLevelProgress } from "@/domains/progress/server";
@@ -13,8 +17,18 @@ import {
 } from "./curriculum-mutation-repository";
 import * as repository from "./curriculum-repository";
 import type { AcceptedAnswerInput } from "./curriculum-mutation-types";
-import type { CurriculumGrammarContentBlock, CurriculumItemResource, CurriculumLearningItem, CurriculumStatus } from "./curriculum-db-types";
-import type { ItemDetailExampleSource, ItemDetailPatternSource, ItemDetailSource, ItemNavigationView } from "./item-detail-view";
+import type {
+  CurriculumGrammarContentBlock,
+  CurriculumItemResource,
+  CurriculumLearningItem,
+  CurriculumStatus,
+} from "./curriculum-db-types";
+import type {
+  ItemDetailExampleSource,
+  ItemDetailPatternSource,
+  ItemDetailSource,
+  ItemNavigationView,
+} from "./item-detail-view";
 import { buildItemNavigation } from "./item-detail-view";
 
 /**
@@ -57,14 +71,26 @@ export type ItemDetailPageData = {
 };
 
 /** Learner-visible statuses. Matches the item page's existing rule: a draft/pending item has never been shown to a learner, so it reads as missing. */
-const VIEWABLE_STATUSES: ReadonlySet<CurriculumStatus> = new Set<CurriculumStatus>(["published", "archived"]);
+const VIEWABLE_STATUSES: ReadonlySet<CurriculumStatus> =
+  new Set<CurriculumStatus>(["published", "archived"]);
 
-function toPatternSources(contexts: { id: string; label: string; note: string | null }[]): ItemDetailPatternSource[] {
-  return contexts.map((context) => ({ id: context.id, label: context.label, note: context.note }));
+function toPatternSources(
+  contexts: { id: string; label: string; note: string | null }[],
+): ItemDetailPatternSource[] {
+  return contexts.map((context) => ({
+    id: context.id,
+    label: context.label,
+    note: context.note,
+  }));
 }
 
 function toExampleSources(
-  examples: { id: string; usageContextId: string | null; targetText: string; translation: string }[],
+  examples: {
+    id: string;
+    usageContextId: string | null;
+    targetText: string;
+    translation: string;
+  }[],
 ): ItemDetailExampleSource[] {
   return examples.map((example) => ({
     id: example.id,
@@ -95,11 +121,22 @@ function dedupe(values: string[]): string[] {
  * are independent reads of a single item, and an item page that awaited each
  * in turn would pay the round-trip cost of all of them added together.
  */
-export async function getItemDetailPageData(itemId: string, userId: string): Promise<ItemDetailPageData | null> {
+export async function getItemDetailPageData(
+  itemId: string,
+  userId: string,
+): Promise<ItemDetailPageData | null> {
   const item = await repository.getLearningItem(db, itemId);
   if (!item || !VIEWABLE_STATUSES.has(item.status)) return null;
 
-  const [level, language, patterns, examples, resources, acceptedAnswers, personalSynonyms] = await Promise.all([
+  const [
+    level,
+    language,
+    patterns,
+    examples,
+    resources,
+    acceptedAnswers,
+    personalSynonyms,
+  ] = await Promise.all([
     repository.getLevelById(db, item.levelId),
     repository.getLanguageById(db, item.languageId),
     repoGetUsageContexts(db, itemId),
@@ -110,10 +147,14 @@ export async function getItemDetailPageData(itemId: string, userId: string): Pro
   ]);
 
   if (!level) {
-    throw new Error(`Data integrity error: learning item ${itemId} references level ${item.levelId}, which does not exist.`);
+    throw new Error(
+      `Data integrity error: learning item ${itemId} references level ${item.levelId}, which does not exist.`,
+    );
   }
   if (!language) {
-    throw new Error(`Data integrity error: learning item ${itemId} references language ${item.languageId}, which does not exist.`);
+    throw new Error(
+      `Data integrity error: learning item ${itemId} references language ${item.languageId}, which does not exist.`,
+    );
   }
 
   // Official accepted answers split by the side they are accepted for, the
@@ -121,24 +162,43 @@ export async function getItemDetailPageData(itemId: string, userId: string): Pro
   // English synonym, a `term`-side answer is another accepted spelling of
   // the word itself. That is exactly spec 18's Synonyms/Variations split, so
   // no second classification is invented here.
-  const officialMeaningAnswers = acceptedAnswers.filter((answer) => answer.side === "meaning").map((answer) => answer.value);
-  const officialTermAnswers = acceptedAnswers.filter((answer) => answer.side === "term").map((answer) => answer.value);
-  const personalMeaningSynonyms = personalSynonyms.filter((synonym) => synonym.side === "meaning").map((synonym) => synonym.value);
-  const personalTermSynonyms = personalSynonyms.filter((synonym) => synonym.side === "term").map((synonym) => synonym.value);
+  const officialMeaningAnswers = acceptedAnswers
+    .filter((answer) => answer.side === "meaning")
+    .map((answer) => answer.value);
+  const officialTermAnswers = acceptedAnswers
+    .filter((answer) => answer.side === "term")
+    .map((answer) => answer.value);
+  const personalMeaningSynonyms = personalSynonyms
+    .filter((synonym) => synonym.side === "meaning")
+    .map((synonym) => synonym.value);
+  const personalTermSynonyms = personalSynonyms
+    .filter((synonym) => synonym.side === "term")
+    .map((synonym) => synonym.value);
 
   const [levelProgress, siblingIds] = await Promise.all([
     getLevelProgress(userId, item.levelId),
-    repository.getSiblingItemIds(db, item, item.type === "vocabulary" ? item.vocabulary.vocabularyGroupId : null),
+    repository.getSiblingItemIds(
+      db,
+      item,
+      item.type === "vocabulary" ? item.vocabulary.vocabularyGroupId : null,
+    ),
   ]);
 
   const shared = {
     itemId: item.id,
     levelNumber: level.levelNumber,
     cefrLevel: level.cefrLevel,
-    register: item.type === "vocabulary" ? item.vocabulary.register : item.grammar.register,
+    register:
+      item.type === "vocabulary"
+        ? item.vocabulary.register
+        : item.grammar.register,
     patterns: toPatternSources(patterns),
     examples: toExampleSources(examples),
-    resources: resources.map((resource) => ({ id: resource.id, label: resource.label, url: resource.url })),
+    resources: resources.map((resource) => ({
+      id: resource.id,
+      label: resource.label,
+      url: resource.url,
+    })),
   };
 
   if (item.type === "grammar") {
@@ -159,7 +219,11 @@ export async function getItemDetailPageData(itemId: string, userId: string): Pro
         officialSynonyms: dedupe(officialMeaningAnswers),
         personalSynonyms: dedupe(personalMeaningSynonyms),
       },
-      navigation: buildItemNavigation(siblingIds, itemId, `Level ${level.levelNumber} grammar`),
+      navigation: buildItemNavigation(
+        siblingIds,
+        itemId,
+        `Level ${level.levelNumber} grammar`,
+      ),
       status: item.status,
       levelNumber: level.levelNumber,
       groupName: null,
@@ -173,16 +237,23 @@ export async function getItemDetailPageData(itemId: string, userId: string): Pro
   // re-joining curriculum to the dictionary here (spec 13's rule, unchanged)
   // — it is also what carries the "confirmed mapping wins" resolution and
   // the item's own progress row, so no separate progress query is issued.
-  const detail = await getVocabularyDetail({ vocabularyItemId: itemId, userId, includeArchived: true });
+  const detail = await getVocabularyDetail({
+    vocabularyItemId: itemId,
+    userId,
+    includeArchived: true,
+  });
   if (!detail) return null;
 
   const resolved = resolveVocabularyPresentation(detail);
   // An unreviewed auto-match must never reach a learner (spec 13) — only a
   // human-confirmed mapping contributes synonyms, variants, or audio.
-  const confirmedDictionary = detail.dictionary?.matchStatus === "manual" ? detail.dictionary : null;
+  const confirmedDictionary =
+    detail.dictionary?.matchStatus === "manual" ? detail.dictionary : null;
   const preferredPronunciation = confirmedDictionary
-    ? (confirmedDictionary.pronunciations.find((pronunciation) => pronunciation.id === confirmedDictionary.preferredPronunciationId) ??
-      confirmedDictionary.pronunciations[0])
+    ? (confirmedDictionary.pronunciations.find(
+        (pronunciation) =>
+          pronunciation.id === confirmedDictionary.preferredPronunciationId,
+      ) ?? confirmedDictionary.pronunciations[0])
     : undefined;
 
   const provider = getLexicalLanguageProvider(language.code);
@@ -191,19 +262,31 @@ export async function getItemDetailPageData(itemId: string, userId: string): Pro
     source: {
       ...shared,
       type: "vocabulary",
-      displayWord: composeVocabularyDisplayWord(item.vocabulary.term, item.vocabulary.article),
+      displayWord: composeVocabularyDisplayWord(
+        item.vocabulary.term,
+        item.vocabulary.article,
+      ),
       translation: item.vocabulary.primaryMeaning,
       gender: provider.grammaticalGenderForArticle(item.vocabulary.article),
-      wordType: confirmedDictionary?.partOfSpeech ?? item.vocabulary.partOfSpeech,
+      wordType:
+        confirmedDictionary?.partOfSpeech ?? item.vocabulary.partOfSpeech,
       pronunciationGuide: item.vocabulary.pronunciation,
       ipa: resolved.ipa,
       audioUrl: preferredPronunciation?.audioUrl ?? null,
       teachingDefinition: resolved.definition,
       // Only the admin-curated senses, never `allSenses` — that field is an
       // admin QA view, not learner-facing content.
-      dictionarySenses: confirmedDictionary?.selectedSenses.map((sense) => ({ id: sense.id, gloss: sense.gloss, tags: sense.tags })) ?? [],
+      dictionarySenses:
+        confirmedDictionary?.selectedSenses.map((sense) => ({
+          id: sense.id,
+          gloss: sense.gloss,
+          tags: sense.tags,
+        })) ?? [],
       attribution: confirmedDictionary?.attribution?.attributionText ?? null,
-      officialSynonyms: dedupe([...(confirmedDictionary?.synonyms ?? []), ...officialMeaningAnswers]),
+      officialSynonyms: dedupe([
+        ...(confirmedDictionary?.synonyms ?? []),
+        ...officialMeaningAnswers,
+      ]),
       personalSynonyms: dedupe(personalMeaningSynonyms),
       officialVariations: dedupe([
         ...(confirmedDictionary?.variants ?? []),
@@ -212,7 +295,11 @@ export async function getItemDetailPageData(itemId: string, userId: string): Pro
       ]),
       personalVariations: dedupe(personalTermSynonyms),
     },
-    navigation: buildItemNavigation(siblingIds, itemId, detail.curriculum.groupName),
+    navigation: buildItemNavigation(
+      siblingIds,
+      itemId,
+      detail.curriculum.groupName,
+    ),
     status: item.status,
     levelNumber: level.levelNumber,
     groupName: detail.curriculum.groupName,
@@ -241,22 +328,47 @@ export type ItemAdminEditingData = {
   /** Vocabulary groups in the item's language, already annotated with their level number and ordered for a picker. */
   groups: { id: string; name: string; levelNumber: number }[];
   blocks: CurriculumGrammarContentBlock[];
-  patterns: { id: string; label: string; note: string | null; position: number; sourceForm: string | null }[];
-  examples: { id: string; usageContextId: string | null; position: number; targetText: string; translation: string }[];
+  patterns: {
+    id: string;
+    label: string;
+    note: string | null;
+    position: number;
+    sourceForm: string | null;
+  }[];
+  examples: {
+    id: string;
+    usageContextId: string | null;
+    position: number;
+    targetText: string;
+    translation: string;
+  }[];
   resources: CurriculumItemResource[];
   /** True when an unpublished edit is staged against this item — the page warns that what it shows is not what learners see. */
   hasOpenDraft: boolean;
 };
 
-export async function getItemAdminEditingData(itemId: string): Promise<ItemAdminEditingData | null> {
+export async function getItemAdminEditingData(
+  itemId: string,
+): Promise<ItemAdminEditingData | null> {
   const item = await repository.getLearningItem(db, itemId);
   if (!item) return null;
 
-  const [acceptedAnswers, groups, levels, blocks, patterns, examples, resources, draft] = await Promise.all([
+  const [
+    acceptedAnswers,
+    groups,
+    levels,
+    blocks,
+    patterns,
+    examples,
+    resources,
+    draft,
+  ] = await Promise.all([
     repoGetAcceptedAnswers(db, itemId),
     repository.getVocabularyGroupsByLanguage(db, item.languageId),
     repository.getLevelsByLanguage(db, item.languageId),
-    item.type === "grammar" ? repository.getGrammarContentBlocks(db, itemId) : Promise.resolve([]),
+    item.type === "grammar"
+      ? repository.getGrammarContentBlocks(db, itemId)
+      : Promise.resolve([]),
     repoGetUsageContexts(db, itemId),
     repoGetItemExamples(db, itemId),
     repository.getItemResources(db, itemId),
@@ -265,14 +377,22 @@ export async function getItemAdminEditingData(itemId: string): Promise<ItemAdmin
 
   // The group picker labels each option by its level, so the level lookup
   // happens once here rather than in the component that renders it.
-  const levelNumberById = new Map(levels.map((level) => [level.id, level.levelNumber]));
+  const levelNumberById = new Map(
+    levels.map((level) => [level.id, level.levelNumber]),
+  );
 
   return {
     item,
     acceptedAnswers,
     groups: groups
-      .map((group) => ({ id: group.id, name: group.name, levelNumber: levelNumberById.get(group.levelId) ?? 0 }))
-      .sort((a, b) => a.levelNumber - b.levelNumber || a.name.localeCompare(b.name)),
+      .map((group) => ({
+        id: group.id,
+        name: group.name,
+        levelNumber: levelNumberById.get(group.levelId) ?? 0,
+      }))
+      .sort(
+        (a, b) => a.levelNumber - b.levelNumber || a.name.localeCompare(b.name),
+      ),
     blocks,
     patterns: patterns.map((pattern) => ({
       id: pattern.id,

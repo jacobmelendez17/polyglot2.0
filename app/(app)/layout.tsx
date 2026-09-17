@@ -6,8 +6,14 @@ import { AppHeader } from "@/components/shared/app-header";
 import { AppNavMobile } from "@/components/shared/app-nav-mobile";
 import { Footer } from "@/components/shared/footer";
 import { SandboxViewBanner } from "@/components/shared/sandbox-view-banner";
-import { isCurriculumChoiceRequired, isOnboardingRequired } from "@/domains/users";
-import { getLanguageSettings, resolveCurrentUser } from "@/domains/users/server";
+import {
+  isCurriculumChoiceRequired,
+  isOnboardingRequired,
+} from "@/domains/users";
+import {
+  getLanguageSettings,
+  resolveCurrentUser,
+} from "@/domains/users/server";
 
 /**
  * The banner renders from the *resolved* user, not from the cookie: if
@@ -33,7 +39,13 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   // flow, gated server-side for the same reason onboarding is: it decides
   // how lessons are built, so it must not be skippable by typing a URL.
   // Sandbox personas are exempt inside `isCurriculumChoiceRequired` itself.
-  if (user && isCurriculumChoiceRequired(user, await getLanguageSettings(user.id, user.activeLanguageId))) {
+  if (
+    user &&
+    isCurriculumChoiceRequired(
+      user,
+      await getLanguageSettings(user.id, user.activeLanguageId),
+    )
+  ) {
     redirect("/onboarding/curriculum");
   }
 

@@ -28,7 +28,9 @@ function toLearnerNote(row: typeof userNotes.$inferSelect): LearnerNote {
   };
 }
 
-function toLearnerSynonym(row: typeof userSynonyms.$inferSelect): LearnerSynonym {
+function toLearnerSynonym(
+  row: typeof userSynonyms.$inferSelect,
+): LearnerSynonym {
   return {
     id: row.id,
     userId: row.userId,
@@ -39,11 +41,20 @@ function toLearnerSynonym(row: typeof userSynonyms.$inferSelect): LearnerSynonym
   };
 }
 
-export async function getNote(db: DbClient, userId: string, learningItemId: string): Promise<LearnerNote | null> {
+export async function getNote(
+  db: DbClient,
+  userId: string,
+  learningItemId: string,
+): Promise<LearnerNote | null> {
   const [row] = await db
     .select()
     .from(userNotes)
-    .where(and(eq(userNotes.userId, userId), eq(userNotes.learningItemId, learningItemId)))
+    .where(
+      and(
+        eq(userNotes.userId, userId),
+        eq(userNotes.learningItemId, learningItemId),
+      ),
+    )
     .limit(1);
   return row ? toLearnerNote(row) : null;
 }
@@ -56,18 +67,32 @@ export async function createNote(
   return toLearnerNote(row);
 }
 
-export async function getSynonyms(db: DbClient, userId: string, learningItemId: string): Promise<LearnerSynonym[]> {
+export async function getSynonyms(
+  db: DbClient,
+  userId: string,
+  learningItemId: string,
+): Promise<LearnerSynonym[]> {
   const rows = await db
     .select()
     .from(userSynonyms)
-    .where(and(eq(userSynonyms.userId, userId), eq(userSynonyms.learningItemId, learningItemId)));
+    .where(
+      and(
+        eq(userSynonyms.userId, userId),
+        eq(userSynonyms.learningItemId, learningItemId),
+      ),
+    );
   return rows.map(toLearnerSynonym);
 }
 
 /** Normalizes `value` via the module shared with `lib/answer-checking` (spec 08 §72) before storing it. */
 export async function createSynonym(
   db: DbClient,
-  input: { userId: string; learningItemId: string; side: SynonymSide; value: string },
+  input: {
+    userId: string;
+    learningItemId: string;
+    side: SynonymSide;
+    value: string;
+  },
 ): Promise<LearnerSynonym> {
   const [row] = await db
     .insert(userSynonyms)

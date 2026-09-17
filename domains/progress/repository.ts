@@ -1,9 +1,30 @@
-import { and, asc, count, eq, gt, inArray, isNotNull, isNull, lte, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  eq,
+  gt,
+  inArray,
+  isNotNull,
+  isNull,
+  lte,
+  sql,
+} from "drizzle-orm";
 
 import type { DbClient } from "@/db/client";
-import { learningItems, levels, userItemProgress, userLevelProgress } from "@/db/schema";
+import {
+  learningItems,
+  levels,
+  userItemProgress,
+  userLevelProgress,
+} from "@/db/schema";
 import type { CefrLevel } from "@/db/schema";
-import { calculateFluentMaintenanceReview, calculateNextReview, DEFAULT_SRS_INTERVAL_MODE, MINIMUM_REVIEW_STAGE } from "@/domains/srs";
+import {
+  calculateFluentMaintenanceReview,
+  calculateNextReview,
+  DEFAULT_SRS_INTERVAL_MODE,
+  MINIMUM_REVIEW_STAGE,
+} from "@/domains/srs";
 import type { ReviewItemType, SrsStage } from "@/domains/srs";
 
 import type { ItemProgress, LevelProgress } from "./types";
@@ -44,7 +65,12 @@ function toItemProgress(row: ItemProgressRow): ItemProgress {
 }
 
 function toLevelProgress(row: LevelProgressRow): LevelProgress {
-  return { userId: row.userId, levelId: row.levelId, unlockedAt: row.unlockedAt, completedAt: row.completedAt };
+  return {
+    userId: row.userId,
+    levelId: row.levelId,
+    unlockedAt: row.unlockedAt,
+    completedAt: row.completedAt,
+  };
 }
 
 export async function getItemProgress(
@@ -55,12 +81,21 @@ export async function getItemProgress(
   const [row] = await db
     .select()
     .from(userItemProgress)
-    .where(and(eq(userItemProgress.userId, userId), eq(userItemProgress.learningItemId, learningItemId)))
+    .where(
+      and(
+        eq(userItemProgress.userId, userId),
+        eq(userItemProgress.learningItemId, learningItemId),
+      ),
+    )
     .limit(1);
   return row ? toItemProgress(row) : null;
 }
 
-export async function hasItemProgress(db: DbClient, userId: string, learningItemId: string): Promise<boolean> {
+export async function hasItemProgress(
+  db: DbClient,
+  userId: string,
+  learningItemId: string,
+): Promise<boolean> {
   return (await getItemProgress(db, userId, learningItemId)) !== null;
 }
 
@@ -73,7 +108,12 @@ export async function getUserProgressForLanguage(
   const rows = await db
     .select()
     .from(userItemProgress)
-    .where(and(eq(userItemProgress.userId, userId), eq(userItemProgress.languageId, languageId)));
+    .where(
+      and(
+        eq(userItemProgress.userId, userId),
+        eq(userItemProgress.languageId, languageId),
+      ),
+    );
   return rows.map(toItemProgress);
 }
 
@@ -133,7 +173,12 @@ export async function applyVacationSchedulingAdjustment(
         ELSE ${vacationEndedAt}::timestamptz + (${userItemProgress.nextReviewAt} - ${waitStartedAt})
       END`,
     })
-    .where(and(eq(userItemProgress.userId, userId), isNotNull(userItemProgress.nextReviewAt)));
+    .where(
+      and(
+        eq(userItemProgress.userId, userId),
+        isNotNull(userItemProgress.nextReviewAt),
+      ),
+    );
 }
 
 /**
@@ -142,11 +187,22 @@ export async function applyVacationSchedulingAdjustment(
  * same `user_item_progress_due_review_idx` leftmost prefix as
  * `getDueReviewItems`, just ordered instead of filtered to `<= now`.
  */
-export async function getNextUpcomingReviewAt(db: DbClient, userId: string, languageId: string, now: Date): Promise<Date | null> {
+export async function getNextUpcomingReviewAt(
+  db: DbClient,
+  userId: string,
+  languageId: string,
+  now: Date,
+): Promise<Date | null> {
   const [row] = await db
     .select({ nextReviewAt: userItemProgress.nextReviewAt })
     .from(userItemProgress)
-    .where(and(eq(userItemProgress.userId, userId), eq(userItemProgress.languageId, languageId), gt(userItemProgress.nextReviewAt, now)))
+    .where(
+      and(
+        eq(userItemProgress.userId, userId),
+        eq(userItemProgress.languageId, languageId),
+        gt(userItemProgress.nextReviewAt, now),
+      ),
+    )
     .orderBy(asc(userItemProgress.nextReviewAt))
     .limit(1);
   return row?.nextReviewAt ?? null;
@@ -172,9 +228,15 @@ export async function getUpcomingReviewForecast(
   { after, until }: { after: Date; until: Date },
 ): Promise<UpcomingReviewForecastItem[]> {
   const rows = await db
-    .select({ nextReviewAt: userItemProgress.nextReviewAt, itemType: learningItems.type })
+    .select({
+      nextReviewAt: userItemProgress.nextReviewAt,
+      itemType: learningItems.type,
+    })
     .from(userItemProgress)
-    .innerJoin(learningItems, eq(learningItems.id, userItemProgress.learningItemId))
+    .innerJoin(
+      learningItems,
+      eq(learningItems.id, userItemProgress.learningItemId),
+    )
     .where(
       and(
         eq(userItemProgress.userId, userId),
@@ -186,7 +248,10 @@ export async function getUpcomingReviewForecast(
   // The `gt(nextReviewAt, after)` filter above already guarantees every
   // matching row's `nextReviewAt` is non-null (SQL comparison against NULL
   // is never true) — Drizzle's inferred column type just can't express that.
-  return rows.map((row) => ({ nextReviewAt: row.nextReviewAt as Date, itemType: row.itemType }));
+  return rows.map((row) => ({
+    nextReviewAt: row.nextReviewAt as Date,
+    itemType: row.itemType,
+  }));
 }
 
 /**
@@ -196,31 +261,58 @@ export async function getUpcomingReviewForecast(
  * unbounded scan), and served by the primary key's `user_id` leftmost
  * prefix.
  */
-export async function countProgressForItems(db: DbClient, userId: string, learningItemIds: string[]): Promise<number> {
+export async function countProgressForItems(
+  db: DbClient,
+  userId: string,
+  learningItemIds: string[],
+): Promise<number> {
   if (learningItemIds.length === 0) return 0;
   const [row] = await db
     .select({ value: count() })
     .from(userItemProgress)
-    .where(and(eq(userItemProgress.userId, userId), inArray(userItemProgress.learningItemId, learningItemIds)));
+    .where(
+      and(
+        eq(userItemProgress.userId, userId),
+        inArray(userItemProgress.learningItemId, learningItemIds),
+      ),
+    );
   return row?.value ?? 0;
 }
 
-export async function getLevelProgress(db: DbClient, userId: string, levelId: string): Promise<LevelProgress | null> {
+export async function getLevelProgress(
+  db: DbClient,
+  userId: string,
+  levelId: string,
+): Promise<LevelProgress | null> {
   const [row] = await db
     .select()
     .from(userLevelProgress)
-    .where(and(eq(userLevelProgress.userId, userId), eq(userLevelProgress.levelId, levelId)))
+    .where(
+      and(
+        eq(userLevelProgress.userId, userId),
+        eq(userLevelProgress.levelId, levelId),
+      ),
+    )
     .limit(1);
   return row ? toLevelProgress(row) : null;
 }
 
 /** Every level a user has unlocked in one language — joins through `levels` since `user_level_progress` has no denormalized `language_id`. */
-export async function getUnlockedLevels(db: DbClient, userId: string, languageId: string): Promise<LevelProgress[]> {
+export async function getUnlockedLevels(
+  db: DbClient,
+  userId: string,
+  languageId: string,
+): Promise<LevelProgress[]> {
   const rows = await db
     .select({ progress: userLevelProgress })
     .from(userLevelProgress)
     .innerJoin(levels, eq(levels.id, userLevelProgress.levelId))
-    .where(and(eq(userLevelProgress.userId, userId), eq(levels.languageId, languageId)));
+    .where(
+      and(
+        eq(userLevelProgress.userId, userId),
+        eq(levels.languageId, languageId),
+      ),
+    );
   return rows.map((row) => toLevelProgress(row.progress));
 }
 
@@ -248,12 +340,21 @@ export async function getUnlockedLevels(db: DbClient, userId: string, languageId
  */
 export async function lockItemProgressForReview(
   db: DbClient,
-  { userId, learningItemId, languageId }: { userId: string; learningItemId: string; languageId: string },
+  {
+    userId,
+    learningItemId,
+    languageId,
+  }: { userId: string; learningItemId: string; languageId: string },
 ): Promise<ItemProgress | null> {
   const [row] = await db
     .select()
     .from(userItemProgress)
-    .where(and(eq(userItemProgress.userId, userId), eq(userItemProgress.learningItemId, learningItemId)))
+    .where(
+      and(
+        eq(userItemProgress.userId, userId),
+        eq(userItemProgress.learningItemId, learningItemId),
+      ),
+    )
     .for("update");
 
   if (!row || row.languageId !== languageId) return null;
@@ -303,7 +404,10 @@ export async function applyItemProgressUpdate(
       // `currentCorrectStreak` resets to 0 on a penalized result and
       // increments on an advanced one, mirroring `correctCount`/
       // `incorrectCount`'s own branching exactly.
-      currentCorrectStreak: input.result === "advanced" ? sql`${userItemProgress.currentCorrectStreak} + 1` : 0,
+      currentCorrectStreak:
+        input.result === "advanced"
+          ? sql`${userItemProgress.currentCorrectStreak} + 1`
+          : 0,
       // `GREATEST` on a Postgres enum compares by declared order, which
       // `srsStageEnum` (`db/schema/progress.ts`) is always declared to match
       // `SRS_STAGE_ORDER` exactly — confirmed directly against this
@@ -344,11 +448,19 @@ export async function applyItemProgressUpdate(
  * No new index needed: `learning_items_level_type_position_key`'s leftmost
  * column is already `level_id`.
  */
-export async function countLevelGatingItems(db: DbClient, levelId: string): Promise<number> {
+export async function countLevelGatingItems(
+  db: DbClient,
+  levelId: string,
+): Promise<number> {
   const [row] = await db
     .select({ value: count() })
     .from(learningItems)
-    .where(and(eq(learningItems.levelId, levelId), eq(learningItems.status, "published")));
+    .where(
+      and(
+        eq(learningItems.levelId, levelId),
+        eq(learningItems.status, "published"),
+      ),
+    );
   return row?.value ?? 0;
 }
 
@@ -364,12 +476,19 @@ export async function countLevelGatingItems(db: DbClient, levelId: string): Prom
  */
 export async function countUserItemsAtOrAboveStageInLevel(
   db: DbClient,
-  { userId, levelId, qualifyingStages }: { userId: string; levelId: string; qualifyingStages: SrsStage[] },
+  {
+    userId,
+    levelId,
+    qualifyingStages,
+  }: { userId: string; levelId: string; qualifyingStages: SrsStage[] },
 ): Promise<number> {
   const [row] = await db
     .select({ value: count() })
     .from(userItemProgress)
-    .innerJoin(learningItems, eq(learningItems.id, userItemProgress.learningItemId))
+    .innerJoin(
+      learningItems,
+      eq(learningItems.id, userItemProgress.learningItemId),
+    )
     .where(
       and(
         eq(userItemProgress.userId, userId),
@@ -394,15 +513,24 @@ export async function unlockLevel(
   await db
     .insert(userLevelProgress)
     .values({ userId, levelId, unlockedAt: now })
-    .onConflictDoNothing({ target: [userLevelProgress.userId, userLevelProgress.levelId] });
+    .onConflictDoNothing({
+      target: [userLevelProgress.userId, userLevelProgress.levelId],
+    });
 
   const [row] = await db
     .select()
     .from(userLevelProgress)
-    .where(and(eq(userLevelProgress.userId, userId), eq(userLevelProgress.levelId, levelId)))
+    .where(
+      and(
+        eq(userLevelProgress.userId, userId),
+        eq(userLevelProgress.levelId, levelId),
+      ),
+    )
     .limit(1);
   if (!row) {
-    throw new Error(`unlockLevel: row for user ${userId} / level ${levelId} missing immediately after upsert — should never happen.`);
+    throw new Error(
+      `unlockLevel: row for user ${userId} / level ${levelId} missing immediately after upsert — should never happen.`,
+    );
   }
   return toLevelProgress(row);
 }
@@ -418,9 +546,14 @@ export async function unlockLevel(
  * the sandbox reset's own precedent — it's a durable history log, not
  * current-state, and reset doesn't rewrite history.
  */
-export async function resetAccountProgress(db: DbClient, { userId, level1Id }: { userId: string; level1Id: string }): Promise<void> {
+export async function resetAccountProgress(
+  db: DbClient,
+  { userId, level1Id }: { userId: string; level1Id: string },
+): Promise<void> {
   await db.delete(userItemProgress).where(eq(userItemProgress.userId, userId));
-  await db.delete(userLevelProgress).where(eq(userLevelProgress.userId, userId));
+  await db
+    .delete(userLevelProgress)
+    .where(eq(userLevelProgress.userId, userId));
   await unlockLevel(db, { userId, levelId: level1Id, now: new Date() });
 }
 
@@ -446,7 +579,11 @@ export async function getResetCandidateItems(
   itemType: ReviewItemType,
   cefrLevel?: CefrLevel,
 ): Promise<ResetCandidateItem[]> {
-  const conditions = [eq(userItemProgress.userId, userId), eq(userItemProgress.languageId, languageId), eq(learningItems.type, itemType)];
+  const conditions = [
+    eq(userItemProgress.userId, userId),
+    eq(userItemProgress.languageId, languageId),
+    eq(learningItems.type, itemType),
+  ];
   if (cefrLevel) conditions.push(eq(levels.cefrLevel, cefrLevel));
 
   return db
@@ -458,7 +595,10 @@ export async function getResetCandidateItems(
       highestSrsStageReached: userItemProgress.highestSrsStageReached,
     })
     .from(userItemProgress)
-    .innerJoin(learningItems, eq(learningItems.id, userItemProgress.learningItemId))
+    .innerJoin(
+      learningItems,
+      eq(learningItems.id, userItemProgress.learningItemId),
+    )
     .innerJoin(levels, eq(levels.id, learningItems.levelId))
     .where(and(...conditions));
 }
@@ -484,7 +624,11 @@ export async function getResetCandidateItems(
  */
 export async function resetItemProgressToBeginner(
   db: DbClient,
-  input: { userId: string; items: { learningItemId: string; levelNumber: number }[]; now: Date },
+  input: {
+    userId: string;
+    items: { learningItemId: string; levelNumber: number }[];
+    now: Date;
+  },
 ): Promise<void> {
   for (const item of input.items) {
     const nextReviewAt = calculateNextReview({
@@ -506,7 +650,12 @@ export async function resetItemProgressToBeginner(
         fluentAt: null,
         updatedAt: input.now,
       })
-      .where(and(eq(userItemProgress.userId, input.userId), eq(userItemProgress.learningItemId, item.learningItemId)));
+      .where(
+        and(
+          eq(userItemProgress.userId, input.userId),
+          eq(userItemProgress.learningItemId, item.learningItemId),
+        ),
+      );
   }
 }
 
@@ -520,7 +669,10 @@ export async function getItemProgressAboveLevel(
   return db
     .select({ learningItemId: userItemProgress.learningItemId })
     .from(userItemProgress)
-    .innerJoin(learningItems, eq(learningItems.id, userItemProgress.learningItemId))
+    .innerJoin(
+      learningItems,
+      eq(learningItems.id, userItemProgress.learningItemId),
+    )
     .innerJoin(levels, eq(levels.id, learningItems.levelId))
     .where(
       and(
@@ -537,11 +689,20 @@ export async function getItemProgressAboveLevel(
  * "removes current item progress above Level 6," not "resets," unlike Main
  * Reviews/Leech/CEFR reset above.
  */
-export async function deleteItemProgressByIds(db: DbClient, userId: string, learningItemIds: string[]): Promise<void> {
+export async function deleteItemProgressByIds(
+  db: DbClient,
+  userId: string,
+  learningItemIds: string[],
+): Promise<void> {
   if (learningItemIds.length === 0) return;
   await db
     .delete(userItemProgress)
-    .where(and(eq(userItemProgress.userId, userId), inArray(userItemProgress.learningItemId, learningItemIds)));
+    .where(
+      and(
+        eq(userItemProgress.userId, userId),
+        inArray(userItemProgress.learningItemId, learningItemIds),
+      ),
+    );
 }
 
 /**
@@ -560,10 +721,22 @@ export async function deleteLevelUnlocksAboveLevel(
   const levelsAbove = await db
     .select({ id: levels.id })
     .from(levels)
-    .where(and(eq(levels.languageId, languageId), gt(levels.levelNumber, levelNumberThreshold)));
+    .where(
+      and(
+        eq(levels.languageId, languageId),
+        gt(levels.levelNumber, levelNumberThreshold),
+      ),
+    );
   const levelIds = levelsAbove.map((level) => level.id);
   if (levelIds.length === 0) return;
-  await db.delete(userLevelProgress).where(and(eq(userLevelProgress.userId, userId), inArray(userLevelProgress.levelId, levelIds)));
+  await db
+    .delete(userLevelProgress)
+    .where(
+      and(
+        eq(userLevelProgress.userId, userId),
+        inArray(userLevelProgress.levelId, levelIds),
+      ),
+    );
 }
 
 export type EnrollLearningItemInput = {
@@ -657,19 +830,37 @@ export async function enrollLearningItems(
  */
 export async function reconcileFluentSchedules(
   db: DbClient,
-  { userId, languageId, itemType, fluentModeEnabled }: { userId: string; languageId: string; itemType: "grammar" | "vocabulary"; fluentModeEnabled: boolean },
+  {
+    userId,
+    languageId,
+    itemType,
+    fluentModeEnabled,
+  }: {
+    userId: string;
+    languageId: string;
+    itemType: "grammar" | "vocabulary";
+    fluentModeEnabled: boolean;
+  },
 ): Promise<void> {
   const rows = await db
-    .select({ learningItemId: userItemProgress.learningItemId, fluentAt: userItemProgress.fluentAt })
+    .select({
+      learningItemId: userItemProgress.learningItemId,
+      fluentAt: userItemProgress.fluentAt,
+    })
     .from(userItemProgress)
-    .innerJoin(learningItems, eq(learningItems.id, userItemProgress.learningItemId))
+    .innerJoin(
+      learningItems,
+      eq(learningItems.id, userItemProgress.learningItemId),
+    )
     .where(
       and(
         eq(userItemProgress.userId, userId),
         eq(userItemProgress.languageId, languageId),
         eq(learningItems.type, itemType),
         eq(userItemProgress.srsStage, "fluent"),
-        fluentModeEnabled ? isNull(userItemProgress.nextReviewAt) : isNotNull(userItemProgress.nextReviewAt),
+        fluentModeEnabled
+          ? isNull(userItemProgress.nextReviewAt)
+          : isNotNull(userItemProgress.nextReviewAt),
       ),
     );
 
@@ -679,7 +870,15 @@ export async function reconcileFluentSchedules(
     await db
       .update(userItemProgress)
       .set({ nextReviewAt: null })
-      .where(and(eq(userItemProgress.userId, userId), inArray(userItemProgress.learningItemId, rows.map((row) => row.learningItemId))));
+      .where(
+        and(
+          eq(userItemProgress.userId, userId),
+          inArray(
+            userItemProgress.learningItemId,
+            rows.map((row) => row.learningItemId),
+          ),
+        ),
+      );
     return;
   }
 
@@ -691,6 +890,11 @@ export async function reconcileFluentSchedules(
     await db
       .update(userItemProgress)
       .set({ nextReviewAt: calculateFluentMaintenanceReview(row.fluentAt) })
-      .where(and(eq(userItemProgress.userId, userId), eq(userItemProgress.learningItemId, row.learningItemId)));
+      .where(
+        and(
+          eq(userItemProgress.userId, userId),
+          eq(userItemProgress.learningItemId, row.learningItemId),
+        ),
+      );
   }
 }

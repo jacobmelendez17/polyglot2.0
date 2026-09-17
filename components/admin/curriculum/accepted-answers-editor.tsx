@@ -4,7 +4,13 @@ import { Plus, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export type AcceptedAnswerValue = { side: "term" | "meaning"; value: string };
 
@@ -21,7 +27,10 @@ type AcceptedAnswersEditorProps = {
  * `domains/srs`'s answer resolution can merge official and learner-
  * submitted answers uniformly.
  */
-export function AcceptedAnswersEditor({ value, onChange }: AcceptedAnswersEditorProps) {
+export function AcceptedAnswersEditor({
+  value,
+  onChange,
+}: AcceptedAnswersEditorProps) {
   function updateRow(index: number, patch: Partial<AcceptedAnswerValue>) {
     onChange(value.map((row, i) => (i === index ? { ...row, ...patch } : row)));
   }
@@ -36,12 +45,26 @@ export function AcceptedAnswersEditor({ value, onChange }: AcceptedAnswersEditor
 
   return (
     <div className="space-y-2">
-      <span className="text-sm font-medium text-foreground">Accepted answers</span>
-      {value.length === 0 ? <p className="text-sm text-muted-foreground">No additional accepted answers yet.</p> : null}
+      <span className="text-sm font-medium text-foreground">
+        Accepted answers
+      </span>
+      {value.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          No additional accepted answers yet.
+        </p>
+      ) : null}
       {value.map((row, index) => (
         <div key={index} className="flex items-center gap-2">
-          <Select value={row.side} onValueChange={(side) => updateRow(index, { side: side as "term" | "meaning" })}>
-            <SelectTrigger aria-label={`Side for accepted answer ${index + 1}`} className="w-28 shrink-0">
+          <Select
+            value={row.side}
+            onValueChange={(side) =>
+              updateRow(index, { side: side as "term" | "meaning" })
+            }
+          >
+            <SelectTrigger
+              aria-label={`Side for accepted answer ${index + 1}`}
+              className="w-28 shrink-0"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -52,9 +75,17 @@ export function AcceptedAnswersEditor({ value, onChange }: AcceptedAnswersEditor
           <Input
             aria-label={`Accepted answer ${index + 1} value`}
             value={row.value}
-            onChange={(event) => updateRow(index, { value: event.target.value })}
+            onChange={(event) =>
+              updateRow(index, { value: event.target.value })
+            }
           />
-          <Button type="button" variant="ghost" size="icon-sm" aria-label={`Remove accepted answer ${index + 1}`} onClick={() => removeRow(index)}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`Remove accepted answer ${index + 1}`}
+            onClick={() => removeRow(index)}
+          >
             <X />
           </Button>
         </div>

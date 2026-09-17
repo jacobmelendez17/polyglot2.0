@@ -21,23 +21,22 @@ const STATE_CLASSES: Record<AnswerInputState, string> = {
  * Shared across any typed-answer flow — moved here from `components/lessons/`
  * when spec 09's review UI became its second consumer.
  */
-export const AnswerInput = forwardRef<HTMLInputElement, AnswerInputProps>(function AnswerInput(
-  { className, state = "default", ...props },
-  ref,
-) {
-  return (
-    <input
-      ref={ref}
-      type="text"
-      autoComplete="off"
-      autoCorrect="off"
-      spellCheck={false}
-      className={cn(
-        "w-full max-w-md rounded-none border-0 border-b-2 bg-transparent px-1 py-2 text-center text-2xl text-foreground outline-none transition-[border-color,border-width] duration-150 placeholder:text-muted-foreground focus:border-b-[3px]",
-        STATE_CLASSES[state],
-        className,
-      )}
-      {...props}
-    />
-  );
-});
+export const AnswerInput = forwardRef<HTMLInputElement, AnswerInputProps>(
+  function AnswerInput({ className, state = "default", ...props }, ref) {
+    return (
+      <input
+        ref={ref}
+        type="text"
+        autoComplete="off"
+        autoCorrect="off"
+        spellCheck={false}
+        className={cn(
+          "w-full max-w-md rounded-none border-0 border-b-2 bg-transparent px-1 py-2 text-center text-2xl text-foreground outline-none transition-[border-color,border-width] duration-150 placeholder:text-muted-foreground focus:border-b-[3px]",
+          STATE_CLASSES[state],
+          className,
+        )}
+        {...props}
+      />
+    );
+  },
+);

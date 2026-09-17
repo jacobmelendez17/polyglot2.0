@@ -33,7 +33,10 @@ describe("UsernameField", () => {
   });
 
   it("calls updateUsernameAction with the edited value on save", async () => {
-    mockUpdateUsernameAction.mockResolvedValueOnce({ ok: true, data: { username: "newname" } });
+    mockUpdateUsernameAction.mockResolvedValueOnce({
+      ok: true,
+      data: { username: "newname" },
+    });
     const user = userEvent.setup();
     render(<UsernameField initialUsername="oldname" />);
 
@@ -43,13 +46,18 @@ describe("UsernameField", () => {
     await user.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Saved")).toBeInTheDocument();
-    expect(mockUpdateUsernameAction).toHaveBeenCalledWith({ username: "newname" });
+    expect(mockUpdateUsernameAction).toHaveBeenCalledWith({
+      username: "newname",
+    });
   });
 
   it("surfaces a taken-username conflict without losing the draft state", async () => {
     mockUpdateUsernameAction.mockResolvedValueOnce({
       ok: false,
-      error: { code: "USERNAME_TAKEN", message: "That username is already taken." },
+      error: {
+        code: "USERNAME_TAKEN",
+        message: "That username is already taken.",
+      },
     });
     const user = userEvent.setup();
     render(<UsernameField initialUsername="oldname" />);
@@ -59,6 +67,8 @@ describe("UsernameField", () => {
     await user.type(screen.getByLabelText("Username"), "taken");
     await user.click(screen.getByRole("button", { name: "Save" }));
 
-    expect(await screen.findByText("That username is already taken.")).toBeInTheDocument();
+    expect(
+      await screen.findByText("That username is already taken."),
+    ).toBeInTheDocument();
   });
 });

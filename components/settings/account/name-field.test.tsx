@@ -25,7 +25,10 @@ describe("NameField", () => {
   });
 
   it("calls updateNameAction with the edited value on save", async () => {
-    mockUpdateNameAction.mockResolvedValueOnce({ ok: true, data: { displayName: "New Name" } });
+    mockUpdateNameAction.mockResolvedValueOnce({
+      ok: true,
+      data: { displayName: "New Name" },
+    });
     const user = userEvent.setup();
     render(<NameField initialName="Old Name" />);
 
@@ -35,6 +38,8 @@ describe("NameField", () => {
     await user.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Saved")).toBeInTheDocument();
-    expect(mockUpdateNameAction).toHaveBeenCalledWith({ displayName: "New Name" });
+    expect(mockUpdateNameAction).toHaveBeenCalledWith({
+      displayName: "New Name",
+    });
   });
 });

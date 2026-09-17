@@ -59,17 +59,26 @@ export function calculateReviewStageResult({
     // Spec 20 Fluent Mode's own maintenance loop is what first makes this
     // distinction observable in practice (Fluent was hard-terminal before
     // it existed, so a correct review at Fluent could never occur).
-    return { stage: nextStage, result: "advanced", reachedFluent: nextStage === "fluent" && stage !== "fluent" };
+    return {
+      stage: nextStage,
+      result: "advanced",
+      reachedFluent: nextStage === "fluent" && stage !== "fluent",
+    };
   }
 
-  return { stage: applyReviewPenalty(stage, srsStrictness), result: "penalized", reachedFluent: false };
+  return {
+    stage: applyReviewPenalty(stage, srsStrictness),
+    result: "penalized",
+    reachedFluent: false,
+  };
 }
 
-const STAGES_BACK: Record<"one_stage" | "two_stages" | "three_stages", number> = {
-  one_stage: 1,
-  two_stages: 2,
-  three_stages: 3,
-};
+const STAGES_BACK: Record<"one_stage" | "two_stages" | "three_stages", number> =
+  {
+    one_stage: 1,
+    two_stages: 2,
+    three_stages: 3,
+  };
 
 /**
  * Spec 20 SRS Strictness's five demotion rules. Replaces the old WaniKani-
@@ -80,7 +89,10 @@ const STAGES_BACK: Record<"one_stage" | "two_stages" | "three_stages", number> =
  * and which rule applies is entirely the learner's own SRS Strictness
  * choice (default "1 Stage", the new Polyglot-wide default).
  */
-function applyReviewPenalty(stage: SrsStage, srsStrictness: SrsStrictness): SrsStage {
+function applyReviewPenalty(
+  stage: SrsStage,
+  srsStrictness: SrsStrictness,
+): SrsStage {
   const minimumIndex = getStageIndex(MINIMUM_REVIEW_STAGE);
 
   // "Full: Reset the item to Beginner 1. Do not create Beginner 0" — a
@@ -98,5 +110,7 @@ function applyReviewPenalty(stage: SrsStage, srsStrictness: SrsStrictness): SrsS
     return SRS_STAGE_ORDER[Math.max(minimumIndex, newPosition - 1)];
   }
 
-  return SRS_STAGE_ORDER[Math.max(minimumIndex, currentIndex - STAGES_BACK[srsStrictness])];
+  return SRS_STAGE_ORDER[
+    Math.max(minimumIndex, currentIndex - STAGES_BACK[srsStrictness])
+  ];
 }

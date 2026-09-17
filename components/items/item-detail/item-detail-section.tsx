@@ -19,7 +19,11 @@ type ItemDetailSectionProps = {
  * scrolled to; `tabIndex={-1}` lets the shell move focus here after a tab
  * activation without putting the section into the tab order.
  */
-export function ItemDetailSection({ id, title, children }: ItemDetailSectionProps) {
+export function ItemDetailSection({
+  id,
+  title,
+  children,
+}: ItemDetailSectionProps) {
   return (
     <section
       id={`item-section-${id}`}
@@ -28,7 +32,10 @@ export function ItemDetailSection({ id, title, children }: ItemDetailSectionProp
       aria-labelledby={`item-section-heading-${id}`}
       className="scroll-mt-[calc(var(--nav-h)+5rem)] focus-visible:outline-none"
     >
-      <h2 id={`item-section-heading-${id}`} className="font-heading text-2xl font-semibold text-foreground sm:text-3xl">
+      <h2
+        id={`item-section-heading-${id}`}
+        className="font-heading text-2xl font-semibold text-foreground sm:text-3xl"
+      >
         {title ?? ITEM_DETAIL_SECTION_LABELS[id]}
       </h2>
       <div className="mt-4">{children}</div>

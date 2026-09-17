@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { hashSourceValue } from "./source-hash";
-import { createEntryKeyDisambiguator, projectWiktextractRecord } from "./wiktextract-adapter";
+import {
+  createEntryKeyDisambiguator,
+  projectWiktextractRecord,
+} from "./wiktextract-adapter";
 import { wiktextractRecordSchema } from "./wiktextract-schema";
 
 /**
@@ -14,16 +17,26 @@ import { wiktextractRecordSchema } from "./wiktextract-schema";
 function project(raw: unknown) {
   const parsed = wiktextractRecordSchema.safeParse(raw);
   if (!parsed.success) return { valid: false as const, record: null };
-  return { valid: true as const, record: projectWiktextractRecord(parsed.data) };
+  return {
+    valid: true as const,
+    record: projectWiktextractRecord(parsed.data),
+  };
 }
 
 describe("wiktextract validation", () => {
   it("rejects a record with no headword", () => {
-    expect(wiktextractRecordSchema.safeParse({ lang_code: "es", pos: "noun" }).success).toBe(false);
+    expect(
+      wiktextractRecordSchema.safeParse({ lang_code: "es", pos: "noun" })
+        .success,
+    ).toBe(false);
   });
 
   it("rejects an absurdly long field rather than storing it", () => {
-    const parsed = wiktextractRecordSchema.safeParse({ word: "x".repeat(1000), lang_code: "es", pos: "noun" });
+    const parsed = wiktextractRecordSchema.safeParse({
+      word: "x".repeat(1000),
+      lang_code: "es",
+      pos: "noun",
+    });
     expect(parsed.success).toBe(false);
   });
 
@@ -47,13 +60,20 @@ describe("wiktextract validation", () => {
     });
     // The complete upstream object is what lands in raw_data; silently
     // dropping fields here would lose exactly the history that column exists for.
-    expect((parsed as Record<string, unknown>).etymology_text).toBe("From Latin pater.");
+    expect((parsed as Record<string, unknown>).etymology_text).toBe(
+      "From Latin pater.",
+    );
   });
 });
 
 describe("projectWiktextractRecord", () => {
   it("projects a simple noun", () => {
-    const { record } = project({ word: "libro", lang_code: "es", pos: "noun", senses: [{ glosses: ["book"] }] });
+    const { record } = project({
+      word: "libro",
+      lang_code: "es",
+      pos: "noun",
+      senses: [{ glosses: ["book"] }],
+    });
     expect(record).not.toBeNull();
     expect(record!.lemma).toBe("libro");
     expect(record!.normalizedLemma).toBe("libro");
@@ -92,29 +112,53 @@ describe("projectWiktextractRecord", () => {
       word: "padre",
       lang_code: "es",
       pos: "noun",
-      senses: [{ glosses: ["male parent"] }, { glosses: ["father"] }, { glosses: ["priest"] }],
+      senses: [
+        { glosses: ["male parent"] },
+        { glosses: ["father"] },
+        { glosses: ["priest"] },
+      ],
     }).record!;
 
     const keyFor = (record: typeof first, gloss: string) =>
       record.senses.find((sense) => sense.gloss === gloss)?.sourceSenseKey;
-    expect(keyFor(afterUpstreamInsertion, "father")).toBe(keyFor(first, "father"));
-    expect(keyFor(afterUpstreamInsertion, "priest")).toBe(keyFor(first, "priest"));
+    expect(keyFor(afterUpstreamInsertion, "father")).toBe(
+      keyFor(first, "father"),
+    );
+    expect(keyFor(afterUpstreamInsertion, "priest")).toBe(
+      keyFor(first, "priest"),
+    );
   });
 
   it("changes a sense fingerprint when its content changes, but not when only its position does", () => {
-    const before = project({ word: "padre", lang_code: "es", pos: "noun", senses: [{ glosses: ["father"], id: "s1" }] }).record!;
+    const before = project({
+      word: "padre",
+      lang_code: "es",
+      pos: "noun",
+      senses: [{ glosses: ["father"], id: "s1" }],
+    }).record!;
     const reordered = project({
       word: "padre",
       lang_code: "es",
       pos: "noun",
-      senses: [{ glosses: ["priest"], id: "s2" }, { glosses: ["father"], id: "s1" }],
+      senses: [
+        { glosses: ["priest"], id: "s2" },
+        { glosses: ["father"], id: "s1" },
+      ],
     }).record!;
-    const reworded = project({ word: "padre", lang_code: "es", pos: "noun", senses: [{ glosses: ["dad"], id: "s1" }] }).record!;
+    const reworded = project({
+      word: "padre",
+      lang_code: "es",
+      pos: "noun",
+      senses: [{ glosses: ["dad"], id: "s1" }],
+    }).record!;
 
     const fingerprintFor = (record: typeof before, key: string) =>
-      record.senses.find((sense) => sense.sourceSenseKey === key)?.sourceFingerprint;
+      record.senses.find((sense) => sense.sourceSenseKey === key)
+        ?.sourceFingerprint;
     expect(fingerprintFor(reordered, "s1")).toBe(fingerprintFor(before, "s1"));
-    expect(fingerprintFor(reworded, "s1")).not.toBe(fingerprintFor(before, "s1"));
+    expect(fingerprintFor(reworded, "s1")).not.toBe(
+      fingerprintFor(before, "s1"),
+    );
   });
 
   it("projects verb forms with their tags", () => {
@@ -129,9 +173,16 @@ describe("projectWiktextractRecord", () => {
       ],
     });
     expect(record!.partOfSpeech).toBe("verb");
-    expect(record!.forms.map((form) => form.form)).toEqual(["hablo", "hablado"]);
+    expect(record!.forms.map((form) => form.form)).toEqual([
+      "hablo",
+      "hablado",
+    ]);
     expect(record!.forms[0].normalizedForm).toBe("hablo");
-    expect(record!.forms[0].tags).toEqual(["first-person", "singular", "present"]);
+    expect(record!.forms[0].tags).toEqual([
+      "first-person",
+      "singular",
+      "present",
+    ]);
   });
 
   it("projects pronunciations, attaching a region code only when the source labels one", () => {
@@ -149,7 +200,9 @@ describe("projectWiktextractRecord", () => {
     expect(record!.pronunciations).toHaveLength(3);
     expect(record!.pronunciations[0].regionCode).toBeNull();
     expect(record!.pronunciations[1].regionCode).toBe("es-MX");
-    expect(record!.pronunciations[2].audioUrl).toBe("https://example.invalid/a.ogg");
+    expect(record!.pronunciations[2].audioUrl).toBe(
+      "https://example.invalid/a.ogg",
+    );
   });
 
   it("skips a sound entry carrying neither a transcription nor audio", () => {
@@ -173,21 +226,46 @@ describe("projectWiktextractRecord", () => {
       antonyms: [{ word: "hijo" }],
       hypernyms: [{ word: "pariente" }],
     });
-    const byType = (type: string) => record!.relations.filter((relation) => relation.relationType === type).map((r) => r.targetLemma);
+    const byType = (type: string) =>
+      record!.relations
+        .filter((relation) => relation.relationType === type)
+        .map((r) => r.targetLemma);
     expect(byType("synonym")).toEqual(["papá", "progenitor"]);
     expect(byType("antonym")).toEqual(["hijo"]);
     expect(byType("hypernym")).toEqual(["pariente"]);
   });
 
   it("keeps a homonym pair as two entries by folding etymology into the entry key", () => {
-    const first = project({ word: "coma", lang_code: "es", pos: "noun", etymology_number: 1, senses: [{ glosses: ["comma"] }] }).record!;
-    const second = project({ word: "coma", lang_code: "es", pos: "noun", etymology_number: 2, senses: [{ glosses: ["coma"] }] }).record!;
+    const first = project({
+      word: "coma",
+      lang_code: "es",
+      pos: "noun",
+      etymology_number: 1,
+      senses: [{ glosses: ["comma"] }],
+    }).record!;
+    const second = project({
+      word: "coma",
+      lang_code: "es",
+      pos: "noun",
+      etymology_number: 2,
+      senses: [{ glosses: ["coma"] }],
+    }).record!;
     expect(first.sourceEntryKey).not.toBe(second.sourceEntryKey);
   });
 
   it("keeps an accent pair as two distinct entries", () => {
-    const article = project({ word: "el", lang_code: "es", pos: "article", senses: [{ glosses: ["the"] }] }).record!;
-    const pronoun = project({ word: "él", lang_code: "es", pos: "pron", senses: [{ glosses: ["he"] }] }).record!;
+    const article = project({
+      word: "el",
+      lang_code: "es",
+      pos: "article",
+      senses: [{ glosses: ["the"] }],
+    }).record!;
+    const pronoun = project({
+      word: "él",
+      lang_code: "es",
+      pos: "pron",
+      senses: [{ glosses: ["he"] }],
+    }).record!;
     expect(article.normalizedLemma).toBe("el");
     expect(pronoun.normalizedLemma).toBe("él");
     expect(article.sourceEntryKey).not.toBe(pronoun.sourceEntryKey);
@@ -215,22 +293,42 @@ describe("projectWiktextractRecord", () => {
   });
 
   it("leaves restricted regions empty for an ordinary entry", () => {
-    const { record } = project({ word: "libro", lang_code: "es", pos: "noun", senses: [{ glosses: ["book"] }] });
+    const { record } = project({
+      word: "libro",
+      lang_code: "es",
+      pos: "noun",
+      senses: [{ glosses: ["book"] }],
+    });
     expect(record!.restrictedRegionCodes).toEqual([]);
   });
 
   it("rejects a record whose part of speech cannot be mapped", () => {
-    const { record } = project({ word: "algo", lang_code: "es", pos: "totally-unknown-pos", senses: [{ glosses: ["something"] }] });
+    const { record } = project({
+      word: "algo",
+      lang_code: "es",
+      pos: "totally-unknown-pos",
+      senses: [{ glosses: ["something"] }],
+    });
     expect(record).toBeNull();
   });
 
   it("rejects a record with no glossed sense — an entry with no meaning is not usable", () => {
-    const { record } = project({ word: "hablando", lang_code: "es", pos: "verb", senses: [{ tags: ["participle"] }] });
+    const { record } = project({
+      word: "hablando",
+      lang_code: "es",
+      pos: "verb",
+      senses: [{ tags: ["participle"] }],
+    });
     expect(record).toBeNull();
   });
 
   it("accepts a record carrying only the required fields", () => {
-    const { record } = project({ word: "libro", lang_code: "es", pos: "noun", senses: [{ glosses: ["book"] }] });
+    const { record } = project({
+      word: "libro",
+      lang_code: "es",
+      pos: "noun",
+      senses: [{ glosses: ["book"] }],
+    });
     expect(record).not.toBeNull();
     expect(record!.forms).toEqual([]);
     expect(record!.pronunciations).toEqual([]);
@@ -238,9 +336,19 @@ describe("projectWiktextractRecord", () => {
   });
 
   it("hashes the whole record so an unchanged reimport is recognizable", () => {
-    const raw = { word: "libro", lang_code: "es", pos: "noun", senses: [{ glosses: ["book"] }] };
+    const raw = {
+      word: "libro",
+      lang_code: "es",
+      pos: "noun",
+      senses: [{ glosses: ["book"] }],
+    };
     const a = project(raw).record!;
-    const b = project({ pos: "noun", senses: [{ glosses: ["book"] }], lang_code: "es", word: "libro" }).record!;
+    const b = project({
+      pos: "noun",
+      senses: [{ glosses: ["book"] }],
+      lang_code: "es",
+      word: "libro",
+    }).record!;
     // Key order upstream is not a content change.
     expect(a.sourceHash).toBe(b.sourceHash);
     expect(a.sourceHash).toBe(hashSourceValue(raw));
@@ -301,7 +409,9 @@ describe("etymology numbers as they actually arrive", () => {
 
     expect(parsed.success).toBe(true);
     if (!parsed.success) return;
-    expect(projectWiktextractRecord(parsed.data)?.sourceEntryKey).toBe("hermano#noun#1");
+    expect(projectWiktextractRecord(parsed.data)?.sourceEntryKey).toBe(
+      "hermano#noun#1",
+    );
   });
 
   it("still accepts a real number", () => {
@@ -314,7 +424,9 @@ describe("etymology numbers as they actually arrive", () => {
     });
     expect(parsed.success).toBe(true);
     if (!parsed.success) return;
-    expect(projectWiktextractRecord(parsed.data)?.sourceEntryKey).toBe("hermano#noun#2");
+    expect(projectWiktextractRecord(parsed.data)?.sourceEntryKey).toBe(
+      "hermano#noun#2",
+    );
   });
 
   it("rejects a non-numeric string rather than silently treating it as etymology 0", () => {

@@ -18,15 +18,22 @@ beforeEach(() => {
 describe("VocabularyReviewTypeSelect", () => {
   it("shows the initial value", () => {
     render(<VocabularyReviewTypeSelect initialValue="flashcard" />);
-    expect(screen.getByRole("combobox", { name: "Vocabulary Review Type" })).toHaveTextContent("Flashcard");
+    expect(
+      screen.getByRole("combobox", { name: "Vocabulary Review Type" }),
+    ).toHaveTextContent("Flashcard");
   });
 
   it("saves the new type and shows Saved", async () => {
-    mockAction.mockResolvedValueOnce({ ok: true, data: { vocabularyReviewType: "cloze_flashcard" } });
+    mockAction.mockResolvedValueOnce({
+      ok: true,
+      data: { vocabularyReviewType: "cloze_flashcard" },
+    });
     const user = userEvent.setup();
     render(<VocabularyReviewTypeSelect initialValue="cloze_manual" />);
 
-    await user.click(screen.getByRole("combobox", { name: "Vocabulary Review Type" }));
+    await user.click(
+      screen.getByRole("combobox", { name: "Vocabulary Review Type" }),
+    );
     await user.click(screen.getByRole("option", { name: "Cloze (Flashcard)" }));
 
     expect(mockAction).toHaveBeenCalledWith({ reviewType: "cloze_flashcard" });
@@ -34,14 +41,23 @@ describe("VocabularyReviewTypeSelect", () => {
   });
 
   it("reverts to the previous value and shows the error when the save fails", async () => {
-    mockAction.mockResolvedValueOnce({ ok: false, error: { code: "UNKNOWN", message: "Could not save setting." } });
+    mockAction.mockResolvedValueOnce({
+      ok: false,
+      error: { code: "UNKNOWN", message: "Could not save setting." },
+    });
     const user = userEvent.setup();
     render(<VocabularyReviewTypeSelect initialValue="cloze_manual" />);
 
-    await user.click(screen.getByRole("combobox", { name: "Vocabulary Review Type" }));
+    await user.click(
+      screen.getByRole("combobox", { name: "Vocabulary Review Type" }),
+    );
     await user.click(screen.getByRole("option", { name: "Flashcard" }));
 
-    expect(await screen.findByText("Could not save setting.")).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "Vocabulary Review Type" })).toHaveTextContent("Cloze (Manual)");
+    expect(
+      await screen.findByText("Could not save setting."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: "Vocabulary Review Type" }),
+    ).toHaveTextContent("Cloze (Manual)");
   });
 });

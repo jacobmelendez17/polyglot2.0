@@ -522,11 +522,11 @@ Tests should not depend on production Clerk, Neon, R2, PostHog, or Sentry resour
 
 The tiers below extend the Testing section above. Each tier answers a different question, and a test in the wrong tier is slow, flaky, or both.
 
-| Tier | Question | Tool | Database | Target runtime |
-| --- | --- | --- | --- | --- |
-| Unit | Is this rule correct? | Vitest | None | Milliseconds |
-| Integration | Do these pieces work together against real SQL? | Vitest | Ephemeral | Seconds |
-| End-to-end | Can a user complete this journey? | Playwright | Preview | Under ten minutes total |
+| Tier        | Question                                        | Tool       | Database  | Target runtime          |
+| ----------- | ----------------------------------------------- | ---------- | --------- | ----------------------- |
+| Unit        | Is this rule correct?                           | Vitest     | None      | Milliseconds            |
+| Integration | Do these pieces work together against real SQL? | Vitest     | Ephemeral | Seconds                 |
+| End-to-end  | Can a user complete this journey?               | Playwright | Preview   | Under ten minutes total |
 
 Most tests should be unit tests of domain rules. Domain logic is pure and has no excuse for needing a database.
 
@@ -691,6 +691,7 @@ Implements the architecture section of the same name.
 - Authoritative learning decisions never read from cache, per `architecture.md`.
 
 ---
+
 ## Comments and Documentation
 
 - Comments should explain **why**, not restate obvious code.

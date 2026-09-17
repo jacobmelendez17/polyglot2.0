@@ -39,16 +39,33 @@ export default async function CurriculumReviewPage({
   if (languages.length === 0) {
     return (
       <div>
-        <AdminPageHeader title="Review" description="Everything waiting to be verified." />
-        <p className="text-sm text-muted-foreground">No languages are configured yet.</p>
+        <AdminPageHeader
+          title="Review"
+          description="Everything waiting to be verified."
+        />
+        <p className="text-sm text-muted-foreground">
+          No languages are configured yet.
+        </p>
       </div>
     );
   }
 
-  const languageId = languages.some((language) => language.id === params.language) ? params.language! : languages[0]!.id;
+  const languageId = languages.some(
+    (language) => language.id === params.language,
+  )
+    ? params.language!
+    : languages[0]!.id;
   const entries = await getReviewQueue(languageId);
-  const authors = await getUsersByIds([...new Set(entries.map((entry) => entry.authorUserId).filter((id): id is string => id !== null))]);
-  const authorNameById = new Map(authors.map((author) => [author.id, author.displayName ?? "Unknown"]));
+  const authors = await getUsersByIds([
+    ...new Set(
+      entries
+        .map((entry) => entry.authorUserId)
+        .filter((id): id is string => id !== null),
+    ),
+  ]);
+  const authorNameById = new Map(
+    authors.map((author) => [author.id, author.displayName ?? "Unknown"]),
+  );
   const canPublish = canPublishCurriculum(user);
 
   return (
@@ -59,7 +76,9 @@ export default async function CurriculumReviewPage({
       />
 
       {entries.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nothing is waiting. Every item is either published or archived.</p>
+        <p className="text-sm text-muted-foreground">
+          Nothing is waiting. Every item is either published or archived.
+        </p>
       ) : (
         <ul className="flex flex-col gap-2">
           {entries.map((entry) => (
@@ -68,7 +87,10 @@ export default async function CurriculumReviewPage({
               className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card px-3 py-2"
             >
               <div className="flex min-w-48 flex-1 flex-col">
-                <Link href={`/admin/curriculum/items/${entry.learningItemId}`} className="font-medium text-foreground hover:underline">
+                <Link
+                  href={`/admin/curriculum/items/${entry.learningItemId}`}
+                  className="font-medium text-foreground hover:underline"
+                >
                   {entry.itemLabel}
                 </Link>
                 <span className="text-sm text-muted-foreground">
@@ -77,15 +99,24 @@ export default async function CurriculumReviewPage({
                 </span>
               </div>
 
-              <CurriculumStatusBadge status={entry.kind === "new" ? "pending" : "draft"} />
+              <CurriculumStatusBadge
+                status={entry.kind === "new" ? "pending" : "draft"}
+              />
 
               <span className="text-sm text-muted-foreground">
                 {entry.kind === "new" ? "New item" : "Edit to a published item"}
-                {entry.authorUserId ? ` · ${authorNameById.get(entry.authorUserId) ?? "Unknown"}` : ""} ·{" "}
-                {formatRelativeTime(entry.updatedAt, new Date())}
+                {entry.authorUserId
+                  ? ` · ${authorNameById.get(entry.authorUserId) ?? "Unknown"}`
+                  : ""}{" "}
+                · {formatRelativeTime(entry.updatedAt, new Date())}
               </span>
 
-              {canPublish ? <ReviewQueueActions learningItemId={entry.learningItemId} expectedVersion={entry.version} /> : null}
+              {canPublish ? (
+                <ReviewQueueActions
+                  learningItemId={entry.learningItemId}
+                  expectedVersion={entry.version}
+                />
+              ) : null}
             </li>
           ))}
         </ul>

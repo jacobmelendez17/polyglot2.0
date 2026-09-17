@@ -25,9 +25,13 @@ export type CalculateLeechStatusInput = {
  * reached Master and later fell to Beginner 4 still qualifies against a
  * Familiar-1 minimum (spec's own worked example).
  */
-export function calculateLeechStatus(input: CalculateLeechStatusInput): boolean {
+export function calculateLeechStatus(
+  input: CalculateLeechStatusInput,
+): boolean {
   const effectiveCorrectStreak = Math.max(input.currentCorrectStreak, 1);
   const leechScore = input.incorrectCount / effectiveCorrectStreak ** 1.5;
-  const satisfiesMinimumStage = getStageIndex(input.highestSrsStageReached) >= getStageIndex(input.minimumLeechStage);
+  const satisfiesMinimumStage =
+    getStageIndex(input.highestSrsStageReached) >=
+    getStageIndex(input.minimumLeechStage);
   return leechScore > 1 && satisfiesMinimumStage;
 }

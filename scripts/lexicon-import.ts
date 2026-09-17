@@ -14,7 +14,10 @@ import { getDefaultLanguageCode } from "@/domains/users";
 import { getLanguageByCodeRaw } from "@/domains/lexicon/import/import-cli-support";
 import { runDictionaryImport } from "@/domains/lexicon/import/wiktextract-import";
 import { getLexicalLanguageProvider } from "@/domains/lexicon/lexical-language-provider";
-import { LEXICAL_SOURCE_DEFINITIONS, getDictionarySourceCodeForLanguage } from "@/domains/lexicon/lexical-source-registry";
+import {
+  LEXICAL_SOURCE_DEFINITIONS,
+  getDictionarySourceCodeForLanguage,
+} from "@/domains/lexicon/lexical-source-registry";
 import { getLexiconSourceConfig } from "@/domains/lexicon/lexicon-source-config";
 import { matchAllVocabularyItems } from "@/domains/lexicon/lexicon-mapping-service";
 import { flagMappingsNeedingReview } from "@/domains/lexicon/lexicon-repository";
@@ -39,7 +42,11 @@ import type { LexicalImportScope } from "@/domains/lexicon";
  *   npm run lexicon:import -- --file /path/to/kaikki-es.jsonl.gz
  */
 
-const VALID_SCOPES: LexicalImportScope[] = ["curriculum", "terms", "full_language"];
+const VALID_SCOPES: LexicalImportScope[] = [
+  "curriculum",
+  "terms",
+  "full_language",
+];
 
 function readFlag(name: string): string | undefined {
   const index = process.argv.indexOf(`--${name}`);
@@ -48,7 +55,8 @@ function readFlag(name: string): string | undefined {
 
 async function main() {
   const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) throw new Error("DATABASE_URL is required. Set it in .env.local.");
+  if (!databaseUrl)
+    throw new Error("DATABASE_URL is required. Set it in .env.local.");
 
   const sourceConfig = getLexiconSourceConfig();
   // Defaults to the project's own configured language code ("es-MX"), not a
@@ -60,13 +68,22 @@ async function main() {
   // the same file then really does produce different rows.
   const force = process.argv.includes("--force");
   if (!VALID_SCOPES.includes(scopeArg)) {
-    throw new Error(`Unknown --scope "${scopeArg}". Expected one of: ${VALID_SCOPES.join(", ")}.`);
+    throw new Error(
+      `Unknown --scope "${scopeArg}". Expected one of: ${VALID_SCOPES.join(", ")}.`,
+    );
   }
   const filePath = readFlag("file") ?? sourceConfig.wiktextractPath;
-  const terms = readFlag("terms")?.split(",").map((term) => term.trim()).filter(Boolean) ?? [];
+  const terms =
+    readFlag("terms")
+      ?.split(",")
+      .map((term) => term.trim())
+      .filter(Boolean) ?? [];
 
   const sourceCode = getDictionarySourceCodeForLanguage(languageCode);
-  if (!sourceCode) throw new Error(`No dictionary source is registered for language "${languageCode}".`);
+  if (!sourceCode)
+    throw new Error(
+      `No dictionary source is registered for language "${languageCode}".`,
+    );
   const sourceDefinition = LEXICAL_SOURCE_DEFINITIONS[sourceCode];
 
   const pool = new Pool({ connectionString: databaseUrl });
@@ -74,9 +91,14 @@ async function main() {
     const db = drizzle(pool, { schema });
 
     const language = await getLanguageByCodeRaw(db, languageCode);
-    if (!language) throw new Error(`Language "${languageCode}" does not exist. Seed it before importing.`);
+    if (!language)
+      throw new Error(
+        `Language "${languageCode}" does not exist. Seed it before importing.`,
+      );
 
-    console.log(`Importing ${sourceCode} (${scopeArg}) for ${languageCode} from ${filePath}`);
+    console.log(
+      `Importing ${sourceCode} (${scopeArg}) for ${languageCode} from ${filePath}`,
+    );
 
     const now = new Date();
     const result = await runDictionaryImport(db, {
@@ -98,7 +120,9 @@ async function main() {
     });
 
     if (result.alreadyImported) {
-      console.log("This exact snapshot has already been imported. Nothing to do.");
+      console.log(
+        "This exact snapshot has already been imported. Nothing to do.",
+      );
       return;
     }
 
@@ -132,7 +156,8 @@ async function main() {
     );
 
     const flagged = await flagMappingsNeedingReview(db);
-    if (flagged.flagged > 0) console.log(`Mappings flagged for review: ${flagged.flagged}`);
+    if (flagged.flagged > 0)
+      console.log(`Mappings flagged for review: ${flagged.flagged}`);
 
     if (sourceConfig.importActorUserId) {
       await recordAuditEvent(db, {
@@ -164,6 +189,9 @@ main().catch((error: unknown) => {
   // Never print the raw source record or a stack trace: imported content is
   // untrusted, and operator output is one of the easier places for it to
   // escape (spec 12's security rules).
-  console.error("Dictionary import failed:", error instanceof Error ? error.message : "Unknown error");
+  console.error(
+    "Dictionary import failed:",
+    error instanceof Error ? error.message : "Unknown error",
+  );
   process.exitCode = 1;
 });

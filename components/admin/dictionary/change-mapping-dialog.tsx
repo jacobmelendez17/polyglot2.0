@@ -4,7 +4,10 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Link2, Search } from "lucide-react";
 
-import { searchDictionaryAction, setDictionaryEntryAction } from "@/app/(admin)/admin/dictionary/actions";
+import {
+  searchDictionaryAction,
+  setDictionaryEntryAction,
+} from "@/app/(admin)/admin/dictionary/actions";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -48,7 +51,10 @@ export function ChangeMappingDialog({
     const trimmed = query.trim();
     if (trimmed.length === 0) return;
     startTransition(async () => {
-      const result = await searchDictionaryAction({ languageId, query: trimmed });
+      const result = await searchDictionaryAction({
+        languageId,
+        query: trimmed,
+      });
       if (result.ok) {
         setResults(result.data);
         setError(null);
@@ -87,9 +93,10 @@ export function ChangeMappingDialog({
         <DialogHeader>
           <DialogTitle>Change dictionary mapping</DialogTitle>
           <DialogDescription>
-            Choose the dictionary entry <strong>{displayWord}</strong> should use. Choosing one locks the mapping —
-            future imports can update that entry&apos;s content, but will never repoint this item. Learner progress is
-            not affected.
+            Choose the dictionary entry <strong>{displayWord}</strong> should
+            use. Choosing one locks the mapping — future imports can update that
+            entry&apos;s content, but will never repoint this item. Learner
+            progress is not affected.
           </DialogDescription>
         </DialogHeader>
 
@@ -101,7 +108,10 @@ export function ChangeMappingDialog({
           }}
         >
           <div className="relative flex-1">
-            <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <Search
+              className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
             <Input
               type="search"
               value={query}
@@ -111,7 +121,12 @@ export function ChangeMappingDialog({
               className="pl-8"
             />
           </div>
-          <Button type="submit" variant="secondary" size="sm" disabled={isPending || query.trim().length === 0}>
+          <Button
+            type="submit"
+            variant="secondary"
+            size="sm"
+            disabled={isPending || query.trim().length === 0}
+          >
             Search
           </Button>
         </form>
@@ -123,7 +138,9 @@ export function ChangeMappingDialog({
         ) : null}
 
         {results === null ? (
-          <p className="text-sm text-muted-foreground">Search for a lemma to see candidate entries.</p>
+          <p className="text-sm text-muted-foreground">
+            Search for a lemma to see candidate entries.
+          </p>
         ) : results.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No entries match that search. The word may not be imported yet.
@@ -131,18 +148,32 @@ export function ChangeMappingDialog({
         ) : (
           <ul className="max-h-64 space-y-1 overflow-y-auto">
             {results.map((entry) => (
-              <li key={entry.id} className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2">
+              <li
+                key={entry.id}
+                className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2"
+              >
                 <span className="text-sm text-foreground">
                   {entry.lemma}
-                  <span className="text-muted-foreground"> · {entry.partOfSpeech}</span>
+                  <span className="text-muted-foreground">
+                    {" "}
+                    · {entry.partOfSpeech}
+                  </span>
                   {entry.sourceStatus === "missing_from_source" ? (
-                    <span className="ml-1 text-xs text-state-warning">— no longer in the source</span>
+                    <span className="ml-1 text-xs text-state-warning">
+                      — no longer in the source
+                    </span>
                   ) : null}
                 </span>
                 {entry.id === currentEntryId ? (
                   <span className="text-xs text-muted-foreground">Current</span>
                 ) : (
-                  <Button type="button" size="sm" variant="outline" onClick={() => choose(entry.id)} disabled={isPending}>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => choose(entry.id)}
+                    disabled={isPending}
+                  >
                     Use this entry
                   </Button>
                 )}

@@ -13,7 +13,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type ResetToLevelPanelProps = {
   currentLevelNumber: number;
@@ -28,8 +34,13 @@ type ResetToLevelPanelProps = {
  * real, earlier target is chosen (spec's own "disable the destructive
  * action until the learner selects an earlier Level").
  */
-export function ResetToLevelPanel({ currentLevelNumber, earlierLevelNumbers }: ResetToLevelPanelProps) {
-  const [target, setTarget] = useState<number | null>(earlierLevelNumbers.at(-1) ?? null);
+export function ResetToLevelPanel({
+  currentLevelNumber,
+  earlierLevelNumbers,
+}: ResetToLevelPanelProps) {
+  const [target, setTarget] = useState<number | null>(
+    earlierLevelNumbers.at(-1) ?? null,
+  );
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +51,8 @@ export function ResetToLevelPanel({ currentLevelNumber, earlierLevelNumbers }: R
       <div className="border-b border-border py-4 first:pt-0 last:border-b-0">
         <h3 className="text-sm font-medium text-foreground">Reset to Level</h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          Current Level: Level {currentLevelNumber}. There is no earlier Level to reset to yet.
+          Current Level: Level {currentLevelNumber}. There is no earlier Level
+          to reset to yet.
         </p>
       </div>
     );
@@ -50,23 +62,33 @@ export function ResetToLevelPanel({ currentLevelNumber, earlierLevelNumbers }: R
     if (target === null) return;
     setError(null);
     startTransition(async () => {
-      const result = await resetToLevelAction({ targetLevelNumber: target, idempotencyKey: crypto.randomUUID() });
+      const result = await resetToLevelAction({
+        targetLevelNumber: target,
+        idempotencyKey: crypto.randomUUID(),
+      });
       if (!result.ok) {
         setError(result.error.message);
         return;
       }
       setOpen(false);
-      setSuccessMessage(`Reset to Level ${target}. ${result.data.affectedItemCount} item${result.data.affectedItemCount === 1 ? "" : "s"} removed.`);
+      setSuccessMessage(
+        `Reset to Level ${target}. ${result.data.affectedItemCount} item${result.data.affectedItemCount === 1 ? "" : "s"} removed.`,
+      );
     });
   }
 
   return (
     <div className="border-b border-border py-4 first:pt-0 last:border-b-0">
       <h3 className="text-sm font-medium text-foreground">Reset to Level</h3>
-      <p className="mt-1 text-sm text-muted-foreground">Current Level: Level {currentLevelNumber}</p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Current Level: Level {currentLevelNumber}
+      </p>
 
       <div className="mt-2 flex flex-wrap items-center gap-2">
-        <Select value={target !== null ? String(target) : undefined} onValueChange={(next) => setTarget(Number(next))}>
+        <Select
+          value={target !== null ? String(target) : undefined}
+          onValueChange={(next) => setTarget(Number(next))}
+        >
           <SelectTrigger className="w-40" aria-label="Reset to Level">
             <SelectValue />
           </SelectTrigger>
@@ -89,13 +111,15 @@ export function ResetToLevelPanel({ currentLevelNumber, earlierLevelNumbers }: R
             <DialogHeader>
               <DialogTitle>Reset to Level {target}?</DialogTitle>
               <DialogDescription>
-                Removes your item progress and Level unlocks above Level {target}, including any Ghost Reviews tied to that
-                progress. Your effective current Level becomes Level {target}.
+                Removes your item progress and Level unlocks above Level{" "}
+                {target}, including any Ghost Reviews tied to that progress.
+                Your effective current Level becomes Level {target}.
               </DialogDescription>
             </DialogHeader>
 
             <p className="text-sm text-muted-foreground">
-              Review history is kept — this does not fabricate or hide the fact that you studied the removed Levels.
+              Review history is kept — this does not fabricate or hide the fact
+              that you studied the removed Levels.
             </p>
 
             {error ? (
@@ -108,7 +132,11 @@ export function ResetToLevelPanel({ currentLevelNumber, earlierLevelNumbers }: R
               <Button variant="outline" onClick={() => setOpen(false)}>
                 Cancel
               </Button>
-              <Button variant="destructive" onClick={handleReset} disabled={isPending}>
+              <Button
+                variant="destructive"
+                onClick={handleReset}
+                disabled={isPending}
+              >
                 Confirm Reset
               </Button>
             </DialogFooter>
@@ -117,7 +145,9 @@ export function ResetToLevelPanel({ currentLevelNumber, earlierLevelNumbers }: R
       </div>
 
       <p className="mt-1 text-sm" aria-live="polite">
-        {successMessage ? <span className="text-state-success">{successMessage}</span> : null}
+        {successMessage ? (
+          <span className="text-state-success">{successMessage}</span>
+        ) : null}
       </p>
     </div>
   );

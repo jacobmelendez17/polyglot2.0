@@ -41,7 +41,9 @@ export function getReviewQuestionAnswerSpec(
     const { term, primaryMeaning, article } = item.vocabulary;
 
     if (direction === "targetToEnglish") {
-      const userSynonyms = synonyms.filter((synonym) => synonym.side === "meaning").map((synonym) => synonym.value);
+      const userSynonyms = synonyms
+        .filter((synonym) => synonym.side === "meaning")
+        .map((synonym) => synonym.value);
       return {
         acceptedAnswers: [primaryMeaning, ...userSynonyms],
         expectedAnswerDisplay: primaryMeaning,
@@ -49,13 +51,19 @@ export function getReviewQuestionAnswerSpec(
       };
     }
 
-    const userSynonyms = synonyms.filter((synonym) => synonym.side === "term").map((synonym) => synonym.value);
+    const userSynonyms = synonyms
+      .filter((synonym) => synonym.side === "term")
+      .map((synonym) => synonym.value);
     const bareForms = [term, ...userSynonyms];
-    const acceptedAnswers = article ? bareForms.map((form) => `${article} ${form}`) : bareForms;
+    const acceptedAnswers = article
+      ? bareForms.map((form) => `${article} ${form}`)
+      : bareForms;
 
     return {
       acceptedAnswers,
-      articleRequirement: article ? { article, bareAnswers: bareForms } : undefined,
+      articleRequirement: article
+        ? { article, bareAnswers: bareForms }
+        : undefined,
       expectedAnswerDisplay: acceptedAnswers[0],
       prompt: primaryMeaning,
     };
@@ -64,8 +72,16 @@ export function getReviewQuestionAnswerSpec(
   const { structure, primaryMeaning } = item.grammar;
 
   if (direction === "targetToEnglish") {
-    return { acceptedAnswers: [primaryMeaning], expectedAnswerDisplay: primaryMeaning, prompt: structure };
+    return {
+      acceptedAnswers: [primaryMeaning],
+      expectedAnswerDisplay: primaryMeaning,
+      prompt: structure,
+    };
   }
 
-  return { acceptedAnswers: [structure], expectedAnswerDisplay: structure, prompt: primaryMeaning };
+  return {
+    acceptedAnswers: [structure],
+    expectedAnswerDisplay: structure,
+    prompt: primaryMeaning,
+  };
 }

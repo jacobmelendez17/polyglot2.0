@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { getAuditEventsInputSchema, recordAuditEventInputSchema } from "./audit-schemas";
+import {
+  getAuditEventsInputSchema,
+  recordAuditEventInputSchema,
+} from "./audit-schemas";
 
 const VALID_UUID = "60000000-0000-0000-0000-000000000001";
 

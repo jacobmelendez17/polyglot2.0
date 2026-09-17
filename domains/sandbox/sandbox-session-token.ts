@@ -46,12 +46,18 @@ export type SandboxGrant = z.infer<typeof sandboxGrantSchema>;
 function base64UrlEncode(bytes: Uint8Array): string {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  return btoa(binary)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
 }
 
 function base64UrlDecode(value: string): Uint8Array<ArrayBuffer> {
   const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
-  const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), "=");
+  const padded = normalized.padEnd(
+    normalized.length + ((4 - (normalized.length % 4)) % 4),
+    "=",
+  );
   const binary = atob(padded);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
@@ -87,7 +93,11 @@ export async function signSandboxGrant(
     expiresAt: now + SANDBOX_SESSION_TTL_SECONDS * 1000,
   };
   const payloadBytes = new TextEncoder().encode(JSON.stringify(grant));
-  const signature = await crypto.subtle.sign("HMAC", await getSigningKey(), payloadBytes);
+  const signature = await crypto.subtle.sign(
+    "HMAC",
+    await getSigningKey(),
+    payloadBytes,
+  );
   return `${base64UrlEncode(payloadBytes)}.${base64UrlEncode(new Uint8Array(signature))}`;
 }
 
@@ -98,7 +108,10 @@ export async function signSandboxGrant(
  * an ordinary state (the admin simply isn't viewing the sandbox), not an
  * error worth surfacing.
  */
-export async function verifySandboxGrant(token: string | undefined, now: number = Date.now()): Promise<SandboxGrant | null> {
+export async function verifySandboxGrant(
+  token: string | undefined,
+  now: number = Date.now(),
+): Promise<SandboxGrant | null> {
   if (!token) return null;
   const [payloadPart, signaturePart] = token.split(".");
   if (!payloadPart || !signaturePart) return null;
@@ -112,10 +125,17 @@ export async function verifySandboxGrant(token: string | undefined, now: number 
     return null;
   }
 
-  const isValid = await crypto.subtle.verify("HMAC", await getSigningKey(), signatureBytes, payloadBytes);
+  const isValid = await crypto.subtle.verify(
+    "HMAC",
+    await getSigningKey(),
+    signatureBytes,
+    payloadBytes,
+  );
   if (!isValid) return null;
 
-  const parsed = sandboxGrantSchema.safeParse(JSON.parse(new TextDecoder().decode(payloadBytes)));
+  const parsed = sandboxGrantSchema.safeParse(
+    JSON.parse(new TextDecoder().decode(payloadBytes)),
+  );
   if (!parsed.success) return null;
   if (parsed.data.expiresAt <= now) return null;
 

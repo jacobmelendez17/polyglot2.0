@@ -19,7 +19,10 @@ describe("NsfwContentToggle", () => {
   });
 
   it("calls updateContentPreferencesAction with only showNsfwContent", async () => {
-    mockAction.mockResolvedValueOnce({ ok: true, data: { hideEnglishReviews: false, showNsfwContent: true } });
+    mockAction.mockResolvedValueOnce({
+      ok: true,
+      data: { hideEnglishReviews: false, showNsfwContent: true },
+    });
     const user = userEvent.setup();
     render(<NsfwContentToggle initialValue={false} />);
 

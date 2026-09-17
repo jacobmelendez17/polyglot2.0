@@ -48,7 +48,11 @@ export type VocabularyDictionaryInfo = {
   synonyms: string[];
   variants: string[];
   usageLabels: string[];
-  regionalEvidence: { regionCode: string; status: "recognized" | "not_listed" | "unknown"; matchedForm: string | null }[];
+  regionalEvidence: {
+    regionCode: string;
+    status: "recognized" | "not_listed" | "unknown";
+    matchedForm: string | null;
+  }[];
   attributionText: string | null;
 };
 
@@ -129,7 +133,10 @@ export type GrammarItem = {
    * Only "translation" is defined by the current fixture curriculum; per
    * spec 07 §25, the lesson engine must not invent an unconfigured format.
    */
-  requiredQuestions: { format: "translation"; direction: GrammarQuestionDirection }[];
+  requiredQuestions: {
+    format: "translation";
+    direction: GrammarQuestionDirection;
+  }[];
 };
 
 export type LearningItem = VocabularyItem | GrammarItem;

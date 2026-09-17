@@ -13,7 +13,12 @@ import {
   regionalLexemes,
 } from "@/db/schema";
 
-import type { LexicalImport, LexicalImportScope, LexicalImportStatus, LexicalSourceType } from "../lexicon-types";
+import type {
+  LexicalImport,
+  LexicalImportScope,
+  LexicalImportStatus,
+  LexicalSourceType,
+} from "../lexicon-types";
 
 import type { ProjectedDictionaryRecord } from "./import-types";
 import { hashSourceValue } from "./source-hash";
@@ -78,7 +83,10 @@ export interface UpsertLexicalSourceInput {
  * the database without a migration — spec 12 makes attribution a structural
  * requirement, not a one-time seed.
  */
-export async function upsertLexicalSource(db: DbClient, input: UpsertLexicalSourceInput): Promise<string> {
+export async function upsertLexicalSource(
+  db: DbClient,
+  input: UpsertLexicalSourceInput,
+): Promise<string> {
   const [row] = await db
     .insert(lexicalSources)
     .values({
@@ -137,7 +145,10 @@ export async function findCompletedImport(
  * `terms` imports of the same dump with different lists retain different
  * data and must not be mistaken for each other.
  */
-export function buildImportScopeKey(scope: LexicalImportScope, terms: readonly string[] = []): string {
+export function buildImportScopeKey(
+  scope: LexicalImportScope,
+  terms: readonly string[] = [],
+): string {
   if (scope !== "terms") return scope;
   return `terms:${hashSourceValue([...terms].sort())}`;
 }
@@ -153,7 +164,10 @@ export interface CreateLexicalImportInput {
   sourceCommit?: string | null;
 }
 
-export async function createLexicalImport(db: DbClient, input: CreateLexicalImportInput): Promise<LexicalImport> {
+export async function createLexicalImport(
+  db: DbClient,
+  input: CreateLexicalImportInput,
+): Promise<LexicalImport> {
   const [row] = await db
     .insert(lexicalImports)
     .values({
@@ -171,7 +185,11 @@ export async function createLexicalImport(db: DbClient, input: CreateLexicalImpo
     // leaves its row behind by design (the operational record must survive);
     // a retry reuses it rather than colliding with the unique constraint.
     .onConflictDoUpdate({
-      target: [lexicalImports.sourceId, lexicalImports.fileChecksum, lexicalImports.scopeKey],
+      target: [
+        lexicalImports.sourceId,
+        lexicalImports.fileChecksum,
+        lexicalImports.scopeKey,
+      ],
       set: {
         scope: input.scope,
         status: "staged",
@@ -239,7 +257,10 @@ export interface PersistBatchResult {
  * keeps vocabulary mappings and selected senses attached through a source
  * update.
  */
-export async function persistRecordBatch(db: DbClient, input: PersistBatchInput): Promise<PersistBatchResult> {
+export async function persistRecordBatch(
+  db: DbClient,
+  input: PersistBatchInput,
+): Promise<PersistBatchResult> {
   const { sourceId, languageId, importId, records } = input;
   if (records.length === 0) return { entriesCreated: 0, entriesUpdated: 0 };
 
@@ -279,7 +300,11 @@ export async function persistRecordBatch(db: DbClient, input: PersistBatchInput)
       })),
     )
     .onConflictDoUpdate({
-      target: [dictionaryEntries.sourceId, dictionaryEntries.languageId, dictionaryEntries.sourceEntryKey],
+      target: [
+        dictionaryEntries.sourceId,
+        dictionaryEntries.languageId,
+        dictionaryEntries.sourceEntryKey,
+      ],
       set: {
         lemma: sql`excluded.lemma`,
         normalizedLemma: sql`excluded.normalized_lemma`,
@@ -292,9 +317,14 @@ export async function persistRecordBatch(db: DbClient, input: PersistBatchInput)
         updatedAt: now,
       },
     })
-    .returning({ id: dictionaryEntries.id, sourceEntryKey: dictionaryEntries.sourceEntryKey });
+    .returning({
+      id: dictionaryEntries.id,
+      sourceEntryKey: dictionaryEntries.sourceEntryKey,
+    });
 
-  const entryIdByKey = new Map(entryRows.map((row) => [row.sourceEntryKey, row.id]));
+  const entryIdByKey = new Map(
+    entryRows.map((row) => [row.sourceEntryKey, row.id]),
+  );
 
   await db
     .insert(dictionaryEntryVersions)
@@ -309,7 +339,12 @@ export async function persistRecordBatch(db: DbClient, input: PersistBatchInput)
     )
     // The same unchanged record seen again keeps one version row rather than
     // accumulating identical copies — the raw-history half of idempotency.
-    .onConflictDoNothing({ target: [dictionaryEntryVersions.dictionaryEntryId, dictionaryEntryVersions.sourceHash] });
+    .onConflictDoNothing({
+      target: [
+        dictionaryEntryVersions.dictionaryEntryId,
+        dictionaryEntryVersions.sourceHash,
+      ],
+    });
 
   const senseValues = records.flatMap((record) =>
     record.senses.map((sense) => ({
@@ -330,7 +365,10 @@ export async function persistRecordBatch(db: DbClient, input: PersistBatchInput)
       .insert(dictionarySenses)
       .values(senseValues)
       .onConflictDoUpdate({
-        target: [dictionarySenses.dictionaryEntryId, dictionarySenses.sourceSenseKey],
+        target: [
+          dictionarySenses.dictionaryEntryId,
+          dictionarySenses.sourceSenseKey,
+        ],
         set: {
           sourceFingerprint: sql`excluded.source_fingerprint`,
           senseOrder: sql`excluded.sense_order`,
@@ -361,8 +399,15 @@ export async function persistRecordBatch(db: DbClient, input: PersistBatchInput)
       .insert(dictionaryForms)
       .values(formValues)
       .onConflictDoUpdate({
-        target: [dictionaryForms.dictionaryEntryId, dictionaryForms.sourceFingerprint],
-        set: { sourceStatus: "active", lastSeenImportId: importId, updatedAt: now },
+        target: [
+          dictionaryForms.dictionaryEntryId,
+          dictionaryForms.sourceFingerprint,
+        ],
+        set: {
+          sourceStatus: "active",
+          lastSeenImportId: importId,
+          updatedAt: now,
+        },
       });
   }
 
@@ -384,8 +429,15 @@ export async function persistRecordBatch(db: DbClient, input: PersistBatchInput)
       .insert(dictionaryPronunciations)
       .values(pronunciationValues)
       .onConflictDoUpdate({
-        target: [dictionaryPronunciations.dictionaryEntryId, dictionaryPronunciations.sourceFingerprint],
-        set: { sourceStatus: "active", lastSeenImportId: importId, updatedAt: now },
+        target: [
+          dictionaryPronunciations.dictionaryEntryId,
+          dictionaryPronunciations.sourceFingerprint,
+        ],
+        set: {
+          sourceStatus: "active",
+          lastSeenImportId: importId,
+          updatedAt: now,
+        },
       });
   }
 
@@ -405,8 +457,17 @@ export async function persistRecordBatch(db: DbClient, input: PersistBatchInput)
       .insert(dictionaryRelations)
       .values(relationValues)
       .onConflictDoUpdate({
-        target: [dictionaryRelations.dictionaryEntryId, dictionaryRelations.relationType, dictionaryRelations.normalizedTargetLemma],
-        set: { targetLemma: sql`excluded.target_lemma`, sourceStatus: "active", lastSeenImportId: importId, updatedAt: now },
+        target: [
+          dictionaryRelations.dictionaryEntryId,
+          dictionaryRelations.relationType,
+          dictionaryRelations.normalizedTargetLemma,
+        ],
+        set: {
+          targetLemma: sql`excluded.target_lemma`,
+          sourceStatus: "active",
+          lastSeenImportId: importId,
+          updatedAt: now,
+        },
       });
   }
 
@@ -431,20 +492,31 @@ export async function persistRecordBatch(db: DbClient, input: PersistBatchInput)
  */
 export async function markRecordsMissingFromSource(
   db: DbClient,
-  input: { sourceId: string; languageId: string; importId: string; wantedForms: string[] | null },
+  input: {
+    sourceId: string;
+    languageId: string;
+    importId: string;
+    wantedForms: string[] | null;
+  },
 ): Promise<{ entriesMarked: number; sensesMarked: number }> {
   const { sourceId, languageId, importId, wantedForms } = input;
 
   // Always scoped to the language this import ran for: one source can serve
   // several Polyglot languages, and an import of one must never declare
   // another language's entries deleted.
-  const sourceScope = and(eq(dictionaryEntries.sourceId, sourceId), eq(dictionaryEntries.languageId, languageId));
+  const sourceScope = and(
+    eq(dictionaryEntries.sourceId, sourceId),
+    eq(dictionaryEntries.languageId, languageId),
+  );
   const entryScope =
     wantedForms === null
       ? sourceScope
       : wantedForms.length === 0
         ? null
-        : and(sourceScope, inArray(dictionaryEntries.normalizedLemma, wantedForms));
+        : and(
+            sourceScope,
+            inArray(dictionaryEntries.normalizedLemma, wantedForms),
+          );
 
   let entriesMarked = 0;
   if (entryScope) {
@@ -455,7 +527,10 @@ export async function markRecordsMissingFromSource(
         and(
           entryScope,
           eq(dictionaryEntries.sourceStatus, "active"),
-          or(isNull(dictionaryEntries.lastSeenImportId), ne(dictionaryEntries.lastSeenImportId, importId)),
+          or(
+            isNull(dictionaryEntries.lastSeenImportId),
+            ne(dictionaryEntries.lastSeenImportId, importId),
+          ),
         ),
       )
       .returning({ id: dictionaryEntries.id });
@@ -476,7 +551,10 @@ export async function markRecordsMissingFromSource(
       and(
         inArray(dictionarySenses.dictionaryEntryId, touchedEntryIds),
         eq(dictionarySenses.sourceStatus, "active"),
-        or(isNull(dictionarySenses.lastSeenImportId), ne(dictionarySenses.lastSeenImportId, importId)),
+        or(
+          isNull(dictionarySenses.lastSeenImportId),
+          ne(dictionarySenses.lastSeenImportId, importId),
+        ),
       ),
     )
     .returning({ id: dictionarySenses.id });
@@ -488,7 +566,10 @@ export async function markRecordsMissingFromSource(
       and(
         inArray(dictionaryForms.dictionaryEntryId, touchedEntryIds),
         eq(dictionaryForms.sourceStatus, "active"),
-        or(isNull(dictionaryForms.lastSeenImportId), ne(dictionaryForms.lastSeenImportId, importId)),
+        or(
+          isNull(dictionaryForms.lastSeenImportId),
+          ne(dictionaryForms.lastSeenImportId, importId),
+        ),
       ),
     );
 
@@ -499,7 +580,10 @@ export async function markRecordsMissingFromSource(
       and(
         inArray(dictionaryPronunciations.dictionaryEntryId, touchedEntryIds),
         eq(dictionaryPronunciations.sourceStatus, "active"),
-        or(isNull(dictionaryPronunciations.lastSeenImportId), ne(dictionaryPronunciations.lastSeenImportId, importId)),
+        or(
+          isNull(dictionaryPronunciations.lastSeenImportId),
+          ne(dictionaryPronunciations.lastSeenImportId, importId),
+        ),
       ),
     );
 
@@ -510,7 +594,10 @@ export async function markRecordsMissingFromSource(
       and(
         inArray(dictionaryRelations.dictionaryEntryId, touchedEntryIds),
         eq(dictionaryRelations.sourceStatus, "active"),
-        or(isNull(dictionaryRelations.lastSeenImportId), ne(dictionaryRelations.lastSeenImportId, importId)),
+        or(
+          isNull(dictionaryRelations.lastSeenImportId),
+          ne(dictionaryRelations.lastSeenImportId, importId),
+        ),
       ),
     );
 
@@ -529,7 +616,10 @@ export async function resolveRelationTargets(
 ): Promise<number> {
   const resolved = await db
     .update(dictionaryRelations)
-    .set({ targetDictionaryEntryId: sql`${dictionaryEntries.id}`, updatedAt: new Date() })
+    .set({
+      targetDictionaryEntryId: sql`${dictionaryEntries.id}`,
+      updatedAt: new Date(),
+    })
     .from(dictionaryEntries)
     .where(
       and(
@@ -537,7 +627,10 @@ export async function resolveRelationTargets(
         isNull(dictionaryRelations.targetDictionaryEntryId),
         eq(dictionaryEntries.sourceId, input.sourceId),
         eq(dictionaryEntries.languageId, input.languageId),
-        eq(dictionaryEntries.normalizedLemma, dictionaryRelations.normalizedTargetLemma),
+        eq(
+          dictionaryEntries.normalizedLemma,
+          dictionaryRelations.normalizedTargetLemma,
+        ),
       ),
     )
     .returning({ id: dictionaryRelations.id });
@@ -570,7 +663,11 @@ export async function persistRegionalLexemeBatch(
       })),
     )
     .onConflictDoUpdate({
-      target: [regionalLexemes.sourceId, regionalLexemes.regionCode, regionalLexemes.normalizedWord],
+      target: [
+        regionalLexemes.sourceId,
+        regionalLexemes.regionCode,
+        regionalLexemes.normalizedWord,
+      ],
       set: {
         word: sql`excluded.word`,
         affixFlags: sql`excluded.affix_flags`,

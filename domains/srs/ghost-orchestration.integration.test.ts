@@ -2,7 +2,11 @@ import { and, eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 
 import type { DbClient } from "@/db/client";
-import { userItemProgress, userReviewPreferences, userSentenceGhostProgress } from "@/db/schema";
+import {
+  userItemProgress,
+  userReviewPreferences,
+  userSentenceGhostProgress,
+} from "@/db/schema";
 import { SENTENCE_GATO_ID, seedTestFixtures } from "@/db/seed/test-fixtures";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
 
@@ -12,18 +16,47 @@ import type { GhostMode } from "./review-preference";
 import { startReviewSession, submitReviewAnswer } from "./review-orchestration";
 import type { SrsStage } from "./srs-types";
 
-async function markDue(tx: DbClient, userId: string, learningItemId: string, languageId: string, now?: number, srsStage: SrsStage = "beginner_2") {
+async function markDue(
+  tx: DbClient,
+  userId: string,
+  learningItemId: string,
+  languageId: string,
+  now?: number,
+  srsStage: SrsStage = "beginner_2",
+) {
   const past = new Date((now ?? Date.now()) - 60_000);
   await tx
     .insert(userItemProgress)
-    .values({ userId, learningItemId, languageId, srsStage, nextReviewAt: past, correctCount: 0, incorrectCount: 0, reviewCount: 0, version: 0 })
+    .values({
+      userId,
+      learningItemId,
+      languageId,
+      srsStage,
+      nextReviewAt: past,
+      correctCount: 0,
+      incorrectCount: 0,
+      reviewCount: 0,
+      version: 0,
+    })
     .onConflictDoUpdate({
       target: [userItemProgress.userId, userItemProgress.learningItemId],
-      set: { srsStage, nextReviewAt: past, correctCount: 0, incorrectCount: 0, reviewCount: 0, version: 0 },
+      set: {
+        srsStage,
+        nextReviewAt: past,
+        correctCount: 0,
+        incorrectCount: 0,
+        reviewCount: 0,
+        version: 0,
+      },
     });
 }
 
-async function setVocabularyGhostMode(tx: DbClient, userId: string, languageId: string, ghostMode: GhostMode) {
+async function setVocabularyGhostMode(
+  tx: DbClient,
+  userId: string,
+  languageId: string,
+  ghostMode: GhostMode,
+) {
   await tx
     .insert(userReviewPreferences)
     .values({ userId, languageId, vocabularyGhostMode: ghostMode })
@@ -33,7 +66,12 @@ async function setVocabularyGhostMode(tx: DbClient, userId: string, languageId: 
     });
 }
 
-async function findGhostRow(tx: DbClient, userId: string, learningItemId: string, sentenceId: string) {
+async function findGhostRow(
+  tx: DbClient,
+  userId: string,
+  learningItemId: string,
+  sentenceId: string,
+) {
   const [row] = await tx
     .select()
     .from(userSentenceGhostProgress)
@@ -54,9 +92,17 @@ describe("submitReviewAnswer — Ghost Reviews miss-tracking (spec 20)", () => {
       const now = Date.parse("2026-01-01T00:00:00Z");
       await markDue(tx, learnerId, gatoId, languageId, now);
 
-      const started = await startReviewSession(tx, { userId: learnerId, languageId, now });
+      const started = await startReviewSession(tx, {
+        userId: learnerId,
+        languageId,
+        now,
+      });
       if (started.kind !== "session") throw new Error("expected a session");
-      expect(started.currentQuestion?.presentation).toEqual({ kind: "cloze_typed", sentenceBefore: "El ", sentenceAfter: " duerme." });
+      expect(started.currentQuestion?.presentation).toEqual({
+        kind: "cloze_typed",
+        sentenceBefore: "El ",
+        sentenceAfter: " duerme.",
+      });
 
       const response = await submitReviewAnswer(tx, {
         token: started.token,
@@ -87,10 +133,24 @@ describe("submitReviewAnswer — Ghost Reviews miss-tracking (spec 20)", () => {
       await markDue(tx, learnerId, gatoId, languageId, now);
       await tx
         .insert(userReviewPreferences)
-        .values({ userId: learnerId, languageId, vocabularyReviewType: "flashcard" })
-        .onConflictDoUpdate({ target: [userReviewPreferences.userId, userReviewPreferences.languageId], set: { vocabularyReviewType: "flashcard" } });
+        .values({
+          userId: learnerId,
+          languageId,
+          vocabularyReviewType: "flashcard",
+        })
+        .onConflictDoUpdate({
+          target: [
+            userReviewPreferences.userId,
+            userReviewPreferences.languageId,
+          ],
+          set: { vocabularyReviewType: "flashcard" },
+        });
 
-      const started = await startReviewSession(tx, { userId: learnerId, languageId, now });
+      const started = await startReviewSession(tx, {
+        userId: learnerId,
+        languageId,
+        now,
+      });
       if (started.kind !== "session") throw new Error("expected a session");
       expect(started.currentQuestion?.presentation.kind).toBe("reveal");
 
@@ -117,7 +177,11 @@ describe("submitReviewAnswer — Ghost Reviews miss-tracking (spec 20)", () => {
       await markDue(tx, learnerId, gatoId, languageId, now);
       await setVocabularyGhostMode(tx, learnerId, languageId, "minimal");
 
-      const started = await startReviewSession(tx, { userId: learnerId, languageId, now });
+      const started = await startReviewSession(tx, {
+        userId: learnerId,
+        languageId,
+        now,
+      });
       if (started.kind !== "session") throw new Error("expected a session");
 
       const first = await submitReviewAnswer(tx, {
@@ -130,7 +194,12 @@ describe("submitReviewAnswer — Ghost Reviews miss-tracking (spec 20)", () => {
         idempotencyKey: crypto.randomUUID(),
         now,
       });
-      const afterFirst = await findGhostRow(tx, learnerId, gatoId, SENTENCE_GATO_ID);
+      const afterFirst = await findGhostRow(
+        tx,
+        learnerId,
+        gatoId,
+        SENTENCE_GATO_ID,
+      );
       expect(afterFirst).toMatchObject({ missCount: 1, ghostStage: null });
 
       // The sole unresolved question repeats immediately (`rescheduleReviewAfterIncorrect`'s own rule).
@@ -146,8 +215,17 @@ describe("submitReviewAnswer — Ghost Reviews miss-tracking (spec 20)", () => {
         idempotencyKey: crypto.randomUUID(),
         now: secondNow,
       });
-      const afterSecond = await findGhostRow(tx, learnerId, gatoId, SENTENCE_GATO_ID);
-      expect(afterSecond).toMatchObject({ missCount: 2, ghostStage: "ghost_1", nextReviewAt: new Date(secondNow + 4 * 60 * 60 * 1000) });
+      const afterSecond = await findGhostRow(
+        tx,
+        learnerId,
+        gatoId,
+        SENTENCE_GATO_ID,
+      );
+      expect(afterSecond).toMatchObject({
+        missCount: 2,
+        ghostStage: "ghost_1",
+        nextReviewAt: new Date(secondNow + 4 * 60 * 60 * 1000),
+      });
     });
   });
 });
@@ -168,7 +246,11 @@ describe("startReviewSession — Ghost Queue (spec 20)", () => {
       });
 
       const now = activatedAt + 5 * 60 * 60 * 1000; // past the 4-hour Ghost 1 schedule
-      const result = await startReviewSession(tx, { userId: learnerId, languageId, now });
+      const result = await startReviewSession(tx, {
+        userId: learnerId,
+        languageId,
+        now,
+      });
 
       expect(result.kind).toBe("empty"); // no normal review due
       expect(result.ghostReviews).toEqual([
@@ -186,7 +268,13 @@ describe("startReviewSession — Ghost Queue (spec 20)", () => {
 });
 
 describe("submitGhostAnswer (spec 20 Ghost SRS)", () => {
-  async function activateGatoGhost(tx: DbClient, userId: string, languageId: string, gatoId: string, now: number) {
+  async function activateGatoGhost(
+    tx: DbClient,
+    userId: string,
+    languageId: string,
+    gatoId: string,
+    now: number,
+  ) {
     await recordSentenceMiss(tx, {
       userId,
       languageId,
@@ -199,7 +287,12 @@ describe("submitGhostAnswer (spec 20 Ghost SRS)", () => {
     const [row] = await tx
       .select()
       .from(userSentenceGhostProgress)
-      .where(and(eq(userSentenceGhostProgress.userId, userId), eq(userSentenceGhostProgress.learningItemId, gatoId)));
+      .where(
+        and(
+          eq(userSentenceGhostProgress.userId, userId),
+          eq(userSentenceGhostProgress.learningItemId, gatoId),
+        ),
+      );
     return row;
   }
 
@@ -207,7 +300,13 @@ describe("submitGhostAnswer (spec 20 Ghost SRS)", () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
       const now = Date.parse("2026-01-01T04:00:00Z");
-      const ghost = await activateGatoGhost(tx, learnerId, languageId, gatoId, Date.parse("2026-01-01T00:00:00Z"));
+      const ghost = await activateGatoGhost(
+        tx,
+        learnerId,
+        languageId,
+        gatoId,
+        Date.parse("2026-01-01T00:00:00Z"),
+      );
 
       const result = await submitGhostAnswer(tx, {
         userId: learnerId,
@@ -218,7 +317,12 @@ describe("submitGhostAnswer (spec 20 Ghost SRS)", () => {
         now,
       });
 
-      expect(result).toMatchObject({ isCorrect: true, completed: false, ghostStage: "ghost_2", nextReviewAt: new Date("2026-01-01T16:00:00Z") });
+      expect(result).toMatchObject({
+        isCorrect: true,
+        completed: false,
+        ghostStage: "ghost_2",
+        nextReviewAt: new Date("2026-01-01T16:00:00Z"),
+      });
     });
   });
 
@@ -226,7 +330,13 @@ describe("submitGhostAnswer (spec 20 Ghost SRS)", () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
       const now = Date.parse("2026-01-01T04:00:00Z");
-      const ghost = await activateGatoGhost(tx, learnerId, languageId, gatoId, Date.parse("2026-01-01T00:00:00Z"));
+      const ghost = await activateGatoGhost(
+        tx,
+        learnerId,
+        languageId,
+        gatoId,
+        Date.parse("2026-01-01T00:00:00Z"),
+      );
 
       const result = await submitGhostAnswer(tx, {
         userId: learnerId,
@@ -237,14 +347,26 @@ describe("submitGhostAnswer (spec 20 Ghost SRS)", () => {
         now,
       });
 
-      expect(result).toMatchObject({ isCorrect: false, completed: false, ghostStage: "ghost_1", nextReviewAt: new Date("2026-01-01T08:00:00Z"), expectedAnswer: "gato" });
+      expect(result).toMatchObject({
+        isCorrect: false,
+        completed: false,
+        ghostStage: "ghost_1",
+        nextReviewAt: new Date("2026-01-01T08:00:00Z"),
+        expectedAnswer: "gato",
+      });
     });
   });
 
   it("rejects a Ghost that does not belong to this user", async () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
-      const ghost = await activateGatoGhost(tx, learnerId, languageId, gatoId, Date.parse("2026-01-01T00:00:00Z"));
+      const ghost = await activateGatoGhost(
+        tx,
+        learnerId,
+        languageId,
+        gatoId,
+        Date.parse("2026-01-01T00:00:00Z"),
+      );
 
       await expect(
         submitGhostAnswer(tx, {

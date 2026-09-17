@@ -33,7 +33,9 @@ describe("LevelProgressCard", () => {
   it("renders one streak indicator per day, marking active days", () => {
     render(<LevelProgressCard levelProgress={levelProgress} />);
 
-    expect(screen.getByRole("list", { name: "Weekly activity streak" }).children).toHaveLength(7);
+    expect(
+      screen.getByRole("list", { name: "Weekly activity streak" }).children,
+    ).toHaveLength(7);
     expect(screen.getByText(/Mon: active/)).toBeInTheDocument();
     expect(screen.getByText(/Tue: inactive/)).toBeInTheDocument();
   });

@@ -33,7 +33,10 @@ export default async function DecksPage({ searchParams }: DecksPageProps) {
   // returning null) when unauthenticated, so an unauthenticated request
   // never reaches this far in practice.
   const user = await requireUser();
-  const decks = await listDecks({ userId: user.id, languageId: user.activeLanguageId });
+  const decks = await listDecks({
+    userId: user.id,
+    languageId: user.activeLanguageId,
+  });
 
   const visible = filterDecks(decks, { search, contentFilter });
   const personal = visible.filter((deck) => deck.kind === "personal");
@@ -44,7 +47,9 @@ export default async function DecksPage({ searchParams }: DecksPageProps) {
   return (
     <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6 px-3 py-6 sm:px-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-heading text-2xl font-semibold text-foreground">Decks</h1>
+        <h1 className="font-heading text-2xl font-semibold text-foreground">
+          Decks
+        </h1>
         <CreateDeckDialog />
       </div>
 
@@ -60,7 +65,9 @@ export default async function DecksPage({ searchParams }: DecksPageProps) {
           <DeckSection
             title="Your Decks"
             decks={personal}
-            emptyTitle={isFiltering ? "No personal decks match" : "No decks yet"}
+            emptyTitle={
+              isFiltering ? "No personal decks match" : "No decks yet"
+            }
             emptyMessage={
               isFiltering
                 ? "None of your own decks match this search and filter."
@@ -71,7 +78,9 @@ export default async function DecksPage({ searchParams }: DecksPageProps) {
           <DeckSection
             title="Polyglot Decks"
             decks={polyglot}
-            emptyTitle={isFiltering ? "No Polyglot decks match" : "No Polyglot decks yet"}
+            emptyTitle={
+              isFiltering ? "No Polyglot decks match" : "No Polyglot decks yet"
+            }
             emptyMessage={
               isFiltering
                 ? "No official decks match this search and filter."
@@ -98,11 +107,22 @@ type DeckSectionProps = {
  * section, and vice versa (spec 14: "If the user has no personal decks,
  * continue showing Polyglot Decks normally").
  */
-function DeckSection({ title, decks, emptyTitle, emptyMessage }: DeckSectionProps) {
+function DeckSection({
+  title,
+  decks,
+  emptyTitle,
+  emptyMessage,
+}: DeckSectionProps) {
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="font-heading text-lg font-semibold text-foreground">{title}</h2>
-      {decks.length === 0 ? <DeckEmptyState title={emptyTitle} message={emptyMessage} /> : <DeckGrid decks={decks} />}
+      <h2 className="font-heading text-lg font-semibold text-foreground">
+        {title}
+      </h2>
+      {decks.length === 0 ? (
+        <DeckEmptyState title={emptyTitle} message={emptyMessage} />
+      ) : (
+        <DeckGrid decks={decks} />
+      )}
     </section>
   );
 }

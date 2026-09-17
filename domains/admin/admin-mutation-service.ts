@@ -3,7 +3,10 @@ import { randomUUID } from "node:crypto";
 import { db } from "@/db/client";
 import type { ValidatedImportRow } from "@/domains/curriculum/vocabulary-import-parsing";
 import { env } from "@/lib/env";
-import { curriculumImportObjectKey, getCurriculumImportStorage } from "@/providers/storage";
+import {
+  curriculumImportObjectKey,
+  getCurriculumImportStorage,
+} from "@/providers/storage";
 import { getCurriculumImportQueue } from "@/providers/queue";
 import { getRateLimiter } from "@/providers/rate-limit";
 import { AdminError } from "@/lib/errors/admin-errors";
@@ -13,7 +16,12 @@ import type { ResetOwnAccountProgressServiceInput } from "./account-reset-servic
 import * as bulkImport from "./bulk-import-service";
 import type { BulkImportVocabularyServiceInput } from "./bulk-import-service";
 import * as curriculumImport from "./curriculum-import-service";
-import { getCurriculumImportById, listArchivedCurriculumImports, listCurriculumImportRows, listCurriculumImports } from "./curriculum-import-repository";
+import {
+  getCurriculumImportById,
+  listArchivedCurriculumImports,
+  listCurriculumImportRows,
+  listCurriculumImports,
+} from "./curriculum-import-repository";
 import * as publication from "./publication-service";
 import type {
   ApplyDictionaryFieldsServiceInput,
@@ -53,10 +61,16 @@ export type PreviewVocabularyImportServiceInput = {
  * provider already carries that guard transitively.
  */
 
-async function checkRateLimit(policy: "admin-mutation" | "admin-publish", userId: string): Promise<void> {
+async function checkRateLimit(
+  policy: "admin-mutation" | "admin-publish",
+  userId: string,
+): Promise<void> {
   const decision = await getRateLimiter().check({ policy, subject: userId });
   if (!decision.allowed) {
-    throw new AdminError("RATE_LIMITED", `Please slow down and try again in ${decision.retryAfterSeconds}s.`);
+    throw new AdminError(
+      "RATE_LIMITED",
+      `Please slow down and try again in ${decision.retryAfterSeconds}s.`,
+    );
   }
 }
 
@@ -75,12 +89,16 @@ export async function updateItem(input: UpdateItemServiceInput) {
  * Rate limited as an ordinary admin mutation: it is one, and it is reachable
  * from every mapping action in the dictionary review queue.
  */
-export async function applyDictionaryFieldsToItem(input: ApplyDictionaryFieldsServiceInput) {
+export async function applyDictionaryFieldsToItem(
+  input: ApplyDictionaryFieldsServiceInput,
+) {
   await checkRateLimit("admin-mutation", input.actorUserId);
   return publication.applyDictionaryFieldsToItem(db, input);
 }
 
-export async function resetDictionaryFieldOverride(input: ResetDictionaryFieldServiceInput) {
+export async function resetDictionaryFieldOverride(
+  input: ResetDictionaryFieldServiceInput,
+) {
   await checkRateLimit("admin-mutation", input.actorUserId);
   return publication.resetDictionaryFieldOverride(db, input);
 }
@@ -95,7 +113,9 @@ export async function mutateItemExample(input: ExampleServiceInput) {
   return publication.mutateItemExample(db, input);
 }
 
-export async function mutateGrammarContentBlock(input: GrammarContentBlockServiceInput) {
+export async function mutateGrammarContentBlock(
+  input: GrammarContentBlockServiceInput,
+) {
   await checkRateLimit("admin-mutation", input.actorUserId);
   return publication.mutateGrammarContentBlock(db, input);
 }
@@ -136,21 +156,30 @@ export async function createLevel(input: CreateLevelServiceInput) {
 }
 
 export async function updateLevel(input: UpdateLevelServiceInput) {
-  await checkRateLimit(input.status === "published" ? "admin-publish" : "admin-mutation", input.actorUserId);
+  await checkRateLimit(
+    input.status === "published" ? "admin-publish" : "admin-mutation",
+    input.actorUserId,
+  );
   return publication.updateLevel(db, input);
 }
 
-export async function createVocabularyGroup(input: CreateVocabularyGroupServiceInput) {
+export async function createVocabularyGroup(
+  input: CreateVocabularyGroupServiceInput,
+) {
   await checkRateLimit("admin-mutation", input.actorUserId);
   return publication.createVocabularyGroup(db, input);
 }
 
-export async function updateVocabularyGroup(input: UpdateVocabularyGroupServiceInput) {
+export async function updateVocabularyGroup(
+  input: UpdateVocabularyGroupServiceInput,
+) {
   await checkRateLimit("admin-mutation", input.actorUserId);
   return publication.updateVocabularyGroup(db, input);
 }
 
-export async function reorderVocabularyGroups(input: ReorderVocabularyGroupsServiceInput) {
+export async function reorderVocabularyGroups(
+  input: ReorderVocabularyGroupsServiceInput,
+) {
   await checkRateLimit("admin-mutation", input.actorUserId);
   return publication.reorderVocabularyGroups(db, input);
 }
@@ -165,22 +194,33 @@ export async function bulkMoveItems(input: BulkMoveItemsServiceInput) {
   return publication.bulkMoveItems(db, input);
 }
 
-export async function bulkPublishPendingItems(input: BulkPublishPendingItemsServiceInput) {
+export async function bulkPublishPendingItems(
+  input: BulkPublishPendingItemsServiceInput,
+) {
   await checkRateLimit("admin-publish", input.actorUserId);
   return publication.bulkPublishPendingItems(db, input);
 }
 
-export async function previewVocabularyImport(input: PreviewVocabularyImportServiceInput) {
+export async function previewVocabularyImport(
+  input: PreviewVocabularyImportServiceInput,
+) {
   await checkRateLimit("admin-mutation", input.actorUserId);
-  return bulkImport.previewVocabularyImport(db, { languageId: input.languageId, validatedRows: input.validatedRows });
+  return bulkImport.previewVocabularyImport(db, {
+    languageId: input.languageId,
+    validatedRows: input.validatedRows,
+  });
 }
 
-export async function bulkImportVocabulary(input: BulkImportVocabularyServiceInput) {
+export async function bulkImportVocabulary(
+  input: BulkImportVocabularyServiceInput,
+) {
   await checkRateLimit("admin-mutation", input.actorUserId);
   return bulkImport.bulkImportVocabulary(db, input);
 }
 
-export async function resetOwnAccountProgress(input: ResetOwnAccountProgressServiceInput) {
+export async function resetOwnAccountProgress(
+  input: ResetOwnAccountProgressServiceInput,
+) {
   await checkRateLimit("admin-mutation", input.userId);
   return accountReset.resetOwnAccountProgress(db, input);
 }
@@ -201,9 +241,14 @@ export type CreateCurriculumImportUploadInput = {
   fileExtension: "csv" | "tsv";
 };
 
-export type CreateCurriculumImportUploadResult = { importId: string; uploadUrl: string };
+export type CreateCurriculumImportUploadResult = {
+  importId: string;
+  uploadUrl: string;
+};
 
-export async function createCurriculumImportUpload(input: CreateCurriculumImportUploadInput): Promise<CreateCurriculumImportUploadResult> {
+export async function createCurriculumImportUpload(
+  input: CreateCurriculumImportUploadInput,
+): Promise<CreateCurriculumImportUploadResult> {
   await checkRateLimit("admin-mutation", input.actorUserId);
   const id = randomUUID();
   const storage = getCurriculumImportStorage();
@@ -222,7 +267,8 @@ export async function createCurriculumImportUpload(input: CreateCurriculumImport
 
   const presigned = await storage.createPresignedUploadUrl({
     key,
-    contentType: input.fileExtension === "csv" ? "text/csv" : "text/tab-separated-values",
+    contentType:
+      input.fileExtension === "csv" ? "text/csv" : "text/tab-separated-values",
   });
 
   return { importId: record.id, uploadUrl: presigned.url };
@@ -232,13 +278,22 @@ export async function getCurriculumImportStatus(importId: string) {
   return getCurriculumImportById(db, importId);
 }
 
-export async function listCurriculumImportRowsForReview(input: { importId: string; cursor?: string | null; limit: number }) {
+export async function listCurriculumImportRowsForReview(input: {
+  importId: string;
+  cursor?: string | null;
+  limit: number;
+}) {
   return listCurriculumImportRows(db, input);
 }
 
-export async function resolveCurriculumImportRow(input: { rowId: string; actorUserId: string }) {
+export async function resolveCurriculumImportRow(input: {
+  rowId: string;
+  actorUserId: string;
+}) {
   await checkRateLimit("admin-mutation", input.actorUserId);
-  return curriculumImport.resolveCurriculumImportRow(db, { rowId: input.rowId });
+  return curriculumImport.resolveCurriculumImportRow(db, {
+    rowId: input.rowId,
+  });
 }
 
 /**
@@ -252,10 +307,16 @@ export async function resolveCurriculumImportRow(input: { rowId: string; actorUs
  * spec 19 §22's retry path (and a future manual "resend" action) can always
  * recover, rather than a message racing ahead of the state it depends on.
  */
-export async function confirmCurriculumImport(input: { importId: string; actorUserId: string }) {
+export async function confirmCurriculumImport(input: {
+  importId: string;
+  actorUserId: string;
+}) {
   await checkRateLimit("admin-mutation", input.actorUserId);
   const result = await curriculumImport.confirmCurriculumImport(db, input);
-  await getCurriculumImportQueue().sendCommitJob({ importId: input.importId, actorUserId: input.actorUserId });
+  await getCurriculumImportQueue().sendCommitJob({
+    importId: input.importId,
+    actorUserId: input.actorUserId,
+  });
   return result;
 }
 
@@ -266,26 +327,46 @@ export async function confirmCurriculumImport(input: { importId: string; actorUs
  * status but nothing would ever consume it, identically to `confirmCurriculumImport`
  * above needing both halves together.
  */
-export async function retryCurriculumImport(input: { importId: string; actorUserId: string }) {
+export async function retryCurriculumImport(input: {
+  importId: string;
+  actorUserId: string;
+}) {
   await checkRateLimit("admin-mutation", input.actorUserId);
   await curriculumImport.retryCurriculumImport(db, input.importId);
-  await getCurriculumImportQueue().sendCommitJob({ importId: input.importId, actorUserId: input.actorUserId });
+  await getCurriculumImportQueue().sendCommitJob({
+    importId: input.importId,
+    actorUserId: input.actorUserId,
+  });
 }
 
-export async function listActiveCurriculumImports(input: { languageId: string; cursor?: string | null; limit: number }) {
+export async function listActiveCurriculumImports(input: {
+  languageId: string;
+  cursor?: string | null;
+  limit: number;
+}) {
   return listCurriculumImports(db, input);
 }
 
-export async function listArchivedCurriculumImportsForHistory(input: { languageId: string; cursor?: string | null; limit: number }) {
+export async function listArchivedCurriculumImportsForHistory(input: {
+  languageId: string;
+  cursor?: string | null;
+  limit: number;
+}) {
   return listArchivedCurriculumImports(db, input);
 }
 
-export async function archiveCurriculumImport(input: { importId: string; actorUserId: string }) {
+export async function archiveCurriculumImport(input: {
+  importId: string;
+  actorUserId: string;
+}) {
   await checkRateLimit("admin-mutation", input.actorUserId);
   return curriculumImport.archiveCurriculumImport(db, input);
 }
 
-export async function unarchiveCurriculumImport(input: { importId: string; actorUserId: string }) {
+export async function unarchiveCurriculumImport(input: {
+  importId: string;
+  actorUserId: string;
+}) {
   await checkRateLimit("admin-mutation", input.actorUserId);
   return curriculumImport.unarchiveCurriculumImport(db, input);
 }
@@ -297,7 +378,10 @@ export async function unarchiveCurriculumImport(input: { importId: string; actor
  * bucket's own 30-day lifecycle rule regardless, so a delete failure here
  * leaves nothing worse than "slightly early" would have looked like.
  */
-export async function permanentlyDeleteCurriculumImport(input: { importId: string; actorUserId: string }) {
+export async function permanentlyDeleteCurriculumImport(input: {
+  importId: string;
+  actorUserId: string;
+}) {
   await checkRateLimit("admin-mutation", input.actorUserId);
   const record = await getCurriculumImportById(db, input.importId);
   await curriculumImport.permanentlyDeleteCurriculumImport(db, input);

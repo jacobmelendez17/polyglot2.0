@@ -4,7 +4,10 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Plus } from "lucide-react";
 
-import { addDeckItemsAction, searchEligibleDeckItemsAction } from "@/app/(app)/decks/actions";
+import {
+  addDeckItemsAction,
+  searchEligibleDeckItemsAction,
+} from "@/app/(app)/decks/actions";
 import { DeckItemPicker } from "@/components/decks/deck-item-picker";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,7 +26,10 @@ type AddDeckItemsDialogProps = {
 };
 
 /** Adds already-learned items to an existing personal deck (spec 14's "add unlocked items"). */
-export function AddDeckItemsDialog({ deckId, existingItemIds }: AddDeckItemsDialogProps) {
+export function AddDeckItemsDialog({
+  deckId,
+  existingItemIds,
+}: AddDeckItemsDialogProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
@@ -34,7 +40,10 @@ export function AddDeckItemsDialog({ deckId, existingItemIds }: AddDeckItemsDial
     if (selectedIds.length === 0) return;
     setError(null);
     startTransition(async () => {
-      const result = await addDeckItemsAction({ deckId, learningItemIds: selectedIds });
+      const result = await addDeckItemsAction({
+        deckId,
+        learningItemIds: selectedIds,
+      });
       if (!result.ok) {
         setError(result.error.message);
         return;
@@ -65,7 +74,9 @@ export function AddDeckItemsDialog({ deckId, existingItemIds }: AddDeckItemsDial
       <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Add items</DialogTitle>
-          <DialogDescription>Only items you have already learned can be added to a deck.</DialogDescription>
+          <DialogDescription>
+            Only items you have already learned can be added to a deck.
+          </DialogDescription>
         </DialogHeader>
 
         <DeckItemPicker
@@ -86,8 +97,12 @@ export function AddDeckItemsDialog({ deckId, existingItemIds }: AddDeckItemsDial
           <Button variant="outline" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button onClick={handleAdd} disabled={isPending || selectedIds.length === 0}>
-            Add {selectedIds.length > 0 ? selectedIds.length : ""} {selectedIds.length === 1 ? "item" : "items"}
+          <Button
+            onClick={handleAdd}
+            disabled={isPending || selectedIds.length === 0}
+          >
+            Add {selectedIds.length > 0 ? selectedIds.length : ""}{" "}
+            {selectedIds.length === 1 ? "item" : "items"}
           </Button>
         </DialogFooter>
       </DialogContent>

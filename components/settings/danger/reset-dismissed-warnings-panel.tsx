@@ -24,7 +24,9 @@ export function ResetDismissedWarningsPanel() {
   function handleReset() {
     setError(null);
     startTransition(async () => {
-      const result = await resetDismissedWarningsAction({ idempotencyKey: crypto.randomUUID() });
+      const result = await resetDismissedWarningsAction({
+        idempotencyKey: crypto.randomUUID(),
+      });
       if (!result.ok) {
         setError(result.error.message);
         return;
@@ -40,8 +42,12 @@ export function ResetDismissedWarningsPanel() {
 
   return (
     <div className="border-b border-border py-4 first:pt-0 last:border-b-0">
-      <h3 className="text-sm font-medium text-foreground">Reset Dismissable Warnings</h3>
-      <p className="mt-1 text-sm text-muted-foreground">Show all messages you previously marked “Don’t show this message again.”</p>
+      <h3 className="text-sm font-medium text-foreground">
+        Reset Dismissable Warnings
+      </h3>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Show all messages you previously marked “Don’t show this message again.”
+      </p>
 
       <div className="mt-2">
         <Dialog open={open} onOpenChange={setOpen}>
@@ -52,8 +58,9 @@ export function ResetDismissedWarningsPanel() {
             <DialogHeader>
               <DialogTitle>Reset dismissed warnings?</DialogTitle>
               <DialogDescription>
-                Every message you previously marked “Don’t show this message again” will be shown again. Nothing else about
-                your account changes.
+                Every message you previously marked “Don’t show this message
+                again” will be shown again. Nothing else about your account
+                changes.
               </DialogDescription>
             </DialogHeader>
 
@@ -67,7 +74,11 @@ export function ResetDismissedWarningsPanel() {
               <Button variant="outline" onClick={() => setOpen(false)}>
                 Cancel
               </Button>
-              <Button variant="destructive" onClick={handleReset} disabled={isPending}>
+              <Button
+                variant="destructive"
+                onClick={handleReset}
+                disabled={isPending}
+              >
                 Reset Warnings
               </Button>
             </DialogFooter>
@@ -76,7 +87,9 @@ export function ResetDismissedWarningsPanel() {
       </div>
 
       <p className="mt-1 text-sm" aria-live="polite">
-        {successMessage ? <span className="text-state-success">{successMessage}</span> : null}
+        {successMessage ? (
+          <span className="text-state-success">{successMessage}</span>
+        ) : null}
       </p>
     </div>
   );

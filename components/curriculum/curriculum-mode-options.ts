@@ -18,22 +18,30 @@ export const CURRICULUM_MODE_OPTIONS: readonly CurriculumModeOption[] = [
   {
     mode: "default_order",
     label: "Default Order",
-    description: "Follow the authored curriculum sequence — grammar first, then each vocabulary group in order.",
+    description:
+      "Follow the authored curriculum sequence — grammar first, then each vocabulary group in order.",
   },
   {
     mode: "choose_group",
     label: "Choose Group as You Go",
-    description: "Work through a single vocabulary group — numbers, greetings, family — before choosing the next.",
+    description:
+      "Work through a single vocabulary group — numbers, greetings, family — before choosing the next.",
   },
   {
     mode: "variety",
     label: "Variety",
-    description: "Each lesson draws a little from every available vocabulary group.",
+    description:
+      "Each lesson draws a little from every available vocabulary group.",
   },
 ] as const;
 
-export function getCurriculumModeOption(mode: CurriculumMode): CurriculumModeOption {
+export function getCurriculumModeOption(
+  mode: CurriculumMode,
+): CurriculumModeOption {
   // Every mode has an entry by construction (the array is exhaustive over
   // the union), so this never falls through in practice.
-  return CURRICULUM_MODE_OPTIONS.find((option) => option.mode === mode) ?? CURRICULUM_MODE_OPTIONS[0]!;
+  return (
+    CURRICULUM_MODE_OPTIONS.find((option) => option.mode === mode) ??
+    CURRICULUM_MODE_OPTIONS[0]!
+  );
 }

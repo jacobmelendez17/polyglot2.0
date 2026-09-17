@@ -5,8 +5,20 @@ import { DeckItemList } from "@/components/decks/deck-item-list";
 import type { DeckItemRow } from "@/domains/decks";
 
 const ITEMS: DeckItemRow[] = [
-  { learningItemId: "v1", itemType: "vocabulary", primary: "el gato", secondary: "cat", srsStage: "familiar_1" },
-  { learningItemId: "g1", itemType: "grammar", primary: "y", secondary: "and", srsStage: null },
+  {
+    learningItemId: "v1",
+    itemType: "vocabulary",
+    primary: "el gato",
+    secondary: "cat",
+    srsStage: "familiar_1",
+  },
+  {
+    learningItemId: "g1",
+    itemType: "grammar",
+    primary: "y",
+    secondary: "and",
+    srsStage: null,
+  },
 ];
 
 describe("DeckItemList", () => {

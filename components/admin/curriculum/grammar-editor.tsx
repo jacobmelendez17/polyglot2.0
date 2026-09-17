@@ -3,7 +3,10 @@
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
-import { AcceptedAnswersEditor, type AcceptedAnswerValue } from "./accepted-answers-editor";
+import {
+  AcceptedAnswersEditor,
+  type AcceptedAnswerValue,
+} from "./accepted-answers-editor";
 import { RegisterSelect } from "./register-select";
 import type { RegisterEditorValue } from "./register-value";
 
@@ -27,10 +30,11 @@ type GrammarEditorProps = {
   onChange: (next: GrammarEditorValue) => void;
 };
 
-const DIRECTION_OPTIONS: { value: GrammarQuestionDirection; label: string }[] = [
-  { value: "targetToEnglish", label: "Target language → English" },
-  { value: "englishToTarget", label: "English → Target language" },
-];
+const DIRECTION_OPTIONS: { value: GrammarQuestionDirection; label: string }[] =
+  [
+    { value: "targetToEnglish", label: "Target language → English" },
+    { value: "englishToTarget", label: "English → Target language" },
+  ];
 
 /**
  * Spec 11 rewrite's "Grammar Editor". `requiredQuestions` only supports the
@@ -42,11 +46,17 @@ const DIRECTION_OPTIONS: { value: GrammarQuestionDirection; label: string }[] = 
  * without redesigning the editor.
  */
 export function GrammarEditor({ value, onChange }: GrammarEditorProps) {
-  function set<K extends keyof GrammarEditorValue>(key: K, fieldValue: GrammarEditorValue[K]) {
+  function set<K extends keyof GrammarEditorValue>(
+    key: K,
+    fieldValue: GrammarEditorValue[K],
+  ) {
     onChange({ ...value, [key]: fieldValue });
   }
 
-  function toggleDirection(direction: GrammarQuestionDirection, checked: boolean) {
+  function toggleDirection(
+    direction: GrammarQuestionDirection,
+    checked: boolean,
+  ) {
     const next = checked
       ? [...value.requiredDirections, direction]
       : value.requiredDirections.filter((d) => d !== direction);
@@ -58,32 +68,64 @@ export function GrammarEditor({ value, onChange }: GrammarEditorProps) {
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block text-sm">
           <span className="font-medium text-foreground">Structure</span>
-          <Input className="mt-1" value={value.structure} onChange={(e) => set("structure", e.target.value)} required />
+          <Input
+            className="mt-1"
+            value={value.structure}
+            onChange={(e) => set("structure", e.target.value)}
+            required
+          />
         </label>
         <label className="block text-sm">
-          <span className="font-medium text-foreground">Primary translation</span>
-          <Input className="mt-1" value={value.primaryMeaning} onChange={(e) => set("primaryMeaning", e.target.value)} required />
+          <span className="font-medium text-foreground">
+            Primary translation
+          </span>
+          <Input
+            className="mt-1"
+            value={value.primaryMeaning}
+            onChange={(e) => set("primaryMeaning", e.target.value)}
+            required
+          />
         </label>
         <label className="block text-sm">
-          <span className="font-medium text-foreground">Title (optional, longer name)</span>
-          <Input className="mt-1" value={value.title} onChange={(e) => set("title", e.target.value)} />
+          <span className="font-medium text-foreground">
+            Title (optional, longer name)
+          </span>
+          <Input
+            className="mt-1"
+            value={value.title}
+            onChange={(e) => set("title", e.target.value)}
+          />
         </label>
         <label className="block text-sm">
           <span className="font-medium text-foreground">Category</span>
-          <Input className="mt-1" value={value.category} onChange={(e) => set("category", e.target.value)} />
+          <Input
+            className="mt-1"
+            value={value.category}
+            onChange={(e) => set("category", e.target.value)}
+          />
         </label>
         <label className="block text-sm">
-          <RegisterSelect value={value.register} onChange={(register) => onChange({ ...value, register })} />
+          <RegisterSelect
+            value={value.register}
+            onChange={(register) => onChange({ ...value, register })}
+          />
         </label>
       </div>
 
       <label className="block text-sm">
         <span className="font-medium text-foreground">Full explanation</span>
-        <Textarea className="mt-1" value={value.explanation} onChange={(e) => set("explanation", e.target.value)} required />
+        <Textarea
+          className="mt-1"
+          value={value.explanation}
+          onChange={(e) => set("explanation", e.target.value)}
+          required
+        />
       </label>
 
       <fieldset className="space-y-2">
-        <legend className="text-sm font-medium text-foreground">Required review directions</legend>
+        <legend className="text-sm font-medium text-foreground">
+          Required review directions
+        </legend>
         {DIRECTION_OPTIONS.map((option) => (
           <label key={option.value} className="flex items-center gap-2 text-sm">
             <input
@@ -99,10 +141,17 @@ export function GrammarEditor({ value, onChange }: GrammarEditorProps) {
 
       <label className="block text-sm">
         <span className="font-medium text-foreground">Creator notes</span>
-        <Textarea className="mt-1" value={value.creatorNotes} onChange={(e) => set("creatorNotes", e.target.value)} />
+        <Textarea
+          className="mt-1"
+          value={value.creatorNotes}
+          onChange={(e) => set("creatorNotes", e.target.value)}
+        />
       </label>
 
-      <AcceptedAnswersEditor value={value.acceptedAnswers} onChange={(v) => set("acceptedAnswers", v)} />
+      <AcceptedAnswersEditor
+        value={value.acceptedAnswers}
+        onChange={(v) => set("acceptedAnswers", v)}
+      />
     </div>
   );
 }

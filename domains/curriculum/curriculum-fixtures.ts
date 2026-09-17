@@ -25,7 +25,9 @@ export const FIXTURE_LEARNING_ITEMS: LearningItem[] = [
     targetVariants: [],
     pronunciation: { guide: "GAH-toh", ipa: "ˈɡa.to" },
     context: "Used for domestic cats, as pets or strays.",
-    examples: [{ targetText: "El gato duerme.", englishText: "The cat sleeps." }],
+    examples: [
+      { targetText: "El gato duerme.", englishText: "The cat sleeps." },
+    ],
     resources: [],
   },
   {
@@ -76,7 +78,8 @@ export const FIXTURE_LEARNING_ITEMS: LearningItem[] = [
     meanings: ["water"],
     targetVariants: [],
     pronunciation: { guide: "AH-gwah", ipa: "ˈa.ɣwa" },
-    context: "Takes 'el' rather than 'la' despite being grammatically feminine.",
+    context:
+      "Takes 'el' rather than 'la' despite being grammatically feminine.",
     examples: [{ targetText: "Bebo agua.", englishText: "I drink water." }],
     creatorNotes: "Irregular article: feminine noun, singular article 'el'.",
     resources: [],
@@ -94,8 +97,18 @@ export const FIXTURE_LEARNING_ITEMS: LearningItem[] = [
     targetVariants: [],
     pronunciation: { guide: "ah-prehn-DEHR", ipa: "a.pɾenˈdeɾ" },
     context: "A regular -er verb.",
-    examples: [{ targetText: "Quiero aprender español.", englishText: "I want to learn Spanish." }],
-    resources: [{ label: "-er verb conjugation reference", url: "https://example.com/er-verbs" }],
+    examples: [
+      {
+        targetText: "Quiero aprender español.",
+        englishText: "I want to learn Spanish.",
+      },
+    ],
+    resources: [
+      {
+        label: "-er verb conjugation reference",
+        url: "https://example.com/er-verbs",
+      },
+    ],
   },
   {
     type: "vocabulary",
@@ -123,10 +136,13 @@ export const FIXTURE_LEARNING_ITEMS: LearningItem[] = [
     meaning: "and",
     explanation: "Connects two words, phrases, or clauses.",
     usage: "Standard coordinating conjunction.",
-    context: "Becomes 'e' before a word starting with 'i' or 'hi' (not covered at this level).",
+    context:
+      "Becomes 'e' before a word starting with 'i' or 'hi' (not covered at this level).",
     examples: [{ targetText: "gato y perro", englishText: "cat and dog" }],
     resources: [],
-    requiredQuestions: [{ format: "translation", direction: "targetToEnglish" }],
+    requiredQuestions: [
+      { format: "translation", direction: "targetToEnglish" },
+    ],
   },
   {
     type: "grammar",
@@ -138,9 +154,16 @@ export const FIXTURE_LEARNING_ITEMS: LearningItem[] = [
     meaning: "but",
     explanation: "Introduces a contrast between two clauses.",
     usage: "Standard coordinating conjunction.",
-    examples: [{ targetText: "Quiero ir, pero no puedo.", englishText: "I want to go, but I can't." }],
+    examples: [
+      {
+        targetText: "Quiero ir, pero no puedo.",
+        englishText: "I want to go, but I can't.",
+      },
+    ],
     resources: [],
-    requiredQuestions: [{ format: "translation", direction: "targetToEnglish" }],
+    requiredQuestions: [
+      { format: "translation", direction: "targetToEnglish" },
+    ],
   },
   {
     type: "vocabulary",
@@ -154,8 +177,11 @@ export const FIXTURE_LEARNING_ITEMS: LearningItem[] = [
     meanings: ["red"],
     targetVariants: [],
     pronunciation: { guide: "ROH-hoh", ipa: "ˈro.xo" },
-    context: "Adjectives agree in gender and number; 'rojo' is the masculine singular form.",
-    examples: [{ targetText: "El coche es rojo.", englishText: "The car is red." }],
+    context:
+      "Adjectives agree in gender and number; 'rojo' is the masculine singular form.",
+    examples: [
+      { targetText: "El coche es rojo.", englishText: "The car is red." },
+    ],
     resources: [],
   },
 ];

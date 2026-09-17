@@ -49,35 +49,59 @@ const y: CurriculumLearningItem = {
     category: null,
     creatorNotes: null,
     register: null,
-    requiredQuestions: [{ format: "translation", direction: "targetToEnglish" }],
+    requiredQuestions: [
+      { format: "translation", direction: "targetToEnglish" },
+    ],
   },
 };
 
 function synonym(side: "term" | "meaning", value: string): LearnerSynonym {
-  return { id: "syn-1", userId: "user-1", learningItemId: "gato", side, value, normalizedValue: value.toLowerCase() };
+  return {
+    id: "syn-1",
+    userId: "user-1",
+    learningItemId: "gato",
+    side,
+    value,
+    normalizedValue: value.toLowerCase(),
+  };
 }
 
 describe("getReviewQuestionAnswerSpec — vocabulary", () => {
   it("target -> English: accepts the official primary meaning", () => {
-    const spec = getReviewQuestionAnswerSpec(gato, "targetToEnglish", NO_SYNONYMS);
+    const spec = getReviewQuestionAnswerSpec(
+      gato,
+      "targetToEnglish",
+      NO_SYNONYMS,
+    );
     expect(spec.prompt).toBe("gato");
     expect(spec.acceptedAnswers).toEqual(["cat"]);
   });
 
   it("English -> target: requires the article and flags a bare-form answer as missing_article via the article requirement", () => {
-    const spec = getReviewQuestionAnswerSpec(gato, "englishToTarget", NO_SYNONYMS);
+    const spec = getReviewQuestionAnswerSpec(
+      gato,
+      "englishToTarget",
+      NO_SYNONYMS,
+    );
     expect(spec.prompt).toBe("cat");
     expect(spec.acceptedAnswers).toEqual(["el gato"]);
-    expect(spec.articleRequirement).toEqual({ article: "el", bareAnswers: ["gato"] });
+    expect(spec.articleRequirement).toEqual({
+      article: "el",
+      bareAnswers: ["gato"],
+    });
   });
 
   it("includes an applicable user-created synonym alongside the official answer", () => {
-    const spec = getReviewQuestionAnswerSpec(gato, "targetToEnglish", [synonym("meaning", "kitty")]);
+    const spec = getReviewQuestionAnswerSpec(gato, "targetToEnglish", [
+      synonym("meaning", "kitty"),
+    ]);
     expect(spec.acceptedAnswers).toEqual(["cat", "kitty"]);
   });
 
   it("only includes synonyms for the matching side", () => {
-    const spec = getReviewQuestionAnswerSpec(gato, "targetToEnglish", [synonym("term", "gatito")]);
+    const spec = getReviewQuestionAnswerSpec(gato, "targetToEnglish", [
+      synonym("term", "gatito"),
+    ]);
     expect(spec.acceptedAnswers).toEqual(["cat"]);
   });
 
@@ -87,7 +111,11 @@ describe("getReviewQuestionAnswerSpec — vocabulary", () => {
       type: "vocabulary",
       vocabulary: { ...gato.vocabulary, article: null },
     };
-    const spec = getReviewQuestionAnswerSpec(noArticleItem, "englishToTarget", NO_SYNONYMS);
+    const spec = getReviewQuestionAnswerSpec(
+      noArticleItem,
+      "englishToTarget",
+      NO_SYNONYMS,
+    );
     expect(spec.articleRequirement).toBeUndefined();
     expect(spec.acceptedAnswers).toEqual(["gato"]);
   });
@@ -95,11 +123,19 @@ describe("getReviewQuestionAnswerSpec — vocabulary", () => {
 
 describe("getReviewQuestionAnswerSpec — grammar", () => {
   it("uses the item's structure/meaning for whichever direction is asked", () => {
-    const targetToEnglish = getReviewQuestionAnswerSpec(y, "targetToEnglish", NO_SYNONYMS);
+    const targetToEnglish = getReviewQuestionAnswerSpec(
+      y,
+      "targetToEnglish",
+      NO_SYNONYMS,
+    );
     expect(targetToEnglish.prompt).toBe("y");
     expect(targetToEnglish.acceptedAnswers).toEqual(["and"]);
 
-    const englishToTarget = getReviewQuestionAnswerSpec(y, "englishToTarget", NO_SYNONYMS);
+    const englishToTarget = getReviewQuestionAnswerSpec(
+      y,
+      "englishToTarget",
+      NO_SYNONYMS,
+    );
     expect(englishToTarget.prompt).toBe("and");
     expect(englishToTarget.acceptedAnswers).toEqual(["y"]);
   });

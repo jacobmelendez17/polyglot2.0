@@ -1,15 +1,37 @@
 import { describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 
-import { DEVELOPER_ID, FIXTURE_LEVEL_NUMBER, seedTestFixtures } from "@/db/seed/test-fixtures";
+import {
+  DEVELOPER_ID,
+  FIXTURE_LEVEL_NUMBER,
+  seedTestFixtures,
+} from "@/db/seed/test-fixtures";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
-import { learningItems, lexicalSources, vocabularyDictionaryMappings, vocabularyItems } from "@/db/schema";
+import {
+  learningItems,
+  lexicalSources,
+  vocabularyDictionaryMappings,
+  vocabularyItems,
+} from "@/db/schema";
 import { bulkImportVocabulary } from "@/domains/admin/bulk-import-service";
-import { confirmCurriculumImport, createCurriculumImport, resolveCurriculumImportRow } from "@/domains/admin/curriculum-import-service";
-import { getCurriculumImportById, listCurriculumImportRows } from "@/domains/admin/curriculum-import-repository";
-import { LEXICAL_SOURCE_DEFINITIONS, WIKTIONARY_ES_SOURCE_CODE } from "@/domains/lexicon/lexical-source-registry";
+import {
+  confirmCurriculumImport,
+  createCurriculumImport,
+  resolveCurriculumImportRow,
+} from "@/domains/admin/curriculum-import-service";
+import {
+  getCurriculumImportById,
+  listCurriculumImportRows,
+} from "@/domains/admin/curriculum-import-repository";
+import {
+  LEXICAL_SOURCE_DEFINITIONS,
+  WIKTIONARY_ES_SOURCE_CODE,
+} from "@/domains/lexicon/lexical-source-registry";
 import { curriculumImportObjectKey } from "@/providers/storage/curriculum-import-object-key";
-import type { CurriculumImportStorage, PresignedUpload } from "@/providers/storage/types";
+import type {
+  CurriculumImportStorage,
+  PresignedUpload,
+} from "@/providers/storage/types";
 
 import { runCommitJob } from "./commit-job";
 import { runPreviewJob } from "./preview-job";
@@ -70,15 +92,23 @@ describe("runCommitJob (spec 19 §11/§12/§14/§15)", () => {
       // happens to already have one, but not on an isolated test database
       // (spec 22's "remove shared-database assumptions"). Seed the minimal
       // real source row so matching actually runs and records an outcome.
-      await tx.insert(lexicalSources).values(LEXICAL_SOURCE_DEFINITIONS[WIKTIONARY_ES_SOURCE_CODE]!);
+      await tx
+        .insert(lexicalSources)
+        .values(LEXICAL_SOURCE_DEFINITIONS[WIKTIONARY_ES_SOURCE_CODE]!);
       const csv = `word,translation,level,group\ncommitcreate,commit create,${LEVEL_NUMBER},${GROUP_NUMBER}\n`;
       const { importId, storage } = await createAndPreview(tx, languageId, csv);
 
       const before = await getCurriculumImportById(tx, importId);
       expect(before?.status).toBe("ready_to_import");
 
-      await confirmCurriculumImport(tx, { importId, actorUserId: DEVELOPER_ID });
-      await runCommitJob(tx, () => storage(), { importId, actorUserId: DEVELOPER_ID });
+      await confirmCurriculumImport(tx, {
+        importId,
+        actorUserId: DEVELOPER_ID,
+      });
+      await runCommitJob(tx, () => storage(), {
+        importId,
+        actorUserId: DEVELOPER_ID,
+      });
 
       const after = await getCurriculumImportById(tx, importId);
       expect(after?.status).toBe("completed");
@@ -87,7 +117,10 @@ describe("runCommitJob (spec 19 §11/§12/§14/§15)", () => {
       const [created] = await tx
         .select({ id: learningItems.id, term: vocabularyItems.term })
         .from(learningItems)
-        .innerJoin(vocabularyItems, eq(vocabularyItems.learningItemId, learningItems.id))
+        .innerJoin(
+          vocabularyItems,
+          eq(vocabularyItems.learningItemId, learningItems.id),
+        )
         .where(eq(vocabularyItems.term, "commitcreate"));
       expect(created).toBeDefined();
 
@@ -96,7 +129,10 @@ describe("runCommitJob (spec 19 §11/§12/§14/§15)", () => {
       // real match outcome is for this made-up term (almost certainly
       // "unmatched" against the fixture dictionary data), the point is that
       // a mapping attempt was recorded at all.
-      const mappings = await tx.select().from(vocabularyDictionaryMappings).where(eq(vocabularyDictionaryMappings.vocabularyItemId, created!.id));
+      const mappings = await tx
+        .select()
+        .from(vocabularyDictionaryMappings)
+        .where(eq(vocabularyDictionaryMappings.vocabularyItemId, created!.id));
       expect(mappings.length).toBeGreaterThan(0);
     });
   });
@@ -111,20 +147,34 @@ describe("runCommitJob (spec 19 §11/§12/§14/§15)", () => {
       const { importId, storage } = await createAndPreview(tx, languageId, csv);
 
       const rows = await listCurriculumImportRows(tx, { importId, limit: 10 });
-      const blockedRow = rows.items.find((row) => row.classification === "blocked");
+      const blockedRow = rows.items.find(
+        (row) => row.classification === "blocked",
+      );
       expect(blockedRow).toBeDefined();
       await resolveCurriculumImportRow(tx, { rowId: blockedRow!.id });
 
-      await confirmCurriculumImport(tx, { importId, actorUserId: DEVELOPER_ID });
-      await runCommitJob(tx, () => storage(), { importId, actorUserId: DEVELOPER_ID });
+      await confirmCurriculumImport(tx, {
+        importId,
+        actorUserId: DEVELOPER_ID,
+      });
+      await runCommitJob(tx, () => storage(), {
+        importId,
+        actorUserId: DEVELOPER_ID,
+      });
 
       const after = await getCurriculumImportById(tx, importId);
       expect(after?.status).toBe("completed");
       expect(after?.skippedCount).toBe(1);
 
-      const [kept] = await tx.select({ id: vocabularyItems.term }).from(vocabularyItems).where(eq(vocabularyItems.term, "commitkeep"));
+      const [kept] = await tx
+        .select({ id: vocabularyItems.term })
+        .from(vocabularyItems)
+        .where(eq(vocabularyItems.term, "commitkeep"));
       expect(kept).toBeDefined();
-      const skipped = await tx.select({ id: vocabularyItems.term }).from(vocabularyItems).where(eq(vocabularyItems.term, "commitskip"));
+      const skipped = await tx
+        .select({ id: vocabularyItems.term })
+        .from(vocabularyItems)
+        .where(eq(vocabularyItems.term, "commitskip"));
       expect(skipped).toHaveLength(0);
     });
   });
@@ -137,7 +187,10 @@ describe("runCommitJob (spec 19 §11/§12/§14/§15)", () => {
 
       const beforeConfirm = await getCurriculumImportById(tx, importId);
       expect(beforeConfirm?.status).toBe("ready_to_import");
-      await confirmCurriculumImport(tx, { importId, actorUserId: DEVELOPER_ID });
+      await confirmCurriculumImport(tx, {
+        importId,
+        actorUserId: DEVELOPER_ID,
+      });
 
       // An admin creates the exact same term directly, out from under the
       // confirmed import — the fresh resolution will now see an existing
@@ -168,7 +221,10 @@ describe("runCommitJob (spec 19 §11/§12/§14/§15)", () => {
         ],
       });
 
-      await runCommitJob(tx, () => storage(), { importId, actorUserId: DEVELOPER_ID });
+      await runCommitJob(tx, () => storage(), {
+        importId,
+        actorUserId: DEVELOPER_ID,
+      });
 
       const after = await getCurriculumImportById(tx, importId);
       // Back to review, not committed and not failed.
@@ -187,16 +243,28 @@ describe("runCommitJob (spec 19 §11/§12/§14/§15)", () => {
       const csv = `word,translation,level,group\ncommitduplicate,commit duplicate,${LEVEL_NUMBER},${GROUP_NUMBER}\n`;
       const { importId, storage } = await createAndPreview(tx, languageId, csv);
 
-      await confirmCurriculumImport(tx, { importId, actorUserId: DEVELOPER_ID });
-      await runCommitJob(tx, () => storage(), { importId, actorUserId: DEVELOPER_ID });
+      await confirmCurriculumImport(tx, {
+        importId,
+        actorUserId: DEVELOPER_ID,
+      });
+      await runCommitJob(tx, () => storage(), {
+        importId,
+        actorUserId: DEVELOPER_ID,
+      });
       // A second delivery of the exact same COMMIT_IMPORT message.
-      await runCommitJob(tx, () => storage(), { importId, actorUserId: DEVELOPER_ID });
+      await runCommitJob(tx, () => storage(), {
+        importId,
+        actorUserId: DEVELOPER_ID,
+      });
 
       const after = await getCurriculumImportById(tx, importId);
       expect(after?.status).toBe("completed");
       expect(after?.attemptCount).toBe(1); // only the first delivery actually ran the commit
 
-      const matches = await tx.select({ id: vocabularyItems.term }).from(vocabularyItems).where(eq(vocabularyItems.term, "commitduplicate"));
+      const matches = await tx
+        .select({ id: vocabularyItems.term })
+        .from(vocabularyItems)
+        .where(eq(vocabularyItems.term, "commitduplicate"));
       expect(matches).toHaveLength(1); // not duplicated
     });
   });
@@ -206,7 +274,10 @@ describe("runCommitJob (spec 19 §11/§12/§14/§15)", () => {
       const { languageId } = await seedTestFixtures(tx);
       const csv = `word,translation,level,group\ncommitretry,commit retry,${LEVEL_NUMBER},${GROUP_NUMBER}\n`;
       const { importId, storage } = await createAndPreview(tx, languageId, csv);
-      await confirmCurriculumImport(tx, { importId, actorUserId: DEVELOPER_ID });
+      await confirmCurriculumImport(tx, {
+        importId,
+        actorUserId: DEVELOPER_ID,
+      });
 
       // Simulate a failed first attempt: a storage that always throws.
       const failingStorage: CurriculumImportStorage = {
@@ -219,13 +290,21 @@ describe("runCommitJob (spec 19 §11/§12/§14/§15)", () => {
           throw new Error("simulated transient S3 failure");
         },
       };
-      await expect(runCommitJob(tx, () => failingStorage, { importId, actorUserId: DEVELOPER_ID })).rejects.toThrow(/simulated transient/);
+      await expect(
+        runCommitJob(tx, () => failingStorage, {
+          importId,
+          actorUserId: DEVELOPER_ID,
+        }),
+      ).rejects.toThrow(/simulated transient/);
 
       const afterFailure = await getCurriculumImportById(tx, importId);
       expect(afterFailure?.status).toBe("failed");
 
       // SQS redelivers the identical message — must actually retry, not no-op.
-      await runCommitJob(tx, () => storage(), { importId, actorUserId: DEVELOPER_ID });
+      await runCommitJob(tx, () => storage(), {
+        importId,
+        actorUserId: DEVELOPER_ID,
+      });
 
       const afterRetry = await getCurriculumImportById(tx, importId);
       expect(afterRetry?.status).toBe("completed");

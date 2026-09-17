@@ -5,7 +5,10 @@ import { describe, expect, it } from "vitest";
 
 import { languages, levels, userLevelProgress, users } from "@/db/schema";
 import { testDb } from "@/db/test/test-client";
-import { withTestTransaction, type TestTx } from "@/db/test/with-test-transaction";
+import {
+  withTestTransaction,
+  type TestTx,
+} from "@/db/test/with-test-transaction";
 import { AppError } from "@/lib/errors/app-error";
 
 import { getDefaultLanguageCode } from "./provisioning-config";
@@ -42,11 +45,22 @@ async function seedDefaultLanguageAndLevel1(tx: TestTx) {
   const languageCode = getDefaultLanguageCode();
   const [insertedLanguage] = await tx
     .insert(languages)
-    .values({ code: languageCode, slug: `spanish-${randomUUID()}`, name: "Spanish" })
+    .values({
+      code: languageCode,
+      slug: `spanish-${randomUUID()}`,
+      name: "Spanish",
+    })
     .onConflictDoNothing({ target: languages.code })
     .returning();
   const language =
-    insertedLanguage ?? (await tx.select().from(languages).where(eq(languages.code, languageCode)).limit(1))[0];
+    insertedLanguage ??
+    (
+      await tx
+        .select()
+        .from(languages)
+        .where(eq(languages.code, languageCode))
+        .limit(1)
+    )[0];
 
   const [insertedLevel1] = await tx
     .insert(levels)
@@ -59,7 +73,9 @@ async function seedDefaultLanguageAndLevel1(tx: TestTx) {
       await tx
         .select()
         .from(levels)
-        .where(and(eq(levels.languageId, language.id), eq(levels.levelNumber, 1)))
+        .where(
+          and(eq(levels.languageId, language.id), eq(levels.levelNumber, 1)),
+        )
         .limit(1)
     )[0];
 
@@ -72,7 +88,10 @@ describe("provisionUser / findUserByClerkUserId", () => {
       await seedDefaultLanguageAndLevel1(tx);
       const user = await provisionUser(tx, "clerk-first-time");
 
-      const rows = await tx.select().from(users).where(eq(users.clerkUserId, "clerk-first-time"));
+      const rows = await tx
+        .select()
+        .from(users)
+        .where(eq(users.clerkUserId, "clerk-first-time"));
       expect(rows).toHaveLength(1);
       expect(rows[0].id).toBe(user.id);
     });
@@ -84,14 +103,20 @@ describe("provisionUser / findUserByClerkUserId", () => {
       const clerkUserId = "clerk-repeat";
 
       async function resolve() {
-        return (await findUserByClerkUserId(tx, clerkUserId)) ?? provisionUser(tx, clerkUserId);
+        return (
+          (await findUserByClerkUserId(tx, clerkUserId)) ??
+          provisionUser(tx, clerkUserId)
+        );
       }
 
       const first = await resolve();
       const second = await resolve();
       expect(second.id).toBe(first.id);
 
-      const rows = await tx.select().from(users).where(eq(users.clerkUserId, clerkUserId));
+      const rows = await tx
+        .select()
+        .from(users)
+        .where(eq(users.clerkUserId, clerkUserId));
       expect(rows).toHaveLength(1);
     });
   });
@@ -112,7 +137,10 @@ describe("provisionUser / findUserByClerkUserId", () => {
 
   it("returns null from findUserById for a nonexistent internal ID", async () => {
     await withTestTransaction(async (tx) => {
-      const result = await findUserById(tx, "00000000-0000-0000-0000-000000000000");
+      const result = await findUserById(
+        tx,
+        "00000000-0000-0000-0000-000000000000",
+      );
       expect(result).toBeNull();
     });
   });
@@ -120,10 +148,14 @@ describe("provisionUser / findUserByClerkUserId", () => {
   it("enforces clerk_user_id uniqueness for non-null values at the database level", async () => {
     await withTestTransaction(async (tx) => {
       const { language } = await seedDefaultLanguageAndLevel1(tx);
-      await tx.insert(users).values({ clerkUserId: "dup-clerk", activeLanguageId: language.id });
+      await tx
+        .insert(users)
+        .values({ clerkUserId: "dup-clerk", activeLanguageId: language.id });
 
       await expect(
-        tx.insert(users).values({ clerkUserId: "dup-clerk", activeLanguageId: language.id }),
+        tx
+          .insert(users)
+          .values({ clerkUserId: "dup-clerk", activeLanguageId: language.id }),
       ).rejects.toThrow();
     });
   });
@@ -133,15 +165,27 @@ describe("provisionUser / findUserByClerkUserId", () => {
       const { language } = await seedDefaultLanguageAndLevel1(tx);
       const [owner] = await tx
         .insert(users)
-        .values({ clerkUserId: "owner-dev", role: "developer", activeLanguageId: language.id })
+        .values({
+          clerkUserId: "owner-dev",
+          role: "developer",
+          activeLanguageId: language.id,
+        })
         .returning();
       const [sandboxA] = await tx
         .insert(users)
-        .values({ isSandbox: true, sandboxOwnerUserId: owner.id, activeLanguageId: language.id })
+        .values({
+          isSandbox: true,
+          sandboxOwnerUserId: owner.id,
+          activeLanguageId: language.id,
+        })
         .returning();
       const [sandboxB] = await tx
         .insert(users)
-        .values({ isSandbox: true, sandboxOwnerUserId: owner.id, activeLanguageId: language.id })
+        .values({
+          isSandbox: true,
+          sandboxOwnerUserId: owner.id,
+          activeLanguageId: language.id,
+        })
         .returning();
 
       expect(sandboxA.clerkUserId).toBeNull();
@@ -162,7 +206,12 @@ describe("provisionUser / findUserByClerkUserId", () => {
       const [unlock] = await tx
         .select()
         .from(userLevelProgress)
-        .where(and(eq(userLevelProgress.userId, user.id), eq(userLevelProgress.levelId, level1.id)));
+        .where(
+          and(
+            eq(userLevelProgress.userId, user.id),
+            eq(userLevelProgress.levelId, level1.id),
+          ),
+        );
       expect(unlock).toBeDefined();
       expect(unlock.unlockedAt).toBeInstanceOf(Date);
     });
@@ -175,13 +224,19 @@ describe("provisionUser / findUserByClerkUserId", () => {
       // violate the RESTRICT foreign key from `levels`, so this simulates
       // "absent" by temporarily renaming its code within this rolled-back
       // transaction only, rather than by simply not seeding anything.
-      await tx.update(languages).set({ code: "temporarily-renamed" }).where(eq(languages.code, getDefaultLanguageCode()));
+      await tx
+        .update(languages)
+        .set({ code: "temporarily-renamed" })
+        .where(eq(languages.code, getDefaultLanguageCode()));
 
       await expect(provisionUser(tx, "clerk-no-language")).rejects.toThrow(
         expect.objectContaining({ code: "PROVISIONING_FAILED" }),
       );
 
-      const rows = await tx.select().from(users).where(eq(users.clerkUserId, "clerk-no-language"));
+      const rows = await tx
+        .select()
+        .from(users)
+        .where(eq(users.clerkUserId, "clerk-no-language"));
       expect(rows).toHaveLength(0);
     });
   });
@@ -213,7 +268,10 @@ describe("provisionUser / findUserByClerkUserId", () => {
         }),
       ).rejects.toThrow();
 
-      const rows = await tx.select().from(users).where(eq(users.clerkUserId, clerkUserId));
+      const rows = await tx
+        .select()
+        .from(users)
+        .where(eq(users.clerkUserId, clerkUserId));
       expect(rows).toHaveLength(0);
     });
   });
@@ -224,7 +282,10 @@ describe("provisionUser / findUserByClerkUserId", () => {
       const user = await provisionUser(tx, "clerk-role-auth");
       expect(user.role).toBe("user");
 
-      await tx.update(users).set({ role: "admin" }).where(eq(users.id, user.id));
+      await tx
+        .update(users)
+        .set({ role: "admin" })
+        .where(eq(users.id, user.id));
       const refetched = await findUserByClerkUserId(tx, "clerk-role-auth");
       expect(refetched?.role).toBe("admin");
     });
@@ -237,7 +298,10 @@ describe("provisionUser / findUserByClerkUserId", () => {
       // resolveCurrentUser (user-service.ts) and this repository only ever
       // pass the bare clerk user id through; there is no parameter through
       // which a claimed role could reach provisioning.
-      const claimedIdentity = { id: "clerk-untrusted", publicMetadata: { role: "admin" as const } };
+      const claimedIdentity = {
+        id: "clerk-untrusted",
+        publicMetadata: { role: "admin" as const },
+      };
       const user = await provisionUser(tx, claimedIdentity.id);
       expect(user.role).toBe("user");
     });
@@ -251,7 +315,11 @@ describe("findUsersByIds", () => {
       const a = await provisionUser(tx, "clerk-batch-a");
       const b = await provisionUser(tx, "clerk-batch-b");
 
-      const found = await findUsersByIds(tx, [a.id, b.id, "00000000-0000-0000-0000-000000000000"]);
+      const found = await findUsersByIds(tx, [
+        a.id,
+        b.id,
+        "00000000-0000-0000-0000-000000000000",
+      ]);
       expect(found.map((u) => u.id).sort()).toEqual([a.id, b.id].sort());
     });
   });
@@ -264,69 +332,87 @@ describe("findUsersByIds", () => {
 });
 
 describe("provisionUser concurrency (real, independently-committed transactions)", () => {
-  it(
-    "cannot create duplicate users or duplicate Level 1 unlocks under concurrent provisioning",
-    async () => {
-      const languageCode = getDefaultLanguageCode();
-      const clerkUserId = `clerk-concurrent-${randomUUID()}`;
+  it("cannot create duplicate users or duplicate Level 1 unlocks under concurrent provisioning", async () => {
+    const languageCode = getDefaultLanguageCode();
+    const clerkUserId = `clerk-concurrent-${randomUUID()}`;
 
-      // Real concurrency requires two independent, genuinely concurrent
-      // transactions — the rolled-back single-transaction harness every
-      // other test in this file uses can't produce that. The language/
-      // Level 1 rows seeded here are the same ones the real app needs for
-      // provisioning to work at all (spec 08 §38), so they're deliberately
-      // left committed (idempotent via onConflictDoNothing) rather than
-      // cleaned up; only this test's own clerkUserId-scoped rows are
-      // cleaned up afterward.
-      const [insertedLanguage] = await testDb
-        .insert(languages)
-        .values({ code: languageCode, slug: "spanish", name: "Spanish" })
-        .onConflictDoNothing({ target: languages.code })
-        .returning();
-      const language =
-        insertedLanguage ??
-        (await testDb.select().from(languages).where(eq(languages.code, languageCode)).limit(1))[0];
-
-      const [insertedLevel1] = await testDb
-        .insert(levels)
-        .values({ languageId: language.id, levelNumber: 1 })
-        .onConflictDoNothing({ target: [levels.languageId, levels.levelNumber] })
-        .returning();
-      const level1 =
-        insertedLevel1 ??
-        (
-          await testDb
-            .select()
-            .from(levels)
-            .where(and(eq(levels.languageId, language.id), eq(levels.levelNumber, 1)))
-            .limit(1)
-        )[0];
-
-      try {
-        const [userA, userB] = await Promise.all([
-          provisionUser(testDb, clerkUserId),
-          provisionUser(testDb, clerkUserId),
-        ]);
-        expect(userA.id).toBe(userB.id);
-
-        const userRows = await testDb.select().from(users).where(eq(users.clerkUserId, clerkUserId));
-        expect(userRows).toHaveLength(1);
-
-        const unlockRows = await testDb
+    // Real concurrency requires two independent, genuinely concurrent
+    // transactions — the rolled-back single-transaction harness every
+    // other test in this file uses can't produce that. The language/
+    // Level 1 rows seeded here are the same ones the real app needs for
+    // provisioning to work at all (spec 08 §38), so they're deliberately
+    // left committed (idempotent via onConflictDoNothing) rather than
+    // cleaned up; only this test's own clerkUserId-scoped rows are
+    // cleaned up afterward.
+    const [insertedLanguage] = await testDb
+      .insert(languages)
+      .values({ code: languageCode, slug: "spanish", name: "Spanish" })
+      .onConflictDoNothing({ target: languages.code })
+      .returning();
+    const language =
+      insertedLanguage ??
+      (
+        await testDb
           .select()
-          .from(userLevelProgress)
-          .where(and(eq(userLevelProgress.userId, userA.id), eq(userLevelProgress.levelId, level1.id)));
-        expect(unlockRows).toHaveLength(1);
-      } finally {
-        const [maybeUser] = await testDb.select().from(users).where(eq(users.clerkUserId, clerkUserId)).limit(1);
-        if (maybeUser) {
-          await testDb.delete(userLevelProgress).where(eq(userLevelProgress.userId, maybeUser.id));
-          await testDb.delete(users).where(eq(users.id, maybeUser.id));
-        }
+          .from(languages)
+          .where(eq(languages.code, languageCode))
+          .limit(1)
+      )[0];
+
+    const [insertedLevel1] = await testDb
+      .insert(levels)
+      .values({ languageId: language.id, levelNumber: 1 })
+      .onConflictDoNothing({ target: [levels.languageId, levels.levelNumber] })
+      .returning();
+    const level1 =
+      insertedLevel1 ??
+      (
+        await testDb
+          .select()
+          .from(levels)
+          .where(
+            and(eq(levels.languageId, language.id), eq(levels.levelNumber, 1)),
+          )
+          .limit(1)
+      )[0];
+
+    try {
+      const [userA, userB] = await Promise.all([
+        provisionUser(testDb, clerkUserId),
+        provisionUser(testDb, clerkUserId),
+      ]);
+      expect(userA.id).toBe(userB.id);
+
+      const userRows = await testDb
+        .select()
+        .from(users)
+        .where(eq(users.clerkUserId, clerkUserId));
+      expect(userRows).toHaveLength(1);
+
+      const unlockRows = await testDb
+        .select()
+        .from(userLevelProgress)
+        .where(
+          and(
+            eq(userLevelProgress.userId, userA.id),
+            eq(userLevelProgress.levelId, level1.id),
+          ),
+        );
+      expect(unlockRows).toHaveLength(1);
+    } finally {
+      const [maybeUser] = await testDb
+        .select()
+        .from(users)
+        .where(eq(users.clerkUserId, clerkUserId))
+        .limit(1);
+      if (maybeUser) {
+        await testDb
+          .delete(userLevelProgress)
+          .where(eq(userLevelProgress.userId, maybeUser.id));
+        await testDb.delete(users).where(eq(users.id, maybeUser.id));
       }
-    },
-    15_000,
-  );
+    }
+  }, 15_000);
 });
 
 describe("updateDisplayName", () => {
@@ -345,7 +431,9 @@ describe("updateDisplayName", () => {
 
   it("throws ITEM_NOT_FOUND for a user id that doesn't exist", async () => {
     await withTestTransaction(async (tx) => {
-      await expect(updateDisplayName(tx, randomUUID(), "Nobody")).rejects.toThrow(AppError);
+      await expect(
+        updateDisplayName(tx, randomUUID(), "Nobody"),
+      ).rejects.toThrow(AppError);
     });
   });
 });
@@ -363,7 +451,9 @@ describe("updateUsername", () => {
 
   it("throws ITEM_NOT_FOUND for a user id that doesn't exist", async () => {
     await withTestTransaction(async (tx) => {
-      await expect(updateUsername(tx, randomUUID(), "nobody")).rejects.toThrow(AppError);
+      await expect(updateUsername(tx, randomUUID(), "nobody")).rejects.toThrow(
+        AppError,
+      );
     });
   });
 
@@ -383,47 +473,51 @@ describe("updateUsername", () => {
 
       await updateUsername(testDb, userA.id, "JacobM");
 
-      await expect(updateUsername(testDb, userB.id, "jacobm")).rejects.toMatchObject({ code: "USERNAME_TAKEN" });
+      await expect(
+        updateUsername(testDb, userB.id, "jacobm"),
+      ).rejects.toMatchObject({ code: "USERNAME_TAKEN" });
     } finally {
-      await testDb.delete(users).where(inArray(users.clerkUserId, [clerkUserIdA, clerkUserIdB]));
+      await testDb
+        .delete(users)
+        .where(inArray(users.clerkUserId, [clerkUserIdA, clerkUserIdB]));
     }
   });
 
-  it(
-    "a real concurrent claim of the same username (case-insensitively) lets exactly one caller win — the database decides, not a check-then-insert race",
-    async () => {
-      const suffix = randomUUID().slice(0, 8);
-      const clerkUserIdA = `clerk-username-race-a-${suffix}`;
-      const clerkUserIdB = `clerk-username-race-b-${suffix}`;
-      const contestedUsername = `raceuser_${suffix}`;
+  it("a real concurrent claim of the same username (case-insensitively) lets exactly one caller win — the database decides, not a check-then-insert race", async () => {
+    const suffix = randomUUID().slice(0, 8);
+    const clerkUserIdA = `clerk-username-race-a-${suffix}`;
+    const clerkUserIdB = `clerk-username-race-b-${suffix}`;
+    const contestedUsername = `raceuser_${suffix}`;
 
-      try {
-        const userA = await provisionUser(testDb, clerkUserIdA);
-        const userB = await provisionUser(testDb, clerkUserIdB);
+    try {
+      const userA = await provisionUser(testDb, clerkUserIdA);
+      const userB = await provisionUser(testDb, clerkUserIdB);
 
-        const results = await Promise.allSettled([
-          updateUsername(testDb, userA.id, contestedUsername),
-          updateUsername(testDb, userB.id, contestedUsername.toUpperCase()),
-        ]);
+      const results = await Promise.allSettled([
+        updateUsername(testDb, userA.id, contestedUsername),
+        updateUsername(testDb, userB.id, contestedUsername.toUpperCase()),
+      ]);
 
-        const fulfilled = results.filter((r) => r.status === "fulfilled");
-        const rejected = results.filter((r) => r.status === "rejected");
-        expect(fulfilled).toHaveLength(1);
-        expect(rejected).toHaveLength(1);
-        expect((rejected[0] as PromiseRejectedResult).reason).toMatchObject({ code: "USERNAME_TAKEN" });
+      const fulfilled = results.filter((r) => r.status === "fulfilled");
+      const rejected = results.filter((r) => r.status === "rejected");
+      expect(fulfilled).toHaveLength(1);
+      expect(rejected).toHaveLength(1);
+      expect((rejected[0] as PromiseRejectedResult).reason).toMatchObject({
+        code: "USERNAME_TAKEN",
+      });
 
-        const rows = await testDb
-          .select()
-          .from(users)
-          .where(inArray(users.clerkUserId, [clerkUserIdA, clerkUserIdB]));
-        const withUsername = rows.filter((row) => row.username !== null);
-        expect(withUsername).toHaveLength(1);
-      } finally {
-        await testDb.delete(users).where(inArray(users.clerkUserId, [clerkUserIdA, clerkUserIdB]));
-      }
-    },
-    15_000,
-  );
+      const rows = await testDb
+        .select()
+        .from(users)
+        .where(inArray(users.clerkUserId, [clerkUserIdA, clerkUserIdB]));
+      const withUsername = rows.filter((row) => row.username !== null);
+      expect(withUsername).toHaveLength(1);
+    } finally {
+      await testDb
+        .delete(users)
+        .where(inArray(users.clerkUserId, [clerkUserIdA, clerkUserIdB]));
+    }
+  }, 15_000);
 });
 
 describe("content preferences (spec 20 General)", () => {
@@ -433,7 +527,10 @@ describe("content preferences (spec 20 General)", () => {
       const user = await provisionUser(tx, "clerk-content-prefs-default");
 
       const preferences = await getContentPreferences(tx, user.id);
-      expect(preferences).toEqual({ hideEnglishReviews: false, showNsfwContent: false });
+      expect(preferences).toEqual({
+        hideEnglishReviews: false,
+        showNsfwContent: false,
+      });
     });
   });
 
@@ -442,11 +539,19 @@ describe("content preferences (spec 20 General)", () => {
       await seedDefaultLanguageAndLevel1(tx);
       const user = await provisionUser(tx, "clerk-content-prefs-partial");
 
-      const afterFirstSave = await saveContentPreferences(tx, user.id, { showNsfwContent: true });
-      expect(afterFirstSave).toEqual({ hideEnglishReviews: false, showNsfwContent: true });
+      const afterFirstSave = await saveContentPreferences(tx, user.id, {
+        showNsfwContent: true,
+      });
+      expect(afterFirstSave).toEqual({
+        hideEnglishReviews: false,
+        showNsfwContent: true,
+      });
 
       const stored = await getContentPreferences(tx, user.id);
-      expect(stored).toEqual({ hideEnglishReviews: false, showNsfwContent: true });
+      expect(stored).toEqual({
+        hideEnglishReviews: false,
+        showNsfwContent: true,
+      });
     });
   });
 
@@ -456,9 +561,14 @@ describe("content preferences (spec 20 General)", () => {
       const user = await provisionUser(tx, "clerk-content-prefs-second-save");
 
       await saveContentPreferences(tx, user.id, { showNsfwContent: true });
-      const afterSecondSave = await saveContentPreferences(tx, user.id, { hideEnglishReviews: true });
+      const afterSecondSave = await saveContentPreferences(tx, user.id, {
+        hideEnglishReviews: true,
+      });
 
-      expect(afterSecondSave).toEqual({ hideEnglishReviews: true, showNsfwContent: true });
+      expect(afterSecondSave).toEqual({
+        hideEnglishReviews: true,
+        showNsfwContent: true,
+      });
     });
   });
 });
@@ -469,7 +579,11 @@ describe("saveLessonBatchSize / saveAutoPronounceLessons (spec 20 Lessons)", () 
       const { language } = await seedDefaultLanguageAndLevel1(tx);
       const user = await provisionUser(tx, "clerk-lesson-batch-default");
 
-      const settings = await saveCurriculumPreference(tx, { userId: user.id, languageId: language.id, curriculumMode: "variety" });
+      const settings = await saveCurriculumPreference(tx, {
+        userId: user.id,
+        languageId: language.id,
+        curriculumMode: "variety",
+      });
 
       expect(settings.lessonBatchSize).toBe(6);
       expect(settings.autoPronounceLessons).toBe(true);
@@ -480,13 +594,25 @@ describe("saveLessonBatchSize / saveAutoPronounceLessons (spec 20 Lessons)", () 
     await withTestTransaction(async (tx) => {
       const { language } = await seedDefaultLanguageAndLevel1(tx);
       const user = await provisionUser(tx, "clerk-lesson-batch-independent");
-      await saveCurriculumPreference(tx, { userId: user.id, languageId: language.id, curriculumMode: "variety" });
+      await saveCurriculumPreference(tx, {
+        userId: user.id,
+        languageId: language.id,
+        curriculumMode: "variety",
+      });
 
-      const afterBatchSize = await saveLessonBatchSize(tx, { userId: user.id, languageId: language.id, lessonBatchSize: 12 });
+      const afterBatchSize = await saveLessonBatchSize(tx, {
+        userId: user.id,
+        languageId: language.id,
+        lessonBatchSize: 12,
+      });
       expect(afterBatchSize.lessonBatchSize).toBe(12);
       expect(afterBatchSize.autoPronounceLessons).toBe(true);
 
-      const afterToggle = await saveAutoPronounceLessons(tx, { userId: user.id, languageId: language.id, autoPronounceLessons: false });
+      const afterToggle = await saveAutoPronounceLessons(tx, {
+        userId: user.id,
+        languageId: language.id,
+        autoPronounceLessons: false,
+      });
       expect(afterToggle.autoPronounceLessons).toBe(false);
       expect(afterToggle.lessonBatchSize).toBe(12);
     });
@@ -496,9 +622,19 @@ describe("saveLessonBatchSize / saveAutoPronounceLessons (spec 20 Lessons)", () 
     await withTestTransaction(async (tx) => {
       const { language } = await seedDefaultLanguageAndLevel1(tx);
       const user = await provisionUser(tx, "clerk-lesson-batch-out-of-range");
-      await saveCurriculumPreference(tx, { userId: user.id, languageId: language.id, curriculumMode: "variety" });
+      await saveCurriculumPreference(tx, {
+        userId: user.id,
+        languageId: language.id,
+        curriculumMode: "variety",
+      });
 
-      await expect(saveLessonBatchSize(tx, { userId: user.id, languageId: language.id, lessonBatchSize: 16 })).rejects.toThrow();
+      await expect(
+        saveLessonBatchSize(tx, {
+          userId: user.id,
+          languageId: language.id,
+          lessonBatchSize: 16,
+        }),
+      ).rejects.toThrow();
     });
   });
 
@@ -507,8 +643,20 @@ describe("saveLessonBatchSize / saveAutoPronounceLessons (spec 20 Lessons)", () 
       const { language } = await seedDefaultLanguageAndLevel1(tx);
       const user = await provisionUser(tx, "clerk-lesson-batch-no-row");
 
-      await expect(saveLessonBatchSize(tx, { userId: user.id, languageId: language.id, lessonBatchSize: 8 })).rejects.toThrow(AppError);
-      await expect(saveAutoPronounceLessons(tx, { userId: user.id, languageId: language.id, autoPronounceLessons: false })).rejects.toThrow(AppError);
+      await expect(
+        saveLessonBatchSize(tx, {
+          userId: user.id,
+          languageId: language.id,
+          lessonBatchSize: 8,
+        }),
+      ).rejects.toThrow(AppError);
+      await expect(
+        saveAutoPronounceLessons(tx, {
+          userId: user.id,
+          languageId: language.id,
+          autoPronounceLessons: false,
+        }),
+      ).rejects.toThrow(AppError);
     });
   });
 });

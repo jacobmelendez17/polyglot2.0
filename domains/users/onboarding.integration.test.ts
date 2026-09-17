@@ -18,14 +18,23 @@ describe("completeOnboarding (spec 15)", () => {
   it("records a completion time for an account that has none", async () => {
     await withTestTransaction(async (tx) => {
       const { learnerId } = await seedTestFixtures(tx);
-      await tx.update(users).set({ onboardingCompletedAt: null }).where(eq(users.id, learnerId));
+      await tx
+        .update(users)
+        .set({ onboardingCompletedAt: null })
+        .where(eq(users.id, learnerId));
 
       const before = await findUserById(tx, learnerId);
       expect(before && isOnboardingRequired(before)).toBe(true);
 
-      const after = await completeOnboarding(tx, learnerId, new Date("2026-09-09T12:00:00Z"));
+      const after = await completeOnboarding(
+        tx,
+        learnerId,
+        new Date("2026-09-09T12:00:00Z"),
+      );
 
-      expect(after?.onboardingCompletedAt).toEqual(new Date("2026-09-09T12:00:00Z"));
+      expect(after?.onboardingCompletedAt).toEqual(
+        new Date("2026-09-09T12:00:00Z"),
+      );
       expect(after && isOnboardingRequired(after)).toBe(false);
     });
   });
@@ -33,7 +42,10 @@ describe("completeOnboarding (spec 15)", () => {
   it("is safe to call repeatedly — a second call never moves the recorded time", async () => {
     await withTestTransaction(async (tx) => {
       const { learnerId } = await seedTestFixtures(tx);
-      await tx.update(users).set({ onboardingCompletedAt: null }).where(eq(users.id, learnerId));
+      await tx
+        .update(users)
+        .set({ onboardingCompletedAt: null })
+        .where(eq(users.id, learnerId));
 
       const first = new Date("2026-09-09T12:00:00Z");
       const later = new Date("2026-09-10T12:00:00Z");
@@ -64,7 +76,11 @@ describe("completeOnboarding (spec 15)", () => {
   it("returns null for an account that does not exist rather than inventing one", async () => {
     await withTestTransaction(async (tx) => {
       await seedTestFixtures(tx);
-      const result = await completeOnboarding(tx, "00000000-0000-0000-0000-0000000000ff", new Date());
+      const result = await completeOnboarding(
+        tx,
+        "00000000-0000-0000-0000-0000000000ff",
+        new Date(),
+      );
       expect(result).toBeNull();
     });
   });

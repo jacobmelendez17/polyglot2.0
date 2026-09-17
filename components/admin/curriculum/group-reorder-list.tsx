@@ -45,7 +45,11 @@ export function GroupReorderList({ levelId, groups }: GroupReorderListProps) {
   function handleSaveOrder() {
     setError(null);
     startTransition(async () => {
-      const result = await reorderVocabularyGroupsAction({ levelId, orderedGroupIds: order, idempotencyKey: crypto.randomUUID() });
+      const result = await reorderVocabularyGroupsAction({
+        levelId,
+        orderedGroupIds: order,
+        idempotencyKey: crypto.randomUUID(),
+      });
       if (!result.ok) {
         setError(result.error.message);
         return;
@@ -55,7 +59,11 @@ export function GroupReorderList({ levelId, groups }: GroupReorderListProps) {
   }
 
   if (groups.length === 0) {
-    return <p className="text-sm text-muted-foreground">No vocabulary groups yet in this level.</p>;
+    return (
+      <p className="text-sm text-muted-foreground">
+        No vocabulary groups yet in this level.
+      </p>
+    );
   }
 
   return (
@@ -65,8 +73,14 @@ export function GroupReorderList({ levelId, groups }: GroupReorderListProps) {
           const group = byId.get(id);
           if (!group) return null;
           return (
-            <li key={id} className="flex items-center justify-between gap-3 px-4 py-3">
-              <Link href={`/admin/curriculum/groups/${id}`} className="min-w-0 flex-1 truncate text-sm font-medium text-foreground hover:underline">
+            <li
+              key={id}
+              className="flex items-center justify-between gap-3 px-4 py-3"
+            >
+              <Link
+                href={`/admin/curriculum/groups/${id}`}
+                className="min-w-0 flex-1 truncate text-sm font-medium text-foreground hover:underline"
+              >
                 {group.name}
               </Link>
               <CurriculumStatusBadge status={group.status} />

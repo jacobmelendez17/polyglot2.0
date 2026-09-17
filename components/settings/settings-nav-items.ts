@@ -26,6 +26,9 @@ export const SETTINGS_NAV_ITEMS: SettingsNavItem[] = [
 ];
 
 /** None of the Settings routes nest under one another, so a simple exact/prefix match is enough — no sibling-prefix disambiguation like Admin's Curriculum/Levels needs. */
-export function isSettingsNavItemCurrent(item: SettingsNavItem, pathname: string): boolean {
+export function isSettingsNavItemCurrent(
+  item: SettingsNavItem,
+  pathname: string,
+): boolean {
   return pathname === item.href || pathname.startsWith(`${item.href}/`);
 }

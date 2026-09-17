@@ -19,7 +19,9 @@ import { assertSafeE2EDatabaseUrl } from "@/db/test/db-safety-guard";
  * or the environment is production — the same guard `scripts/e2e-reset.ts`
  * uses.
  */
-export async function withE2EDb<T>(fn: (db: ReturnType<typeof drizzle<typeof schema>>) => Promise<T>): Promise<T> {
+export async function withE2EDb<T>(
+  fn: (db: ReturnType<typeof drizzle<typeof schema>>) => Promise<T>,
+): Promise<T> {
   const pool = new Pool({ connectionString: assertSafeE2EDatabaseUrl() });
   try {
     const db = drizzle(pool, { schema });

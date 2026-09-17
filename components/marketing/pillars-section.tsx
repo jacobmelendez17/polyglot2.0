@@ -14,8 +14,8 @@ export function PillarsSection() {
               Vocabulary
             </p>
             <p className="mt-3 text-muted-foreground">
-              Each level introduces 48 vocabulary items across four themed groups of twelve. Every
-              word gets its own item page.
+              Each level introduces 48 vocabulary items across four themed
+              groups of twelve. Every word gets its own item page.
             </p>
             <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
               <li>Meaning, article, and part of speech</li>
@@ -32,14 +32,20 @@ export function PillarsSection() {
               Grammar
             </p>
             <p className="mt-3 text-muted-foreground">
-              Each level also introduces 12 grammar points, taught and reviewed with the same
-              seriousness as vocabulary — not as supplementary reading.
+              Each level also introduces 12 grammar points, taught and reviewed
+              with the same seriousness as vocabulary — not as supplementary
+              reading.
             </p>
             <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
               <li>A plain-language explanation of the concept</li>
               <li>Example sentences showing it in use</li>
-              <li>Practice questions suited to the concept, like translation or word banks</li>
-              <li>Its own SRS review schedule, tracked separately from vocabulary</li>
+              <li>
+                Practice questions suited to the concept, like translation or
+                word banks
+              </li>
+              <li>
+                Its own SRS review schedule, tracked separately from vocabulary
+              </li>
             </ul>
           </div>
         </Reveal>

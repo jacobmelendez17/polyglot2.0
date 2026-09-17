@@ -5,7 +5,14 @@ import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { getAdminNavItems, isAdminNavItemCurrent } from "./admin-nav-items";
 
 type AdminMobileNavProps = {
@@ -21,7 +28,10 @@ type AdminMobileNavProps = {
  * below `sm:` and would hide this trigger too) so it stays reachable at
  * every viewport width the desktop sidebar itself is hidden at.
  */
-export function AdminMobileNav({ canManageCurriculum, canUseDeveloperTools }: AdminMobileNavProps) {
+export function AdminMobileNav({
+  canManageCurriculum,
+  canUseDeveloperTools,
+}: AdminMobileNavProps) {
   const pathname = usePathname();
   const items = getAdminNavItems(canManageCurriculum, canUseDeveloperTools);
 
@@ -43,10 +53,15 @@ export function AdminMobileNav({ canManageCurriculum, canUseDeveloperTools }: Ad
             <SheetClose asChild key={item.href}>
               <Link
                 href={item.href}
-                aria-current={isAdminNavItemCurrent(item, pathname, items) ? "page" : undefined}
+                aria-current={
+                  isAdminNavItemCurrent(item, pathname, items)
+                    ? "page"
+                    : undefined
+                }
                 className={cn(
                   "rounded-md px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted",
-                  isAdminNavItemCurrent(item, pathname, items) && "bg-muted font-semibold",
+                  isAdminNavItemCurrent(item, pathname, items) &&
+                    "bg-muted font-semibold",
                 )}
               >
                 {item.label}

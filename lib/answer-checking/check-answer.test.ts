@@ -4,11 +4,15 @@ import { checkAnswer } from "./check-answer";
 
 describe("checkAnswer", () => {
   it("accepts an exact match", () => {
-    expect(checkAnswer({ userAnswer: "cat", acceptedAnswers: ["cat"] })).toEqual({ isCorrect: true });
+    expect(
+      checkAnswer({ userAnswer: "cat", acceptedAnswers: ["cat"] }),
+    ).toEqual({ isCorrect: true });
   });
 
   it("is case and whitespace insensitive", () => {
-    expect(checkAnswer({ userAnswer: "  Cat  ", acceptedAnswers: ["cat"] })).toEqual({ isCorrect: true });
+    expect(
+      checkAnswer({ userAnswer: "  Cat  ", acceptedAnswers: ["cat"] }),
+    ).toEqual({ isCorrect: true });
   });
 
   it("does not erase meaningful diacritics", () => {
@@ -19,12 +23,17 @@ describe("checkAnswer", () => {
   });
 
   it("accepts any configured synonym", () => {
-    const result = checkAnswer({ userAnswer: "kitty", acceptedAnswers: ["cat", "kitty", "kitten"] });
+    const result = checkAnswer({
+      userAnswer: "kitty",
+      acceptedAnswers: ["cat", "kitty", "kitten"],
+    });
     expect(result).toEqual({ isCorrect: true });
   });
 
   it("tolerates a single-character typo on longer words", () => {
-    expect(checkAnswer({ userAnswer: "aprendr", acceptedAnswers: ["aprender"] })).toEqual({ isCorrect: true });
+    expect(
+      checkAnswer({ userAnswer: "aprendr", acceptedAnswers: ["aprender"] }),
+    ).toEqual({ isCorrect: true });
   });
 
   it("does not tolerate typos on short words", () => {
@@ -35,7 +44,9 @@ describe("checkAnswer", () => {
   });
 
   it("rejects an answer more than one edit away", () => {
-    expect(checkAnswer({ userAnswer: "aprnedar", acceptedAnswers: ["aprender"] })).toEqual({
+    expect(
+      checkAnswer({ userAnswer: "aprnedar", acceptedAnswers: ["aprender"] }),
+    ).toEqual({
       isCorrect: false,
       reason: "no_match",
     });
@@ -56,7 +67,11 @@ describe("checkAnswer", () => {
       acceptedAnswers: ["el gato"],
       articleRequirement: { article: "el", bareAnswers: ["gato"] },
     });
-    expect(result).toEqual({ isCorrect: false, reason: "missing_article", article: "el" });
+    expect(result).toEqual({
+      isCorrect: false,
+      reason: "missing_article",
+      article: "el",
+    });
   });
 
   it("does not require an article for Spanish to English (no articleRequirement passed)", () => {

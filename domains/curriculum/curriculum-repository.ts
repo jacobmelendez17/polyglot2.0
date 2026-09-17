@@ -36,7 +36,9 @@ import type {
 
 type LearningItemRow = typeof learningItems.$inferSelect;
 
-function toCurriculumLanguage(row: typeof languages.$inferSelect): CurriculumLanguage {
+function toCurriculumLanguage(
+  row: typeof languages.$inferSelect,
+): CurriculumLanguage {
   return { id: row.id, code: row.code, slug: row.slug, name: row.name };
 }
 
@@ -51,7 +53,9 @@ function toCurriculumLevel(row: typeof levels.$inferSelect): CurriculumLevel {
   };
 }
 
-function toCurriculumVocabularyGroup(row: typeof vocabularyGroups.$inferSelect): CurriculumVocabularyGroup {
+function toCurriculumVocabularyGroup(
+  row: typeof vocabularyGroups.$inferSelect,
+): CurriculumVocabularyGroup {
   return {
     id: row.id,
     levelId: row.levelId,
@@ -62,7 +66,9 @@ function toCurriculumVocabularyGroup(row: typeof vocabularyGroups.$inferSelect):
   };
 }
 
-function toCurriculumVocabularyDetail(row: typeof vocabularyItems.$inferSelect): CurriculumVocabularyDetail {
+function toCurriculumVocabularyDetail(
+  row: typeof vocabularyItems.$inferSelect,
+): CurriculumVocabularyDetail {
   return {
     vocabularyGroupId: row.vocabularyGroupId,
     term: row.term,
@@ -79,7 +85,9 @@ function toCurriculumVocabularyDetail(row: typeof vocabularyItems.$inferSelect):
   };
 }
 
-function toCurriculumGrammarDetail(row: typeof grammarItems.$inferSelect): CurriculumGrammarDetail {
+function toCurriculumGrammarDetail(
+  row: typeof grammarItems.$inferSelect,
+): CurriculumGrammarDetail {
   return {
     title: row.title,
     structure: row.structure,
@@ -98,7 +106,10 @@ function toCurriculumGrammarDetail(row: typeof grammarItems.$inferSelect): Curri
  * consumer yet); worth batching if `getLevelItems` ever backs a real,
  * performance-sensitive page.
  */
-async function attachDetail(db: DbClient, item: LearningItemRow): Promise<CurriculumLearningItem> {
+async function attachDetail(
+  db: DbClient,
+  item: LearningItemRow,
+): Promise<CurriculumLearningItem> {
   const base = {
     id: item.id,
     languageId: item.languageId,
@@ -116,41 +127,87 @@ async function attachDetail(db: DbClient, item: LearningItemRow): Promise<Curric
       .where(eq(vocabularyItems.learningItemId, item.id))
       .limit(1);
     if (!detail) {
-      throw new Error(`Data integrity error: learning item ${item.id} is type "vocabulary" with no vocabulary_items row.`);
+      throw new Error(
+        `Data integrity error: learning item ${item.id} is type "vocabulary" with no vocabulary_items row.`,
+      );
     }
-    return { ...base, type: "vocabulary", vocabulary: toCurriculumVocabularyDetail(detail) };
+    return {
+      ...base,
+      type: "vocabulary",
+      vocabulary: toCurriculumVocabularyDetail(detail),
+    };
   }
 
-  const [detail] = await db.select().from(grammarItems).where(eq(grammarItems.learningItemId, item.id)).limit(1);
+  const [detail] = await db
+    .select()
+    .from(grammarItems)
+    .where(eq(grammarItems.learningItemId, item.id))
+    .limit(1);
   if (!detail) {
-    throw new Error(`Data integrity error: learning item ${item.id} is type "grammar" with no grammar_items row.`);
+    throw new Error(
+      `Data integrity error: learning item ${item.id} is type "grammar" with no grammar_items row.`,
+    );
   }
-  return { ...base, type: "grammar", grammar: toCurriculumGrammarDetail(detail) };
+  return {
+    ...base,
+    type: "grammar",
+    grammar: toCurriculumGrammarDetail(detail),
+  };
 }
 
-export async function getLanguageByCode(db: DbClient, code: string): Promise<CurriculumLanguage | null> {
-  const [row] = await db.select().from(languages).where(eq(languages.code, code)).limit(1);
+export async function getLanguageByCode(
+  db: DbClient,
+  code: string,
+): Promise<CurriculumLanguage | null> {
+  const [row] = await db
+    .select()
+    .from(languages)
+    .where(eq(languages.code, code))
+    .limit(1);
   return row ? toCurriculumLanguage(row) : null;
 }
 
-export async function getLanguageById(db: DbClient, id: string): Promise<CurriculumLanguage | null> {
-  const [row] = await db.select().from(languages).where(eq(languages.id, id)).limit(1);
+export async function getLanguageById(
+  db: DbClient,
+  id: string,
+): Promise<CurriculumLanguage | null> {
+  const [row] = await db
+    .select()
+    .from(languages)
+    .where(eq(languages.id, id))
+    .limit(1);
   return row ? toCurriculumLanguage(row) : null;
 }
 
 /** Every configured language (spec 11 §10's Language filter dropdown). Small, unbounded table — no pagination needed. */
-export async function getLanguages(db: DbClient): Promise<CurriculumLanguage[]> {
+export async function getLanguages(
+  db: DbClient,
+): Promise<CurriculumLanguage[]> {
   const rows = await db.select().from(languages).orderBy(asc(languages.name));
   return rows.map(toCurriculumLanguage);
 }
 
-export async function getLevelById(db: DbClient, levelId: string): Promise<CurriculumLevel | null> {
-  const [row] = await db.select().from(levels).where(eq(levels.id, levelId)).limit(1);
+export async function getLevelById(
+  db: DbClient,
+  levelId: string,
+): Promise<CurriculumLevel | null> {
+  const [row] = await db
+    .select()
+    .from(levels)
+    .where(eq(levels.id, levelId))
+    .limit(1);
   return row ? toCurriculumLevel(row) : null;
 }
 
-export async function getLevelsByLanguage(db: DbClient, languageId: string): Promise<CurriculumLevel[]> {
-  const rows = await db.select().from(levels).where(eq(levels.languageId, languageId)).orderBy(asc(levels.levelNumber));
+export async function getLevelsByLanguage(
+  db: DbClient,
+  languageId: string,
+): Promise<CurriculumLevel[]> {
+  const rows = await db
+    .select()
+    .from(levels)
+    .where(eq(levels.languageId, languageId))
+    .orderBy(asc(levels.levelNumber));
   return rows.map(toCurriculumLevel);
 }
 
@@ -183,7 +240,10 @@ export async function getLevelsByLanguage(db: DbClient, languageId: string): Pro
  * itself, matching every other cross-domain read in this file (progress
  * enrollment, level unlocks) being passed in rather than looked up here.
  */
-export type CurriculumVisibility = { includeUnpublished?: boolean; includeNsfw?: boolean };
+export type CurriculumVisibility = {
+  includeUnpublished?: boolean;
+  includeNsfw?: boolean;
+};
 
 const PUBLISHED = "published" as const;
 const SAFE = "safe" as const;
@@ -208,13 +268,23 @@ export async function getLevelByLanguageAndNumber(
   return row ? toCurriculumLevel(row) : null;
 }
 
-export async function getVocabularyGroup(db: DbClient, id: string): Promise<CurriculumVocabularyGroup | null> {
-  const [row] = await db.select().from(vocabularyGroups).where(eq(vocabularyGroups.id, id)).limit(1);
+export async function getVocabularyGroup(
+  db: DbClient,
+  id: string,
+): Promise<CurriculumVocabularyGroup | null> {
+  const [row] = await db
+    .select()
+    .from(vocabularyGroups)
+    .where(eq(vocabularyGroups.id, id))
+    .limit(1);
   return row ? toCurriculumVocabularyGroup(row) : null;
 }
 
 /** Every vocabulary group in one language, ordered by level then position (spec 11 §10's Group filter dropdown). */
-export async function getVocabularyGroupsByLanguage(db: DbClient, languageId: string): Promise<CurriculumVocabularyGroup[]> {
+export async function getVocabularyGroupsByLanguage(
+  db: DbClient,
+  languageId: string,
+): Promise<CurriculumVocabularyGroup[]> {
   const rows = await db
     .select()
     .from(vocabularyGroups)
@@ -223,8 +293,15 @@ export async function getVocabularyGroupsByLanguage(db: DbClient, languageId: st
   return rows.map(toCurriculumVocabularyGroup);
 }
 
-export async function getLearningItem(db: DbClient, id: string): Promise<CurriculumLearningItem | null> {
-  const [item] = await db.select().from(learningItems).where(eq(learningItems.id, id)).limit(1);
+export async function getLearningItem(
+  db: DbClient,
+  id: string,
+): Promise<CurriculumLearningItem | null> {
+  const [item] = await db
+    .select()
+    .from(learningItems)
+    .where(eq(learningItems.id, id))
+    .limit(1);
   return item ? attachDetail(db, item) : null;
 }
 
@@ -241,7 +318,10 @@ export async function getLearningItem(db: DbClient, id: string): Promise<Curricu
 export async function getLevelItems(
   db: DbClient,
   levelId: string,
-  { includeUnpublished = false, includeNsfw = false }: CurriculumVisibility = {},
+  {
+    includeUnpublished = false,
+    includeNsfw = false,
+  }: CurriculumVisibility = {},
 ): Promise<CurriculumLearningItem[]> {
   const rows = await db
     .select({ id: learningItems.id })
@@ -254,7 +334,10 @@ export async function getLevelItems(
       ),
     )
     .orderBy(asc(learningItems.position));
-  return getLearningItemsByIds(db, rows.map((row) => row.id));
+  return getLearningItemsByIds(
+    db,
+    rows.map((row) => row.id),
+  );
 }
 
 /**
@@ -267,24 +350,44 @@ export async function getLevelItems(
  * input `ids`, silently dropping any id that no longer resolves — callers
  * that need to detect a missing id compare lengths themselves.
  */
-export async function getLearningItemsByIds(db: DbClient, ids: string[]): Promise<CurriculumLearningItem[]> {
+export async function getLearningItemsByIds(
+  db: DbClient,
+  ids: string[],
+): Promise<CurriculumLearningItem[]> {
   if (ids.length === 0) return [];
 
-  const items = await db.select().from(learningItems).where(inArray(learningItems.id, ids));
-  const vocabularyItemIds = items.filter((item) => item.type === "vocabulary").map((item) => item.id);
-  const grammarItemIds = items.filter((item) => item.type === "grammar").map((item) => item.id);
+  const items = await db
+    .select()
+    .from(learningItems)
+    .where(inArray(learningItems.id, ids));
+  const vocabularyItemIds = items
+    .filter((item) => item.type === "vocabulary")
+    .map((item) => item.id);
+  const grammarItemIds = items
+    .filter((item) => item.type === "grammar")
+    .map((item) => item.id);
 
   const [vocabularyDetails, grammarDetails] = await Promise.all([
     vocabularyItemIds.length > 0
-      ? db.select().from(vocabularyItems).where(inArray(vocabularyItems.learningItemId, vocabularyItemIds))
+      ? db
+          .select()
+          .from(vocabularyItems)
+          .where(inArray(vocabularyItems.learningItemId, vocabularyItemIds))
       : Promise.resolve([]),
     grammarItemIds.length > 0
-      ? db.select().from(grammarItems).where(inArray(grammarItems.learningItemId, grammarItemIds))
+      ? db
+          .select()
+          .from(grammarItems)
+          .where(inArray(grammarItems.learningItemId, grammarItemIds))
       : Promise.resolve([]),
   ]);
 
-  const vocabularyById = new Map(vocabularyDetails.map((detail) => [detail.learningItemId, detail]));
-  const grammarById = new Map(grammarDetails.map((detail) => [detail.learningItemId, detail]));
+  const vocabularyById = new Map(
+    vocabularyDetails.map((detail) => [detail.learningItemId, detail]),
+  );
+  const grammarById = new Map(
+    grammarDetails.map((detail) => [detail.learningItemId, detail]),
+  );
   const itemById = new Map(items.map((item) => [item.id, item]));
 
   const results: CurriculumLearningItem[] = [];
@@ -305,15 +408,27 @@ export async function getLearningItemsByIds(db: DbClient, ids: string[]): Promis
     if (item.type === "vocabulary") {
       const detail = vocabularyById.get(item.id);
       if (!detail) {
-        throw new Error(`Data integrity error: learning item ${item.id} is type "vocabulary" with no vocabulary_items row.`);
+        throw new Error(
+          `Data integrity error: learning item ${item.id} is type "vocabulary" with no vocabulary_items row.`,
+        );
       }
-      results.push({ ...base, type: "vocabulary", vocabulary: toCurriculumVocabularyDetail(detail) });
+      results.push({
+        ...base,
+        type: "vocabulary",
+        vocabulary: toCurriculumVocabularyDetail(detail),
+      });
     } else {
       const detail = grammarById.get(item.id);
       if (!detail) {
-        throw new Error(`Data integrity error: learning item ${item.id} is type "grammar" with no grammar_items row.`);
+        throw new Error(
+          `Data integrity error: learning item ${item.id} is type "grammar" with no grammar_items row.`,
+        );
       }
-      results.push({ ...base, type: "grammar", grammar: toCurriculumGrammarDetail(detail) });
+      results.push({
+        ...base,
+        type: "grammar",
+        grammar: toCurriculumGrammarDetail(detail),
+      });
     }
   }
 
@@ -329,12 +444,24 @@ export async function getLearningItemsByIds(db: DbClient, ids: string[]): Promis
  * own examples; not shared code, since the two live in different domains, but
  * kept deliberately identical in shape.
  */
-export async function getLearningItemExamples(db: DbClient, learningItemId: string): Promise<CurriculumExampleSentence[]> {
+export async function getLearningItemExamples(
+  db: DbClient,
+  learningItemId: string,
+): Promise<CurriculumExampleSentence[]> {
   return db
-    .select({ id: sentences.id, targetText: sentences.targetText, translation: sentences.translation })
+    .select({
+      id: sentences.id,
+      targetText: sentences.targetText,
+      translation: sentences.translation,
+    })
     .from(learningItemSentences)
     .innerJoin(sentences, eq(sentences.id, learningItemSentences.sentenceId))
-    .where(and(eq(learningItemSentences.learningItemId, learningItemId), eq(sentences.status, "published")))
+    .where(
+      and(
+        eq(learningItemSentences.learningItemId, learningItemId),
+        eq(sentences.status, "published"),
+      ),
+    )
     .orderBy(asc(learningItemSentences.position));
 }
 
@@ -344,9 +471,16 @@ export async function getLearningItemExamples(db: DbClient, learningItemId: stri
  * Cloze presentation needs this direct lookup rather than re-searching a
  * whole item's example list the way `findCompatibleClozeSentence` does.
  */
-export async function getSentenceById(db: DbClient, sentenceId: string): Promise<CurriculumExampleSentence | null> {
+export async function getSentenceById(
+  db: DbClient,
+  sentenceId: string,
+): Promise<CurriculumExampleSentence | null> {
   const [row] = await db
-    .select({ id: sentences.id, targetText: sentences.targetText, translation: sentences.translation })
+    .select({
+      id: sentences.id,
+      targetText: sentences.targetText,
+      translation: sentences.translation,
+    })
     .from(sentences)
     .where(eq(sentences.id, sentenceId))
     .limit(1);
@@ -365,7 +499,10 @@ export async function getSentenceById(db: DbClient, sentenceId: string): Promise
  * integrity error worth surfacing — not a block to quietly hide from a
  * learner.
  */
-export async function getGrammarContentBlocks(db: DbClient, learningItemId: string): Promise<CurriculumGrammarContentBlock[]> {
+export async function getGrammarContentBlocks(
+  db: DbClient,
+  learningItemId: string,
+): Promise<CurriculumGrammarContentBlock[]> {
   const rows = await db
     .select()
     .from(grammarContentBlocks)
@@ -375,19 +512,37 @@ export async function getGrammarContentBlocks(db: DbClient, learningItemId: stri
   return rows.map((row) => {
     if (row.type === "example") {
       if (row.targetText === null || row.translation === null) {
-        throw new Error(`Data integrity error: grammar content block ${row.id} is type "example" with no target text or translation.`);
+        throw new Error(
+          `Data integrity error: grammar content block ${row.id} is type "example" with no target text or translation.`,
+        );
       }
-      return { id: row.id, position: row.position, type: "example", targetText: row.targetText, translation: row.translation };
+      return {
+        id: row.id,
+        position: row.position,
+        type: "example",
+        targetText: row.targetText,
+        translation: row.translation,
+      };
     }
     if (row.body === null) {
-      throw new Error(`Data integrity error: grammar content block ${row.id} is type "${row.type}" with no body.`);
+      throw new Error(
+        `Data integrity error: grammar content block ${row.id} is type "${row.type}" with no body.`,
+      );
     }
-    return { id: row.id, position: row.position, type: row.type, body: row.body };
+    return {
+      id: row.id,
+      position: row.position,
+      type: row.type,
+      body: row.body,
+    };
   });
 }
 
 /** An item's admin-authored external resources in display order. */
-export async function getItemResources(db: DbClient, learningItemId: string): Promise<CurriculumItemResource[]> {
+export async function getItemResources(
+  db: DbClient,
+  learningItemId: string,
+): Promise<CurriculumItemResource[]> {
   return db
     .select({
       id: learningItemResources.id,
@@ -420,7 +575,13 @@ export async function getSiblingItemIds(
     const rows = await db
       .select({ id: learningItems.id })
       .from(learningItems)
-      .where(and(eq(learningItems.levelId, item.levelId), eq(learningItems.type, "grammar"), eq(learningItems.status, PUBLISHED)))
+      .where(
+        and(
+          eq(learningItems.levelId, item.levelId),
+          eq(learningItems.type, "grammar"),
+          eq(learningItems.status, PUBLISHED),
+        ),
+      )
       .orderBy(asc(learningItems.position));
     return rows.map((row) => row.id);
   }
@@ -430,8 +591,16 @@ export async function getSiblingItemIds(
   const rows = await db
     .select({ id: learningItems.id })
     .from(learningItems)
-    .innerJoin(vocabularyItems, eq(vocabularyItems.learningItemId, learningItems.id))
-    .where(and(eq(vocabularyItems.vocabularyGroupId, vocabularyGroupId), eq(learningItems.status, PUBLISHED)))
+    .innerJoin(
+      vocabularyItems,
+      eq(vocabularyItems.learningItemId, learningItems.id),
+    )
+    .where(
+      and(
+        eq(vocabularyItems.vocabularyGroupId, vocabularyGroupId),
+        eq(learningItems.status, PUBLISHED),
+      ),
+    )
     .orderBy(asc(learningItems.position));
   return rows.map((row) => row.id);
 }

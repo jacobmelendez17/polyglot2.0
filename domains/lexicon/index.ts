@@ -12,7 +12,11 @@
  * Decisions and Environment Notes).
  */
 
-export { normalizeLexicalForm, normalizePartOfSpeech, isMultiwordForm } from "./lexical-normalization";
+export {
+  normalizeLexicalForm,
+  normalizePartOfSpeech,
+  isMultiwordForm,
+} from "./lexical-normalization";
 export {
   composeVocabularyDisplayWord,
   defaultLexicalProvider,
@@ -20,7 +24,10 @@ export {
   spanishLexicalProvider,
 } from "./lexical-language-provider";
 export { baseLanguageSubtag } from "@/lib/language-code";
-export type { GrammaticalGender, LexicalLanguageProvider } from "./lexical-language-provider";
+export type {
+  GrammaticalGender,
+  LexicalLanguageProvider,
+} from "./lexical-language-provider";
 
 export { resolveDictionaryMatch } from "./lexicon-matching";
 export type {
@@ -72,11 +79,18 @@ export type {
   VocabularyDictionaryMapping,
 } from "./lexicon-types";
 
-export { resolveConfirmedDictionaryFields, resolveVocabularyPresentation } from "./lexicon-read-model";
+export {
+  resolveConfirmedDictionaryFields,
+  resolveVocabularyPresentation,
+} from "./lexicon-read-model";
 export type {
   ResolvedVocabularyPresentation,
   VocabularyDetail,
   VocabularyDetailCurriculum,
   VocabularyDetailDictionary,
 } from "./lexicon-read-model";
-export type { MappingQueueFilters, MappingQueuePage, MappingQueueRow } from "./lexicon-repository";
+export type {
+  MappingQueueFilters,
+  MappingQueuePage,
+  MappingQueueRow,
+} from "./lexicon-repository";

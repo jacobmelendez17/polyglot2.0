@@ -35,18 +35,25 @@ import type { SrsStage } from "@/domains/srs";
  */
 async function main() {
   const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) throw new Error("DATABASE_URL is required. Set it in .env.local.");
+  if (!databaseUrl)
+    throw new Error("DATABASE_URL is required. Set it in .env.local.");
 
   const pool = new Pool({ connectionString: databaseUrl });
   const db = drizzle(pool, { schema });
 
   const progressRows = await db.select().from(userItemProgress);
-  console.log(`Backfilling ${progressRows.length} user_item_progress row(s)...`);
+  console.log(
+    `Backfilling ${progressRows.length} user_item_progress row(s)...`,
+  );
 
   let updated = 0;
   for (const progress of progressRows) {
     const events = await db
-      .select({ stageBefore: reviewEvents.stageBefore, stageAfter: reviewEvents.stageAfter, result: reviewEvents.result })
+      .select({
+        stageBefore: reviewEvents.stageBefore,
+        stageAfter: reviewEvents.stageAfter,
+        result: reviewEvents.result,
+      })
       .from(reviewEvents)
       .where(eq(reviewEvents.learningItemId, progress.learningItemId))
       .orderBy(asc(reviewEvents.reviewedAt));
@@ -55,15 +62,27 @@ async function main() {
     let currentCorrectStreak = 0;
 
     for (const event of events) {
-      if (getStageIndex(event.stageBefore) > getStageIndex(highestSrsStageReached)) highestSrsStageReached = event.stageBefore;
-      if (getStageIndex(event.stageAfter) > getStageIndex(highestSrsStageReached)) highestSrsStageReached = event.stageAfter;
-      currentCorrectStreak = event.result === "advanced" ? currentCorrectStreak + 1 : 0;
+      if (
+        getStageIndex(event.stageBefore) > getStageIndex(highestSrsStageReached)
+      )
+        highestSrsStageReached = event.stageBefore;
+      if (
+        getStageIndex(event.stageAfter) > getStageIndex(highestSrsStageReached)
+      )
+        highestSrsStageReached = event.stageAfter;
+      currentCorrectStreak =
+        event.result === "advanced" ? currentCorrectStreak + 1 : 0;
     }
 
     await db
       .update(userItemProgress)
       .set({ currentCorrectStreak, highestSrsStageReached })
-      .where(and(eq(userItemProgress.userId, progress.userId), eq(userItemProgress.learningItemId, progress.learningItemId)));
+      .where(
+        and(
+          eq(userItemProgress.userId, progress.userId),
+          eq(userItemProgress.learningItemId, progress.learningItemId),
+        ),
+      );
     updated += 1;
     console.log(
       `  user=${progress.userId} item=${progress.learningItemId}: currentCorrectStreak=${currentCorrectStreak}, highestSrsStageReached=${highestSrsStageReached} (from ${events.length} review event(s))`,

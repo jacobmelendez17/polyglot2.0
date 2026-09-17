@@ -22,17 +22,28 @@ describe("LevelsDropdown", () => {
 
     await user.click(screen.getByRole("button", { name: "Levels" }));
 
-    const levelLinks = screen.getAllByRole("link").filter((el) => /^\/levels\/\d+$/.test(el.getAttribute("href") ?? ""));
+    const levelLinks = screen
+      .getAllByRole("link")
+      .filter((el) => /^\/levels\/\d+$/.test(el.getAttribute("href") ?? ""));
     expect(levelLinks).toHaveLength(50);
-    expect(screen.getByRole("link", { name: "1" })).toHaveAttribute("href", "/levels/1");
-    expect(screen.getByRole("link", { name: "50" })).toHaveAttribute("href", "/levels/50");
+    expect(screen.getByRole("link", { name: "1" })).toHaveAttribute(
+      "href",
+      "/levels/1",
+    );
+    expect(screen.getByRole("link", { name: "50" })).toHaveAttribute(
+      "href",
+      "/levels/50",
+    );
   });
 
   it("Level 12 points to /levels/12", async () => {
     const user = userEvent.setup();
     render(<LevelsDropdown />);
     await user.click(screen.getByRole("button", { name: "Levels" }));
-    expect(screen.getByRole("link", { name: "12" })).toHaveAttribute("href", "/levels/12");
+    expect(screen.getByRole("link", { name: "12" })).toHaveAttribute(
+      "href",
+      "/levels/12",
+    );
   });
 
   it("closes on Escape", async () => {

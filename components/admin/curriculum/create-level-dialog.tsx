@@ -4,7 +4,15 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 
 import { createLevelAction } from "@/app/(admin)/admin/curriculum/actions";
@@ -53,17 +61,30 @@ export function CreateLevelDialog({ languageId }: CreateLevelDialogProps) {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Add a level</DialogTitle>
-          <DialogDescription>New levels start Draft until their curriculum is built out and published.</DialogDescription>
+          <DialogDescription>
+            New levels start Draft until their curriculum is built out and
+            published.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3">
           <label className="block text-sm">
             <span className="font-medium text-foreground">Level number</span>
-            <Input className="mt-1" type="number" min={1} value={levelNumber} onChange={(e) => setLevelNumber(e.target.value)} />
+            <Input
+              className="mt-1"
+              type="number"
+              min={1}
+              value={levelNumber}
+              onChange={(e) => setLevelNumber(e.target.value)}
+            />
           </label>
           <label className="block text-sm">
             <span className="font-medium text-foreground">Name (optional)</span>
-            <Input className="mt-1" value={name} onChange={(e) => setName(e.target.value)} />
+            <Input
+              className="mt-1"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
           </label>
         </div>
 

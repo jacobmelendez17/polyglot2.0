@@ -1,11 +1,16 @@
-import type { CheckAnswerInput, CheckAnswerResult } from "./answer-checking-types";
+import type {
+  CheckAnswerInput,
+  CheckAnswerResult,
+} from "./answer-checking-types";
 import { normalizeForComparison as normalize } from "./normalize";
 
 /** Levenshtein edit distance, used only to tolerate minor typos. */
 function editDistance(a: string, b: string): number {
   const rows = a.length + 1;
   const cols = b.length + 1;
-  const distances: number[][] = Array.from({ length: rows }, () => new Array<number>(cols).fill(0));
+  const distances: number[][] = Array.from({ length: rows }, () =>
+    new Array<number>(cols).fill(0),
+  );
 
   for (let i = 0; i < rows; i++) distances[i][0] = i;
   for (let j = 0; j < cols; j++) distances[0][j] = j;
@@ -50,13 +55,21 @@ export function checkAnswer({
   acceptedAnswers,
   articleRequirement,
 }: CheckAnswerInput): CheckAnswerResult {
-  const isCorrect = acceptedAnswers.some((accepted) => matches(userAnswer, accepted));
+  const isCorrect = acceptedAnswers.some((accepted) =>
+    matches(userAnswer, accepted),
+  );
   if (isCorrect) return { isCorrect: true };
 
   if (articleRequirement) {
-    const matchedBareForm = articleRequirement.bareAnswers.some((bare) => matches(userAnswer, bare));
+    const matchedBareForm = articleRequirement.bareAnswers.some((bare) =>
+      matches(userAnswer, bare),
+    );
     if (matchedBareForm) {
-      return { isCorrect: false, reason: "missing_article", article: articleRequirement.article };
+      return {
+        isCorrect: false,
+        reason: "missing_article",
+        article: articleRequirement.article,
+      };
     }
   }
 

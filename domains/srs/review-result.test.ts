@@ -9,24 +9,47 @@ const STRICTNESS: SrsStrictness = "one_stage"; // irrelevant to the all-correct 
 describe("calculateReviewStageResult — all-correct advancement (unaffected by SRS Strictness)", () => {
   it("advances exactly one stage when nothing was incorrect", () => {
     expect(
-      calculateReviewStageResult({ stage: "beginner_1", hadIncorrectRequiredAnswer: false, srsStrictness: STRICTNESS }),
-    ).toEqual({ stage: "beginner_2", result: "advanced", reachedFluent: false });
+      calculateReviewStageResult({
+        stage: "beginner_1",
+        hadIncorrectRequiredAnswer: false,
+        srsStrictness: STRICTNESS,
+      }),
+    ).toEqual({
+      stage: "beginner_2",
+      result: "advanced",
+      reachedFluent: false,
+    });
 
     expect(
-      calculateReviewStageResult({ stage: "familiar_2", hadIncorrectRequiredAnswer: false, srsStrictness: STRICTNESS }),
-    ).toEqual({ stage: "intermediate", result: "advanced", reachedFluent: false });
+      calculateReviewStageResult({
+        stage: "familiar_2",
+        hadIncorrectRequiredAnswer: false,
+        srsStrictness: STRICTNESS,
+      }),
+    ).toEqual({
+      stage: "intermediate",
+      result: "advanced",
+      reachedFluent: false,
+    });
   });
 
   it("Fluent completion — advancing from Master reaches Fluent and reports it", () => {
     expect(
-      calculateReviewStageResult({ stage: "master", hadIncorrectRequiredAnswer: false, srsStrictness: STRICTNESS }),
+      calculateReviewStageResult({
+        stage: "master",
+        hadIncorrectRequiredAnswer: false,
+        srsStrictness: STRICTNESS,
+      }),
     ).toEqual({ stage: "fluent", result: "advanced", reachedFluent: true });
   });
 
   it("advancing from a stage that is not about to reach Fluent does not report it", () => {
     expect(
-      calculateReviewStageResult({ stage: "intermediate", hadIncorrectRequiredAnswer: false, srsStrictness: STRICTNESS })
-        .reachedFluent,
+      calculateReviewStageResult({
+        stage: "intermediate",
+        hadIncorrectRequiredAnswer: false,
+        srsStrictness: STRICTNESS,
+      }).reachedFluent,
     ).toBe(false);
   });
 
@@ -36,15 +59,37 @@ describe("calculateReviewStageResult — all-correct advancement (unaffected by 
     // without the explicit `stage !== "fluent"` check — regression coverage
     // for that exact bug, only observable once Fluent Mode's maintenance
     // loop lets a correct review happen again at Fluent at all.
-    const result = calculateReviewStageResult({ stage: "fluent", hadIncorrectRequiredAnswer: false, srsStrictness: STRICTNESS });
-    expect(result).toEqual({ stage: "fluent", result: "advanced", reachedFluent: false });
+    const result = calculateReviewStageResult({
+      stage: "fluent",
+      hadIncorrectRequiredAnswer: false,
+      srsStrictness: STRICTNESS,
+    });
+    expect(result).toEqual({
+      stage: "fluent",
+      result: "advanced",
+      reachedFluent: false,
+    });
   });
 
   it("correct advancement is identical no matter which strictness is configured", () => {
-    const strictnesses: SrsStrictness[] = ["one_stage", "two_stages", "three_stages", "half", "full"];
+    const strictnesses: SrsStrictness[] = [
+      "one_stage",
+      "two_stages",
+      "three_stages",
+      "half",
+      "full",
+    ];
     for (const srsStrictness of strictnesses) {
-      const result = calculateReviewStageResult({ stage: "familiar_1", hadIncorrectRequiredAnswer: false, srsStrictness });
-      expect(result).toEqual({ stage: "familiar_2", result: "advanced", reachedFluent: false });
+      const result = calculateReviewStageResult({
+        stage: "familiar_1",
+        hadIncorrectRequiredAnswer: false,
+        srsStrictness,
+      });
+      expect(result).toEqual({
+        stage: "familiar_2",
+        result: "advanced",
+        reachedFluent: false,
+      });
     }
   });
 });
@@ -63,12 +108,24 @@ describe("calculateReviewStageResult — SRS Strictness: 1 Stage (the new Polygl
   ];
 
   it.each(cases)("%s + incorrect -> %s", (stage, expected) => {
-    const result = calculateReviewStageResult({ stage, hadIncorrectRequiredAnswer: true, srsStrictness: "one_stage" });
-    expect(result).toEqual({ stage: expected, result: "penalized", reachedFluent: false });
+    const result = calculateReviewStageResult({
+      stage,
+      hadIncorrectRequiredAnswer: true,
+      srsStrictness: "one_stage",
+    });
+    expect(result).toEqual({
+      stage: expected,
+      result: "penalized",
+      reachedFluent: false,
+    });
   });
 
   it("both required vocabulary directions incorrect still costs exactly one stage — hadIncorrectRequiredAnswer is a boolean, not a count", () => {
-    const result = calculateReviewStageResult({ stage: "beginner_3", hadIncorrectRequiredAnswer: true, srsStrictness: "one_stage" });
+    const result = calculateReviewStageResult({
+      stage: "beginner_3",
+      hadIncorrectRequiredAnswer: true,
+      srsStrictness: "one_stage",
+    });
     expect(result.stage).toBe("beginner_2");
   });
 });
@@ -84,8 +141,16 @@ describe("calculateReviewStageResult — SRS Strictness: 2 Stages", () => {
   ];
 
   it.each(cases)("%s + incorrect -> %s", (stage, expected) => {
-    const result = calculateReviewStageResult({ stage, hadIncorrectRequiredAnswer: true, srsStrictness: "two_stages" });
-    expect(result).toEqual({ stage: expected, result: "penalized", reachedFluent: false });
+    const result = calculateReviewStageResult({
+      stage,
+      hadIncorrectRequiredAnswer: true,
+      srsStrictness: "two_stages",
+    });
+    expect(result).toEqual({
+      stage: expected,
+      result: "penalized",
+      reachedFluent: false,
+    });
   });
 });
 
@@ -99,19 +164,35 @@ describe("calculateReviewStageResult — SRS Strictness: 3 Stages", () => {
   ];
 
   it.each(cases)("%s + incorrect -> %s", (stage, expected) => {
-    const result = calculateReviewStageResult({ stage, hadIncorrectRequiredAnswer: true, srsStrictness: "three_stages" });
-    expect(result).toEqual({ stage: expected, result: "penalized", reachedFluent: false });
+    const result = calculateReviewStageResult({
+      stage,
+      hadIncorrectRequiredAnswer: true,
+      srsStrictness: "three_stages",
+    });
+    expect(result).toEqual({
+      stage: expected,
+      result: "penalized",
+      reachedFluent: false,
+    });
   });
 });
 
 describe("calculateReviewStageResult — SRS Strictness: Half (spec's own worked examples)", () => {
   it("Master (position 8) -> floor(8/2) = 4 -> Beginner 4", () => {
-    const result = calculateReviewStageResult({ stage: "master", hadIncorrectRequiredAnswer: true, srsStrictness: "half" });
+    const result = calculateReviewStageResult({
+      stage: "master",
+      hadIncorrectRequiredAnswer: true,
+      srsStrictness: "half",
+    });
     expect(result.stage).toBe("beginner_4");
   });
 
   it("Familiar 1 (position 5) -> floor(5/2) = 2 -> Beginner 2", () => {
-    const result = calculateReviewStageResult({ stage: "familiar_1", hadIncorrectRequiredAnswer: true, srsStrictness: "half" });
+    const result = calculateReviewStageResult({
+      stage: "familiar_1",
+      hadIncorrectRequiredAnswer: true,
+      srsStrictness: "half",
+    });
     expect(result.stage).toBe("beginner_2");
   });
 
@@ -126,25 +207,62 @@ describe("calculateReviewStageResult — SRS Strictness: Half (spec's own worked
   ];
 
   it.each(cases)("%s + incorrect -> %s", (stage, expected) => {
-    const result = calculateReviewStageResult({ stage, hadIncorrectRequiredAnswer: true, srsStrictness: "half" });
-    expect(result).toEqual({ stage: expected, result: "penalized", reachedFluent: false });
+    const result = calculateReviewStageResult({
+      stage,
+      hadIncorrectRequiredAnswer: true,
+      srsStrictness: "half",
+    });
+    expect(result).toEqual({
+      stage: expected,
+      result: "penalized",
+      reachedFluent: false,
+    });
   });
 });
 
 describe("calculateReviewStageResult — SRS Strictness: Full", () => {
-  const stages: SrsStage[] = ["beginner_1", "beginner_4", "familiar_1", "familiar_2", "intermediate", "master", "fluent"];
+  const stages: SrsStage[] = [
+    "beginner_1",
+    "beginner_4",
+    "familiar_1",
+    "familiar_2",
+    "intermediate",
+    "master",
+    "fluent",
+  ];
 
-  it.each(stages)("%s + incorrect -> Beginner 1, always, never Beginner 0", (stage) => {
-    const result = calculateReviewStageResult({ stage, hadIncorrectRequiredAnswer: true, srsStrictness: "full" });
-    expect(result).toEqual({ stage: "beginner_1", result: "penalized", reachedFluent: false });
-  });
+  it.each(stages)(
+    "%s + incorrect -> Beginner 1, always, never Beginner 0",
+    (stage) => {
+      const result = calculateReviewStageResult({
+        stage,
+        hadIncorrectRequiredAnswer: true,
+        srsStrictness: "full",
+      });
+      expect(result).toEqual({
+        stage: "beginner_1",
+        result: "penalized",
+        reachedFluent: false,
+      });
+    },
+  );
 });
 
 describe("calculateReviewStageResult — an incorrect item does not also advance before the penalty is applied", () => {
   it("under every strictness level", () => {
-    const strictnesses: SrsStrictness[] = ["one_stage", "two_stages", "three_stages", "half", "full"];
+    const strictnesses: SrsStrictness[] = [
+      "one_stage",
+      "two_stages",
+      "three_stages",
+      "half",
+      "full",
+    ];
     for (const srsStrictness of strictnesses) {
-      const result = calculateReviewStageResult({ stage: "intermediate", hadIncorrectRequiredAnswer: true, srsStrictness });
+      const result = calculateReviewStageResult({
+        stage: "intermediate",
+        hadIncorrectRequiredAnswer: true,
+        srsStrictness,
+      });
       expect(result.result).toBe("penalized");
       expect(result.stage).not.toBe("master");
     }

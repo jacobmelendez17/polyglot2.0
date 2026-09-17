@@ -111,7 +111,9 @@ const PART_OF_SPEECH_ALIASES: Record<string, string> = {
   partícula: "particle",
 };
 
-export function normalizePartOfSpeech(value: string | null | undefined): string | null {
+export function normalizePartOfSpeech(
+  value: string | null | undefined,
+): string | null {
   if (!value) return null;
   const key = normalizeLexicalForm(value);
   return PART_OF_SPEECH_ALIASES[key] ?? null;

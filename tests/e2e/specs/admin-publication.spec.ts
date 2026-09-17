@@ -8,11 +8,15 @@ import { ensureLearnerOnboarded, getFixtureIds } from "../support/e2e-state";
  * Test Content" fixture item — never the real launch curriculum.
  */
 test.describe("Admin curriculum publication", () => {
-  test("admin publishes a pending item and it becomes visible to the learner", async ({ browser }) => {
+  test("admin publishes a pending item and it becomes visible to the learner", async ({
+    browser,
+  }) => {
     await ensureLearnerOnboarded();
     const fixture = await getFixtureIds();
 
-    const adminContext = await browser.newContext({ storageState: "playwright/.auth/admin.json" });
+    const adminContext = await browser.newContext({
+      storageState: "playwright/.auth/admin.json",
+    });
     const adminPage = await adminContext.newPage();
     await adminPage.goto("/admin/curriculum/review");
     const pendingRow = adminPage.locator("li", { hasText: "amarillo" });
@@ -21,7 +25,9 @@ test.describe("Admin curriculum publication", () => {
     await expect(pendingRow).toHaveCount(0);
     await adminContext.close();
 
-    const learnerContext = await browser.newContext({ storageState: "playwright/.auth/learner.json" });
+    const learnerContext = await browser.newContext({
+      storageState: "playwright/.auth/learner.json",
+    });
     const learnerPage = await learnerContext.newPage();
     await learnerPage.goto(`/items/${fixture.pendingItemId}`);
     await expect(learnerPage.getByText("amarillo").first()).toBeVisible();

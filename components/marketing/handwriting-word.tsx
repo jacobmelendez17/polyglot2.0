@@ -97,7 +97,9 @@ export function HandwritingWord({
   }, [phase, manifest.frameCount, msPerFrame]);
 
   if (phase === "error") {
-    return <span className="text-[color:var(--accent-primary-hover)]">{word}</span>;
+    return (
+      <span className="text-[color:var(--accent-primary-hover)]">{word}</span>
+    );
   }
 
   const index = frame - 1;
@@ -108,13 +110,18 @@ export function HandwritingWord({
   // col/(columns-1)*100% steps through each column in turn — this accounts for the
   // oversized background automatically, so it stays correct at any rendered size
   // without measuring layout in JS.
-  const backgroundPositionX = manifest.columns > 1 ? (col / (manifest.columns - 1)) * 100 : 0;
-  const backgroundPositionY = manifest.rows > 1 ? (row / (manifest.rows - 1)) * 100 : 0;
+  const backgroundPositionX =
+    manifest.columns > 1 ? (col / (manifest.columns - 1)) * 100 : 0;
+  const backgroundPositionY =
+    manifest.rows > 1 ? (row / (manifest.rows - 1)) * 100 : 0;
 
   return (
     <span
       className="relative inline-block align-[-0.12em]"
-      style={{ height: `${heightEm}em`, aspectRatio: `${manifest.frameWidth} / ${manifest.frameHeight}` }}
+      style={{
+        height: `${heightEm}em`,
+        aspectRatio: `${manifest.frameWidth} / ${manifest.frameHeight}`,
+      }}
     >
       <span className="sr-only">{word}</span>
       {(phase === "playing" || phase === "done") && (

@@ -6,15 +6,29 @@ import { proposeUsageContexts } from "./usage-context-seeding";
 const COMER_FORMS = [
   { form: "comer", tags: ["canonical"] },
   { form: "como", tags: ["first-person", "singular", "present", "indicative"] },
-  { form: "comes", tags: ["second-person", "singular", "present", "indicative"] },
+  {
+    form: "comes",
+    tags: ["second-person", "singular", "present", "indicative"],
+  },
   { form: "come", tags: ["third-person", "singular", "present", "indicative"] },
-  { form: "comí", tags: ["first-person", "singular", "preterite", "indicative"] },
+  {
+    form: "comí",
+    tags: ["first-person", "singular", "preterite", "indicative"],
+  },
 ];
 
 describe("proposeUsageContexts", () => {
   it("proposes one context per inflected form, labelled by the form itself", () => {
-    const contexts = proposeUsageContexts({ lemma: "comer", forms: COMER_FORMS });
-    expect(contexts.map((context) => context.label)).toEqual(["como", "comes", "come", "comí"]);
+    const contexts = proposeUsageContexts({
+      lemma: "comer",
+      forms: COMER_FORMS,
+    });
+    expect(contexts.map((context) => context.label)).toEqual([
+      "como",
+      "comes",
+      "come",
+      "comí",
+    ]);
   });
 
   it("describes each form in reading order rather than the extract's order", () => {
@@ -23,7 +37,10 @@ describe("proposeUsageContexts", () => {
   });
 
   it("never proposes the word itself as one of its own usages", () => {
-    const contexts = proposeUsageContexts({ lemma: "comer", forms: COMER_FORMS });
+    const contexts = proposeUsageContexts({
+      lemma: "comer",
+      forms: COMER_FORMS,
+    });
     expect(contexts.map((context) => context.label)).not.toContain("comer");
   });
 
@@ -40,13 +57,22 @@ describe("proposeUsageContexts", () => {
   });
 
   it("skips forms already seeded, so re-seeding adds only what is new", () => {
-    const contexts = proposeUsageContexts({ lemma: "comer", forms: COMER_FORMS, existingSourceForms: ["como", "comes"] });
+    const contexts = proposeUsageContexts({
+      lemma: "comer",
+      forms: COMER_FORMS,
+      existingSourceForms: ["como", "comes"],
+    });
     expect(contexts.map((context) => context.label)).toEqual(["come", "comí"]);
   });
 
   it("caps a full conjugation table so a word does not arrive with ninety tabs", () => {
-    const forms = Array.from({ length: 40 }, (_, i) => ({ form: `forma${i}`, tags: ["third-person"] }));
-    expect(proposeUsageContexts({ lemma: "comer", forms, limit: 12 })).toHaveLength(12);
+    const forms = Array.from({ length: 40 }, (_, i) => ({
+      form: `forma${i}`,
+      tags: ["third-person"],
+    }));
+    expect(
+      proposeUsageContexts({ lemma: "comer", forms, limit: 12 }),
+    ).toHaveLength(12);
   });
 
   it("proposes nothing for a word the dictionary has no forms for", () => {
@@ -56,7 +82,12 @@ describe("proposeUsageContexts", () => {
   it("ignores editorial tags that would make a label unreadable", () => {
     const [only] = proposeUsageContexts({
       lemma: "comer",
-      forms: [{ form: "como", tags: ["first-person", "no-gloss", "table-tags", "singular"] }],
+      forms: [
+        {
+          form: "como",
+          tags: ["first-person", "no-gloss", "table-tags", "singular"],
+        },
+      ],
     });
     expect(only).toBeUndefined();
   });

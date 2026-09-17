@@ -16,7 +16,11 @@ export function AccentHelpers({ characters, onInsert }: AccentHelpersProps) {
   if (characters.length === 0) return null;
 
   return (
-    <div role="group" aria-label="Character helpers" className="flex flex-wrap justify-center gap-1">
+    <div
+      role="group"
+      aria-label="Character helpers"
+      className="flex flex-wrap justify-center gap-1"
+    >
       {characters.map((character) => (
         <button
           key={character}

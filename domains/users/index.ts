@@ -25,7 +25,11 @@ export {
   MAX_LESSON_BATCH_SIZE,
   MIN_LESSON_BATCH_SIZE,
 } from "./curriculum-preference";
-export type { CurriculumMode, GrammarPlacement, LanguageSettings } from "./curriculum-preference";
+export type {
+  CurriculumMode,
+  GrammarPlacement,
+  LanguageSettings,
+} from "./curriculum-preference";
 export { getDefaultLanguageCode } from "./provisioning-config";
 export { USER_ROLES } from "./user-types";
 export type { PolyglotUser, UserRole } from "./user-types";

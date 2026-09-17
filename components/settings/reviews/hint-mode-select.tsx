@@ -1,6 +1,9 @@
 "use client";
 
-import { updateGrammarHintModeAction, updateVocabularyHintModeAction } from "@/app/(app)/settings/reviews/actions";
+import {
+  updateGrammarHintModeAction,
+  updateVocabularyHintModeAction,
+} from "@/app/(app)/settings/reviews/actions";
 import { InlineSelectSettingField } from "@/components/settings/inline-select-setting-field";
 import type { HintMode } from "@/domains/srs";
 
@@ -18,8 +21,14 @@ type HintModeSelectProps = {
 };
 
 /** Spec 20 Review Hints — Grammar/Vocabulary Hint Mode. */
-export function HintModeSelect({ contentType, initialValue }: HintModeSelectProps) {
-  const action = contentType === "grammar" ? updateGrammarHintModeAction : updateVocabularyHintModeAction;
+export function HintModeSelect({
+  contentType,
+  initialValue,
+}: HintModeSelectProps) {
+  const action =
+    contentType === "grammar"
+      ? updateGrammarHintModeAction
+      : updateVocabularyHintModeAction;
 
   return (
     <InlineSelectSettingField
@@ -29,7 +38,9 @@ export function HintModeSelect({ contentType, initialValue }: HintModeSelectProp
       options={OPTIONS}
       onSave={async (hintMode) => {
         const result = await action({ hintMode });
-        return result.ok ? { ok: true, value: result.data.hintMode as HintMode } : { ok: false, message: result.error.message };
+        return result.ok
+          ? { ok: true, value: result.data.hintMode as HintMode }
+          : { ok: false, message: result.error.message };
       }}
     />
   );

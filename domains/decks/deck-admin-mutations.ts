@@ -54,9 +54,17 @@ function assertPolyglotDeck(deck: DeckRecord | null): DeckRecord {
   return deck;
 }
 
-async function requirePublishedItems(db: DbClient, languageId: string, learningItemIds: string[]): Promise<void> {
-  const published = await filterPublishedLearningItemIds(db, { languageId, learningItemIds });
-  if (published.length !== learningItemIds.length) throw new DeckError("DECK_ITEM_NOT_ELIGIBLE");
+async function requirePublishedItems(
+  db: DbClient,
+  languageId: string,
+  learningItemIds: string[],
+): Promise<void> {
+  const published = await filterPublishedLearningItemIds(db, {
+    languageId,
+    learningItemIds,
+  });
+  if (published.length !== learningItemIds.length)
+    throw new DeckError("DECK_ITEM_NOT_ELIGIBLE");
 }
 
 export type CreatePolyglotDeckInput = {
@@ -69,7 +77,10 @@ export type CreatePolyglotDeckInput = {
   learningItemIds: string[];
 };
 
-export async function createPolyglotDeck(db: DbClient, input: CreatePolyglotDeckInput): Promise<{ deckId: string }> {
+export async function createPolyglotDeck(
+  db: DbClient,
+  input: CreatePolyglotDeckInput,
+): Promise<{ deckId: string }> {
   const parsed = createPolyglotDeckSchema.parse(input);
   await requirePublishedItems(db, input.languageId, parsed.learningItemIds);
 
@@ -83,7 +94,11 @@ export async function createPolyglotDeck(db: DbClient, input: CreatePolyglotDeck
       availability: parsed.availability,
       gateLevelId: parsed.gateLevelId,
     });
-    await insertDeckItems(tx, { deckId, languageId: input.languageId, learningItemIds: parsed.learningItemIds });
+    await insertDeckItems(tx, {
+      deckId,
+      languageId: input.languageId,
+      learningItemIds: parsed.learningItemIds,
+    });
     await recordAuditEvent(tx, {
       actorUserId: input.actorUserId,
       action: "DECK_CREATED",
@@ -109,12 +124,21 @@ export type UpdatePolyglotDeckInput = {
   gateLevelId: string | null;
 };
 
-export async function updatePolyglotDeck(db: DbClient, input: UpdatePolyglotDeckInput): Promise<void> {
+export async function updatePolyglotDeck(
+  db: DbClient,
+  input: UpdatePolyglotDeckInput,
+): Promise<void> {
   const parsed = updatePolyglotDeckSchema.parse(input);
 
   await db.transaction(async (tx) => {
-    const deck = assertPolyglotDeck(await getDeckRecordForUpdate(tx, parsed.deckId));
-    await updateDeckFields(tx, { deckId: parsed.deckId, name: parsed.name, description: parsed.description });
+    const deck = assertPolyglotDeck(
+      await getDeckRecordForUpdate(tx, parsed.deckId),
+    );
+    await updateDeckFields(tx, {
+      deckId: parsed.deckId,
+      name: parsed.name,
+      description: parsed.description,
+    });
     await updateDeckAvailability(tx, {
       deckId: parsed.deckId,
       availability: parsed.availability,
@@ -125,8 +149,16 @@ export async function updatePolyglotDeck(db: DbClient, input: UpdatePolyglotDeck
       action: "DECK_UPDATED",
       resourceType: DECK_RESOURCE_TYPE,
       resourceId: parsed.deckId,
-      beforeData: { name: deck.name, availability: deck.availability, gateLevelId: deck.gateLevelId },
-      afterData: { name: parsed.name, availability: parsed.availability, gateLevelId: parsed.gateLevelId },
+      beforeData: {
+        name: deck.name,
+        availability: deck.availability,
+        gateLevelId: deck.gateLevelId,
+      },
+      afterData: {
+        name: parsed.name,
+        availability: parsed.availability,
+        gateLevelId: parsed.gateLevelId,
+      },
     });
   });
 }
@@ -137,18 +169,27 @@ export type AddPolyglotDeckItemsInput = {
   learningItemIds: string[];
 };
 
-export async function addPolyglotDeckItems(db: DbClient, input: AddPolyglotDeckItemsInput): Promise<{ addedCount: number }> {
+export async function addPolyglotDeckItems(
+  db: DbClient,
+  input: AddPolyglotDeckItemsInput,
+): Promise<{ addedCount: number }> {
   const parsed = deckItemsSchema.parse(input);
 
   return db.transaction(async (tx) => {
-    const deck = assertPolyglotDeck(await getDeckRecordForUpdate(tx, parsed.deckId));
+    const deck = assertPolyglotDeck(
+      await getDeckRecordForUpdate(tx, parsed.deckId),
+    );
     await requirePublishedItems(tx, deck.languageId, parsed.learningItemIds);
 
     const existing = new Set(await getDeckItemIds(tx, parsed.deckId));
     const toAdd = parsed.learningItemIds.filter((id) => !existing.has(id));
     if (toAdd.length === 0) return { addedCount: 0 };
 
-    await insertDeckItems(tx, { deckId: parsed.deckId, languageId: deck.languageId, learningItemIds: toAdd });
+    await insertDeckItems(tx, {
+      deckId: parsed.deckId,
+      languageId: deck.languageId,
+      learningItemIds: toAdd,
+    });
     await recordAuditEvent(tx, {
       actorUserId: input.actorUserId,
       action: "DECK_ITEMS_CHANGED",
@@ -166,17 +207,24 @@ export type RemovePolyglotDeckItemInput = {
   learningItemId: string;
 };
 
-export async function removePolyglotDeckItem(db: DbClient, input: RemovePolyglotDeckItemInput): Promise<void> {
+export async function removePolyglotDeckItem(
+  db: DbClient,
+  input: RemovePolyglotDeckItemInput,
+): Promise<void> {
   const parsed = deckItemSchema.parse(input);
 
   await db.transaction(async (tx) => {
     assertPolyglotDeck(await getDeckRecordForUpdate(tx, parsed.deckId));
 
     const currentIds = await getDeckItemIds(tx, parsed.deckId);
-    if (!currentIds.includes(parsed.learningItemId)) throw new DeckError("DECK_ITEM_NOT_FOUND");
+    if (!currentIds.includes(parsed.learningItemId))
+      throw new DeckError("DECK_ITEM_NOT_FOUND");
     if (currentIds.length === 1) throw new DeckError("DECK_MUST_HAVE_ITEMS");
 
-    await deleteDeckItem(tx, { deckId: parsed.deckId, learningItemId: parsed.learningItemId });
+    await deleteDeckItem(tx, {
+      deckId: parsed.deckId,
+      learningItemId: parsed.learningItemId,
+    });
     await recordAuditEvent(tx, {
       actorUserId: input.actorUserId,
       action: "DECK_ITEMS_CHANGED",
@@ -193,7 +241,10 @@ export type ReorderPolyglotDeckItemsInput = {
   orderedLearningItemIds: string[];
 };
 
-export async function reorderPolyglotDeckItems(db: DbClient, input: ReorderPolyglotDeckItemsInput): Promise<void> {
+export async function reorderPolyglotDeckItems(
+  db: DbClient,
+  input: ReorderPolyglotDeckItemsInput,
+): Promise<void> {
   const parsed = reorderDeckItemsSchema.parse(input);
 
   await db.transaction(async (tx) => {
@@ -211,11 +262,16 @@ export async function reorderPolyglotDeckItems(db: DbClient, input: ReorderPolyg
 
 export type DeletePolyglotDeckInput = { actorUserId: string; deckId: string };
 
-export async function deletePolyglotDeck(db: DbClient, input: DeletePolyglotDeckInput): Promise<void> {
+export async function deletePolyglotDeck(
+  db: DbClient,
+  input: DeletePolyglotDeckInput,
+): Promise<void> {
   const parsed = deckIdSchema.parse(input);
 
   await db.transaction(async (tx) => {
-    const deck = assertPolyglotDeck(await getDeckRecordForUpdate(tx, parsed.deckId));
+    const deck = assertPolyglotDeck(
+      await getDeckRecordForUpdate(tx, parsed.deckId),
+    );
     await deleteDeck(tx, parsed.deckId);
     await recordAuditEvent(tx, {
       actorUserId: input.actorUserId,

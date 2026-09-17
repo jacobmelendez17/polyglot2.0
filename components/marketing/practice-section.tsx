@@ -77,8 +77,12 @@ export function PracticeSection() {
                   aria-hidden="true"
                   style={{ animationDelay: `${(index % 3) * 150}ms` }}
                 />
-                <p className="mt-3 text-lg font-semibold text-foreground">{mode.title}</p>
-                <p className="mt-2 text-sm text-muted-foreground">{mode.description}</p>
+                <p className="mt-3 text-lg font-semibold text-foreground">
+                  {mode.title}
+                </p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {mode.description}
+                </p>
               </div>
             </Reveal>
           );

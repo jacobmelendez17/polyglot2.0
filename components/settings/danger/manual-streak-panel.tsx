@@ -35,13 +35,17 @@ export function ManualStreakPanel({ currentStreak }: ManualStreakPanelProps) {
   const [savedStreak, setSavedStreak] = useState<number | null>(null);
 
   const parsedValue = Number(value);
-  const isValid = Number.isInteger(parsedValue) && parsedValue >= 0 && parsedValue <= 100000;
+  const isValid =
+    Number.isInteger(parsedValue) && parsedValue >= 0 && parsedValue <= 100000;
 
   function handleSet() {
     if (!isValid) return;
     setError(null);
     startTransition(async () => {
-      const result = await setManualStreakAction({ value: parsedValue, idempotencyKey: crypto.randomUUID() });
+      const result = await setManualStreakAction({
+        value: parsedValue,
+        idempotencyKey: crypto.randomUUID(),
+      });
       if (!result.ok) {
         setError(result.error.message);
         return;
@@ -53,8 +57,12 @@ export function ManualStreakPanel({ currentStreak }: ManualStreakPanelProps) {
 
   return (
     <div className="border-b border-border py-4 first:pt-0 last:border-b-0">
-      <h3 className="text-sm font-medium text-foreground">Manually Set Streak</h3>
-      <p className="mt-1 text-sm text-muted-foreground">Current streak: {savedStreak ?? currentStreak}</p>
+      <h3 className="text-sm font-medium text-foreground">
+        Manually Set Streak
+      </h3>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Current streak: {savedStreak ?? currentStreak}
+      </p>
 
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <label htmlFor={inputId} className="sr-only">
@@ -79,10 +87,13 @@ export function ManualStreakPanel({ currentStreak }: ManualStreakPanelProps) {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Set streak to {isValid ? parsedValue : value}?</DialogTitle>
+              <DialogTitle>
+                Set streak to {isValid ? parsedValue : value}?
+              </DialogTitle>
               <DialogDescription>
-                This does not insert any fake review activity — it only sets a manual streak base. Your streak count will grow
-                from this value on your next qualifying active day.
+                This does not insert any fake review activity — it only sets a
+                manual streak base. Your streak count will grow from this value
+                on your next qualifying active day.
               </DialogDescription>
             </DialogHeader>
 
@@ -96,7 +107,11 @@ export function ManualStreakPanel({ currentStreak }: ManualStreakPanelProps) {
               <Button variant="outline" onClick={() => setOpen(false)}>
                 Cancel
               </Button>
-              <Button variant="destructive" onClick={handleSet} disabled={isPending || !isValid}>
+              <Button
+                variant="destructive"
+                onClick={handleSet}
+                disabled={isPending || !isValid}
+              >
                 Confirm
               </Button>
             </DialogFooter>

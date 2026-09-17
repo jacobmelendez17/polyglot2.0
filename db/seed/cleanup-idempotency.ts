@@ -24,7 +24,9 @@ import { cleanupExpiredIdempotencyKeys } from "@/domains/idempotency";
 async function main() {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) {
-    throw new Error("DATABASE_URL is required to run the cleanup script. Set it in .env.local.");
+    throw new Error(
+      "DATABASE_URL is required to run the cleanup script. Set it in .env.local.",
+    );
   }
 
   const pool = new Pool({ connectionString: databaseUrl });

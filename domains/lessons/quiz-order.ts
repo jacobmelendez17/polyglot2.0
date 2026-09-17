@@ -9,7 +9,9 @@ import type { QuizQuestion } from "./lesson-types";
  * separate from `retry-scheduler.ts`, which governs re-ordering after the
  * first pass.
  */
-export function interleaveQuizQuestions(questions: QuizQuestion[]): QuizQuestion[] {
+export function interleaveQuizQuestions(
+  questions: QuizQuestion[],
+): QuizQuestion[] {
   const byItem = new Map<string, QuizQuestion[]>();
   const itemOrder: string[] = [];
 

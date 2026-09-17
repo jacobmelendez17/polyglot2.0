@@ -3,7 +3,12 @@ import { and, desc, eq, gte, lt, or } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { reviewEvents } from "@/db/schema";
 
-import type { GetReviewHistoryInput, InsertReviewEventInput, ReviewEvent, ReviewHistoryPage } from "./review-history-types";
+import type {
+  GetReviewHistoryInput,
+  InsertReviewEventInput,
+  ReviewEvent,
+  ReviewHistoryPage,
+} from "./review-history-types";
 
 /**
  * Review-event persistence (spec 09 §14) — takes an injected `DbClient`, not
@@ -32,7 +37,10 @@ function toReviewEvent(row: ReviewEventRow): ReviewEvent {
   };
 }
 
-export async function insertReviewEvent(db: DbClient, input: InsertReviewEventInput): Promise<ReviewEvent> {
+export async function insertReviewEvent(
+  db: DbClient,
+  input: InsertReviewEventInput,
+): Promise<ReviewEvent> {
   const [row] = await db.insert(reviewEvents).values(input).returning();
   return toReviewEvent(row);
 }
@@ -46,7 +54,10 @@ function encodeCursor(cursor: Cursor): string {
 
 function decodeCursor(value: string): Cursor {
   const parsed = JSON.parse(Buffer.from(value, "base64url").toString("utf8"));
-  if (typeof parsed?.reviewedAt !== "string" || typeof parsed?.id !== "string") {
+  if (
+    typeof parsed?.reviewedAt !== "string" ||
+    typeof parsed?.id !== "string"
+  ) {
     throw new Error("Invalid review history cursor");
   }
   return parsed;
@@ -57,9 +68,15 @@ function decodeCursor(value: string): Cursor {
  * (spec 09 §14 — never an unbounded result set). Exercises
  * `review_events_history_idx`.
  */
-export async function getReviewHistory(db: DbClient, input: GetReviewHistoryInput): Promise<ReviewHistoryPage> {
+export async function getReviewHistory(
+  db: DbClient,
+  input: GetReviewHistoryInput,
+): Promise<ReviewHistoryPage> {
   const { userId, languageId, limit, cursor } = input;
-  const conditions = [eq(reviewEvents.userId, userId), eq(reviewEvents.languageId, languageId)];
+  const conditions = [
+    eq(reviewEvents.userId, userId),
+    eq(reviewEvents.languageId, languageId),
+  ];
 
   if (cursor) {
     const decoded = decodeCursor(cursor);
@@ -67,7 +84,10 @@ export async function getReviewHistory(db: DbClient, input: GetReviewHistoryInpu
     conditions.push(
       or(
         lt(reviewEvents.reviewedAt, cursorReviewedAt),
-        and(eq(reviewEvents.reviewedAt, cursorReviewedAt), lt(reviewEvents.id, decoded.id)),
+        and(
+          eq(reviewEvents.reviewedAt, cursorReviewedAt),
+          lt(reviewEvents.id, decoded.id),
+        ),
       )!,
     );
   }
@@ -88,7 +108,12 @@ export async function getReviewHistory(db: DbClient, input: GetReviewHistoryInpu
   return {
     items: pageRows.map(toReviewEvent),
     nextCursor:
-      hasNextPage && last ? encodeCursor({ reviewedAt: last.reviewedAt.toISOString(), id: last.id }) : null,
+      hasNextPage && last
+        ? encodeCursor({
+            reviewedAt: last.reviewedAt.toISOString(),
+            id: last.id,
+          })
+        : null,
   };
 }
 

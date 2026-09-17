@@ -5,7 +5,13 @@ import { useState } from "react";
 import { Search } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { CurriculumStatus } from "@/domains/curriculum";
 
 const ALL_VALUE = "all";
@@ -39,7 +45,12 @@ const STATUS_OPTIONS: { value: CurriculumStatus; label: string }[] = [
  * than search resets `cursor` — starting a new filter combination always
  * begins at the first page.
  */
-export function CurriculumFilters({ languages, levels, groups, value }: CurriculumFiltersProps) {
+export function CurriculumFilters({
+  languages,
+  levels,
+  groups,
+  value,
+}: CurriculumFiltersProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [searchDraft, setSearchDraft] = useState(value.search ?? "");
@@ -65,7 +76,10 @@ export function CurriculumFilters({ languages, levels, groups, value }: Curricul
           navigate({ search: searchDraft.trim() || undefined });
         }}
       >
-        <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+        <Search
+          className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+          aria-hidden="true"
+        />
         <Input
           type="search"
           placeholder="Search..."
@@ -76,7 +90,12 @@ export function CurriculumFilters({ languages, levels, groups, value }: Curricul
         />
       </form>
 
-      <Select value={value.languageId} onValueChange={(languageId) => navigate({ languageId, levelId: undefined, groupId: undefined })}>
+      <Select
+        value={value.languageId}
+        onValueChange={(languageId) =>
+          navigate({ languageId, levelId: undefined, groupId: undefined })
+        }
+      >
         <SelectTrigger aria-label="Language" className="sm:w-40">
           <SelectValue placeholder="Language" />
         </SelectTrigger>
@@ -91,7 +110,9 @@ export function CurriculumFilters({ languages, levels, groups, value }: Curricul
 
       <Select
         value={value.levelId ?? ALL_VALUE}
-        onValueChange={(levelId) => navigate({ levelId: levelId === ALL_VALUE ? undefined : levelId })}
+        onValueChange={(levelId) =>
+          navigate({ levelId: levelId === ALL_VALUE ? undefined : levelId })
+        }
       >
         <SelectTrigger aria-label="Level" className="sm:w-32">
           <SelectValue placeholder="Level" />
@@ -108,7 +129,14 @@ export function CurriculumFilters({ languages, levels, groups, value }: Curricul
 
       <Select
         value={value.type ?? ALL_VALUE}
-        onValueChange={(type) => navigate({ type: type === ALL_VALUE ? undefined : (type as "vocabulary" | "grammar") })}
+        onValueChange={(type) =>
+          navigate({
+            type:
+              type === ALL_VALUE
+                ? undefined
+                : (type as "vocabulary" | "grammar"),
+          })
+        }
       >
         <SelectTrigger aria-label="Type" className="sm:w-32">
           <SelectValue placeholder="Type" />
@@ -122,7 +150,12 @@ export function CurriculumFilters({ languages, levels, groups, value }: Curricul
 
       <Select
         value={value.status ?? ALL_VALUE}
-        onValueChange={(status) => navigate({ status: status === ALL_VALUE ? undefined : (status as CurriculumStatus) })}
+        onValueChange={(status) =>
+          navigate({
+            status:
+              status === ALL_VALUE ? undefined : (status as CurriculumStatus),
+          })
+        }
       >
         <SelectTrigger aria-label="Status" className="sm:w-36">
           <SelectValue placeholder="Status" />
@@ -139,7 +172,9 @@ export function CurriculumFilters({ languages, levels, groups, value }: Curricul
 
       <Select
         value={value.groupId ?? ALL_VALUE}
-        onValueChange={(groupId) => navigate({ groupId: groupId === ALL_VALUE ? undefined : groupId })}
+        onValueChange={(groupId) =>
+          navigate({ groupId: groupId === ALL_VALUE ? undefined : groupId })
+        }
       >
         <SelectTrigger aria-label="Group" className="sm:w-44">
           <SelectValue placeholder="Group" />

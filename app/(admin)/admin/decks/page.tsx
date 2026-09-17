@@ -20,7 +20,11 @@ type SearchParams = { language?: string };
  * — a learner's personal deck is their own private content and is never
  * administrable, so it is not listed and the mutations reject it outright.
  */
-export default async function AdminDecksPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+export default async function AdminDecksPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
   const user = await requireUser();
   if (!canPublishCurriculum(user)) forbidden();
 
@@ -30,33 +34,55 @@ export default async function AdminDecksPage({ searchParams }: { searchParams: P
   if (languages.length === 0) {
     return (
       <div>
-        <AdminPageHeader title="Decks" description="Create and manage official Polyglot decks." />
-        <p className="text-sm text-muted-foreground">No languages are configured yet.</p>
+        <AdminPageHeader
+          title="Decks"
+          description="Create and manage official Polyglot decks."
+        />
+        <p className="text-sm text-muted-foreground">
+          No languages are configured yet.
+        </p>
       </div>
     );
   }
 
-  const languageId = languages.some((language) => language.id === params.language) ? params.language! : languages[0]!.id;
-  const [decks, levels] = await Promise.all([listPolyglotDecks(languageId), getLevelsByLanguage(languageId)]);
+  const languageId = languages.some(
+    (language) => language.id === params.language,
+  )
+    ? params.language!
+    : languages[0]!.id;
+  const [decks, levels] = await Promise.all([
+    listPolyglotDecks(languageId),
+    getLevelsByLanguage(languageId),
+  ]);
 
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <AdminPageHeader title="Decks" description="Create and manage official Polyglot decks." />
+        <AdminPageHeader
+          title="Decks"
+          description="Create and manage official Polyglot decks."
+        />
         <CreatePolyglotDeckDialog
           languageId={languageId}
-          levels={levels.map((level) => ({ id: level.id, levelNumber: level.levelNumber }))}
+          levels={levels.map((level) => ({
+            id: level.id,
+            levelNumber: level.levelNumber,
+          }))}
         />
       </div>
 
       {decks.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          No Polyglot decks yet for this language. Add one to give learners a curated set of published items to practice.
+          No Polyglot decks yet for this language. Add one to give learners a
+          curated set of published items to practice.
         </p>
       ) : (
         <ul className="space-y-3">
           {decks.map((deck) => (
-            <li key={deck.id} className="rounded-xl border border-border bg-card p-4">
+            <li
+              key={deck.id}
+              className="rounded-xl border border-border bg-card p-4"
+            >
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="min-w-0">
                   <Link
@@ -66,7 +92,9 @@ export default async function AdminDecksPage({ searchParams }: { searchParams: P
                     {deck.name}
                   </Link>
                   {deck.description ? (
-                    <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{deck.description}</p>
+                    <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+                      {deck.description}
+                    </p>
                   ) : null}
                   <p className="mt-1 text-xs text-muted-foreground">
                     {deck.itemCount} {deck.itemCount === 1 ? "item" : "items"} ·{" "}

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { isTypedPresentation, resolveReviewPresentation } from "./review-presentation";
+import {
+  isTypedPresentation,
+  resolveReviewPresentation,
+} from "./review-presentation";
 import type { ReviewQuestionAnswerSpec } from "./review-answer-spec";
 
 const ANSWER_SPEC: ReviewQuestionAnswerSpec = {
@@ -10,7 +13,12 @@ const ANSWER_SPEC: ReviewQuestionAnswerSpec = {
   articleRequirement: { article: "el", bareAnswers: ["gato"] },
 };
 
-const CLOZE_SENTENCE = { sentenceId: "s1", sentenceBefore: "El ", sentenceAfter: " duerme.", blankedWord: "gato" };
+const CLOZE_SENTENCE = {
+  sentenceId: "s1",
+  sentenceBefore: "El ",
+  sentenceAfter: " duerme.",
+  blankedWord: "gato",
+};
 
 describe("resolveReviewPresentation", () => {
   it("builds a cloze_typed presentation for Cloze (Manual) on englishToTarget with a compatible sentence", () => {
@@ -20,7 +28,11 @@ describe("resolveReviewPresentation", () => {
       answerSpec: ANSWER_SPEC,
       clozeSentence: CLOZE_SENTENCE,
     });
-    expect(result).toEqual({ kind: "cloze_typed", sentenceBefore: "El ", sentenceAfter: " duerme." });
+    expect(result).toEqual({
+      kind: "cloze_typed",
+      sentenceBefore: "El ",
+      sentenceAfter: " duerme.",
+    });
   });
 
   it("builds a cloze_reveal presentation for Cloze (Flashcard) on englishToTarget with a compatible sentence", () => {
@@ -30,7 +42,12 @@ describe("resolveReviewPresentation", () => {
       answerSpec: ANSWER_SPEC,
       clozeSentence: CLOZE_SENTENCE,
     });
-    expect(result).toEqual({ kind: "cloze_reveal", sentenceBefore: "El ", sentenceAfter: " duerme.", revealAnswer: "gato" });
+    expect(result).toEqual({
+      kind: "cloze_reveal",
+      sentenceBefore: "El ",
+      sentenceAfter: " duerme.",
+      revealAnswer: "gato",
+    });
   });
 
   it("falls back to the ordinary typed prompt for Cloze (Manual) with no compatible sentence", () => {
@@ -50,7 +67,11 @@ describe("resolveReviewPresentation", () => {
       answerSpec: ANSWER_SPEC,
       clozeSentence: null,
     });
-    expect(result).toEqual({ kind: "reveal", prompt: "cat", revealAnswer: "el gato" });
+    expect(result).toEqual({
+      kind: "reveal",
+      prompt: "cat",
+      revealAnswer: "el gato",
+    });
   });
 
   it("never applies Cloze to the targetToEnglish direction, even with a compatible sentence", () => {
@@ -68,7 +89,11 @@ describe("resolveReviewPresentation", () => {
       answerSpec: ANSWER_SPEC,
       clozeSentence: CLOZE_SENTENCE,
     });
-    expect(flashcard).toEqual({ kind: "reveal", prompt: "cat", revealAnswer: "el gato" });
+    expect(flashcard).toEqual({
+      kind: "reveal",
+      prompt: "cat",
+      revealAnswer: "el gato",
+    });
   });
 
   it("is always reveal for Flashcard, on either direction, regardless of a compatible sentence", () => {
@@ -78,7 +103,11 @@ describe("resolveReviewPresentation", () => {
       answerSpec: ANSWER_SPEC,
       clozeSentence: CLOZE_SENTENCE,
     });
-    expect(withSentence).toEqual({ kind: "reveal", prompt: "cat", revealAnswer: "el gato" });
+    expect(withSentence).toEqual({
+      kind: "reveal",
+      prompt: "cat",
+      revealAnswer: "el gato",
+    });
 
     const withoutSentence = resolveReviewPresentation({
       reviewType: "flashcard",
@@ -86,18 +115,41 @@ describe("resolveReviewPresentation", () => {
       answerSpec: ANSWER_SPEC,
       clozeSentence: null,
     });
-    expect(withoutSentence).toEqual({ kind: "reveal", prompt: "cat", revealAnswer: "el gato" });
+    expect(withoutSentence).toEqual({
+      kind: "reveal",
+      prompt: "cat",
+      revealAnswer: "el gato",
+    });
   });
 });
 
 describe("isTypedPresentation", () => {
   it("is true for typed and cloze_typed", () => {
     expect(isTypedPresentation({ kind: "typed", prompt: "cat" })).toBe(true);
-    expect(isTypedPresentation({ kind: "cloze_typed", sentenceBefore: "", sentenceAfter: "" })).toBe(true);
+    expect(
+      isTypedPresentation({
+        kind: "cloze_typed",
+        sentenceBefore: "",
+        sentenceAfter: "",
+      }),
+    ).toBe(true);
   });
 
   it("is false for reveal and cloze_reveal", () => {
-    expect(isTypedPresentation({ kind: "reveal", prompt: "cat", revealAnswer: "gato" })).toBe(false);
-    expect(isTypedPresentation({ kind: "cloze_reveal", sentenceBefore: "", sentenceAfter: "", revealAnswer: "gato" })).toBe(false);
+    expect(
+      isTypedPresentation({
+        kind: "reveal",
+        prompt: "cat",
+        revealAnswer: "gato",
+      }),
+    ).toBe(false);
+    expect(
+      isTypedPresentation({
+        kind: "cloze_reveal",
+        sentenceBefore: "",
+        sentenceAfter: "",
+        revealAnswer: "gato",
+      }),
+    ).toBe(false);
   });
 });

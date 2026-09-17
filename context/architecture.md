@@ -35,23 +35,23 @@ A separate backend may be introduced later if multiple clients or scaling requir
 
 ## Stack
 
-| Layer | Technology | Role |
-| --- | --- | --- |
-| Framework | Next.js App Router | Full-stack web application |
-| Language | TypeScript | Application language |
-| Package Manager | npm | Dependency and script management |
-| UI | React | User interface |
-| Styling | Tailwind CSS | Styling system |
-| Components | shadcn/ui | Base component library |
-| Authentication | Clerk | Identity, sign-in, sign-out, account authentication |
-| Database | Neon PostgreSQL | Authoritative persistent application data |
-| ORM | Drizzle ORM | Schema, migrations, and database access |
-| Validation | Zod | Runtime validation at system boundaries |
-| Hosting | Vercel | Application deployment |
-| Media Storage | Cloudflare R2 | Persistent audio, images, and learning media |
-| Speech Recognition | Web Speech API behind provider interface | v1 speaking transcription |
-| Error Monitoring | Sentry | Application and server error monitoring |
-| Product Analytics | PostHog | Product usage analytics |
+| Layer              | Technology                               | Role                                                |
+| ------------------ | ---------------------------------------- | --------------------------------------------------- |
+| Framework          | Next.js App Router                       | Full-stack web application                          |
+| Language           | TypeScript                               | Application language                                |
+| Package Manager    | npm                                      | Dependency and script management                    |
+| UI                 | React                                    | User interface                                      |
+| Styling            | Tailwind CSS                             | Styling system                                      |
+| Components         | shadcn/ui                                | Base component library                              |
+| Authentication     | Clerk                                    | Identity, sign-in, sign-out, account authentication |
+| Database           | Neon PostgreSQL                          | Authoritative persistent application data           |
+| ORM                | Drizzle ORM                              | Schema, migrations, and database access             |
+| Validation         | Zod                                      | Runtime validation at system boundaries             |
+| Hosting            | Vercel                                   | Application deployment                              |
+| Media Storage      | Cloudflare R2                            | Persistent audio, images, and learning media        |
+| Speech Recognition | Web Speech API behind provider interface | v1 speaking transcription                           |
+| Error Monitoring   | Sentry                                   | Application and server error monitoring             |
+| Product Analytics  | PostHog                                  | Product usage analytics                             |
 
 ---
 
@@ -237,7 +237,7 @@ and no dictionary sense is selected without an explicit administrative act.
 
 **Promotion on approval** (user decision, 2026-09-09). When an admin confirms
 a mapping, that match's part of speech, definition, and IPA are written into
-the vocabulary item itself. The confirmation *is* the explicit administrative
+the vocabulary item itself. The confirmation _is_ the explicit administrative
 act the paragraph above requires, and a bulk import routinely leaves exactly
 those three fields empty, so leaving them unwritten meant the review queue
 produced no curriculum improvement at all.
@@ -259,7 +259,7 @@ dictionary has no value for is left alone rather than erased, and the audit
 event carries the replaced values, which is the only way back: un-approving
 does not restore them.
 
-Promotion re-runs whenever *what is confirmed* changes — the entry, the
+Promotion re-runs whenever _what is confirmed_ changes — the entry, the
 selected sense, the preferred pronunciation — not only on first approval, so
 an item never keeps values from a sense the admin has since changed.
 
@@ -914,16 +914,16 @@ Do not scatter interval literals throughout the application.
 
 SRS Strictness, SRS Interval mode, Review Queue Timing, and Fluent Mode are all resolved once per review session and embedded in the signed session state (`domains/srs/review-schemas.ts`'s `reviewPreferencesSchema`, plus a top-level `timeZone` snapshot for Start of Day) — a setting change never affects a review session already in progress, and none of SRS Interval, Review Queue Timing, or Fluent Mode ever recalculate a review's existing due time (future-only). The scheduling pipeline is: stage transition → (if the new stage is Fluent) Fluent Mode's own 6-month maintenance schedule or terminal `null`, bypassing the rest of the pipeline entirely; otherwise → SRS Interval's raw due time → Review Queue Timing's rounding → persisted `nextReviewAt` (`domains/srs/review-completion.ts`).
 
-**Fluent Mode's maintenance schedule is anchored differently depending on which code path sets it** — this is a real, intentional distinction, not an inconsistency to "fix" into one formula: the live per-review scheduling loop (`review-completion.ts`) anchors to that review's own `now`, the same way every other stage's interval is computed from `now`; only the *toggle*-driven reconciliation for items that have been sitting terminal (`domains/progress/repository.ts`'s `reconcileFluentSchedules`, called from `domains/srs/review-service.ts`'s `updateGrammarFluentMode`/`updateVocabularyFluentMode` inside one transaction with the preference write) anchors to the item's own `fluent_at` — spec 20's own explicit rule for that specific case ("Use fluentAt + 6 calendar months. Do not use settingChangedAt + 6 months").
+**Fluent Mode's maintenance schedule is anchored differently depending on which code path sets it** — this is a real, intentional distinction, not an inconsistency to "fix" into one formula: the live per-review scheduling loop (`review-completion.ts`) anchors to that review's own `now`, the same way every other stage's interval is computed from `now`; only the _toggle_-driven reconciliation for items that have been sitting terminal (`domains/progress/repository.ts`'s `reconcileFluentSchedules`, called from `domains/srs/review-service.ts`'s `updateGrammarFluentMode`/`updateVocabularyFluentMode` inside one transaction with the preference write) anchors to the item's own `fluent_at` — spec 20's own explicit rule for that specific case ("Use fluentAt + 6 calendar months. Do not use settingChangedAt + 6 months").
 
 ## Ghost Reviews
 
-A second, entirely independent SRS system (spec 20) — never the same stage field as the normal item SRS ("Never use one stage field to represent both"). Persisted in its own table, `user_sentence_ghost_progress` (`db/schema/reviews.ts`), keyed by `(user, learning_item, sentence)`, not by item alone — a Ghost is about one specific missed *sentence*, and only a Cloze-presented question (the only presentation with a sentence attached at all) can ever create one.
+A second, entirely independent SRS system (spec 20) — never the same stage field as the normal item SRS ("Never use one stage field to represent both"). Persisted in its own table, `user_sentence_ghost_progress` (`db/schema/reviews.ts`), keyed by `(user, learning_item, sentence)`, not by item alone — a Ghost is about one specific missed _sentence_, and only a Cloze-presented question (the only presentation with a sentence attached at all) can ever create one.
 
 Two independent write paths, both server-authoritative:
 
 - **Miss-tracking** (`domains/srs/ghost-repository.ts`'s `recordSentenceMiss`): fires from inside `submitReviewAnswer`'s normal incorrect-answer branch, whenever that question was Cloze-presented. Gated by the Grammar/Vocabulary Ghost Reviews setting (On/Minimal/Off), itself resolved once per review session and signed into `ReviewState.reviewPreferences` alongside every other per-content-type Reviews setting.
-- **Ghost grading** (`domains/srs/ghost-orchestration.ts`'s `submitGhostAnswer`): a plain authenticated request, deliberately *not* part of the signed review-session token — grading a Ghost needs no replay-protected session snapshot, since nothing about it is client-supplied state to protect (the sentence is re-derived fresh from `ghostProgressId` server-side on every submit, ownership-checked directly against the row).
+- **Ghost grading** (`domains/srs/ghost-orchestration.ts`'s `submitGhostAnswer`): a plain authenticated request, deliberately _not_ part of the signed review-session token — grading a Ghost needs no replay-protected session snapshot, since nothing about it is client-supplied state to protect (the sentence is re-derived fresh from `ghostProgressId` server-side on every submit, ownership-checked directly against the row).
 
 `domains/srs/ghost-progress.ts` holds the pure Ghost-SRS rules (4h/12h/24h/48h fixed schedule, independent of SRS Interval mode); `startReviewSession` fetches due Ghosts and surfaces them as `ghostReviews` in the session result — present even when no normal review is due, and required to render as visually distinct/supplemental.
 
@@ -1103,12 +1103,12 @@ with anything left to teach):
   applies, and Grammar Placement (below) is ignored entirely.
 - **Choose Group as You Go** — the renamed `theme`, behavior unchanged:
   vocabulary comes from one chosen vocabulary group. A group with fewer
-  items left than the batch size produces a *shorter* batch; it is never
+  items left than the batch size produces a _shorter_ batch; it is never
   padded from another group. When the chosen group is finished, or none is
   chosen yet, the learner is asked to choose rather than being given one.
   Grammar Placement does not affect this mode either — grammar always
   follows the grammar curriculum's own authored order.
-- **Variety** — both old `balanced` *and* old `random` migrate here (a real,
+- **Variety** — both old `balanced` _and_ old `random` migrate here (a real,
   spec-mandated behavior change for anyone previously in `random`: there is
   no longer a true-arbitrary-interleave option). The vocabulary portion is
   distributed round-robin across the groups that still have items, in
@@ -1149,7 +1149,7 @@ Two more per-language preferences on the same `user_language_settings` row
 (`lesson_batch_size`, integer 3-15, default 6; `auto_pronounce_lessons`,
 boolean, default `true`), unrelated to mode selection:
 
-- **Lesson Batch Size** is the maximum size of the *next* generated lesson
+- **Lesson Batch Size** is the maximum size of the _next_ generated lesson
   (`domains/lessons/lesson-service.ts`'s `startLesson` reads
   `settings.lessonBatchSize` instead of a hardcoded constant). A lesson may
   still be smaller when fewer eligible items exist, and an already-open
@@ -1157,7 +1157,7 @@ boolean, default `true`), unrelated to mode selection:
   never resizes one in progress.
 - **Auto Pronunciation** plays a vocabulary item's pronunciation the moment
   it is introduced during a lesson's study phase (`components/lessons/
-  lesson-session-view.tsx`, at the same point an item is first marked
+lesson-session-view.tsx`, at the same point an item is first marked
   viewed), preferring a real recording and falling back to browser speech
   synthesis — the same preference order `PronunciationButton` uses for
   manual playback, which stays available regardless of this setting. Grammar
@@ -1248,7 +1248,7 @@ Which decks a learner sees, and which items within them:
 
 "Already learned" means the learner holds a `user_item_progress` row for the
 item (decided 2026-09-08 — see `progress-tracker.md`). This is deliberately
-narrower than curriculum *unlock*, which is level-based: only material the
+narrower than curriculum _unlock_, which is level-based: only material the
 learner has actually studied may enter a personal deck.
 
 ## Existing Official Item
@@ -1267,7 +1267,7 @@ question-building and answer-checking rules but never its completion
 transaction. There is no signed session token, because no authoritative
 mutation follows an answer; the queue, the running counts, and the optional
 Know / Don't Know verdicts live in client state for the length of the session
-and are never stored. Answer *grading* still happens server-side, because
+and are never stored. Answer _grading_ still happens server-side, because
 accepted answers and learner synonyms must not be shipped to the browser.
 
 Future deck sharing is allowed by the architecture but is not required in v1.
@@ -1415,7 +1415,7 @@ premium
 Levels/content should reference access policy rather than hardcoding checks such as:
 
 ```ts
-level <= 3
+level <= 3;
 ```
 
 Levels 1-3 are configured as free-tier curriculum. Later curriculum (Level 4+) is marked premium.
@@ -1670,10 +1670,10 @@ Database constraints should enforce important integrity rules where appropriate 
 `lib/appearance/` is the whole system, in three layers:
 
 - `appearance-settings.ts` — pure types, defaults, and a lenient field-by-field parser (an unrecognized/missing field falls back to its own default, not the whole object).
-- `appearance-storage.ts` — the localStorage read/write (never throws — private browsing or a corrupt value both fall back to defaults) and `applyAppearanceToDocument`, the *one* place that ever mutates `document.documentElement`'s `class`/`data-*` attributes.
+- `appearance-storage.ts` — the localStorage read/write (never throws — private browsing or a corrupt value both fall back to defaults) and `applyAppearanceToDocument`, the _one_ place that ever mutates `document.documentElement`'s `class`/`data-*` attributes.
 - `appearance-context.tsx` — a React provider (`AppearanceProvider`, mounted once in `app/layout.tsx`) exposing `useAppearance()` to any client component; every Settings control calls `updateSettings(...)` directly, with no Server Action and no `onSave`/promise round-trip, unlike every database-backed Settings control elsewhere in this app.
 
-`appearance-bootstrap.ts` generates a small inline `<script>` (rendered directly in `<head>`, `app/layout.tsx`) that reads the same storage key and paints the right `class`/`data-*` attributes *before* the body renders — spec 20's own "Avoid Theme Flash." It necessarily duplicates a sliver of `appearance-settings.ts`'s logic in plain, import-free JS (a bootstrap script can't import modules) and is deliberately lenient — `AppearanceProvider` re-validates properly on mount and corrects anything the bootstrap missed.
+`appearance-bootstrap.ts` generates a small inline `<script>` (rendered directly in `<head>`, `app/layout.tsx`) that reads the same storage key and paints the right `class`/`data-*` attributes _before_ the body renders — spec 20's own "Avoid Theme Flash." It necessarily duplicates a sliver of `appearance-settings.ts`'s logic in plain, import-free JS (a bootstrap script can't import modules) and is deliberately lenient — `AppearanceProvider` re-validates properly on mount and corrects anything the bootstrap missed.
 
 Every visual effect is a CSS rule keyed off `document.documentElement`'s state — `.dark`, `[data-palette]`, `[data-font-family]`, `[data-font-scale]` (a root `font-size` percentage, so every existing `rem`-based Tailwind class scales together), `[data-color-blind]` (`app/globals.css`) — never a per-component conditional reading `useAppearance()` to decide its own styling.
 
@@ -1683,11 +1683,11 @@ Every visual effect is a CSS rule keyed off `document.documentElement`'s state �
 
 Polyglot runs in three environments. Each is fully isolated: no environment may read or write another environment's data, and production credentials are never present outside production.
 
-| Environment | Purpose | App | Database | Auth | Media |
-| --- | --- | --- | --- | --- | --- |
-| `development` | Local machine | `next dev` | Neon development branch, or local PostgreSQL | Clerk development instance | R2 development bucket |
-| `preview` | Per-pull-request deploy | Vercel preview | Ephemeral Neon branch per pull request | Clerk development instance | R2 preview bucket |
-| `production` | Live users | Vercel production | Neon production branch | Clerk production instance | R2 production bucket |
+| Environment   | Purpose                 | App               | Database                                     | Auth                       | Media                 |
+| ------------- | ----------------------- | ----------------- | -------------------------------------------- | -------------------------- | --------------------- |
+| `development` | Local machine           | `next dev`        | Neon development branch, or local PostgreSQL | Clerk development instance | R2 development bucket |
+| `preview`     | Per-pull-request deploy | Vercel preview    | Ephemeral Neon branch per pull request       | Clerk development instance | R2 preview bucket     |
+| `production`  | Live users              | Vercel production | Neon production branch                       | Clerk production instance  | R2 production bucket  |
 
 Rules:
 
@@ -1701,10 +1701,10 @@ Rules:
 
 Local automated testing uses two further Neon branches, both distinct from `development`'s and from each other (spec 22):
 
-| Target | Env var | Purpose |
-| --- | --- | --- |
-| `polyglot-test` | `TEST_DATABASE_URL` | `npm run test:integration` — migrated to schema head, nothing seeded; every test builds the fixture state it needs |
-| `polyglot-e2e` | `E2E_DATABASE_URL` | `npm run test:e2e` — reset and seeded with a deterministic `es-MX` fixture curriculum by `npm run e2e:setup` before a run |
+| Target          | Env var             | Purpose                                                                                                                   |
+| --------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `polyglot-test` | `TEST_DATABASE_URL` | `npm run test:integration` — migrated to schema head, nothing seeded; every test builds the fixture state it needs        |
+| `polyglot-e2e`  | `E2E_DATABASE_URL`  | `npm run test:e2e` — reset and seeded with a deterministic `es-MX` fixture curriculum by `npm run e2e:setup` before a run |
 
 `db/test/db-safety-guard.ts` fails closed before any migration, seed, or test run against either: the target env var must exist, must not equal `DATABASE_URL` (or, for the E2E branch, `TEST_DATABASE_URL`), and `APP_ENV` must not be `production`. Neither is ever the real launch curriculum — the E2E fixture is authored through the same `domains/admin` services the real Admin UI uses, but lives entirely on its own branch. CI's ephemeral per-run Neon branch (below) remains the integration story for pull requests; these two are the permanent local-development counterparts.
 
@@ -1730,13 +1730,13 @@ Every pull request runs the following stages. Later stages do not run if an earl
 
 ## Workflows
 
-| Workflow | Trigger | Responsibility |
-| --- | --- | --- |
-| `ci.yml` | pull request, push to `main` | typecheck, lint, unit and integration tests, build |
-| `migrate.yml` | pull request touching `db/migrations/**`, and pre-production promotion | migration application, drift detection, destructive-change detection |
-| `e2e.yml` | preview deployment ready | Playwright critical-path suite |
-| `security.yml` | pull request, weekly schedule | dependency audit, secret scanning, static analysis |
-| `preview-cleanup.yml` | pull request closed | delete the pull request's Neon branch and preview resources |
+| Workflow              | Trigger                                                                | Responsibility                                                       |
+| --------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `ci.yml`              | pull request, push to `main`                                           | typecheck, lint, unit and integration tests, build                   |
+| `migrate.yml`         | pull request touching `db/migrations/**`, and pre-production promotion | migration application, drift detection, destructive-change detection |
+| `e2e.yml`             | preview deployment ready                                               | Playwright critical-path suite                                       |
+| `security.yml`        | pull request, weekly schedule                                          | dependency audit, secret scanning, static analysis                   |
+| `preview-cleanup.yml` | pull request closed                                                    | delete the pull request's Neon branch and preview resources          |
 
 ## Required Checks
 
@@ -1859,17 +1859,17 @@ The v1 backing store is **Upstash Redis**, implemented behind that same `provide
 
 ## Required Limits
 
-| Surface | Rationale |
-| --- | --- |
-| Authentication-adjacent routes | Credential stuffing and enumeration |
-| Review submission | Progress and XP farming |
-| Lesson completion | Progress farming |
-| Journal writes | Storage abuse |
-| Test submission | Score farming |
-| Admin mutations | Blast-radius containment on a compromised session |
-| Media upload | Storage and bandwidth cost |
-| Support and feedback forms | Spam |
-| Demo session creation | Unauthenticated resource exhaustion |
+| Surface                        | Rationale                                         |
+| ------------------------------ | ------------------------------------------------- |
+| Authentication-adjacent routes | Credential stuffing and enumeration               |
+| Review submission              | Progress and XP farming                           |
+| Lesson completion              | Progress farming                                  |
+| Journal writes                 | Storage abuse                                     |
+| Test submission                | Score farming                                     |
+| Admin mutations                | Blast-radius containment on a compromised session |
+| Media upload                   | Storage and bandwidth cost                        |
+| Support and feedback forms     | Spam                                              |
+| Demo session creation          | Unauthenticated resource exhaustion               |
 
 ## Rules
 
@@ -1923,14 +1923,14 @@ Rules for any read model:
 
 ## Performance Budgets
 
-| Metric | Target |
-| --- | --- |
-| Review submission, server p95 | under 300 ms |
-| Due-review query, p95 | under 100 ms |
-| Dashboard load, server p95 | under 500 ms |
-| Largest Contentful Paint, p75 | under 2.5 s |
+| Metric                         | Target       |
+| ------------------------------ | ------------ |
+| Review submission, server p95  | under 300 ms |
+| Due-review query, p95          | under 100 ms |
+| Dashboard load, server p95     | under 500 ms |
+| Largest Contentful Paint, p75  | under 2.5 s  |
 | Interaction to Next Paint, p75 | under 200 ms |
-| Database queries per request | under 10 |
+| Database queries per request   | under 10     |
 
 Budgets are targets, not gates, until measurement exists. Once measurement exists, a regression past budget is a defect.
 
@@ -1938,13 +1938,13 @@ Budgets are targets, not gates, until measurement exists. Once measurement exist
 
 Do not build for scale that has not arrived. Introduce the following only when the corresponding trigger fires:
 
-| Trigger | Response |
-| --- | --- |
-| A workload exceeds request-handler time limits | Introduce a background queue boundary (ADR-010) |
-| Read load saturates the primary database | Add a read replica for analytics and dashboard reads |
-| Cache invalidation becomes cross-instance | Introduce a shared cache tier |
-| A second client, such as mobile, ships | Formalize the versioned public API surface |
-| One domain's scaling profile diverges sharply | Extract that domain, per ADR-001 |
+| Trigger                                        | Response                                             |
+| ---------------------------------------------- | ---------------------------------------------------- |
+| A workload exceeds request-handler time limits | Introduce a background queue boundary (ADR-010)      |
+| Read load saturates the primary database       | Add a read replica for analytics and dashboard reads |
+| Cache invalidation becomes cross-instance      | Introduce a shared cache tier                        |
+| A second client, such as mobile, ships         | Formalize the versioned public API surface           |
+| One domain's scaling profile diverges sharply  | Extract that domain, per ADR-001                     |
 
 ---
 
@@ -1961,11 +1961,11 @@ Health endpoints must not require authentication, must not expose version detail
 
 Beta targets:
 
-| Objective | Target |
-| --- | --- |
-| Application availability | 99.5% monthly |
+| Objective                      | Target                           |
+| ------------------------------ | -------------------------------- |
+| Application availability       | 99.5% monthly                    |
 | Review submission success rate | 99.9% of well-formed submissions |
-| Unhandled error rate | under 0.1% of requests |
+| Unhandled error rate           | under 0.1% of requests           |
 
 These are commitments to the user's learning progress, not vanity metrics. A failed review submission that silently loses progress is the most damaging failure mode in the product.
 
@@ -1973,13 +1973,13 @@ These are commitments to the user's learning progress, not vanity metrics. A fai
 
 Dependency failures must degrade rather than cascade:
 
-| Dependency | Behavior when unavailable |
-| --- | --- |
-| PostHog | Analytics silently dropped; application unaffected |
-| Sentry | Errors logged locally; application unaffected |
-| R2 | Audio unavailable with a clear message; text learning continues |
-| Speech provider | Speaking practice unavailable; other practice continues |
-| Neon | Application is unavailable; fail loudly rather than serving stale or fabricated progress |
+| Dependency      | Behavior when unavailable                                                                |
+| --------------- | ---------------------------------------------------------------------------------------- |
+| PostHog         | Analytics silently dropped; application unaffected                                       |
+| Sentry          | Errors logged locally; application unaffected                                            |
+| R2              | Audio unavailable with a clear message; text learning continues                          |
+| Speech provider | Speaking practice unavailable; other practice continues                                  |
+| Neon            | Application is unavailable; fail loudly rather than serving stale or fabricated progress |
 
 Analytics and monitoring outages must never break a learning session.
 
@@ -1989,10 +1989,10 @@ Analytics and monitoring outages must never break a learning session.
 
 ## Objectives
 
-| Metric | Beta | Production |
-| --- | --- | --- |
-| Recovery Point Objective | 24 hours | 1 hour |
-| Recovery Time Objective | 8 hours | 4 hours |
+| Metric                   | Beta     | Production |
+| ------------------------ | -------- | ---------- |
+| Recovery Point Objective | 24 hours | 1 hour     |
+| Recovery Time Objective  | 8 hours  | 4 hours    |
 
 ## Coverage
 

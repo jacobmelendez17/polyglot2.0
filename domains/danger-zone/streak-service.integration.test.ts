@@ -4,14 +4,23 @@ import { userStreakAdjustments } from "@/db/schema";
 import { seedTestFixtures } from "@/db/seed/test-fixtures";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
 import { insertReviewEvent } from "@/domains/srs/review-repository";
-import { endVacationPeriod, startVacationPeriod } from "@/domains/users/vacation-repository";
+import {
+  endVacationPeriod,
+  startVacationPeriod,
+} from "@/domains/users/vacation-repository";
 
 import { getLatestStreakAdjustment } from "./streak-repository";
 import { getCurrentStreak, setManualStreak } from "./streak-service";
 
 type Tx = Parameters<typeof insertReviewEvent>[0];
 
-async function recordReview(tx: Tx, userId: string, languageId: string, learningItemId: string, reviewedAt: Date) {
+async function recordReview(
+  tx: Tx,
+  userId: string,
+  languageId: string,
+  learningItemId: string,
+  reviewedAt: Date,
+) {
   await insertReviewEvent(tx, {
     userId,
     languageId,
@@ -31,7 +40,12 @@ describe("setManualStreak (spec 20 Danger Zone)", () => {
       const { learnerId } = await seedTestFixtures(tx);
       const now = new Date("2026-08-24T12:00:00Z");
 
-      const result = await setManualStreak(tx, { userId: learnerId, value: 20, idempotencyKey: crypto.randomUUID(), now });
+      const result = await setManualStreak(tx, {
+        userId: learnerId,
+        value: 20,
+        idempotencyKey: crypto.randomUUID(),
+        now,
+      });
 
       expect(result.value).toBe(20);
       const latest = await getLatestStreakAdjustment(tx, learnerId);
@@ -46,8 +60,18 @@ describe("setManualStreak (spec 20 Danger Zone)", () => {
       const idempotencyKey = crypto.randomUUID();
       const now = new Date("2026-08-24T12:00:00Z");
 
-      await setManualStreak(tx, { userId: learnerId, value: 20, idempotencyKey, now });
-      await setManualStreak(tx, { userId: learnerId, value: 20, idempotencyKey, now });
+      await setManualStreak(tx, {
+        userId: learnerId,
+        value: 20,
+        idempotencyKey,
+        now,
+      });
+      await setManualStreak(tx, {
+        userId: learnerId,
+        value: 20,
+        idempotencyKey,
+        now,
+      });
 
       const rows = await tx.select().from(userStreakAdjustments);
       expect(rows.filter((row) => row.userId === learnerId)).toHaveLength(1);
@@ -58,16 +82,39 @@ describe("setManualStreak (spec 20 Danger Zone)", () => {
 describe("getCurrentStreak (spec 20 Danger Zone) — full composition against real review_events/vacation data", () => {
   it("counts consecutive real review days ending today, timezone UTC by fixture default", async () => {
     await withTestTransaction(async (tx) => {
-      const { learnerId, languageId, gatoId, casaId, aguaId } = await seedTestFixtures(tx);
+      const { learnerId, languageId, gatoId, casaId, aguaId } =
+        await seedTestFixtures(tx);
       // "now" (the query instant) is later in the day than the review it's meant to still count —
       // getReviewTimestampsInWindow's `until` bound is exclusive, matching every other window query
       // in this codebase, so a review recorded at the exact query instant would not be its own day's activity.
-      await recordReview(tx, learnerId, languageId, gatoId, new Date("2026-08-28T10:00:00Z"));
-      await recordReview(tx, learnerId, languageId, casaId, new Date("2026-08-29T10:00:00Z"));
-      await recordReview(tx, learnerId, languageId, aguaId, new Date("2026-08-30T10:00:00Z")); // Sunday
+      await recordReview(
+        tx,
+        learnerId,
+        languageId,
+        gatoId,
+        new Date("2026-08-28T10:00:00Z"),
+      );
+      await recordReview(
+        tx,
+        learnerId,
+        languageId,
+        casaId,
+        new Date("2026-08-29T10:00:00Z"),
+      );
+      await recordReview(
+        tx,
+        learnerId,
+        languageId,
+        aguaId,
+        new Date("2026-08-30T10:00:00Z"),
+      ); // Sunday
       const now = new Date("2026-08-30T12:00:00Z");
 
-      const streak = await getCurrentStreak(tx, { userId: learnerId, languageId, now });
+      const streak = await getCurrentStreak(tx, {
+        userId: learnerId,
+        languageId,
+        now,
+      });
       expect(streak).toBe(3);
     });
   });
@@ -79,26 +126,60 @@ describe("getCurrentStreak (spec 20 Danger Zone) — full composition against re
       const tuesdayReview = new Date("2026-08-25T08:00:00Z");
       const tuesdayQuery = new Date("2026-08-25T10:00:00Z");
 
-      await setManualStreak(tx, { userId: learnerId, value: 20, idempotencyKey: crypto.randomUUID(), now: monday });
-      const onMonday = await getCurrentStreak(tx, { userId: learnerId, languageId, now: new Date("2026-08-24T10:00:00Z") });
+      await setManualStreak(tx, {
+        userId: learnerId,
+        value: 20,
+        idempotencyKey: crypto.randomUUID(),
+        now: monday,
+      });
+      const onMonday = await getCurrentStreak(tx, {
+        userId: learnerId,
+        languageId,
+        now: new Date("2026-08-24T10:00:00Z"),
+      });
       expect(onMonday).toBe(20);
 
       await recordReview(tx, learnerId, languageId, gatoId, tuesdayReview);
-      const onTuesday = await getCurrentStreak(tx, { userId: learnerId, languageId, now: tuesdayQuery });
+      const onTuesday = await getCurrentStreak(tx, {
+        userId: learnerId,
+        languageId,
+        now: tuesdayQuery,
+      });
       expect(onTuesday).toBe(21);
     });
   });
 
   it("vacation days remain neutral in the real, composed calculation", async () => {
     await withTestTransaction(async (tx) => {
-      const { learnerId, languageId, gatoId, casaId } = await seedTestFixtures(tx);
-      await recordReview(tx, learnerId, languageId, gatoId, new Date("2026-08-24T08:00:00Z")); // Monday
-      await startVacationPeriod(tx, learnerId, new Date("2026-08-25T00:00:00Z")); // Tue-Fri vacation
+      const { learnerId, languageId, gatoId, casaId } =
+        await seedTestFixtures(tx);
+      await recordReview(
+        tx,
+        learnerId,
+        languageId,
+        gatoId,
+        new Date("2026-08-24T08:00:00Z"),
+      ); // Monday
+      await startVacationPeriod(
+        tx,
+        learnerId,
+        new Date("2026-08-25T00:00:00Z"),
+      ); // Tue-Fri vacation
       await endVacationPeriod(tx, learnerId, new Date("2026-08-29T00:00:00Z"));
-      await recordReview(tx, learnerId, languageId, casaId, new Date("2026-08-29T08:00:00Z")); // Saturday
+      await recordReview(
+        tx,
+        learnerId,
+        languageId,
+        casaId,
+        new Date("2026-08-29T08:00:00Z"),
+      ); // Saturday
       const now = new Date("2026-08-29T10:00:00Z");
 
-      const streak = await getCurrentStreak(tx, { userId: learnerId, languageId, now });
+      const streak = await getCurrentStreak(tx, {
+        userId: learnerId,
+        languageId,
+        now,
+      });
       expect(streak).toBe(2);
     });
   });
@@ -110,11 +191,20 @@ describe("getCurrentStreak (spec 20 Danger Zone) — full composition against re
       const wednesdayReview = new Date("2026-08-26T08:00:00Z");
       const wednesdayQuery = new Date("2026-08-26T10:00:00Z");
 
-      await setManualStreak(tx, { userId: learnerId, value: 20, idempotencyKey: crypto.randomUUID(), now: monday });
+      await setManualStreak(tx, {
+        userId: learnerId,
+        value: 20,
+        idempotencyKey: crypto.randomUUID(),
+        now: monday,
+      });
       // Tuesday (8-25) has no activity and is not a vacation day — a genuine miss.
       await recordReview(tx, learnerId, languageId, gatoId, wednesdayReview);
 
-      const streak = await getCurrentStreak(tx, { userId: learnerId, languageId, now: wednesdayQuery });
+      const streak = await getCurrentStreak(tx, {
+        userId: learnerId,
+        languageId,
+        now: wednesdayQuery,
+      });
       expect(streak).toBe(1);
     });
   });
@@ -122,7 +212,11 @@ describe("getCurrentStreak (spec 20 Danger Zone) — full composition against re
   it("returns 0 for a learner with no review history, no vacation, and no manual adjustment", async () => {
     await withTestTransaction(async (tx) => {
       const { languageId, developerId } = await seedTestFixtures(tx);
-      const streak = await getCurrentStreak(tx, { userId: developerId, languageId, now: new Date("2026-08-30T12:00:00Z") });
+      const streak = await getCurrentStreak(tx, {
+        userId: developerId,
+        languageId,
+        now: new Date("2026-08-30T12:00:00Z"),
+      });
       expect(streak).toBe(0);
     });
   });

@@ -6,8 +6,8 @@ Redesign all curriculum item pages around one shared, polished layout inspired b
 
 Use the same core presentation for:
 
-* `/items/[itemId]`
-* the information view shown while learning an item during a lesson
+- `/items/[itemId]`
+- the information view shown while learning an item during a lesson
 
 Vocabulary and grammar share the same shell but render type-specific content.
 
@@ -127,13 +127,13 @@ Mobile: stacked.
 
 Grammar:
 
-* Structure
-* Register
+- Structure
+- Register
 
 Vocabulary:
 
-* Gender
-* Register
+- Gender
+- Register
 
 If vocabulary has no grammatical gender, display:
 
@@ -143,10 +143,10 @@ If vocabulary has no grammatical gender, display:
 
 Show:
 
-* clickable voice/audio icon
-* learner-friendly pronunciation
-* IPA
-* Word Type
+- clickable voice/audio icon
+- learner-friendly pronunciation
+- IPA
+- Word Type
 
 Reuse the existing audio/speech system.
 
@@ -196,9 +196,9 @@ Normal unbordered explanatory text.
 
 An outlined example block containing:
 
-* target-language sentence
-* translation
-* optional audio
+- target-language sentence
+- translation
+- optional audio
 
 ### Polyglot Note
 
@@ -208,10 +208,10 @@ This is still fundamentally a text block.
 
 Admins can:
 
-* add
-* edit
-* delete
-* reorder
+- add
+- edit
+- delete
+- reorder
 
 these blocks from both the Item page and Admin curriculum editor.
 
@@ -256,9 +256,9 @@ Render example sentences as clear full-width rows/cards.
 
 Each example includes:
 
-* target-language sentence
-* translation beneath
-* voice/audio button
+- target-language sentence
+- translation beneath
+- voice/audio button
 
 Users may add their own private example sentences.
 
@@ -308,10 +308,10 @@ Place actions beneath their relevant sections rather than in one unrelated toolb
 
 Support:
 
-* Add personal synonym
-* Add note
-* Add personal example sentence
-* Add to a Deck
+- Add personal synonym
+- Add note
+- Add personal example sentence
+- Add to a Deck
 
 Notes, personal synonyms, and personal examples are private learner content.
 
@@ -325,15 +325,15 @@ Use the same domain services and validation for both entry points.
 
 Admin editing may include:
 
-* Details metadata
-* register
-* word type
-* grammar structure
-* teaching definition/About content
-* grammar content blocks
-* Context patterns/examples
-* official examples
-* Resources
+- Details metadata
+- register
+- word type
+- grammar structure
+- teaching definition/About content
+- grammar content blocks
+- Context patterns/examples
+- official examples
+- Resources
 
 Do not maintain separate Item-page and Admin-page versions of the same business logic.
 
@@ -345,13 +345,13 @@ Add only the structured fields/tables required by the current schema.
 
 Potential additions include:
 
-* register
-* word type
-* grammar content blocks
-* block order/type
-* context patterns
-* context examples
-* resource links
+- register
+- word type
+- grammar content blocks
+- block order/type
+- context patterns
+- context examples
+- resource links
 
 Prefer enums/configured types for values such as Register and Word Type where appropriate.
 
@@ -385,15 +385,15 @@ Lesson mode should configure this shared system rather than duplicating the page
 
 ## Performance / UX
 
-* use server-side item read models where possible
-* avoid duplicate curriculum/Lexicon queries
-* avoid N+1 example/resource loading
-* use smooth scroll without blocking navigation
-* use Intersection Observer or equivalent for sticky-header/tab tracking
-* do not continuously update React state from scroll position unnecessarily
-* preserve animated-background performance
-* lazy-load heavier audio/content when appropriate
-* keep responsive layouts usable at all supported widths
+- use server-side item read models where possible
+- avoid duplicate curriculum/Lexicon queries
+- avoid N+1 example/resource loading
+- use smooth scroll without blocking navigation
+- use Intersection Observer or equivalent for sticky-header/tab tracking
+- do not continuously update React state from scroll position unnecessarily
+- preserve animated-background performance
+- lazy-load heavier audio/content when appropriate
+- keep responsive layouts usable at all supported widths
 
 Follow existing accessibility, validation, authorization, and logging standards.
 
@@ -401,34 +401,34 @@ Respect reduced-motion settings for smooth scrolling/background animations where
 
 ## Scope Limits
 
-* no redesign of the universal header
-* no new SRS algorithm
-* no direct editing of raw Wiktionary data
-* no generic rich-text editor
-* no new audio provider
-* no implementation of the final animated SRS visualization yet
-* no public sharing of learner notes/synonyms/examples
+- no redesign of the universal header
+- no new SRS algorithm
+- no direct editing of raw Wiktionary data
+- no generic rich-text editor
+- no new audio provider
+- no implementation of the final animated SRS visualization yet
+- no public sharing of learner notes/synonyms/examples
 
 ## Check When Done
 
-* Vocabulary and Grammar Item pages use the new shared layout.
-* Lesson Item presentation reuses the same components.
-* Large centered hero and animated background render correctly.
-* Position indicator and wraparound arrows work.
-* Lesson arrows remain inside the active lesson.
-* Sticky header appears when the hero leaves view.
-* Section tabs scroll and track the active section.
-* Progress is hidden during lessons.
-* Four Info cards render responsively.
-* Grammar and vocabulary show the correct type-specific fields.
-* Grammar supports Text, Example Sentence, and Polyglot Note blocks.
-* Context supports configurable patterns and associated examples.
-* Example audio works through the existing audio system.
-* Learner synonyms, notes, and examples remain private.
-* Add to Deck works with personal decks.
-* Progress displays the required real learner data.
-* Admins can edit official content from either Admin Curriculum or the Item page.
-* Lexicon-derived content remains separated from Polyglot-authored content.
-* `Back to Top` follows sticky-header visibility.
-* Tests pass.
-* `npm run build` passes.
+- Vocabulary and Grammar Item pages use the new shared layout.
+- Lesson Item presentation reuses the same components.
+- Large centered hero and animated background render correctly.
+- Position indicator and wraparound arrows work.
+- Lesson arrows remain inside the active lesson.
+- Sticky header appears when the hero leaves view.
+- Section tabs scroll and track the active section.
+- Progress is hidden during lessons.
+- Four Info cards render responsively.
+- Grammar and vocabulary show the correct type-specific fields.
+- Grammar supports Text, Example Sentence, and Polyglot Note blocks.
+- Context supports configurable patterns and associated examples.
+- Example audio works through the existing audio system.
+- Learner synonyms, notes, and examples remain private.
+- Add to Deck works with personal decks.
+- Progress displays the required real learner data.
+- Admins can edit official content from either Admin Curriculum or the Item page.
+- Lexicon-derived content remains separated from Polyglot-authored content.
+- `Back to Top` follows sticky-header visibility.
+- Tests pass.
+- `npm run build` passes.

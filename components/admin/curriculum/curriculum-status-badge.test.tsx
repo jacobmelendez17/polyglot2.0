@@ -9,8 +9,11 @@ describe("CurriculumStatusBadge", () => {
     ["pending", "Pending"],
     ["published", "Published"],
     ["archived", "Archived"],
-  ] as const)("renders the %s status with a visible text label, not color alone", (status, label) => {
-    render(<CurriculumStatusBadge status={status} />);
-    expect(screen.getByText(label)).toBeInTheDocument();
-  });
+  ] as const)(
+    "renders the %s status with a visible text label, not color alone",
+    (status, label) => {
+      render(<CurriculumStatusBadge status={status} />);
+      expect(screen.getByText(label)).toBeInTheDocument();
+    },
+  );
 });

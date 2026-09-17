@@ -22,7 +22,9 @@ describe("parseVocabularyImportFile", () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.rows).toEqual([{ word: "gato", translation: "cat", level: "1", group: "1" }]);
+    expect(result.rows).toEqual([
+      { word: "gato", translation: "cat", level: "1", group: "1" },
+    ]);
   });
 
   it("rejects a file missing a required column", () => {
@@ -31,11 +33,17 @@ describe("parseVocabularyImportFile", () => {
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(result.error).toEqual({ type: "missing_columns", columns: ["translation"] });
+    expect(result.error).toEqual({
+      type: "missing_columns",
+      columns: ["translation"],
+    });
   });
 
   it("rejects a file with no data rows", () => {
-    const result = parseVocabularyImportFile("word,translation,level,group\n", ",");
+    const result = parseVocabularyImportFile(
+      "word,translation,level,group\n",
+      ",",
+    );
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.error.type).toBe("unparseable");
@@ -43,12 +51,18 @@ describe("parseVocabularyImportFile", () => {
 
   it("rejects a file over the row cap without ever building the row array in a usable way", () => {
     const header = "word,translation,level,group\n";
-    const rows = Array.from({ length: MAX_IMPORT_ROWS + 1 }, (_, i) => `word${i},meaning${i},1,1`).join("\n");
+    const rows = Array.from(
+      { length: MAX_IMPORT_ROWS + 1 },
+      (_, i) => `word${i},meaning${i},1,1`,
+    ).join("\n");
     const result = parseVocabularyImportFile(header + rows, ",");
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(result.error).toEqual({ type: "too_many_rows", count: MAX_IMPORT_ROWS + 1 });
+    expect(result.error).toEqual({
+      type: "too_many_rows",
+      count: MAX_IMPORT_ROWS + 1,
+    });
   });
 
   it("accepts `batch_id` as the group column, the name the authored curriculum files use", () => {
@@ -64,17 +78,23 @@ describe("parseVocabularyImportFile", () => {
   });
 
   it("accepts a UTF-8 byte-order mark and CRLF line endings, as a real spreadsheet export has", () => {
-    const csv = "\ufeffword,translation,level,batch_id\r\nadiós,goodbye,1,2\r\n";
+    const csv =
+      "\ufeffword,translation,level,batch_id\r\nadiós,goodbye,1,2\r\n";
     const result = parseVocabularyImportFile(csv, ",");
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.rows).toEqual([{ word: "adiós", translation: "goodbye", level: "1", group: "2" }]);
+    expect(result.rows).toEqual([
+      { word: "adiós", translation: "goodbye", level: "1", group: "2" },
+    ]);
   });
 
   it("returns a clean parse error instead of throwing for genuinely malformed input", () => {
     // An unterminated quoted field is a classic CSV malformation.
-    const result = parseVocabularyImportFile('word,translation,level,group\n"gato,cat,1,1\n', ",");
+    const result = parseVocabularyImportFile(
+      'word,translation,level,group\n"gato,cat,1,1\n',
+      ",",
+    );
     expect(result.ok).toBe(false);
   });
 });

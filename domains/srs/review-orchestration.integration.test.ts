@@ -2,7 +2,15 @@ import { and, eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 
 import type { DbClient } from "@/db/client";
-import { learningItems, learningItemSentences, reviewEvents, userItemProgress, userLevelProgress, userReviewPreferences, userSynonyms } from "@/db/schema";
+import {
+  learningItems,
+  learningItemSentences,
+  reviewEvents,
+  userItemProgress,
+  userLevelProgress,
+  userReviewPreferences,
+  userSynonyms,
+} from "@/db/schema";
 import { seedTestFixtures } from "@/db/seed/test-fixtures";
 import { testDb } from "@/db/test/test-client";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
@@ -10,7 +18,12 @@ import { updateTimezone } from "@/domains/users/user-repository";
 
 import { applyReviewCompletion } from "./review-completion";
 import { startReviewSession, submitReviewAnswer } from "./review-orchestration";
-import type { ReviewQueueTimingMode, ReviewType, SrsIntervalMode, SrsStrictness } from "./review-preference";
+import type {
+  ReviewQueueTimingMode,
+  ReviewType,
+  SrsIntervalMode,
+  SrsStrictness,
+} from "./review-preference";
 import { verifyReviewState } from "./review-token";
 import type { ReviewSessionResult } from "./review-types";
 import type { SrsStage } from "./srs-types";
@@ -63,9 +76,21 @@ async function markDue(
  * level-unlock ratio check) without pulling them into the session queue
  * `markDue` would create.
  */
-async function setStageNotDue(tx: DbClient, userId: string, learningItemId: string, languageId: string, srsStage: SrsStage) {
+async function setStageNotDue(
+  tx: DbClient,
+  userId: string,
+  learningItemId: string,
+  languageId: string,
+  srsStage: SrsStage,
+) {
   const future = new Date(Date.now() + 60 * 60 * 1000);
-  const values = { userId, learningItemId, languageId, srsStage, nextReviewAt: future };
+  const values = {
+    userId,
+    learningItemId,
+    languageId,
+    srsStage,
+    nextReviewAt: future,
+  };
   await tx
     .insert(userItemProgress)
     .values(values)
@@ -88,7 +113,12 @@ async function setStageNotDue(tx: DbClient, userId: string, learningItemId: stri
  * happens to be, and grades with `submitKnows` (self-graded) rather than
  * `submitTyped`, since Flashcard is never typed.
  */
-async function setVocabularyReviewType(tx: DbClient, userId: string, languageId: string, reviewType: ReviewType) {
+async function setVocabularyReviewType(
+  tx: DbClient,
+  userId: string,
+  languageId: string,
+  reviewType: ReviewType,
+) {
   await tx
     .insert(userReviewPreferences)
     .values({ userId, languageId, vocabularyReviewType: reviewType })
@@ -100,11 +130,18 @@ async function setVocabularyReviewType(tx: DbClient, userId: string, languageId:
 
 /** Removes `gatoId`'s seeded example sentence link for one test, forcing Cloze (Manual)'s "no compatible sentence" fallback deterministically rather than depending on the fixture never gaining one. */
 async function removeExampleSentence(tx: DbClient, learningItemId: string) {
-  await tx.delete(learningItemSentences).where(eq(learningItemSentences.learningItemId, learningItemId));
+  await tx
+    .delete(learningItemSentences)
+    .where(eq(learningItemSentences.learningItemId, learningItemId));
 }
 
 /** Spec 20 SRS Strictness — sets the vocabulary strictness a fresh session should resolve at `startReviewSession` time. */
-async function setVocabularySrsStrictness(tx: DbClient, userId: string, languageId: string, srsStrictness: SrsStrictness) {
+async function setVocabularySrsStrictness(
+  tx: DbClient,
+  userId: string,
+  languageId: string,
+  srsStrictness: SrsStrictness,
+) {
   await tx
     .insert(userReviewPreferences)
     .values({ userId, languageId, vocabularySrsStrictness: srsStrictness })
@@ -115,7 +152,12 @@ async function setVocabularySrsStrictness(tx: DbClient, userId: string, language
 }
 
 /** Spec 20 SRS Interval — sets the vocabulary interval mode a fresh session should resolve at `startReviewSession` time. */
-async function setVocabularySrsIntervalMode(tx: DbClient, userId: string, languageId: string, srsIntervalMode: SrsIntervalMode) {
+async function setVocabularySrsIntervalMode(
+  tx: DbClient,
+  userId: string,
+  languageId: string,
+  srsIntervalMode: SrsIntervalMode,
+) {
   await tx
     .insert(userReviewPreferences)
     .values({ userId, languageId, vocabularySrsIntervalMode: srsIntervalMode })
@@ -126,7 +168,12 @@ async function setVocabularySrsIntervalMode(tx: DbClient, userId: string, langua
 }
 
 /** Spec 20 Review Queue Timing — one value per language (not split grammar/vocabulary), resolved at `startReviewSession` time. */
-async function setReviewQueueTiming(tx: DbClient, userId: string, languageId: string, reviewQueueTiming: ReviewQueueTimingMode) {
+async function setReviewQueueTiming(
+  tx: DbClient,
+  userId: string,
+  languageId: string,
+  reviewQueueTiming: ReviewQueueTimingMode,
+) {
   await tx
     .insert(userReviewPreferences)
     .values({ userId, languageId, reviewQueueTiming })
@@ -137,7 +184,12 @@ async function setReviewQueueTiming(tx: DbClient, userId: string, languageId: st
 }
 
 /** Spec 20 Fluent Mode — sets the vocabulary Fluent Mode toggle a fresh session should resolve at `startReviewSession` time. */
-async function setVocabularyFluentMode(tx: DbClient, userId: string, languageId: string, fluentMode: boolean) {
+async function setVocabularyFluentMode(
+  tx: DbClient,
+  userId: string,
+  languageId: string,
+  fluentMode: boolean,
+) {
   await tx
     .insert(userReviewPreferences)
     .values({ userId, languageId, vocabularyFluentMode: fluentMode })
@@ -147,13 +199,26 @@ async function setVocabularyFluentMode(tx: DbClient, userId: string, languageId:
     });
 }
 
-type CommonSubmitFields = { token: string; userId: string; languageId: string; questionId: string; idempotencyKey: string; now?: number };
+type CommonSubmitFields = {
+  token: string;
+  userId: string;
+  languageId: string;
+  questionId: string;
+  idempotencyKey: string;
+  now?: number;
+};
 
-function submitTyped(tx: DbClient, input: CommonSubmitFields & { answer: string }) {
+function submitTyped(
+  tx: DbClient,
+  input: CommonSubmitFields & { answer: string },
+) {
   return submitReviewAnswer(tx, { ...input, kind: "typed" });
 }
 
-function submitKnows(tx: DbClient, input: CommonSubmitFields & { knowsAnswer: boolean }) {
+function submitKnows(
+  tx: DbClient,
+  input: CommonSubmitFields & { knowsAnswer: boolean },
+) {
   return submitReviewAnswer(tx, { ...input, kind: "self_graded" });
 }
 
@@ -161,7 +226,10 @@ describe("startReviewSession", () => {
   it("is a success state with the soonest upcoming review time when nothing is due", async () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, languageId } = await seedTestFixtures(tx);
-      const result = await startReviewSession(tx, { userId: learnerId, languageId });
+      const result = await startReviewSession(tx, {
+        userId: learnerId,
+        languageId,
+      });
       expect(result.kind).toBe("empty");
     });
   });
@@ -171,7 +239,10 @@ describe("startReviewSession", () => {
       const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
       await markDue(tx, learnerId, gatoId, languageId);
 
-      const result = await startReviewSession(tx, { userId: learnerId, languageId });
+      const result = await startReviewSession(tx, {
+        userId: learnerId,
+        languageId,
+      });
       expect(result.kind).toBe("session");
       if (result.kind !== "session") return;
 
@@ -179,9 +250,18 @@ describe("startReviewSession", () => {
       expect(result.currentQuestion?.itemId).toBe(gatoId);
       expect(result.currentQuestion?.direction).toBe("englishToTarget");
       // "El gato duerme." is gato's seeded example sentence — the blanked word is "gato".
-      expect(result.currentQuestion?.presentation).toEqual({ kind: "cloze_typed", sentenceBefore: "El ", sentenceAfter: " duerme." });
+      expect(result.currentQuestion?.presentation).toEqual({
+        kind: "cloze_typed",
+        sentenceBefore: "El ",
+        sentenceAfter: " duerme.",
+      });
 
-      const decoded = await verifyReviewState({ token: result.token, userId: learnerId, languageId, now: Date.now() });
+      const decoded = await verifyReviewState({
+        token: result.token,
+        userId: learnerId,
+        languageId,
+        now: Date.now(),
+      });
       // Cloze (Manual) asks vocabulary as one question, not two (2026-09-13 decision: "there is no other direction").
       expect(decoded.queue).toHaveLength(1);
     });
@@ -193,11 +273,19 @@ describe("startReviewSession", () => {
       await markDue(tx, learnerId, gatoId, languageId);
       await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
 
-      const result = await startReviewSession(tx, { userId: learnerId, languageId });
+      const result = await startReviewSession(tx, {
+        userId: learnerId,
+        languageId,
+      });
       expect(result.kind).toBe("session");
       if (result.kind !== "session") return;
 
-      const decoded = await verifyReviewState({ token: result.token, userId: learnerId, languageId, now: Date.now() });
+      const decoded = await verifyReviewState({
+        token: result.token,
+        userId: learnerId,
+        languageId,
+        now: Date.now(),
+      });
       expect(decoded.queue).toHaveLength(2);
       expect(result.currentQuestion?.presentation.kind).toBe("reveal");
     });
@@ -208,26 +296,41 @@ describe("startReviewSession", () => {
       const { learnerId, grammarYId, languageId } = await seedTestFixtures(tx);
       await markDue(tx, learnerId, grammarYId, languageId);
 
-      const result = await startReviewSession(tx, { userId: learnerId, languageId });
+      const result = await startReviewSession(tx, {
+        userId: learnerId,
+        languageId,
+      });
       expect(result.kind).toBe("session");
       if (result.kind !== "session") return;
 
-      const decoded = await verifyReviewState({ token: result.token, userId: learnerId, languageId, now: Date.now() });
+      const decoded = await verifyReviewState({
+        token: result.token,
+        userId: learnerId,
+        languageId,
+        now: Date.now(),
+      });
       expect(decoded.queue).toHaveLength(1);
       expect(decoded.questions[0]?.direction).toBe("targetToEnglish");
       // grammarYId's one configured question is targetToEnglish, which Cloze never reshapes (spec 20 Reviews).
-      expect(result.currentQuestion?.presentation).toEqual({ kind: "typed", prompt: "y" });
+      expect(result.currentQuestion?.presentation).toEqual({
+        kind: "typed",
+        prompt: "y",
+      });
     });
   });
 
   it("combines multiple due items (spanning levels) into one session — cross-language filtering itself is covered in domains/progress's own tests", async () => {
     await withTestTransaction(async (tx) => {
-      const { learnerId, gatoId, rojoId, languageId } = await seedTestFixtures(tx);
+      const { learnerId, gatoId, rojoId, languageId } =
+        await seedTestFixtures(tx);
       await markDue(tx, learnerId, gatoId, languageId);
       // rojoId is Level 2, same language.
       await markDue(tx, learnerId, rojoId, languageId);
 
-      const result = await startReviewSession(tx, { userId: learnerId, languageId });
+      const result = await startReviewSession(tx, {
+        userId: learnerId,
+        languageId,
+      });
       expect(result.kind).toBe("session");
       if (result.kind !== "session") return;
       expect(result.stats.itemsTotal).toBe(2);
@@ -242,11 +345,17 @@ describe("submitReviewAnswer — Cloze (Manual) fallback (no compatible sentence
       await markDue(tx, learnerId, gatoId, languageId);
       await removeExampleSentence(tx, gatoId);
 
-      const started = await startReviewSession(tx, { userId: learnerId, languageId });
+      const started = await startReviewSession(tx, {
+        userId: learnerId,
+        languageId,
+      });
       if (started.kind !== "session") throw new Error("expected a session");
       // With no compatible sentence, gato's single collapsed question falls
       // back to the ordinary englishToTarget prompt ("cat" -> "el gato").
-      expect(started.currentQuestion?.presentation).toEqual({ kind: "typed", prompt: "cat" });
+      expect(started.currentQuestion?.presentation).toEqual({
+        kind: "typed",
+        prompt: "cat",
+      });
 
       const bareAnswer = await submitTyped(tx, {
         token: started.token,
@@ -256,7 +365,11 @@ describe("submitReviewAnswer — Cloze (Manual) fallback (no compatible sentence
         answer: "gato",
         idempotencyKey: crypto.randomUUID(),
       });
-      expect(bareAnswer.feedback).toMatchObject({ kind: "incorrect", reason: "missing_article", article: "el" });
+      expect(bareAnswer.feedback).toMatchObject({
+        kind: "incorrect",
+        reason: "missing_article",
+        article: "el",
+      });
 
       const correct = await submitTyped(tx, {
         token: bareAnswer.token,
@@ -286,7 +399,10 @@ describe("submitReviewAnswer — Cloze (Manual) fallback (no compatible sentence
         normalizedValue: "minino",
       });
 
-      const started = await startReviewSession(tx, { userId: learnerId, languageId });
+      const started = await startReviewSession(tx, {
+        userId: learnerId,
+        languageId,
+      });
       if (started.kind !== "session") throw new Error("expected a session");
       expect(started.currentQuestion?.direction).toBe("englishToTarget");
 
@@ -311,7 +427,10 @@ describe("submitReviewAnswer — Cloze (Manual) fallback (no compatible sentence
       await markDue(tx, learnerId, gatoId, languageId);
       await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
 
-      const started = await startReviewSession(tx, { userId: learnerId, languageId });
+      const started = await startReviewSession(tx, {
+        userId: learnerId,
+        languageId,
+      });
       if (started.kind !== "session") throw new Error("expected a session");
       expect(started.currentQuestion?.presentation.kind).toBe("reveal");
 
@@ -333,10 +452,15 @@ describe("submitReviewAnswer — Flashcard (self-graded, both directions — com
   it("completes a vocabulary item only after both directions are answered correctly, with a preview advancement", async () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
-      await markDue(tx, learnerId, gatoId, languageId, { srsStage: "beginner_1" });
+      await markDue(tx, learnerId, gatoId, languageId, {
+        srsStage: "beginner_1",
+      });
       await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
 
-      const started = await startReviewSession(tx, { userId: learnerId, languageId });
+      const started = await startReviewSession(tx, {
+        userId: learnerId,
+        languageId,
+      });
       if (started.kind !== "session") throw new Error("expected a session");
 
       const first = await submitKnows(tx, {
@@ -378,7 +502,10 @@ describe("submitReviewAnswer — Flashcard (self-graded, both directions — com
       await markDue(tx, learnerId, gatoId, languageId);
       await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
 
-      const started = await startReviewSession(tx, { userId: learnerId, languageId });
+      const started = await startReviewSession(tx, {
+        userId: learnerId,
+        languageId,
+      });
       if (started.kind !== "session") throw new Error("expected a session");
 
       const result = await submitKnows(tx, {
@@ -396,10 +523,15 @@ describe("submitReviewAnswer — Flashcard (self-graded, both directions — com
   it("an incorrect required question returns later rather than immediately, and the item is still penalized once eventually correct", async () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
-      await markDue(tx, learnerId, gatoId, languageId, { srsStage: "familiar_1" });
+      await markDue(tx, learnerId, gatoId, languageId, {
+        srsStage: "familiar_1",
+      });
       await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
 
-      const started = await startReviewSession(tx, { userId: learnerId, languageId });
+      const started = await startReviewSession(tx, {
+        userId: learnerId,
+        languageId,
+      });
       if (started.kind !== "session") throw new Error("expected a session");
       const firstQuestionId = started.currentQuestion!.questionId;
 
@@ -437,17 +569,26 @@ describe("submitReviewAnswer — Flashcard (self-graded, both directions — com
       });
       expect(retry.feedback).toEqual({ kind: "correct" });
       // Spec 20 SRS Strictness default (1 Stage): any incorrect required answer drops exactly one stage, regardless of tier.
-      expect(retry.completedItem).toMatchObject({ stageBefore: "familiar_1", stageAfter: "beginner_4", result: "penalized" });
+      expect(retry.completedItem).toMatchObject({
+        stageBefore: "familiar_1",
+        stageAfter: "beginner_4",
+        result: "penalized",
+      });
     });
   });
 
   it("both required directions incorrect still applies the same single-item penalty, not a doubled one", async () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
-      await markDue(tx, learnerId, gatoId, languageId, { srsStage: "familiar_1" });
+      await markDue(tx, learnerId, gatoId, languageId, {
+        srsStage: "familiar_1",
+      });
       await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
 
-      const started = await startReviewSession(tx, { userId: learnerId, languageId });
+      const started = await startReviewSession(tx, {
+        userId: learnerId,
+        languageId,
+      });
       if (started.kind !== "session") throw new Error("expected a session");
 
       let response = await submitKnows(tx, {
@@ -484,7 +625,11 @@ describe("submitReviewAnswer — Flashcard (self-graded, both directions — com
         idempotencyKey: crypto.randomUUID(),
       });
 
-      expect(response.completedItem).toMatchObject({ stageBefore: "familiar_1", stageAfter: "beginner_4", result: "penalized" });
+      expect(response.completedItem).toMatchObject({
+        stageBefore: "familiar_1",
+        stageAfter: "beginner_4",
+        result: "penalized",
+      });
     });
   });
 
@@ -494,7 +639,10 @@ describe("submitReviewAnswer — Flashcard (self-graded, both directions — com
       await markDue(tx, learnerId, gatoId, languageId);
       await removeExampleSentence(tx, gatoId); // typed fallback prompt
 
-      const started = await startReviewSession(tx, { userId: learnerId, languageId });
+      const started = await startReviewSession(tx, {
+        userId: learnerId,
+        languageId,
+      });
       if (started.kind !== "session") throw new Error("expected a session");
 
       const result = await submitTyped(tx, {
@@ -507,7 +655,9 @@ describe("submitReviewAnswer — Flashcard (self-graded, both directions — com
       });
 
       expect(result.feedback).toEqual({ kind: "empty" });
-      expect(result.currentQuestion?.questionId).toBe(started.currentQuestion?.questionId);
+      expect(result.currentQuestion?.questionId).toBe(
+        started.currentQuestion?.questionId,
+      );
       expect(result.stats).toEqual(started.stats);
     });
   });
@@ -523,7 +673,10 @@ describe("submitReviewAnswer — Flashcard (self-graded, both directions — com
       // Fluent Mode" describe block below for the on-by-default behavior).
       await setVocabularyFluentMode(tx, learnerId, languageId, false);
 
-      const started = await startReviewSession(tx, { userId: learnerId, languageId });
+      const started = await startReviewSession(tx, {
+        userId: learnerId,
+        languageId,
+      });
       if (started.kind !== "session") throw new Error("expected a session");
 
       let response = await submitKnows(tx, {
@@ -543,7 +696,11 @@ describe("submitReviewAnswer — Flashcard (self-graded, both directions — com
         idempotencyKey: crypto.randomUUID(),
       });
 
-      expect(response.completedItem).toMatchObject({ stageAfter: "fluent", reachedFluent: true, nextReviewAt: null });
+      expect(response.completedItem).toMatchObject({
+        stageAfter: "fluent",
+        reachedFluent: true,
+        nextReviewAt: null,
+      });
     });
   });
 });
@@ -557,8 +714,21 @@ describe("submitReviewAnswer — SRS Strictness (spec 20)", () => {
    * required question returns later..." above: wrong once, then correct on
    * the other direction, then correct on the retry of the first.
    */
-  async function completeWithOneEarlierIncorrectAnswer(tx: DbClient, token: string, firstQuestionId: string, userId: string, languageId: string) {
-    const wrong = await submitKnows(tx, { token, userId, languageId, questionId: firstQuestionId, knowsAnswer: false, idempotencyKey: crypto.randomUUID() });
+  async function completeWithOneEarlierIncorrectAnswer(
+    tx: DbClient,
+    token: string,
+    firstQuestionId: string,
+    userId: string,
+    languageId: string,
+  ) {
+    const wrong = await submitKnows(tx, {
+      token,
+      userId,
+      languageId,
+      questionId: firstQuestionId,
+      knowsAnswer: false,
+      idempotencyKey: crypto.randomUUID(),
+    });
     const other = await submitKnows(tx, {
       token: wrong.token,
       userId,
@@ -584,7 +754,10 @@ describe("submitReviewAnswer — SRS Strictness (spec 20)", () => {
       await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
       await setVocabularySrsStrictness(tx, learnerId, languageId, "full");
 
-      const started = await startReviewSession(tx, { userId: learnerId, languageId });
+      const started = await startReviewSession(tx, {
+        userId: learnerId,
+        languageId,
+      });
       if (started.kind !== "session") throw new Error("expected a session");
 
       const response = await completeWithOneEarlierIncorrectAnswer(
@@ -597,18 +770,27 @@ describe("submitReviewAnswer — SRS Strictness (spec 20)", () => {
 
       // "Full" resets straight to Beginner 1 regardless of starting stage —
       // the old model (or "1 Stage") would have left this at Intermediate/Master.
-      expect(response.completedItem).toMatchObject({ stageBefore: "master", stageAfter: "beginner_1", result: "penalized" });
+      expect(response.completedItem).toMatchObject({
+        stageBefore: "master",
+        stageAfter: "beginner_1",
+        result: "penalized",
+      });
     });
   });
 
   it("a strictness change made after a session starts does not affect that already-open session (spec 20's 'active review keeps its original settings')", async () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
-      await markDue(tx, learnerId, gatoId, languageId, { srsStage: "familiar_1" });
+      await markDue(tx, learnerId, gatoId, languageId, {
+        srsStage: "familiar_1",
+      });
       await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
       // Default (1 Stage) in effect when this session starts.
 
-      const started = await startReviewSession(tx, { userId: learnerId, languageId });
+      const started = await startReviewSession(tx, {
+        userId: learnerId,
+        languageId,
+      });
       if (started.kind !== "session") throw new Error("expected a session");
 
       // The learner changes their setting to "Full" in another tab while this session is still open.
@@ -623,7 +805,11 @@ describe("submitReviewAnswer — SRS Strictness (spec 20)", () => {
       );
 
       // Still the 1-Stage result this session started with (Beginner 4), not Full's Beginner 1.
-      expect(response.completedItem).toMatchObject({ stageBefore: "familiar_1", stageAfter: "beginner_4", result: "penalized" });
+      expect(response.completedItem).toMatchObject({
+        stageBefore: "familiar_1",
+        stageAfter: "beginner_4",
+        result: "penalized",
+      });
     });
   });
 });
@@ -632,7 +818,13 @@ describe("submitReviewAnswer — SRS Interval (spec 20)", () => {
   const FIXED_NOW = Date.parse("2026-01-01T00:00:00Z");
 
   /** Both required directions answered correctly — the item advances one stage and schedules its next review under the configured SRS Interval mode. */
-  async function completeBothDirectionsCorrectly(tx: DbClient, token: string, firstQuestionId: string, userId: string, languageId: string) {
+  async function completeBothDirectionsCorrectly(
+    tx: DbClient,
+    token: string,
+    firstQuestionId: string,
+    userId: string,
+    languageId: string,
+  ) {
     const first = await submitKnows(tx, {
       token,
       userId,
@@ -656,39 +848,77 @@ describe("submitReviewAnswer — SRS Interval (spec 20)", () => {
   it("a non-default interval mode resolved at session start is what actually applies at completion", async () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
-      await markDue(tx, learnerId, gatoId, languageId, { srsStage: "beginner_2", now: FIXED_NOW });
+      await markDue(tx, learnerId, gatoId, languageId, {
+        srsStage: "beginner_2",
+        now: FIXED_NOW,
+      });
       await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
       await setVocabularySrsIntervalMode(tx, learnerId, languageId, "longest");
 
-      const started = await startReviewSession(tx, { userId: learnerId, languageId, now: FIXED_NOW });
+      const started = await startReviewSession(tx, {
+        userId: learnerId,
+        languageId,
+        now: FIXED_NOW,
+      });
       if (started.kind !== "session") throw new Error("expected a session");
 
-      const response = await completeBothDirectionsCorrectly(tx, started.token, started.currentQuestion!.questionId, learnerId, languageId);
+      const response = await completeBothDirectionsCorrectly(
+        tx,
+        started.token,
+        started.currentQuestion!.questionId,
+        learnerId,
+        languageId,
+      );
 
       // Advances beginner_2 -> beginner_3; "Longest" schedules beginner_3 36 hours out, not Default's 24.
-      expect(response.completedItem).toMatchObject({ stageBefore: "beginner_2", stageAfter: "beginner_3", result: "advanced" });
-      expect(response.completedItem?.nextReviewAt).toEqual(new Date(FIXED_NOW + 36 * 60 * 60 * 1000));
+      expect(response.completedItem).toMatchObject({
+        stageBefore: "beginner_2",
+        stageAfter: "beginner_3",
+        result: "advanced",
+      });
+      expect(response.completedItem?.nextReviewAt).toEqual(
+        new Date(FIXED_NOW + 36 * 60 * 60 * 1000),
+      );
     });
   });
 
   it("an interval mode change made after a session starts does not affect that already-open session's scheduling", async () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
-      await markDue(tx, learnerId, gatoId, languageId, { srsStage: "beginner_2", now: FIXED_NOW });
+      await markDue(tx, learnerId, gatoId, languageId, {
+        srsStage: "beginner_2",
+        now: FIXED_NOW,
+      });
       await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
       // Default in effect when this session starts.
 
-      const started = await startReviewSession(tx, { userId: learnerId, languageId, now: FIXED_NOW });
+      const started = await startReviewSession(tx, {
+        userId: learnerId,
+        languageId,
+        now: FIXED_NOW,
+      });
       if (started.kind !== "session") throw new Error("expected a session");
 
       // The learner changes their setting to "Longest" in another tab while this session is still open.
       await setVocabularySrsIntervalMode(tx, learnerId, languageId, "longest");
 
-      const response = await completeBothDirectionsCorrectly(tx, started.token, started.currentQuestion!.questionId, learnerId, languageId);
+      const response = await completeBothDirectionsCorrectly(
+        tx,
+        started.token,
+        started.currentQuestion!.questionId,
+        learnerId,
+        languageId,
+      );
 
       // Still the Default-mode schedule (24 hours) this session started with, not Longest's 36.
-      expect(response.completedItem).toMatchObject({ stageBefore: "beginner_2", stageAfter: "beginner_3", result: "advanced" });
-      expect(response.completedItem?.nextReviewAt).toEqual(new Date(FIXED_NOW + 24 * 60 * 60 * 1000));
+      expect(response.completedItem).toMatchObject({
+        stageBefore: "beginner_2",
+        stageAfter: "beginner_3",
+        result: "advanced",
+      });
+      expect(response.completedItem?.nextReviewAt).toEqual(
+        new Date(FIXED_NOW + 24 * 60 * 60 * 1000),
+      );
     });
   });
 
@@ -697,10 +927,17 @@ describe("submitReviewAnswer — SRS Interval (spec 20)", () => {
       const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
       // Default mode: Master -> Fluent is 3 calendar months out.
       const now = Date.parse("2026-01-31T00:00:00Z");
-      await markDue(tx, learnerId, gatoId, languageId, { srsStage: "intermediate", now });
+      await markDue(tx, learnerId, gatoId, languageId, {
+        srsStage: "intermediate",
+        now,
+      });
       await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
 
-      const started = await startReviewSession(tx, { userId: learnerId, languageId, now });
+      const started = await startReviewSession(tx, {
+        userId: learnerId,
+        languageId,
+        now,
+      });
       if (started.kind !== "session") throw new Error("expected a session");
 
       const first = await submitKnows(tx, {
@@ -723,15 +960,28 @@ describe("submitReviewAnswer — SRS Interval (spec 20)", () => {
       });
 
       // intermediate -> master; January 31 + 3 calendar months rolls over (April has 30 days) to May 1, not a fixed 90-day offset.
-      expect(response.completedItem).toMatchObject({ stageBefore: "intermediate", stageAfter: "master", result: "advanced" });
-      expect(response.completedItem?.nextReviewAt).toEqual(new Date("2026-05-01T00:00:00Z"));
+      expect(response.completedItem).toMatchObject({
+        stageBefore: "intermediate",
+        stageAfter: "master",
+        result: "advanced",
+      });
+      expect(response.completedItem?.nextReviewAt).toEqual(
+        new Date("2026-05-01T00:00:00Z"),
+      );
     });
   });
 });
 
 describe("submitReviewAnswer — Review Queue Timing (spec 20)", () => {
   /** Both required directions answered correctly — the item advances one stage and its raw due time is rounded per the session-resolved Review Queue Timing mode. */
-  async function completeBothDirectionsCorrectly(tx: DbClient, token: string, firstQuestionId: string, userId: string, languageId: string, now: number) {
+  async function completeBothDirectionsCorrectly(
+    tx: DbClient,
+    token: string,
+    firstQuestionId: string,
+    userId: string,
+    languageId: string,
+    now: number,
+  ) {
     const first = await submitKnows(tx, {
       token,
       userId,
@@ -756,18 +1006,38 @@ describe("submitReviewAnswer — Review Queue Timing (spec 20)", () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
       const now = Date.parse("2026-01-01T00:15:00Z");
-      await markDue(tx, learnerId, gatoId, languageId, { srsStage: "beginner_2", now });
+      await markDue(tx, learnerId, gatoId, languageId, {
+        srsStage: "beginner_2",
+        now,
+      });
       await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
       await setReviewQueueTiming(tx, learnerId, languageId, "start_of_hour");
 
-      const started = await startReviewSession(tx, { userId: learnerId, languageId, now });
+      const started = await startReviewSession(tx, {
+        userId: learnerId,
+        languageId,
+        now,
+      });
       if (started.kind !== "session") throw new Error("expected a session");
 
-      const response = await completeBothDirectionsCorrectly(tx, started.token, started.currentQuestion!.questionId, learnerId, languageId, now);
+      const response = await completeBothDirectionsCorrectly(
+        tx,
+        started.token,
+        started.currentQuestion!.questionId,
+        learnerId,
+        languageId,
+        now,
+      );
 
       // beginner_2 -> beginner_3, Default interval 24h: raw due 2026-01-02T00:15:00Z, rounded forward to 01:00.
-      expect(response.completedItem).toMatchObject({ stageBefore: "beginner_2", stageAfter: "beginner_3", result: "advanced" });
-      expect(response.completedItem?.nextReviewAt).toEqual(new Date("2026-01-02T01:00:00Z"));
+      expect(response.completedItem).toMatchObject({
+        stageBefore: "beginner_2",
+        stageAfter: "beginner_3",
+        result: "advanced",
+      });
+      expect(response.completedItem?.nextReviewAt).toEqual(
+        new Date("2026-01-02T01:00:00Z"),
+      );
     });
   });
 
@@ -775,19 +1045,39 @@ describe("submitReviewAnswer — Review Queue Timing (spec 20)", () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
       const now = Date.parse("2026-01-01T10:00:00Z");
-      await markDue(tx, learnerId, gatoId, languageId, { srsStage: "beginner_2", now });
+      await markDue(tx, learnerId, gatoId, languageId, {
+        srsStage: "beginner_2",
+        now,
+      });
       await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
       await setReviewQueueTiming(tx, learnerId, languageId, "start_of_day");
       await updateTimezone(tx, learnerId, "America/Phoenix");
 
-      const started = await startReviewSession(tx, { userId: learnerId, languageId, now });
+      const started = await startReviewSession(tx, {
+        userId: learnerId,
+        languageId,
+        now,
+      });
       if (started.kind !== "session") throw new Error("expected a session");
 
-      const response = await completeBothDirectionsCorrectly(tx, started.token, started.currentQuestion!.questionId, learnerId, languageId, now);
+      const response = await completeBothDirectionsCorrectly(
+        tx,
+        started.token,
+        started.currentQuestion!.questionId,
+        learnerId,
+        languageId,
+        now,
+      );
 
       // beginner_2 -> beginner_3, Default interval 24h: raw due 2026-01-02T10:00:00Z (03:00 Phoenix), aligned to that same Phoenix calendar date's midnight (07:00Z).
-      expect(response.completedItem).toMatchObject({ stageBefore: "beginner_2", stageAfter: "beginner_3", result: "advanced" });
-      expect(response.completedItem?.nextReviewAt).toEqual(new Date("2026-01-02T07:00:00Z"));
+      expect(response.completedItem).toMatchObject({
+        stageBefore: "beginner_2",
+        stageAfter: "beginner_3",
+        result: "advanced",
+      });
+      expect(response.completedItem?.nextReviewAt).toEqual(
+        new Date("2026-01-02T07:00:00Z"),
+      );
     });
   });
 
@@ -795,29 +1085,56 @@ describe("submitReviewAnswer — Review Queue Timing (spec 20)", () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
       const now = Date.parse("2026-01-01T00:15:00Z");
-      await markDue(tx, learnerId, gatoId, languageId, { srsStage: "beginner_2", now });
+      await markDue(tx, learnerId, gatoId, languageId, {
+        srsStage: "beginner_2",
+        now,
+      });
       await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
       // Start of Hour (the default) in effect when this session starts.
 
-      const started = await startReviewSession(tx, { userId: learnerId, languageId, now });
+      const started = await startReviewSession(tx, {
+        userId: learnerId,
+        languageId,
+        now,
+      });
       if (started.kind !== "session") throw new Error("expected a session");
 
       // The learner switches to Start of Day and a different timezone in another tab while this session is still open.
       await setReviewQueueTiming(tx, learnerId, languageId, "start_of_day");
       await updateTimezone(tx, learnerId, "America/Phoenix");
 
-      const response = await completeBothDirectionsCorrectly(tx, started.token, started.currentQuestion!.questionId, learnerId, languageId, now);
+      const response = await completeBothDirectionsCorrectly(
+        tx,
+        started.token,
+        started.currentQuestion!.questionId,
+        learnerId,
+        languageId,
+        now,
+      );
 
       // Still Start of Hour's rounding (01:00), not Start of Day's Phoenix midnight.
-      expect(response.completedItem).toMatchObject({ stageBefore: "beginner_2", stageAfter: "beginner_3", result: "advanced" });
-      expect(response.completedItem?.nextReviewAt).toEqual(new Date("2026-01-02T01:00:00Z"));
+      expect(response.completedItem).toMatchObject({
+        stageBefore: "beginner_2",
+        stageAfter: "beginner_3",
+        result: "advanced",
+      });
+      expect(response.completedItem?.nextReviewAt).toEqual(
+        new Date("2026-01-02T01:00:00Z"),
+      );
     });
   });
 });
 
 describe("submitReviewAnswer — Fluent Mode (spec 20)", () => {
   /** Both required directions answered correctly. */
-  async function completeBothDirectionsCorrectly(tx: DbClient, token: string, firstQuestionId: string, userId: string, languageId: string, now: number) {
+  async function completeBothDirectionsCorrectly(
+    tx: DbClient,
+    token: string,
+    firstQuestionId: string,
+    userId: string,
+    languageId: string,
+    now: number,
+  ) {
     const first = await submitKnows(tx, {
       token,
       userId,
@@ -839,8 +1156,23 @@ describe("submitReviewAnswer — Fluent Mode (spec 20)", () => {
   }
 
   /** Wrong on the first question, correct on the other required direction, then correct on the first question's retry — the only sequence that both completes the item and carries `hadIncorrectRequiredAnswer: true` (an incorrect answer reschedules its question rather than satisfying it). */
-  async function completeWithOneEarlierIncorrectAnswer(tx: DbClient, token: string, firstQuestionId: string, userId: string, languageId: string, now: number) {
-    const wrong = await submitKnows(tx, { token, userId, languageId, questionId: firstQuestionId, knowsAnswer: false, idempotencyKey: crypto.randomUUID(), now });
+  async function completeWithOneEarlierIncorrectAnswer(
+    tx: DbClient,
+    token: string,
+    firstQuestionId: string,
+    userId: string,
+    languageId: string,
+    now: number,
+  ) {
+    const wrong = await submitKnows(tx, {
+      token,
+      userId,
+      languageId,
+      questionId: firstQuestionId,
+      knowsAnswer: false,
+      idempotencyKey: crypto.randomUUID(),
+      now,
+    });
     const other = await submitKnows(tx, {
       token: wrong.token,
       userId,
@@ -865,16 +1197,37 @@ describe("submitReviewAnswer — Fluent Mode (spec 20)", () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
       const now = Date.parse("2026-01-01T00:00:00Z");
-      await markDue(tx, learnerId, gatoId, languageId, { srsStage: "master", now });
+      await markDue(tx, learnerId, gatoId, languageId, {
+        srsStage: "master",
+        now,
+      });
       await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
 
-      const started = await startReviewSession(tx, { userId: learnerId, languageId, now });
+      const started = await startReviewSession(tx, {
+        userId: learnerId,
+        languageId,
+        now,
+      });
       if (started.kind !== "session") throw new Error("expected a session");
 
-      const response = await completeBothDirectionsCorrectly(tx, started.token, started.currentQuestion!.questionId, learnerId, languageId, now);
+      const response = await completeBothDirectionsCorrectly(
+        tx,
+        started.token,
+        started.currentQuestion!.questionId,
+        learnerId,
+        languageId,
+        now,
+      );
 
-      expect(response.completedItem).toMatchObject({ stageBefore: "master", stageAfter: "fluent", result: "advanced", reachedFluent: true });
-      expect(response.completedItem?.nextReviewAt).toEqual(new Date("2026-07-01T00:00:00Z"));
+      expect(response.completedItem).toMatchObject({
+        stageBefore: "master",
+        stageAfter: "fluent",
+        result: "advanced",
+        reachedFluent: true,
+      });
+      expect(response.completedItem?.nextReviewAt).toEqual(
+        new Date("2026-07-01T00:00:00Z"),
+      );
     });
   });
 
@@ -882,16 +1235,35 @@ describe("submitReviewAnswer — Fluent Mode (spec 20)", () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
       const now = Date.parse("2026-01-01T00:00:00Z");
-      await markDue(tx, learnerId, gatoId, languageId, { srsStage: "master", now });
+      await markDue(tx, learnerId, gatoId, languageId, {
+        srsStage: "master",
+        now,
+      });
       await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
       await setVocabularyFluentMode(tx, learnerId, languageId, false);
 
-      const started = await startReviewSession(tx, { userId: learnerId, languageId, now });
+      const started = await startReviewSession(tx, {
+        userId: learnerId,
+        languageId,
+        now,
+      });
       if (started.kind !== "session") throw new Error("expected a session");
 
-      const response = await completeBothDirectionsCorrectly(tx, started.token, started.currentQuestion!.questionId, learnerId, languageId, now);
+      const response = await completeBothDirectionsCorrectly(
+        tx,
+        started.token,
+        started.currentQuestion!.questionId,
+        learnerId,
+        languageId,
+        now,
+      );
 
-      expect(response.completedItem).toMatchObject({ stageBefore: "master", stageAfter: "fluent", result: "advanced", reachedFluent: true });
+      expect(response.completedItem).toMatchObject({
+        stageBefore: "master",
+        stageAfter: "fluent",
+        result: "advanced",
+        reachedFluent: true,
+      });
       expect(response.completedItem?.nextReviewAt).toBeNull();
     });
   });
@@ -900,11 +1272,19 @@ describe("submitReviewAnswer — Fluent Mode (spec 20)", () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
       const firstNow = Date.parse("2026-01-01T00:00:00Z");
-      await markDue(tx, learnerId, gatoId, languageId, { srsStage: "master", now: firstNow });
+      await markDue(tx, learnerId, gatoId, languageId, {
+        srsStage: "master",
+        now: firstNow,
+      });
       await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
 
-      const firstSession = await startReviewSession(tx, { userId: learnerId, languageId, now: firstNow });
-      if (firstSession.kind !== "session") throw new Error("expected a session");
+      const firstSession = await startReviewSession(tx, {
+        userId: learnerId,
+        languageId,
+        now: firstNow,
+      });
+      if (firstSession.kind !== "session")
+        throw new Error("expected a session");
       const firstResponse = await completeBothDirectionsCorrectly(
         tx,
         firstSession.token,
@@ -917,8 +1297,13 @@ describe("submitReviewAnswer — Fluent Mode (spec 20)", () => {
       expect(secondNow).toBe(Date.parse("2026-07-01T00:00:00Z"));
 
       // The item is now due again, exactly at its maintenance schedule — start a second session there.
-      const secondSession = await startReviewSession(tx, { userId: learnerId, languageId, now: secondNow });
-      if (secondSession.kind !== "session") throw new Error("expected a session");
+      const secondSession = await startReviewSession(tx, {
+        userId: learnerId,
+        languageId,
+        now: secondNow,
+      });
+      if (secondSession.kind !== "session")
+        throw new Error("expected a session");
       const secondResponse = await completeBothDirectionsCorrectly(
         tx,
         secondSession.token,
@@ -928,9 +1313,16 @@ describe("submitReviewAnswer — Fluent Mode (spec 20)", () => {
         secondNow,
       );
 
-      expect(secondResponse.completedItem).toMatchObject({ stageBefore: "fluent", stageAfter: "fluent", result: "advanced", reachedFluent: false });
+      expect(secondResponse.completedItem).toMatchObject({
+        stageBefore: "fluent",
+        stageAfter: "fluent",
+        result: "advanced",
+        reachedFluent: false,
+      });
       // 2026-07-01 + 6 months = 2027-01-01 — from *this* review's own completion time, not "original fluentAt (Jan 1) + 6 months" (which would wrongly be July 1 again, i.e. already due).
-      expect(secondResponse.completedItem?.nextReviewAt).toEqual(new Date("2027-01-01T00:00:00Z"));
+      expect(secondResponse.completedItem?.nextReviewAt).toEqual(
+        new Date("2027-01-01T00:00:00Z"),
+      );
     });
   });
 
@@ -938,19 +1330,41 @@ describe("submitReviewAnswer — Fluent Mode (spec 20)", () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
       const now = Date.parse("2026-01-31T00:00:00Z");
-      await markDue(tx, learnerId, gatoId, languageId, { srsStage: "fluent", now, fluentAt: new Date("2025-01-01T00:00:00Z") });
+      await markDue(tx, learnerId, gatoId, languageId, {
+        srsStage: "fluent",
+        now,
+        fluentAt: new Date("2025-01-01T00:00:00Z"),
+      });
       await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
 
-      const started = await startReviewSession(tx, { userId: learnerId, languageId, now });
+      const started = await startReviewSession(tx, {
+        userId: learnerId,
+        languageId,
+        now,
+      });
       if (started.kind !== "session") throw new Error("expected a session");
 
-      const response = await completeWithOneEarlierIncorrectAnswer(tx, started.token, started.currentQuestion!.questionId, learnerId, languageId, now);
+      const response = await completeWithOneEarlierIncorrectAnswer(
+        tx,
+        started.token,
+        started.currentQuestion!.questionId,
+        learnerId,
+        languageId,
+        now,
+      );
 
       // Default SRS Strictness (1 Stage): Fluent (position 9) - 1 = Master.
-      expect(response.completedItem).toMatchObject({ stageBefore: "fluent", stageAfter: "master", result: "penalized", reachedFluent: false });
+      expect(response.completedItem).toMatchObject({
+        stageBefore: "fluent",
+        stageAfter: "master",
+        result: "penalized",
+        reachedFluent: false,
+      });
       // Normal SRS Interval scheduling resumes — Default mode's Master interval is 3 calendar months, not the Fluent 6-month schedule.
       // January 31 + 3 months overflows past April's 30 days to May 1 (real calendar-month arithmetic, not a fixed-day approximation).
-      expect(response.completedItem?.nextReviewAt).toEqual(new Date("2026-05-01T00:00:00Z"));
+      expect(response.completedItem?.nextReviewAt).toEqual(
+        new Date("2026-05-01T00:00:00Z"),
+      );
     });
   });
 
@@ -958,21 +1372,42 @@ describe("submitReviewAnswer — Fluent Mode (spec 20)", () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
       const now = Date.parse("2026-01-01T00:00:00Z");
-      await markDue(tx, learnerId, gatoId, languageId, { srsStage: "master", now });
+      await markDue(tx, learnerId, gatoId, languageId, {
+        srsStage: "master",
+        now,
+      });
       await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
       // Fluent Mode on (the default) in effect when this session starts.
 
-      const started = await startReviewSession(tx, { userId: learnerId, languageId, now });
+      const started = await startReviewSession(tx, {
+        userId: learnerId,
+        languageId,
+        now,
+      });
       if (started.kind !== "session") throw new Error("expected a session");
 
       // The learner turns Fluent Mode off in another tab while this session is still open.
       await setVocabularyFluentMode(tx, learnerId, languageId, false);
 
-      const response = await completeBothDirectionsCorrectly(tx, started.token, started.currentQuestion!.questionId, learnerId, languageId, now);
+      const response = await completeBothDirectionsCorrectly(
+        tx,
+        started.token,
+        started.currentQuestion!.questionId,
+        learnerId,
+        languageId,
+        now,
+      );
 
       // Still the on-at-session-start 6-month schedule, not off's null.
-      expect(response.completedItem).toMatchObject({ stageBefore: "master", stageAfter: "fluent", result: "advanced", reachedFluent: true });
-      expect(response.completedItem?.nextReviewAt).toEqual(new Date("2026-07-01T00:00:00Z"));
+      expect(response.completedItem).toMatchObject({
+        stageBefore: "master",
+        stageAfter: "fluent",
+        result: "advanced",
+        reachedFluent: true,
+      });
+      expect(response.completedItem?.nextReviewAt).toEqual(
+        new Date("2026-07-01T00:00:00Z"),
+      );
     });
   });
 });
@@ -981,10 +1416,15 @@ describe("atomic review completion (spec 09 unit 4)", () => {
   it("actually updates the real user_item_progress row, not just the returned preview", async () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
-      await markDue(tx, learnerId, gatoId, languageId, { srsStage: "beginner_1" });
+      await markDue(tx, learnerId, gatoId, languageId, {
+        srsStage: "beginner_1",
+      });
       await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
 
-      const started = await startReviewSession(tx, { userId: learnerId, languageId });
+      const started = await startReviewSession(tx, {
+        userId: learnerId,
+        languageId,
+      });
       if (started.kind !== "session") throw new Error("expected a session");
       let response: ReviewSessionResult = started;
       response = await submitKnows(tx, {
@@ -1007,7 +1447,12 @@ describe("atomic review completion (spec 09 unit 4)", () => {
       const [row] = await tx
         .select()
         .from(userItemProgress)
-        .where(and(eq(userItemProgress.userId, learnerId), eq(userItemProgress.learningItemId, gatoId)));
+        .where(
+          and(
+            eq(userItemProgress.userId, learnerId),
+            eq(userItemProgress.learningItemId, gatoId),
+          ),
+        );
       expect(row?.srsStage).toBe("beginner_2");
       expect(row?.version).toBe(1);
       expect(row?.reviewCount).toBe(1);
@@ -1018,10 +1463,15 @@ describe("atomic review completion (spec 09 unit 4)", () => {
   it("persists a review_events row for the completed item, and it survives after the session is discarded", async () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
-      await markDue(tx, learnerId, gatoId, languageId, { srsStage: "beginner_1" });
+      await markDue(tx, learnerId, gatoId, languageId, {
+        srsStage: "beginner_1",
+      });
       await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
 
-      const started = await startReviewSession(tx, { userId: learnerId, languageId });
+      const started = await startReviewSession(tx, {
+        userId: learnerId,
+        languageId,
+      });
       if (started.kind !== "session") throw new Error("expected a session");
       let response: ReviewSessionResult = started;
       response = await submitKnows(tx, {
@@ -1043,7 +1493,10 @@ describe("atomic review completion (spec 09 unit 4)", () => {
       // Session token is now simply discarded, as a real client abandoning
       // the tab would do — no further calls made with it.
 
-      const [event] = await tx.select().from(reviewEvents).where(eq(reviewEvents.learningItemId, gatoId));
+      const [event] = await tx
+        .select()
+        .from(reviewEvents)
+        .where(eq(reviewEvents.learningItemId, gatoId));
       expect(event).toBeDefined();
       expect(event?.stageBefore).toBe("beginner_1");
       expect(event?.stageAfter).toBe("beginner_2");
@@ -1056,10 +1509,15 @@ describe("atomic review completion (spec 09 unit 4)", () => {
   it("a half-completed item (only one of two required directions answered) changes nothing in the database", async () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
-      await markDue(tx, learnerId, gatoId, languageId, { srsStage: "beginner_1" });
+      await markDue(tx, learnerId, gatoId, languageId, {
+        srsStage: "beginner_1",
+      });
       await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
 
-      const started = await startReviewSession(tx, { userId: learnerId, languageId });
+      const started = await startReviewSession(tx, {
+        userId: learnerId,
+        languageId,
+      });
       if (started.kind !== "session") throw new Error("expected a session");
       await submitKnows(tx, {
         token: started.token,
@@ -1073,12 +1531,20 @@ describe("atomic review completion (spec 09 unit 4)", () => {
       const [row] = await tx
         .select()
         .from(userItemProgress)
-        .where(and(eq(userItemProgress.userId, learnerId), eq(userItemProgress.learningItemId, gatoId)));
+        .where(
+          and(
+            eq(userItemProgress.userId, learnerId),
+            eq(userItemProgress.learningItemId, gatoId),
+          ),
+        );
       expect(row?.srsStage).toBe("beginner_1");
       expect(row?.version).toBe(0);
       expect(row?.reviewCount).toBe(0);
 
-      const [event] = await tx.select().from(reviewEvents).where(eq(reviewEvents.learningItemId, gatoId));
+      const [event] = await tx
+        .select()
+        .from(reviewEvents)
+        .where(eq(reviewEvents.learningItemId, gatoId));
       expect(event).toBeUndefined();
     });
   });
@@ -1086,7 +1552,9 @@ describe("atomic review completion (spec 09 unit 4)", () => {
   it("a stale completion (version already changed by another completion) is rejected, and changes nothing", async () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
-      await markDue(tx, learnerId, gatoId, languageId, { srsStage: "beginner_1" });
+      await markDue(tx, learnerId, gatoId, languageId, {
+        srsStage: "beginner_1",
+      });
 
       // Simulate a second device completing the item first: bump the row's
       // version directly, out from under a session snapshot that already
@@ -1094,7 +1562,12 @@ describe("atomic review completion (spec 09 unit 4)", () => {
       await tx
         .update(userItemProgress)
         .set({ version: 5 })
-        .where(and(eq(userItemProgress.userId, learnerId), eq(userItemProgress.learningItemId, gatoId)));
+        .where(
+          and(
+            eq(userItemProgress.userId, learnerId),
+            eq(userItemProgress.learningItemId, gatoId),
+          ),
+        );
 
       await expect(
         applyReviewCompletion(tx, {
@@ -1118,11 +1591,19 @@ describe("atomic review completion (spec 09 unit 4)", () => {
       const [row] = await tx
         .select()
         .from(userItemProgress)
-        .where(and(eq(userItemProgress.userId, learnerId), eq(userItemProgress.learningItemId, gatoId)));
+        .where(
+          and(
+            eq(userItemProgress.userId, learnerId),
+            eq(userItemProgress.learningItemId, gatoId),
+          ),
+        );
       expect(row?.version).toBe(5);
       expect(row?.srsStage).toBe("beginner_1");
 
-      const [event] = await tx.select().from(reviewEvents).where(eq(reviewEvents.learningItemId, gatoId));
+      const [event] = await tx
+        .select()
+        .from(reviewEvents)
+        .where(eq(reviewEvents.learningItemId, gatoId));
       expect(event).toBeUndefined();
     });
   });
@@ -1134,7 +1615,12 @@ describe("atomic review completion (spec 09 unit 4)", () => {
       await tx
         .update(userItemProgress)
         .set({ nextReviewAt: future })
-        .where(and(eq(userItemProgress.userId, learnerId), eq(userItemProgress.learningItemId, gatoId)));
+        .where(
+          and(
+            eq(userItemProgress.userId, learnerId),
+            eq(userItemProgress.learningItemId, gatoId),
+          ),
+        );
 
       await expect(
         applyReviewCompletion(tx, {
@@ -1160,10 +1646,15 @@ describe("atomic review completion (spec 09 unit 4)", () => {
   it("submitReviewAnswer recovers gracefully when the completing submission turns out stale — grades the answer, reports staleItem, and still advances the session (spec 09 §11)", async () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
-      await markDue(tx, learnerId, gatoId, languageId, { srsStage: "beginner_1" });
+      await markDue(tx, learnerId, gatoId, languageId, {
+        srsStage: "beginner_1",
+      });
       await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
 
-      const started = await startReviewSession(tx, { userId: learnerId, languageId });
+      const started = await startReviewSession(tx, {
+        userId: learnerId,
+        languageId,
+      });
       if (started.kind !== "session") throw new Error("expected a session");
       const first = await submitKnows(tx, {
         token: started.token,
@@ -1181,7 +1672,12 @@ describe("atomic review completion (spec 09 unit 4)", () => {
       await tx
         .update(userItemProgress)
         .set({ version: 99 })
-        .where(and(eq(userItemProgress.userId, learnerId), eq(userItemProgress.learningItemId, gatoId)));
+        .where(
+          and(
+            eq(userItemProgress.userId, learnerId),
+            eq(userItemProgress.learningItemId, gatoId),
+          ),
+        );
 
       const final = await submitKnows(tx, {
         token: first.token,
@@ -1206,7 +1702,12 @@ describe("atomic review completion (spec 09 unit 4)", () => {
       const [row] = await tx
         .select()
         .from(userItemProgress)
-        .where(and(eq(userItemProgress.userId, learnerId), eq(userItemProgress.learningItemId, gatoId)));
+        .where(
+          and(
+            eq(userItemProgress.userId, learnerId),
+            eq(userItemProgress.learningItemId, gatoId),
+          ),
+        );
       expect(row?.version).toBe(99);
     });
   });
@@ -1214,7 +1715,9 @@ describe("atomic review completion (spec 09 unit 4)", () => {
   it("the same idempotency key with the same payload applies the mutation exactly once on replay", async () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, gatoId, languageId } = await seedTestFixtures(tx);
-      await markDue(tx, learnerId, gatoId, languageId, { srsStage: "beginner_1" });
+      await markDue(tx, learnerId, gatoId, languageId, {
+        srsStage: "beginner_1",
+      });
       const key = crypto.randomUUID();
       const input = {
         userId: learnerId,
@@ -1241,20 +1744,33 @@ describe("atomic review completion (spec 09 unit 4)", () => {
       const [row] = await tx
         .select()
         .from(userItemProgress)
-        .where(and(eq(userItemProgress.userId, learnerId), eq(userItemProgress.learningItemId, gatoId)));
+        .where(
+          and(
+            eq(userItemProgress.userId, learnerId),
+            eq(userItemProgress.learningItemId, gatoId),
+          ),
+        );
       // Applied once, not twice — version only advanced by 1.
       expect(row?.version).toBe(1);
 
-      const events = await tx.select().from(reviewEvents).where(eq(reviewEvents.learningItemId, gatoId));
+      const events = await tx
+        .select()
+        .from(reviewEvents)
+        .where(eq(reviewEvents.learningItemId, gatoId));
       expect(events).toHaveLength(1);
     });
   });
 
   it("the same idempotency key with a different payload conflicts rather than silently applying either", async () => {
     await withTestTransaction(async (tx) => {
-      const { learnerId, gatoId, grammarYId, languageId } = await seedTestFixtures(tx);
-      await markDue(tx, learnerId, gatoId, languageId, { srsStage: "beginner_1" });
-      await markDue(tx, learnerId, grammarYId, languageId, { srsStage: "beginner_1" });
+      const { learnerId, gatoId, grammarYId, languageId } =
+        await seedTestFixtures(tx);
+      await markDue(tx, learnerId, gatoId, languageId, {
+        srsStage: "beginner_1",
+      });
+      await markDue(tx, learnerId, grammarYId, languageId, {
+        srsStage: "beginner_1",
+      });
       const key = crypto.randomUUID();
 
       await applyReviewCompletion(tx, {
@@ -1265,10 +1781,10 @@ describe("atomic review completion (spec 09 unit 4)", () => {
         requiredQuestionCount: 2,
         hadIncorrectRequiredAnswer: false,
         srsStrictness: "one_stage",
-          srsIntervalMode: "default",
-          reviewQueueTiming: "start_of_hour",
-          timeZone: "UTC",
-          fluentMode: true,
+        srsIntervalMode: "default",
+        reviewQueueTiming: "start_of_hour",
+        timeZone: "UTC",
+        fluentMode: true,
         now: new Date(),
         idempotencyKey: key,
         sessionId: "session-conflict-test",
@@ -1297,7 +1813,8 @@ describe("atomic review completion (spec 09 unit 4)", () => {
 
   it("a newly earned level unlock persists as part of the completing transaction", async () => {
     await withTestTransaction(async (tx) => {
-      const { learnerId, gatoId, level1Id, level2Id, languageId } = await seedTestFixtures(tx);
+      const { learnerId, gatoId, level1Id, level2Id, languageId } =
+        await seedTestFixtures(tx);
       await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
 
       // Bring every *other* published item in level 1 to Familiar 1 already
@@ -1315,14 +1832,24 @@ describe("atomic review completion (spec 09 unit 4)", () => {
       const gatingItems = await tx
         .select({ id: learningItems.id })
         .from(learningItems)
-        .where(and(eq(learningItems.levelId, level1Id), eq(learningItems.status, "published")));
+        .where(
+          and(
+            eq(learningItems.levelId, level1Id),
+            eq(learningItems.status, "published"),
+          ),
+        );
       for (const item of gatingItems) {
         if (item.id === gatoId) continue;
         await setStageNotDue(tx, learnerId, item.id, languageId, "familiar_1");
       }
-      await markDue(tx, learnerId, gatoId, languageId, { srsStage: "beginner_4" });
+      await markDue(tx, learnerId, gatoId, languageId, {
+        srsStage: "beginner_4",
+      });
 
-      const started = await startReviewSession(tx, { userId: learnerId, languageId });
+      const started = await startReviewSession(tx, {
+        userId: learnerId,
+        languageId,
+      });
       if (started.kind !== "session") throw new Error("expected a session");
       let response: ReviewSessionResult = started;
       response = await submitKnows(tx, {
@@ -1347,23 +1874,38 @@ describe("atomic review completion (spec 09 unit 4)", () => {
       const [unlock] = await tx
         .select()
         .from(userLevelProgress)
-        .where(and(eq(userLevelProgress.userId, learnerId), eq(userLevelProgress.levelId, level2Id)));
+        .where(
+          and(
+            eq(userLevelProgress.userId, learnerId),
+            eq(userLevelProgress.levelId, level2Id),
+          ),
+        );
       expect(unlock).toBeDefined();
     });
   });
 
   it("an already-earned level unlock is not revoked when an item later falls back below the threshold", async () => {
     await withTestTransaction(async (tx) => {
-      const { learnerId, gatoId, level2Id, languageId } = await seedTestFixtures(tx);
+      const { learnerId, gatoId, level2Id, languageId } =
+        await seedTestFixtures(tx);
       await setVocabularyReviewType(tx, learnerId, languageId, "flashcard");
       // Level 2 already unlocked (as if earned earlier).
-      await tx.insert(userLevelProgress).values({ userId: learnerId, levelId: level2Id, unlockedAt: new Date("2026-01-01T00:00:00Z") });
+      await tx.insert(userLevelProgress).values({
+        userId: learnerId,
+        levelId: level2Id,
+        unlockedAt: new Date("2026-01-01T00:00:00Z"),
+      });
 
       // gato now fails one required direction and gets penalized back down
       // once fully completed (wrong on the first direction, correct on the
       // other, then a correct retry of the originally-failed one).
-      await markDue(tx, learnerId, gatoId, languageId, { srsStage: "familiar_1" });
-      const started = await startReviewSession(tx, { userId: learnerId, languageId });
+      await markDue(tx, learnerId, gatoId, languageId, {
+        srsStage: "familiar_1",
+      });
+      const started = await startReviewSession(tx, {
+        userId: learnerId,
+        languageId,
+      });
       if (started.kind !== "session") throw new Error("expected a session");
       let response: ReviewSessionResult = started;
       const firstQuestionId = response.currentQuestion!.questionId;
@@ -1393,29 +1935,53 @@ describe("atomic review completion (spec 09 unit 4)", () => {
         knowsAnswer: true,
         idempotencyKey: crypto.randomUUID(),
       });
-      expect(response.completedItem).toMatchObject({ stageBefore: "familiar_1", stageAfter: "beginner_4", result: "penalized" });
+      expect(response.completedItem).toMatchObject({
+        stageBefore: "familiar_1",
+        stageAfter: "beginner_4",
+        result: "penalized",
+      });
 
       const [unlock] = await tx
         .select()
         .from(userLevelProgress)
-        .where(and(eq(userLevelProgress.userId, learnerId), eq(userLevelProgress.levelId, level2Id)));
+        .where(
+          and(
+            eq(userLevelProgress.userId, learnerId),
+            eq(userLevelProgress.levelId, level2Id),
+          ),
+        );
       expect(unlock).toBeDefined();
       expect(unlock?.unlockedAt).toEqual(new Date("2026-01-01T00:00:00Z"));
     });
   });
 
   it("a genuine two-connection concurrent completion of the same item applies exactly once", async () => {
-    const { learnerId, gatoId, languageId } = await seedTestFixtures(testDb, { committed: true });
+    const { learnerId, gatoId, languageId } = await seedTestFixtures(testDb, {
+      committed: true,
+    });
     const before = await testDb
       .select()
       .from(userItemProgress)
-      .where(and(eq(userItemProgress.userId, learnerId), eq(userItemProgress.learningItemId, gatoId)));
+      .where(
+        and(
+          eq(userItemProgress.userId, learnerId),
+          eq(userItemProgress.learningItemId, gatoId),
+        ),
+      );
     const original = before[0]!;
 
     await testDb
       .update(userItemProgress)
-      .set({ nextReviewAt: new Date(Date.now() - 60_000), srsStage: "beginner_1" })
-      .where(and(eq(userItemProgress.userId, learnerId), eq(userItemProgress.learningItemId, gatoId)));
+      .set({
+        nextReviewAt: new Date(Date.now() - 60_000),
+        srsStage: "beginner_1",
+      })
+      .where(
+        and(
+          eq(userItemProgress.userId, learnerId),
+          eq(userItemProgress.learningItemId, gatoId),
+        ),
+      );
 
     try {
       const attempt = () =>
@@ -1446,7 +2012,9 @@ describe("atomic review completion (spec 09 unit 4)", () => {
 
       expect(applied).toHaveLength(1);
       expect(rejected).toHaveLength(1);
-      expect((rejected[0] as { status: "rejected"; reason: unknown }).reason).toMatchObject({ code: "STALE_REVIEW" });
+      expect(
+        (rejected[0] as { status: "rejected"; reason: unknown }).reason,
+      ).toMatchObject({ code: "STALE_REVIEW" });
     } finally {
       await testDb
         .update(userItemProgress)
@@ -1458,8 +2026,15 @@ describe("atomic review completion (spec 09 unit 4)", () => {
           reviewCount: original.reviewCount,
           lastReviewedAt: original.lastReviewedAt,
         })
-        .where(and(eq(userItemProgress.userId, learnerId), eq(userItemProgress.learningItemId, gatoId)));
-      await testDb.delete(reviewEvents).where(eq(reviewEvents.learningItemId, gatoId));
+        .where(
+          and(
+            eq(userItemProgress.userId, learnerId),
+            eq(userItemProgress.learningItemId, gatoId),
+          ),
+        );
+      await testDb
+        .delete(reviewEvents)
+        .where(eq(reviewEvents.learningItemId, gatoId));
     }
   });
 });

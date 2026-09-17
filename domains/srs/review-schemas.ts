@@ -1,7 +1,23 @@
 import { z } from "zod";
 
-import { GHOST_MODES, HINT_MODES, HINT_ORDERS, REVIEW_QUEUE_TIMING_MODES, REVIEW_TYPES, SRS_INTERVAL_MODES, SRS_STRICTNESSES } from "./review-preference";
-import type { GhostMode, HintMode, HintOrder, ReviewQueueTimingMode, ReviewType, SrsIntervalMode, SrsStrictness } from "./review-preference";
+import {
+  GHOST_MODES,
+  HINT_MODES,
+  HINT_ORDERS,
+  REVIEW_QUEUE_TIMING_MODES,
+  REVIEW_TYPES,
+  SRS_INTERVAL_MODES,
+  SRS_STRICTNESSES,
+} from "./review-preference";
+import type {
+  GhostMode,
+  HintMode,
+  HintOrder,
+  ReviewQueueTimingMode,
+  ReviewType,
+  SrsIntervalMode,
+  SrsStrictness,
+} from "./review-preference";
 import { SRS_STAGE_ORDER } from "./srs-config";
 import type { SrsStage } from "./srs-types";
 
@@ -16,11 +32,16 @@ import type { SrsStage } from "./srs-types";
 // Derived from the one canonical `SRS_STAGE_ORDER`, not duplicated — the
 // cast only widens the tuple type for `z.enum`'s signature; the runtime
 // values and literal inference both still come from that array.
-export const srsStageSchema = z.enum(SRS_STAGE_ORDER as unknown as readonly [SrsStage, ...SrsStage[]]);
+export const srsStageSchema = z.enum(
+  SRS_STAGE_ORDER as unknown as readonly [SrsStage, ...SrsStage[]],
+);
 
 export const reviewItemTypeSchema = z.enum(["vocabulary", "grammar"]);
 
-export const reviewQuestionDirectionSchema = z.enum(["targetToEnglish", "englishToTarget"]);
+export const reviewQuestionDirectionSchema = z.enum([
+  "targetToEnglish",
+  "englishToTarget",
+]);
 
 export const reviewQuestionSchema = z.object({
   id: z.string().min(1),
@@ -52,13 +73,33 @@ export const reviewSessionStatsSchema = z.object({
   questionsCorrect: z.number().int().min(0),
 });
 
-const reviewTypeSchema = z.enum(REVIEW_TYPES as unknown as readonly [ReviewType, ...ReviewType[]]);
-const hintOrderSchema = z.enum(HINT_ORDERS as unknown as readonly [HintOrder, ...HintOrder[]]);
-const hintModeSchema = z.enum(HINT_MODES as unknown as readonly [HintMode, ...HintMode[]]);
-const srsStrictnessSchema = z.enum(SRS_STRICTNESSES as unknown as readonly [SrsStrictness, ...SrsStrictness[]]);
-const srsIntervalModeSchema = z.enum(SRS_INTERVAL_MODES as unknown as readonly [SrsIntervalMode, ...SrsIntervalMode[]]);
-const reviewQueueTimingModeSchema = z.enum(REVIEW_QUEUE_TIMING_MODES as unknown as readonly [ReviewQueueTimingMode, ...ReviewQueueTimingMode[]]);
-const ghostModeSchema = z.enum(GHOST_MODES as unknown as readonly [GhostMode, ...GhostMode[]]);
+const reviewTypeSchema = z.enum(
+  REVIEW_TYPES as unknown as readonly [ReviewType, ...ReviewType[]],
+);
+const hintOrderSchema = z.enum(
+  HINT_ORDERS as unknown as readonly [HintOrder, ...HintOrder[]],
+);
+const hintModeSchema = z.enum(
+  HINT_MODES as unknown as readonly [HintMode, ...HintMode[]],
+);
+const srsStrictnessSchema = z.enum(
+  SRS_STRICTNESSES as unknown as readonly [SrsStrictness, ...SrsStrictness[]],
+);
+const srsIntervalModeSchema = z.enum(
+  SRS_INTERVAL_MODES as unknown as readonly [
+    SrsIntervalMode,
+    ...SrsIntervalMode[],
+  ],
+);
+const reviewQueueTimingModeSchema = z.enum(
+  REVIEW_QUEUE_TIMING_MODES as unknown as readonly [
+    ReviewQueueTimingMode,
+    ...ReviewQueueTimingMode[],
+  ],
+);
+const ghostModeSchema = z.enum(
+  GHOST_MODES as unknown as readonly [GhostMode, ...GhostMode[]],
+);
 
 /**
  * Spec 20 Reviews' "Review Session Settings": resolved once at session

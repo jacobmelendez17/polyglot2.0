@@ -31,7 +31,8 @@ export function EmailField() {
   const [step, setStep] = useState<Step>("idle");
   const [newEmail, setNewEmail] = useState("");
   const [code, setCode] = useState("");
-  const [pendingEmailAddress, setPendingEmailAddress] = useState<EmailAddressResource | null>(null);
+  const [pendingEmailAddress, setPendingEmailAddress] =
+    useState<EmailAddressResource | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [justVerified, setJustVerified] = useState(false);
@@ -54,7 +55,12 @@ export function EmailField() {
       setPendingEmailAddress(emailAddress);
       setStep("collecting-code");
     } catch (err) {
-      setError(getClerkErrorMessage(err, "Could not send a verification code. Please try again."));
+      setError(
+        getClerkErrorMessage(
+          err,
+          "Could not send a verification code. Please try again.",
+        ),
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -71,7 +77,9 @@ export function EmailField() {
       setJustVerified(true);
       reset();
     } catch (err) {
-      setError(getClerkErrorMessage(err, "That code didn't work. Please try again."));
+      setError(
+        getClerkErrorMessage(err, "That code didn't work. Please try again."),
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -91,7 +99,9 @@ export function EmailField() {
       <div className="flex items-center justify-between gap-4 border-b border-border py-4 first:pt-0 last:border-b-0">
         <div>
           <p className="text-sm font-medium text-foreground">Email</p>
-          <p className="mt-1 text-sm text-muted-foreground">{user.primaryEmailAddress?.emailAddress ?? "—"}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {user.primaryEmailAddress?.emailAddress ?? "—"}
+          </p>
           {justVerified && (
             <p className="mt-1 text-sm text-state-success" aria-live="polite">
               Saved
@@ -116,7 +126,10 @@ export function EmailField() {
   if (step === "collecting-email") {
     return (
       <div className="border-b border-border py-4 first:pt-0 last:border-b-0">
-        <label htmlFor={inputId} className="text-sm font-medium text-foreground">
+        <label
+          htmlFor={inputId}
+          className="text-sm font-medium text-foreground"
+        >
           New email address
         </label>
         <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -130,10 +143,21 @@ export function EmailField() {
             className="sm:max-w-xs"
           />
           <div className="flex gap-2">
-            <Button type="button" size="sm" onClick={handleSendCode} disabled={isSubmitting || !newEmail}>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleSendCode}
+              disabled={isSubmitting || !newEmail}
+            >
               Send Verification Code
             </Button>
-            <Button type="button" variant="ghost" size="sm" onClick={reset} disabled={isSubmitting}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={reset}
+              disabled={isSubmitting}
+            >
               Cancel
             </Button>
           </div>
@@ -163,10 +187,21 @@ export function EmailField() {
           className="sm:max-w-xs"
         />
         <div className="flex gap-2">
-          <Button type="button" size="sm" onClick={handleVerify} disabled={isSubmitting || !code}>
+          <Button
+            type="button"
+            size="sm"
+            onClick={handleVerify}
+            disabled={isSubmitting || !code}
+          >
             Verify
           </Button>
-          <Button type="button" variant="ghost" size="sm" onClick={reset} disabled={isSubmitting}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={reset}
+            disabled={isSubmitting}
+          >
             Cancel
           </Button>
         </div>

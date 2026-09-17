@@ -3,7 +3,10 @@ import { recordAuditEvent } from "@/domains/admin/audit-repository";
 import { withIdempotency } from "@/domains/idempotency";
 import { LexiconError } from "@/lib/errors/lexicon-errors";
 
-import { composeVocabularyDisplayWord, getLexicalLanguageProvider } from "./lexical-language-provider";
+import {
+  composeVocabularyDisplayWord,
+  getLexicalLanguageProvider,
+} from "./lexical-language-provider";
 import { normalizePartOfSpeech } from "./lexical-normalization";
 import { getDictionarySourceCodeForLanguage } from "./lexical-source-registry";
 import { resolveDictionaryMatch } from "./lexicon-matching";
@@ -47,10 +50,16 @@ import type { VocabularyDictionaryMapping } from "./lexicon-types";
  */
 
 /** Resolves the dictionary source for a language, or fails loudly rather than silently matching against nothing. */
-async function resolveDictionarySourceId(db: DbClient, languageCode: string): Promise<string> {
+async function resolveDictionarySourceId(
+  db: DbClient,
+  languageCode: string,
+): Promise<string> {
   const sourceCode = getDictionarySourceCodeForLanguage(languageCode);
   if (!sourceCode) {
-    throw new LexiconError("LEXICAL_SOURCE_NOT_CONFIGURED", `No dictionary source is registered for language "${languageCode}".`);
+    throw new LexiconError(
+      "LEXICAL_SOURCE_NOT_CONFIGURED",
+      `No dictionary source is registered for language "${languageCode}".`,
+    );
   }
   const source = await getLexicalSourceByCode(db, sourceCode);
   if (!source) {
@@ -85,15 +94,23 @@ export async function matchVocabularyItem(
   if (!item) throw new LexiconError("VOCABULARY_ITEM_NOT_FOUND");
 
   const existing = await getMapping(db, vocabularyItemId);
-  if (existing?.manualLock) return { mapping: existing, skippedBecauseLocked: true };
+  if (existing?.manualLock)
+    return { mapping: existing, skippedBecauseLocked: true };
 
   const provider = getLexicalLanguageProvider(item.languageCode);
   const sourceId = await resolveDictionarySourceId(db, item.languageCode);
   const primaryRegionCode = provider.regionCodes[0] ?? null;
 
-  const lookupForms = provider.deriveDictionaryLookups(composeVocabularyDisplayWord(item.term, item.article));
+  const lookupForms = provider.deriveDictionaryLookups(
+    composeVocabularyDisplayWord(item.term, item.article),
+  );
   const [candidates, isSourceDataImported] = await Promise.all([
-    findMatchCandidates(db, { languageId: item.languageId, sourceId, lookupForms, primaryRegionCode }),
+    findMatchCandidates(db, {
+      languageId: item.languageId,
+      sourceId,
+      lookupForms,
+      primaryRegionCode,
+    }),
     hasImportedEntries(db, item.languageId, sourceId),
   ]);
 
@@ -128,7 +145,10 @@ export interface MatchAllResult {
  * new entries may resolve items that previously had nothing to match.
  * Manually-locked mappings are counted and skipped, never revisited.
  */
-export async function matchAllVocabularyItems(db: DbClient, languageId: string): Promise<MatchAllResult> {
+export async function matchAllVocabularyItems(
+  db: DbClient,
+  languageId: string,
+): Promise<MatchAllResult> {
   const items = await getMatchableVocabularyItems(db, languageId);
   const byStatus: Record<string, number> = {};
   let skippedLocked = 0;
@@ -154,7 +174,10 @@ export async function matchAllVocabularyItems(db: DbClient, languageId: string):
  * language): a curriculum with thousands of already-matched items shouldn't
  * pay to re-process all of them every time fifty new rows are imported.
  */
-export async function matchImportedVocabularyItems(db: DbClient, vocabularyItemIds: string[]): Promise<MatchAllResult> {
+export async function matchImportedVocabularyItems(
+  db: DbClient,
+  vocabularyItemIds: string[],
+): Promise<MatchAllResult> {
   const byStatus: Record<string, number> = {};
   let skippedLocked = 0;
 
@@ -177,7 +200,9 @@ export interface MappingMutationInput {
   idempotencyKey: string;
 }
 
-export type SelectDictionaryEntryInput = MappingMutationInput & { dictionaryEntryId: string };
+export type SelectDictionaryEntryInput = MappingMutationInput & {
+  dictionaryEntryId: string;
+};
 
 /**
  * An admin explicitly choosing a dictionary entry (spec 12 "Manual Mapping
@@ -198,28 +223,40 @@ export async function selectDictionaryEntry(
       userId: input.actorUserId,
       operation: "admin.lexicon.select-entry",
       key: input.idempotencyKey,
-      payload: { vocabularyItemId: input.vocabularyItemId, dictionaryEntryId: input.dictionaryEntryId },
+      payload: {
+        vocabularyItemId: input.vocabularyItemId,
+        dictionaryEntryId: input.dictionaryEntryId,
+      },
     },
     async (tx) => {
       const item = await getMatchableVocabularyItem(tx, input.vocabularyItemId);
       if (!item) throw new LexiconError("VOCABULARY_ITEM_NOT_FOUND");
 
-      const entry = await getDictionaryEntrySummary(tx, input.dictionaryEntryId);
+      const entry = await getDictionaryEntrySummary(
+        tx,
+        input.dictionaryEntryId,
+      );
       if (!entry) throw new LexiconError("DICTIONARY_ENTRY_NOT_FOUND");
       // A cross-language mapping would be nonsense and is not merely
       // discouraged — reject it server-side rather than trusting the UI to
       // only ever offer same-language candidates.
-      if (entry.languageId !== item.languageId) throw new LexiconError("DICTIONARY_ENTRY_NOT_FOUND");
+      if (entry.languageId !== item.languageId)
+        throw new LexiconError("DICTIONARY_ENTRY_NOT_FOUND");
 
       const before = await getMapping(tx, input.vocabularyItemId);
       const provider = getLexicalLanguageProvider(item.languageCode);
-      const lookups = provider.deriveDictionaryLookups(composeVocabularyDisplayWord(item.term, item.article));
+      const lookups = provider.deriveDictionaryLookups(
+        composeVocabularyDisplayWord(item.term, item.article),
+      );
       // Record the derived form that actually reaches the chosen entry, not
       // simply the first one. For "la coma" mapped to the entry "coma", the
       // honest lookup form is "coma" — the queue's Lookup column is meant to
       // show what was searched for, and the full display word would be
       // misleading.
-      const lookupForm = lookups.find((form) => form === entry.normalizedLemma) ?? lookups[0] ?? item.term;
+      const lookupForm =
+        lookups.find((form) => form === entry.normalizedLemma) ??
+        lookups[0] ??
+        item.term;
 
       const mapping = await setManualMapping(tx, {
         vocabularyItemId: input.vocabularyItemId,
@@ -240,9 +277,18 @@ export async function selectDictionaryEntry(
         resourceType: "vocabulary_dictionary_mapping",
         resourceId: input.vocabularyItemId,
         beforeData: before
-          ? { dictionaryEntryId: before.dictionaryEntryId, matchStatus: before.matchStatus, manualLock: before.manualLock }
+          ? {
+              dictionaryEntryId: before.dictionaryEntryId,
+              matchStatus: before.matchStatus,
+              manualLock: before.manualLock,
+            }
           : null,
-        afterData: { dictionaryEntryId: mapping.dictionaryEntryId, matchStatus: mapping.matchStatus, manualLock: true, prunedSenses },
+        afterData: {
+          dictionaryEntryId: mapping.dictionaryEntryId,
+          matchStatus: mapping.matchStatus,
+          manualLock: true,
+          prunedSenses,
+        },
       });
 
       return mapping;
@@ -284,9 +330,17 @@ export async function bulkConfirmVocabularyMappings(
       for (const vocabularyItemId of input.vocabularyItemIds) {
         const before = await getMapping(tx, vocabularyItemId);
         if (!before) throw new LexiconError("MAPPING_NOT_FOUND");
-        if (!before.dictionaryEntryId) throw new LexiconError("MAPPING_NOT_FOUND", "There is no matched entry to confirm.");
+        if (!before.dictionaryEntryId)
+          throw new LexiconError(
+            "MAPPING_NOT_FOUND",
+            "There is no matched entry to confirm.",
+          );
 
-        const mapping = await confirmMapping(tx, { vocabularyItemId, actorUserId: input.actorUserId, mappedAt: new Date() });
+        const mapping = await confirmMapping(tx, {
+          vocabularyItemId,
+          actorUserId: input.actorUserId,
+          mappedAt: new Date(),
+        });
         if (!mapping) throw new LexiconError("MAPPING_NOT_FOUND");
 
         await recordAuditEvent(tx, {
@@ -294,8 +348,14 @@ export async function bulkConfirmVocabularyMappings(
           action: "DICTIONARY_MAPPING_CONFIRMED",
           resourceType: "vocabulary_dictionary_mapping",
           resourceId: vocabularyItemId,
-          beforeData: { matchStatus: before.matchStatus, reviewReason: before.reviewReason },
-          afterData: { dictionaryEntryId: mapping.dictionaryEntryId, matchStatus: mapping.matchStatus },
+          beforeData: {
+            matchStatus: before.matchStatus,
+            reviewReason: before.reviewReason,
+          },
+          afterData: {
+            dictionaryEntryId: mapping.dictionaryEntryId,
+            matchStatus: mapping.matchStatus,
+          },
           correlationId: input.idempotencyKey,
         });
         confirmed.push(vocabularyItemId);
@@ -321,7 +381,11 @@ export async function confirmVocabularyMapping(
     async (tx) => {
       const before = await getMapping(tx, input.vocabularyItemId);
       if (!before) throw new LexiconError("MAPPING_NOT_FOUND");
-      if (!before.dictionaryEntryId) throw new LexiconError("MAPPING_NOT_FOUND", "There is no matched entry to confirm.");
+      if (!before.dictionaryEntryId)
+        throw new LexiconError(
+          "MAPPING_NOT_FOUND",
+          "There is no matched entry to confirm.",
+        );
 
       const mapping = await confirmMapping(tx, {
         vocabularyItemId: input.vocabularyItemId,
@@ -335,8 +399,14 @@ export async function confirmVocabularyMapping(
         action: "DICTIONARY_MAPPING_CONFIRMED",
         resourceType: "vocabulary_dictionary_mapping",
         resourceId: input.vocabularyItemId,
-        beforeData: { matchStatus: before.matchStatus, reviewReason: before.reviewReason },
-        afterData: { dictionaryEntryId: mapping.dictionaryEntryId, matchStatus: mapping.matchStatus },
+        beforeData: {
+          matchStatus: before.matchStatus,
+          reviewReason: before.reviewReason,
+        },
+        afterData: {
+          dictionaryEntryId: mapping.dictionaryEntryId,
+          matchStatus: mapping.matchStatus,
+        },
       });
 
       return mapping;
@@ -344,7 +414,9 @@ export async function confirmVocabularyMapping(
   );
 }
 
-export type SelectSensesServiceInput = MappingMutationInput & { senseIds: string[] };
+export type SelectSensesServiceInput = MappingMutationInput & {
+  senseIds: string[];
+};
 
 /**
  * Which senses this item teaches (spec 12 "Senses"). Always an explicit
@@ -354,18 +426,25 @@ export type SelectSensesServiceInput = MappingMutationInput & { senseIds: string
  * Every submitted sense is verified server-side to belong to the item's
  * currently mapped entry. A client-supplied id is a request, not proof.
  */
-export async function selectVocabularySenses(db: DbClient, input: SelectSensesServiceInput): Promise<string[]> {
+export async function selectVocabularySenses(
+  db: DbClient,
+  input: SelectSensesServiceInput,
+): Promise<string[]> {
   return withIdempotency(
     db,
     {
       userId: input.actorUserId,
       operation: "admin.lexicon.select-senses",
       key: input.idempotencyKey,
-      payload: { vocabularyItemId: input.vocabularyItemId, senseIds: [...input.senseIds].sort() },
+      payload: {
+        vocabularyItemId: input.vocabularyItemId,
+        senseIds: [...input.senseIds].sort(),
+      },
     },
     async (tx) => {
       const mapping = await getMapping(tx, input.vocabularyItemId);
-      if (!mapping?.dictionaryEntryId) throw new LexiconError("MAPPING_NOT_FOUND");
+      if (!mapping?.dictionaryEntryId)
+        throw new LexiconError("MAPPING_NOT_FOUND");
 
       const senseEntryIds = await getSenseEntryIds(tx, input.senseIds);
       for (const senseId of input.senseIds) {
@@ -396,7 +475,9 @@ export async function selectVocabularySenses(db: DbClient, input: SelectSensesSe
   );
 }
 
-export type SelectPronunciationServiceInput = MappingMutationInput & { pronunciationId: string | null };
+export type SelectPronunciationServiceInput = MappingMutationInput & {
+  pronunciationId: string | null;
+};
 
 /** The preferred pronunciation for an item, verified to belong to its mapped entry. `null` clears the preference. */
 export async function selectPreferredPronunciation(
@@ -409,15 +490,23 @@ export async function selectPreferredPronunciation(
       userId: input.actorUserId,
       operation: "admin.lexicon.select-pronunciation",
       key: input.idempotencyKey,
-      payload: { vocabularyItemId: input.vocabularyItemId, pronunciationId: input.pronunciationId },
+      payload: {
+        vocabularyItemId: input.vocabularyItemId,
+        pronunciationId: input.pronunciationId,
+      },
     },
     async (tx) => {
       const mapping = await getMapping(tx, input.vocabularyItemId);
-      if (!mapping?.dictionaryEntryId) throw new LexiconError("MAPPING_NOT_FOUND");
+      if (!mapping?.dictionaryEntryId)
+        throw new LexiconError("MAPPING_NOT_FOUND");
 
       if (input.pronunciationId !== null) {
-        const entryId = await getPronunciationEntryId(tx, input.pronunciationId);
-        if (entryId !== mapping.dictionaryEntryId) throw new LexiconError("PRONUNCIATION_NOT_IN_MAPPED_ENTRY");
+        const entryId = await getPronunciationEntryId(
+          tx,
+          input.pronunciationId,
+        );
+        if (entryId !== mapping.dictionaryEntryId)
+          throw new LexiconError("PRONUNCIATION_NOT_IN_MAPPED_ENTRY");
       }
 
       const updated = await setPreferredPronunciation(tx, {
@@ -431,8 +520,12 @@ export async function selectPreferredPronunciation(
         action: "DICTIONARY_PRONUNCIATION_SELECTED",
         resourceType: "vocabulary_dictionary_mapping",
         resourceId: input.vocabularyItemId,
-        beforeData: { preferredPronunciationId: mapping.preferredPronunciationId },
-        afterData: { preferredPronunciationId: updated.preferredPronunciationId },
+        beforeData: {
+          preferredPronunciationId: mapping.preferredPronunciationId,
+        },
+        afterData: {
+          preferredPronunciationId: updated.preferredPronunciationId,
+        },
       });
 
       return updated;

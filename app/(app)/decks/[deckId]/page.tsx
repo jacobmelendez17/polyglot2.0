@@ -22,14 +22,21 @@ type DeckDetailPageProps = {
 // this codebase's seeded ids are valid Postgres uuids but not RFC 4122
 // version/variant compliant. Checked before any query runs so a malformed id
 // 404s cleanly instead of surfacing a raw Postgres cast error.
-const UUID_LIKE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_LIKE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export async function generateMetadata({ params }: DeckDetailPageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: DeckDetailPageProps): Promise<Metadata> {
   const { deckId } = await params;
   if (!UUID_LIKE.test(deckId)) return { title: "Polyglot" };
 
   const user = await requireUser();
-  const deck = await getDeck({ userId: user.id, languageId: user.activeLanguageId, deckId });
+  const deck = await getDeck({
+    userId: user.id,
+    languageId: user.activeLanguageId,
+    deckId,
+  });
   return { title: deck ? `${deck.name} — Polyglot` : "Polyglot" };
 }
 
@@ -53,25 +60,40 @@ export default async function DeckDetailPage({ params }: DeckDetailPageProps) {
   // returning null) when unauthenticated, so an unauthenticated request
   // never reaches this far in practice.
   const user = await requireUser();
-  const deck = await getDeck({ userId: user.id, languageId: user.activeLanguageId, deckId });
+  const deck = await getDeck({
+    userId: user.id,
+    languageId: user.activeLanguageId,
+    deckId,
+  });
   if (!deck) {
     notFound();
   }
 
   const itemCount = deck.items.length;
-  const typeLabel = deck.contentType ? DECK_CONTENT_TYPE_LABELS[deck.contentType] : null;
+  const typeLabel = deck.contentType
+    ? DECK_CONTENT_TYPE_LABELS[deck.contentType]
+    : null;
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-3 py-6 sm:px-4">
       <div className="flex flex-col gap-3">
-        <Link href="/decks" className="text-sm text-muted-foreground underline-offset-4 hover:underline">
+        <Link
+          href="/decks"
+          className="text-sm text-muted-foreground underline-offset-4 hover:underline"
+        >
           ← All decks
         </Link>
 
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="font-heading text-2xl font-semibold text-foreground">{deck.name}</h1>
-            {deck.description ? <p className="mt-1 text-sm text-muted-foreground">{deck.description}</p> : null}
+            <h1 className="font-heading text-2xl font-semibold text-foreground">
+              {deck.name}
+            </h1>
+            {deck.description ? (
+              <p className="mt-1 text-sm text-muted-foreground">
+                {deck.description}
+              </p>
+            ) : null}
             <p className="mt-1 text-xs text-muted-foreground">
               {itemCount} {itemCount === 1 ? "item" : "items"}
               {typeLabel ? ` · ${typeLabel}` : ""}
@@ -82,8 +104,17 @@ export default async function DeckDetailPage({ params }: DeckDetailPageProps) {
           <div className="flex flex-wrap items-center gap-2">
             {deck.canManage ? (
               <>
-                <AddDeckItemsDialog deckId={deck.id} existingItemIds={deck.items.map((item) => item.learningItemId)} />
-                <DeckSettingsDialog deckId={deck.id} name={deck.name} description={deck.description} />
+                <AddDeckItemsDialog
+                  deckId={deck.id}
+                  existingItemIds={deck.items.map(
+                    (item) => item.learningItemId,
+                  )}
+                />
+                <DeckSettingsDialog
+                  deckId={deck.id}
+                  name={deck.name}
+                  description={deck.description}
+                />
                 <DeleteDeckDialog deckId={deck.id} deckName={deck.name} />
               </>
             ) : null}
@@ -106,7 +137,8 @@ export default async function DeckDetailPage({ params }: DeckDetailPageProps) {
         </div>
 
         <p className="text-xs text-muted-foreground">
-          Deck practice is extra study. It never changes your SRS stages, review times, or curriculum progress.
+          Deck practice is extra study. It never changes your SRS stages, review
+          times, or curriculum progress.
         </p>
       </div>
 

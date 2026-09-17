@@ -58,19 +58,29 @@ export type AccountDeletionStatus =
   | { status: "pending_confirmation"; requestedAt: Date }
   | { status: "pending_deletion"; deleteAfter: Date };
 
-export async function getAccountDeletionStatus(db: DbClient, userId: string): Promise<AccountDeletionStatus> {
+export async function getAccountDeletionStatus(
+  db: DbClient,
+  userId: string,
+): Promise<AccountDeletionStatus> {
   const request = await getActiveDeletionRequest(db, userId);
   if (!request) return { status: "none" };
-  if (!request.confirmedAt || !request.deleteAfter) return { status: "pending_confirmation", requestedAt: request.requestedAt };
+  if (!request.confirmedAt || !request.deleteAfter)
+    return { status: "pending_confirmation", requestedAt: request.requestedAt };
   return { status: "pending_deletion", deleteAfter: request.deleteAfter };
 }
 
 export type RequestAccountDeletionInput = { userId: string; now?: Date };
 
 /** Spec 20 Delete Account — the initial "Send Delete Confirmation Email" button. "The initial button does not immediately delete the account." */
-export async function requestAccountDeletion(db: DbClient, input: RequestAccountDeletionInput): Promise<{ requestedAt: Date }> {
+export async function requestAccountDeletion(
+  db: DbClient,
+  input: RequestAccountDeletionInput,
+): Promise<{ requestedAt: Date }> {
   const now = input.now ?? new Date();
-  const request = await createDeletionRequest(db, { userId: input.userId, now });
+  const request = await createDeletionRequest(db, {
+    userId: input.userId,
+    now,
+  });
   return { requestedAt: request.requestedAt };
 }
 
@@ -79,12 +89,24 @@ const PENDING_DELETION_WINDOW_DAYS = 7;
 export type ConfirmAccountDeletionInput = { userId: string; now?: Date };
 
 /** Spec 20 Delete Confirmation — "account enters pending deletion with a 7-day recovery period." */
-export async function confirmAccountDeletion(db: DbClient, input: ConfirmAccountDeletionInput): Promise<{ deleteAfter: Date }> {
+export async function confirmAccountDeletion(
+  db: DbClient,
+  input: ConfirmAccountDeletionInput,
+): Promise<{ deleteAfter: Date }> {
   const now = input.now ?? new Date();
-  const deleteAfter = new Date(now.getTime() + PENDING_DELETION_WINDOW_DAYS * 24 * 60 * 60 * 1000);
-  const request = await confirmDeletionRequest(db, { userId: input.userId, now, deleteAfter });
+  const deleteAfter = new Date(
+    now.getTime() + PENDING_DELETION_WINDOW_DAYS * 24 * 60 * 60 * 1000,
+  );
+  const request = await confirmDeletionRequest(db, {
+    userId: input.userId,
+    now,
+    deleteAfter,
+  });
   if (!request?.deleteAfter) {
-    throw new AppError("ITEM_NOT_FOUND", "There is no pending account-deletion request to confirm.");
+    throw new AppError(
+      "ITEM_NOT_FOUND",
+      "There is no pending account-deletion request to confirm.",
+    );
   }
   return { deleteAfter: request.deleteAfter };
 }
@@ -92,9 +114,15 @@ export async function confirmAccountDeletion(db: DbClient, input: ConfirmAccount
 export type CancelAccountDeletionInput = { userId: string; now?: Date };
 
 /** Spec 20 Pending Deletion — "require explicit cancellation." Idempotent: cancelling twice, or cancelling when there is nothing active, is a safe no-op. */
-export async function cancelAccountDeletion(db: DbClient, input: CancelAccountDeletionInput): Promise<{ cancelled: boolean }> {
+export async function cancelAccountDeletion(
+  db: DbClient,
+  input: CancelAccountDeletionInput,
+): Promise<{ cancelled: boolean }> {
   const now = input.now ?? new Date();
-  const request = await cancelDeletionRequest(db, { userId: input.userId, now });
+  const request = await cancelDeletionRequest(db, {
+    userId: input.userId,
+    now,
+  });
   return { cancelled: request !== null };
 }
 
@@ -117,7 +145,10 @@ export type FinalizeDueAccountDeletionsInput = {
  * "deletion must be idempotent," so a failed request simply stays due and
  * retries on tomorrow's run.
  */
-export async function finalizeDueAccountDeletions(db: DbClient, input: FinalizeDueAccountDeletionsInput): Promise<{ processedCount: number; failedCount: number }> {
+export async function finalizeDueAccountDeletions(
+  db: DbClient,
+  input: FinalizeDueAccountDeletionsInput,
+): Promise<{ processedCount: number; failedCount: number }> {
   const due = await getDueDeletionRequests(db, input.now);
   let processedCount = 0;
   let failedCount = 0;
@@ -125,16 +156,26 @@ export async function finalizeDueAccountDeletions(db: DbClient, input: FinalizeD
   for (const request of due) {
     try {
       await db.transaction(async (tx) => {
-        const [user] = await tx.select().from(users).where(eq(users.id, request.userId)).limit(1);
+        const [user] = await tx
+          .select()
+          .from(users)
+          .where(eq(users.id, request.userId))
+          .limit(1);
         if (user) {
           await input.deleteClerkUser(user.clerkUserId);
           await tx.delete(users).where(eq(users.id, request.userId));
         }
-        await markDeletionRequestCompleted(tx, { requestId: request.id, now: input.now });
+        await markDeletionRequestCompleted(tx, {
+          requestId: request.id,
+          now: input.now,
+        });
       });
       processedCount += 1;
     } catch (error) {
-      console.error(`Failed to finalize account deletion request ${request.id}`, error);
+      console.error(
+        `Failed to finalize account deletion request ${request.id}`,
+        error,
+      );
       failedCount += 1;
     }
   }

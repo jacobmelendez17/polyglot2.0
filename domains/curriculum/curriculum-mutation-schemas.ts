@@ -1,10 +1,23 @@
 import { z } from "zod";
 
 /** Same permissive UUID-shape reasoning as `domains/admin/audit-schemas.ts`. */
-const uuidLike = z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, "Invalid UUID");
+const uuidLike = z
+  .string()
+  .regex(
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    "Invalid UUID",
+  );
 
 /** Mirrors `registerEnum` exactly. A literal list rather than a derived one, matching how every other enum is validated in this file. */
-const registerSchema = z.enum(["neutral", "formal", "informal", "colloquial", "slang", "vulgar", "literary"]);
+const registerSchema = z.enum([
+  "neutral",
+  "formal",
+  "informal",
+  "colloquial",
+  "slang",
+  "vulgar",
+  "literary",
+]);
 
 const acceptedAnswerSchema = z.object({
   side: z.enum(["term", "meaning"]),
@@ -102,7 +115,12 @@ export const reorderLearningItemsInputSchema = z.object({
   orderedLearningItemIds: z.array(uuidLike).min(1),
 });
 
-const curriculumStatusSchema = z.enum(["draft", "pending", "published", "archived"]);
+const curriculumStatusSchema = z.enum([
+  "draft",
+  "pending",
+  "published",
+  "archived",
+]);
 
 export const createLevelInputSchema = z.object({
   languageId: uuidLike,

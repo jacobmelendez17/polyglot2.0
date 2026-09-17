@@ -17,14 +17,20 @@ import { requireUser } from "@/domains/users/server";
  * its own requirement (here, just "is there a user at all") is the
  * established pattern rather than relying solely on an ancestor layout.
  */
-export default async function SettingsLayout({ children }: { children: ReactNode }) {
+export default async function SettingsLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
   await requireUser();
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-6 sm:px-6">
       <div className="flex items-center gap-3">
         <SettingsMobileNav />
-        <h1 className="font-heading text-2xl font-semibold text-foreground">Settings</h1>
+        <h1 className="font-heading text-2xl font-semibold text-foreground">
+          Settings
+        </h1>
       </div>
 
       <div className="flex flex-1 flex-col gap-6 sm:flex-row sm:gap-8">

@@ -68,12 +68,19 @@ export function PasswordField() {
     setError(null);
     try {
       await user.updatePassword(
-        user.passwordEnabled ? { currentPassword, newPassword } : { newPassword },
+        user.passwordEnabled
+          ? { currentPassword, newPassword }
+          : { newPassword },
       );
       setOpen(false);
       resetForm();
     } catch (err) {
-      setError(getClerkErrorMessage(err, "Could not change your password. Please try again."));
+      setError(
+        getClerkErrorMessage(
+          err,
+          "Could not change your password. Please try again.",
+        ),
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -94,13 +101,17 @@ export function PasswordField() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Change Password</DialogTitle>
-            <DialogDescription>Your password is managed securely and is never stored by Polyglot.</DialogDescription>
+            <DialogDescription>
+              Your password is managed securely and is never stored by Polyglot.
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3">
             {user.passwordEnabled && (
               <label className="block text-sm">
-                <span className="font-medium text-foreground">Old Password</span>
+                <span className="font-medium text-foreground">
+                  Old Password
+                </span>
                 <Input
                   type="password"
                   className="mt-1"
@@ -123,7 +134,9 @@ export function PasswordField() {
               />
             </label>
             <label className="block text-sm">
-              <span className="font-medium text-foreground">Confirm New Password</span>
+              <span className="font-medium text-foreground">
+                Confirm New Password
+              </span>
               <Input
                 type="password"
                 className="mt-1"
@@ -142,10 +155,19 @@ export function PasswordField() {
           )}
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={isSubmitting}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setOpen(false)}
+              disabled={isSubmitting}
+            >
               Cancel
             </Button>
-            <Button type="button" onClick={handleSave} disabled={isSubmitting || !newPassword || !confirmPassword}>
+            <Button
+              type="button"
+              onClick={handleSave}
+              disabled={isSubmitting || !newPassword || !confirmPassword}
+            >
               Save
             </Button>
           </DialogFooter>

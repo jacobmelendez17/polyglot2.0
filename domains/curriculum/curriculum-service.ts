@@ -17,11 +17,15 @@ export async function getEligibleLearningItems(
   languageId: string,
 ): Promise<LearningItem[]> {
   void userId;
-  return FIXTURE_LEARNING_ITEMS.filter((item) => item.languageId === languageId);
+  return FIXTURE_LEARNING_ITEMS.filter(
+    (item) => item.languageId === languageId,
+  );
 }
 
 /** Fixture counterpart of the real by-ID read. Omits any ID not present in the fixture, never invents one. */
-export async function getLearningItemsByIds(ids: string[]): Promise<LearningItem[]> {
+export async function getLearningItemsByIds(
+  ids: string[],
+): Promise<LearningItem[]> {
   const idSet = new Set(ids);
   return FIXTURE_LEARNING_ITEMS.filter((item) => idSet.has(item.id));
 }

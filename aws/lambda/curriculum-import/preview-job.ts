@@ -9,7 +9,12 @@ import { getCurriculumImportById } from "@/domains/admin/curriculum-import-repos
 import type { CurriculumImportStorage } from "@/providers/storage/types";
 import { parseCurriculumImportObjectKey } from "@/providers/storage/curriculum-import-object-key";
 
-import { describeErrorChain, errorCode, PreviewJobError, resolveFreshImport } from "./import-resolution";
+import {
+  describeErrorChain,
+  errorCode,
+  PreviewJobError,
+  resolveFreshImport,
+} from "./import-resolution";
 
 /**
  * The preview job (spec 19 §7/§48 step 10) — reused, never reimplemented:
@@ -20,10 +25,16 @@ import { describeErrorChain, errorCode, PreviewJobError, resolveFreshImport } fr
 
 export type PreviewJobInput = { bucket: string; key: string };
 
-export async function runPreviewJob(db: DbClient, storage: CurriculumImportStorage, { key }: PreviewJobInput): Promise<void> {
+export async function runPreviewJob(
+  db: DbClient,
+  storage: CurriculumImportStorage,
+  { key }: PreviewJobInput,
+): Promise<void> {
   const parsedKey = parseCurriculumImportObjectKey(key);
   if (!parsedKey) {
-    throw new Error(`Object key "${key}" is not a recognized curriculum-import source key.`);
+    throw new Error(
+      `Object key "${key}" is not a recognized curriculum-import source key.`,
+    );
   }
   const { importId, fileExtension } = parsedKey;
 
@@ -38,16 +49,29 @@ export async function runPreviewJob(db: DbClient, storage: CurriculumImportStora
     await markCurriculumImportUploaded(db, importId);
     await markCurriculumImportPreviewStarted(db, importId);
 
-    const { sourceSha256, rowInputs } = await resolveFreshImport(db, storage, { key, fileExtension, languageId: importRecord.languageId });
+    const { sourceSha256, rowInputs } = await resolveFreshImport(db, storage, {
+      key,
+      fileExtension,
+      languageId: importRecord.languageId,
+    });
 
-    await recordCurriculumImportPreview(db, { importId, rows: rowInputs, sourceSha256 });
+    await recordCurriculumImportPreview(db, {
+      importId,
+      rows: rowInputs,
+      sourceSha256,
+    });
   } catch (error) {
-    const code = error instanceof PreviewJobError ? error.code : "IMPORT_PREVIEW_FAILED";
+    const code =
+      error instanceof PreviewJobError ? error.code : "IMPORT_PREVIEW_FAILED";
     const fullMessage = describeErrorChain(error);
     const summary = errorCode(fullMessage);
     // Best-effort — if Neon itself is unreachable this write can fail too,
     // in which case SQS retry/DLQ remains the safety net (spec 19 §35).
-    await markCurriculumImportFailed(db, { importId, errorCode: code, errorSummary: summary }).catch(() => {});
+    await markCurriculumImportFailed(db, {
+      importId,
+      errorCode: code,
+      errorSummary: summary,
+    }).catch(() => {});
     // Rethrown with the full cause chain folded into the message (not just
     // the original error) — this Lambda has no CloudWatch Logs permission
     // (§34), so a synchronous `aws lambda invoke` and the persisted

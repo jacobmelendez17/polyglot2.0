@@ -23,6 +23,8 @@ export function registerPayload(value: RegisterEditorValue): Register | null {
 }
 
 /** Stored value → editor value. */
-export function toRegisterEditorValue(register: Register | null | undefined): RegisterEditorValue {
+export function toRegisterEditorValue(
+  register: Register | null | undefined,
+): RegisterEditorValue {
   return register ?? REGISTER_UNSET;
 }

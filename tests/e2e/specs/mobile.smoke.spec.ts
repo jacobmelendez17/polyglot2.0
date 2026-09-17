@@ -14,17 +14,28 @@ test.describe("Mobile smoke", () => {
     await ensureLearnerOnboarded();
   });
 
-  test("dashboard renders, primary navigation works, no horizontal overflow", async ({ page }) => {
+  test("dashboard renders, primary navigation works, no horizontal overflow", async ({
+    page,
+  }) => {
     await page.goto("/dashboard");
-    await expect(page.getByRole("navigation", { name: "Primary" })).toBeVisible();
+    await expect(
+      page.getByRole("navigation", { name: "Primary" }),
+    ).toBeVisible();
 
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - window.innerWidth,
+    );
     expect(overflow).toBeLessThanOrEqual(1);
 
-    await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Reviews" }).click();
+    await page
+      .getByRole("navigation", { name: "Primary" })
+      .getByRole("link", { name: "Reviews" })
+      .click();
     await expect(page).toHaveURL(/\/reviews/);
 
-    const reviewsOverflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    const reviewsOverflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - window.innerWidth,
+    );
     expect(reviewsOverflow).toBeLessThanOrEqual(1);
   });
 });

@@ -65,7 +65,9 @@ export function SiteNavMobile() {
           <Show when="signed-in">
             <div className="flex items-center gap-2 px-3 py-2">
               <UserButton />
-              <span className="text-sm font-medium text-foreground">Account</span>
+              <span className="text-sm font-medium text-foreground">
+                Account
+              </span>
             </div>
           </Show>
         </nav>

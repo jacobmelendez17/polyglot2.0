@@ -4,9 +4,17 @@ import { describe, expect, it } from "vitest";
 import { languages, levels, users } from "@/db/schema";
 import type { TestTx } from "@/db/test/with-test-transaction";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
-import { getSandboxTimeOffset, resolveUserNow, setSandboxTimeOffset } from "@/domains/users/user-clock";
+import {
+  getSandboxTimeOffset,
+  resolveUserNow,
+  setSandboxTimeOffset,
+} from "@/domains/users/user-clock";
 
-import { getOrCreateSandbox, resetSandboxForOwner, setSandboxTimeOffsetForOwner } from "./sandbox-service";
+import {
+  getOrCreateSandbox,
+  resetSandboxForOwner,
+  setSandboxTimeOffsetForOwner,
+} from "./sandbox-service";
 
 /**
  * Spec 11's "Time simulation uses a sandbox-specific clock abstraction", and
@@ -25,18 +33,39 @@ async function seedSandboxFixture(tx: TestTx) {
   const suffix = `${counter}${Math.floor(Math.random() * 100000)}`;
   const [language] = await tx
     .insert(languages)
-    .values({ code: `es-S${suffix}`, slug: `spanish-sandbox-${suffix}`, name: `Spanish (sandbox ${suffix})` })
+    .values({
+      code: `es-S${suffix}`,
+      slug: `spanish-sandbox-${suffix}`,
+      name: `Spanish (sandbox ${suffix})`,
+    })
     .returning();
-  await tx.insert(levels).values({ languageId: language.id, levelNumber: 1, name: "Level 1", status: "published" });
+  await tx.insert(levels).values({
+    languageId: language.id,
+    levelNumber: 1,
+    name: "Level 1",
+    status: "published",
+  });
   const [admin] = await tx
     .insert(users)
-    .values({ clerkUserId: `sandbox-admin-${suffix}`, role: "admin", activeLanguageId: language.id })
+    .values({
+      clerkUserId: `sandbox-admin-${suffix}`,
+      role: "admin",
+      activeLanguageId: language.id,
+    })
     .returning();
   const [otherLearner] = await tx
     .insert(users)
-    .values({ clerkUserId: `sandbox-bystander-${suffix}`, role: "user", activeLanguageId: language.id })
+    .values({
+      clerkUserId: `sandbox-bystander-${suffix}`,
+      role: "user",
+      activeLanguageId: language.id,
+    })
     .returning();
-  return { languageId: language.id, adminUserId: admin.id, otherLearnerId: otherLearner.id };
+  return {
+    languageId: language.id,
+    adminUserId: admin.id,
+    otherLearnerId: otherLearner.id,
+  };
 }
 
 const REAL_NOW = new Date("2026-03-01T12:00:00Z");
@@ -45,7 +74,8 @@ const DAY = 24 * 60 * 60;
 describe("sandbox clock", () => {
   it("shifts only the sandbox persona's perceived time, never the admin's or a bystander's", async () => {
     await withTestTransaction(async (tx) => {
-      const { languageId, adminUserId, otherLearnerId } = await seedSandboxFixture(tx);
+      const { languageId, adminUserId, otherLearnerId } =
+        await seedSandboxFixture(tx);
       const account = await getOrCreateSandbox(tx, adminUserId, languageId);
 
       await setSandboxTimeOffsetForOwner(tx, {
@@ -56,12 +86,20 @@ describe("sandbox clock", () => {
         idempotencyKey: crypto.randomUUID(),
       });
 
-      const sandboxNow = await resolveUserNow(tx, account.sandboxUserId, REAL_NOW);
+      const sandboxNow = await resolveUserNow(
+        tx,
+        account.sandboxUserId,
+        REAL_NOW,
+      );
       expect(sandboxNow.getTime()).toBe(REAL_NOW.getTime() + 7 * DAY * 1000);
 
       // Spec 11's isolation rule, asserted rather than assumed.
-      expect((await resolveUserNow(tx, adminUserId, REAL_NOW)).getTime()).toBe(REAL_NOW.getTime());
-      expect((await resolveUserNow(tx, otherLearnerId, REAL_NOW)).getTime()).toBe(REAL_NOW.getTime());
+      expect((await resolveUserNow(tx, adminUserId, REAL_NOW)).getTime()).toBe(
+        REAL_NOW.getTime(),
+      );
+      expect(
+        (await resolveUserNow(tx, otherLearnerId, REAL_NOW)).getTime(),
+      ).toBe(REAL_NOW.getTime());
     });
   });
 
@@ -80,7 +118,9 @@ describe("sandbox clock", () => {
       await setSandboxTimeOffsetForOwner(tx, input);
       await setSandboxTimeOffsetForOwner(tx, input);
 
-      expect(await getSandboxTimeOffset(tx, account.sandboxUserId)).toBe(7 * DAY);
+      expect(await getSandboxTimeOffset(tx, account.sandboxUserId)).toBe(
+        7 * DAY,
+      );
     });
   });
 
@@ -110,7 +150,9 @@ describe("sandbox clock", () => {
   it("resolves real server time for a user with no offset at all", async () => {
     await withTestTransaction(async (tx) => {
       const { adminUserId } = await seedSandboxFixture(tx);
-      expect((await resolveUserNow(tx, adminUserId, REAL_NOW)).getTime()).toBe(REAL_NOW.getTime());
+      expect((await resolveUserNow(tx, adminUserId, REAL_NOW)).getTime()).toBe(
+        REAL_NOW.getTime(),
+      );
     });
   });
 
@@ -119,7 +161,9 @@ describe("sandbox clock", () => {
       const { otherLearnerId } = await seedSandboxFixture(tx);
       // `users_sandbox_time_offset_consistency` makes this unrepresentable,
       // so even a wrong caller cannot shift a real learner's clock.
-      await expect(setSandboxTimeOffset(tx, otherLearnerId, DAY)).rejects.toThrow();
+      await expect(
+        setSandboxTimeOffset(tx, otherLearnerId, DAY),
+      ).rejects.toThrow();
     });
   });
 
@@ -127,7 +171,10 @@ describe("sandbox clock", () => {
     await withTestTransaction(async (tx) => {
       const { languageId, adminUserId } = await seedSandboxFixture(tx);
       const account = await getOrCreateSandbox(tx, adminUserId, languageId);
-      const [row] = await tx.select().from(users).where(eq(users.id, account.sandboxUserId));
+      const [row] = await tx
+        .select()
+        .from(users)
+        .where(eq(users.id, account.sandboxUserId));
       expect(row.isSandbox).toBe(true);
       expect(row.clerkUserId).toBeNull();
       expect(row.sandboxOwnerUserId).toBe(adminUserId);

@@ -100,7 +100,9 @@ function resolveConfidence(
   candidate: DictionaryMatchCandidate,
   curriculumPartOfSpeech: string | null,
 ): DictionaryMatchConfidence {
-  const posAgrees = curriculumPartOfSpeech !== null && candidate.partOfSpeech === curriculumPartOfSpeech;
+  const posAgrees =
+    curriculumPartOfSpeech !== null &&
+    candidate.partOfSpeech === curriculumPartOfSpeech;
   if (candidate.matchedVia === "lemma") return posAgrees ? "high" : "medium";
   return posAgrees ? "medium" : "low";
 }
@@ -111,8 +113,12 @@ function resolveConfidence(
  * primary region — it may never reject a candidate for merely being absent
  * from a word list, which is why `not_listed` alone never changes a status.
  */
-function narrowByRegionalEvidence(candidates: DictionaryMatchCandidate[]): DictionaryMatchCandidate[] {
-  const recognized = candidates.filter((candidate) => candidate.primaryRegionEvidence === "recognized");
+function narrowByRegionalEvidence(
+  candidates: DictionaryMatchCandidate[],
+): DictionaryMatchCandidate[] {
+  const recognized = candidates.filter(
+    (candidate) => candidate.primaryRegionEvidence === "recognized",
+  );
   if (recognized.length !== 1) return candidates;
   const everyOtherIsNotListed = candidates
     .filter((candidate) => candidate !== recognized[0])
@@ -120,11 +126,20 @@ function narrowByRegionalEvidence(candidates: DictionaryMatchCandidate[]): Dicti
   return everyOtherIsNotListed ? recognized : candidates;
 }
 
-export function resolveDictionaryMatch(input: ResolveDictionaryMatchInput): DictionaryMatchResolution {
-  const { lookupForms, candidates, curriculumPartOfSpeech, isSourceDataImported, primaryRegionCode } = input;
+export function resolveDictionaryMatch(
+  input: ResolveDictionaryMatchInput,
+): DictionaryMatchResolution {
+  const {
+    lookupForms,
+    candidates,
+    curriculumPartOfSpeech,
+    isSourceDataImported,
+    primaryRegionCode,
+  } = input;
   const fallbackLookupForm = lookupForms[0] ?? "";
 
-  if (lookupForms.length === 0) return resolutionForNoMatch("", isSourceDataImported);
+  if (lookupForms.length === 0)
+    return resolutionForNoMatch("", isSourceDataImported);
 
   // Take the first lookup form that reached anything at all. Because the
   // provider orders them most-specific-first, an exact phrase/expression
@@ -133,25 +148,35 @@ export function resolveDictionaryMatch(input: ResolveDictionaryMatchInput): Dict
   const activeLookupForm = lookupForms.find((form) =>
     candidates.some((candidate) => candidate.matchedLookupForm === form),
   );
-  if (activeLookupForm === undefined) return resolutionForNoMatch(fallbackLookupForm, isSourceDataImported);
+  if (activeLookupForm === undefined)
+    return resolutionForNoMatch(fallbackLookupForm, isSourceDataImported);
 
   const isPhrase = isMultiwordForm(activeLookupForm);
-  const ambiguityReason: MappingReviewReason = isPhrase ? "phrase_ambiguity" : "multiple_candidates";
-  const reachedByActiveForm = candidates.filter((candidate) => candidate.matchedLookupForm === activeLookupForm);
+  const ambiguityReason: MappingReviewReason = isPhrase
+    ? "phrase_ambiguity"
+    : "multiple_candidates";
+  const reachedByActiveForm = candidates.filter(
+    (candidate) => candidate.matchedLookupForm === activeLookupForm,
+  );
 
   // Exact lemma candidates outrank form candidates for the same lookup form:
   // matching a headword is stronger evidence than matching one of its
   // inflections, and mixing the two would manufacture ambiguity that isn't
   // really there.
-  const lemmaCandidates = reachedByActiveForm.filter((candidate) => candidate.matchedVia === "lemma");
-  const tier = lemmaCandidates.length > 0 ? lemmaCandidates : reachedByActiveForm;
+  const lemmaCandidates = reachedByActiveForm.filter(
+    (candidate) => candidate.matchedVia === "lemma",
+  );
+  const tier =
+    lemmaCandidates.length > 0 ? lemmaCandidates : reachedByActiveForm;
 
   // POS comparison. A curriculum POS that agrees with nothing is a genuine
   // conflict and goes to an admin — it usually means the curriculum item and
   // the dictionary entry are not actually the same word.
   let surviving = tier;
   if (curriculumPartOfSpeech !== null) {
-    const posMatches = tier.filter((candidate) => candidate.partOfSpeech === curriculumPartOfSpeech);
+    const posMatches = tier.filter(
+      (candidate) => candidate.partOfSpeech === curriculumPartOfSpeech,
+    );
     if (posMatches.length === 0) {
       return {
         status: "review_required",
@@ -194,7 +219,11 @@ export function resolveDictionaryMatch(input: ResolveDictionaryMatchInput): Dict
   // labelled as belonging to other regions and not the one being taught.
   // This is positive evidence of a mismatch, unlike absence from a word list.
   const restrictedRegions = match.restrictedRegionCodes ?? [];
-  if (primaryRegionCode && restrictedRegions.length > 0 && !restrictedRegions.includes(primaryRegionCode)) {
+  if (
+    primaryRegionCode &&
+    restrictedRegions.length > 0 &&
+    !restrictedRegions.includes(primaryRegionCode)
+  ) {
     return {
       status: "review_required",
       confidence: null,

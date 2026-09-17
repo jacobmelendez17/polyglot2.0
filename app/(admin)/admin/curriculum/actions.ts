@@ -44,19 +44,25 @@ import { AdminError } from "@/lib/errors/admin-errors";
  * `app/(focus)/reviews/actions.ts`'s `ActionResult`/error-mapping shape.
  */
 
-export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: { code: string; message: string; details?: unknown } };
+export type ActionResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: { code: string; message: string; details?: unknown } };
 
 /**
  * Authoring actions: Admin or writer (spec 17). Safe to delegate because
  * nothing here reaches a learner — new items are `pending`, edits to
  * published items are drafts, and releasing either needs `runPublishAction`.
  */
-async function runAdminAction<T>(fn: () => Promise<T>): Promise<ActionResult<T>> {
+async function runAdminAction<T>(
+  fn: () => Promise<T>,
+): Promise<ActionResult<T>> {
   return runGuarded(canManageCurriculum, fn);
 }
 
 /** Actions that make curriculum live, or take it away. Admin only — this is where a writer's work waits for verification. */
-async function runPublishAction<T>(fn: () => Promise<T>): Promise<ActionResult<T>> {
+async function runPublishAction<T>(
+  fn: () => Promise<T>,
+): Promise<ActionResult<T>> {
   return runGuarded(canPublishCurriculum, fn);
 }
 
@@ -67,25 +73,61 @@ async function runGuarded<T>(
   try {
     const user = await requireUser();
     if (!permits(user)) {
-      return { ok: false, error: { code: "FORBIDDEN", message: "You don't have access to do that." } };
+      return {
+        ok: false,
+        error: {
+          code: "FORBIDDEN",
+          message: "You don't have access to do that.",
+        },
+      };
     }
     return { ok: true, data: await fn() };
   } catch (error) {
     if (error instanceof AdminError) {
-      return { ok: false, error: { code: error.code, message: error.message, details: error.details } };
+      return {
+        ok: false,
+        error: {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+        },
+      };
     }
     if (error instanceof z.ZodError) {
-      return { ok: false, error: { code: "CURRICULUM_VALIDATION_FAILED", message: "That request could not be understood." } };
+      return {
+        ok: false,
+        error: {
+          code: "CURRICULUM_VALIDATION_FAILED",
+          message: "That request could not be understood.",
+        },
+      };
     }
     console.error("Unexpected admin action error", error);
-    return { ok: false, error: { code: "UNKNOWN", message: "Something went wrong. Please try again." } };
+    return {
+      ok: false,
+      error: {
+        code: "UNKNOWN",
+        message: "Something went wrong. Please try again.",
+      },
+    };
   }
 }
 
-const acceptedAnswerSchema = z.object({ side: z.enum(["term", "meaning"]), value: z.string().trim().min(1) });
+const acceptedAnswerSchema = z.object({
+  side: z.enum(["term", "meaning"]),
+  value: z.string().trim().min(1),
+});
 
 /** Spec 18. Mirrors `registerEnum`, and is re-declared here rather than imported for the same reason every other field schema in this file is: this is the transport boundary, validated independently of the domain's own schema. */
-const registerSchema = z.enum(["neutral", "formal", "informal", "colloquial", "slang", "vulgar", "literary"]);
+const registerSchema = z.enum([
+  "neutral",
+  "formal",
+  "informal",
+  "colloquial",
+  "slang",
+  "vulgar",
+  "literary",
+]);
 
 const vocabularyFieldsSchema = z.object({
   vocabularyGroupId: z.string().min(1),
@@ -110,7 +152,12 @@ const grammarFieldsSchema = z.object({
   category: z.string().trim().min(1).nullish(),
   creatorNotes: z.string().trim().min(1).nullish(),
   requiredQuestions: z
-    .array(z.object({ format: z.literal("translation"), direction: z.enum(["targetToEnglish", "englishToTarget"]) }))
+    .array(
+      z.object({
+        format: z.literal("translation"),
+        direction: z.enum(["targetToEnglish", "englishToTarget"]),
+      }),
+    )
     .min(1),
   register: registerSchema.nullish(),
   acceptedAnswers: z.array(acceptedAnswerSchema),
@@ -131,7 +178,9 @@ const createItemActionSchema = z.intersection(
   itemFieldsSchema,
 );
 
-export async function createItemAction(input: z.infer<typeof createItemActionSchema>): Promise<ActionResult<{ learningItemId: string }>> {
+export async function createItemAction(
+  input: z.infer<typeof createItemActionSchema>,
+): Promise<ActionResult<{ learningItemId: string }>> {
   return runAdminAction(async () => {
     const parsed = createItemActionSchema.parse(input);
     const user = await requireUser();
@@ -148,14 +197,15 @@ const updateItemActionSchema = z.intersection(
   itemFieldsSchema,
 );
 
-export async function updateItemAction(input: z.infer<typeof updateItemActionSchema>): Promise<ActionResult<{ savedAsDraft: boolean }>> {
+export async function updateItemAction(
+  input: z.infer<typeof updateItemActionSchema>,
+): Promise<ActionResult<{ savedAsDraft: boolean }>> {
   return runAdminAction(async () => {
     const parsed = updateItemActionSchema.parse(input);
     const user = await requireUser();
     return updateItem({ ...parsed, actorUserId: user.id });
   });
 }
-
 
 const resetDictionaryFieldActionSchema = z.object({
   learningItemId: z.string().min(1),
@@ -189,18 +239,36 @@ export async function resetDictionaryFieldAction(
       learningItemId: parsed.learningItemId,
       actorUserId: user.id,
       idempotencyKey: crypto.randomUUID(),
-      fields: { partOfSpeech: resolved.partOfSpeech, definition: resolved.definition, ipa: resolved.ipa },
+      fields: {
+        partOfSpeech: resolved.partOfSpeech,
+        definition: resolved.definition,
+        ipa: resolved.ipa,
+      },
     });
     return { reapplied: applied.applied };
   });
 }
 
-
 const usageContextMutationSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("create"), learningItemId: z.string().min(1), label: z.string().trim().min(1).max(80), note: z.string().trim().max(200).nullish(), sourceForm: z.string().trim().max(80).nullish() }),
-  z.object({ kind: z.literal("update"), usageContextId: z.string().uuid(), label: z.string().trim().min(1).max(80).optional(), note: z.string().trim().max(200).nullish() }),
+  z.object({
+    kind: z.literal("create"),
+    learningItemId: z.string().min(1),
+    label: z.string().trim().min(1).max(80),
+    note: z.string().trim().max(200).nullish(),
+    sourceForm: z.string().trim().max(80).nullish(),
+  }),
+  z.object({
+    kind: z.literal("update"),
+    usageContextId: z.string().uuid(),
+    label: z.string().trim().min(1).max(80).optional(),
+    note: z.string().trim().max(200).nullish(),
+  }),
   z.object({ kind: z.literal("delete"), usageContextId: z.string().uuid() }),
-  z.object({ kind: z.literal("reorder"), learningItemId: z.string().min(1), orderedIds: z.array(z.string().uuid()).max(50) }),
+  z.object({
+    kind: z.literal("reorder"),
+    learningItemId: z.string().min(1),
+    orderedIds: z.array(z.string().uuid()).max(50),
+  }),
 ]);
 
 const usageContextActionSchema = z.object({
@@ -221,10 +289,24 @@ export async function usageContextAction(
 }
 
 const exampleMutationSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("create"), targetText: z.string().trim().min(1).max(500), translation: z.string().trim().min(1).max(500), usageContextId: z.string().uuid().nullish() }),
-  z.object({ kind: z.literal("update"), exampleId: z.string().uuid(), targetText: z.string().trim().min(1).max(500).optional(), translation: z.string().trim().min(1).max(500).optional(), usageContextId: z.string().uuid().nullish() }),
+  z.object({
+    kind: z.literal("create"),
+    targetText: z.string().trim().min(1).max(500),
+    translation: z.string().trim().min(1).max(500),
+    usageContextId: z.string().uuid().nullish(),
+  }),
+  z.object({
+    kind: z.literal("update"),
+    exampleId: z.string().uuid(),
+    targetText: z.string().trim().min(1).max(500).optional(),
+    translation: z.string().trim().min(1).max(500).optional(),
+    usageContextId: z.string().uuid().nullish(),
+  }),
   z.object({ kind: z.literal("delete"), exampleId: z.string().uuid() }),
-  z.object({ kind: z.literal("reorder"), orderedIds: z.array(z.string().uuid()).max(100) }),
+  z.object({
+    kind: z.literal("reorder"),
+    orderedIds: z.array(z.string().uuid()).max(100),
+  }),
 ]);
 
 const exampleActionSchema = z.object({
@@ -253,14 +335,23 @@ export async function itemExampleAction(
  * layer would have to translate.
  */
 const grammarContentBlockMutationSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("create"), type: z.enum(["text", "note"]), body: z.string().trim().min(1).max(4000) }),
+  z.object({
+    kind: z.literal("create"),
+    type: z.enum(["text", "note"]),
+    body: z.string().trim().min(1).max(4000),
+  }),
   z.object({
     kind: z.literal("create"),
     type: z.literal("example"),
     targetText: z.string().trim().min(1).max(500),
     translation: z.string().trim().min(1).max(500),
   }),
-  z.object({ kind: z.literal("update"), blockId: z.string().min(1), type: z.enum(["text", "note"]), body: z.string().trim().min(1).max(4000) }),
+  z.object({
+    kind: z.literal("update"),
+    blockId: z.string().min(1),
+    type: z.enum(["text", "note"]),
+    body: z.string().trim().min(1).max(4000),
+  }),
   z.object({
     kind: z.literal("update"),
     blockId: z.string().min(1),
@@ -269,7 +360,10 @@ const grammarContentBlockMutationSchema = z.discriminatedUnion("kind", [
     translation: z.string().trim().min(1).max(500),
   }),
   z.object({ kind: z.literal("delete"), blockId: z.string().min(1) }),
-  z.object({ kind: z.literal("reorder"), orderedIds: z.array(z.string().min(1)).max(100) }),
+  z.object({
+    kind: z.literal("reorder"),
+    orderedIds: z.array(z.string().min(1)).max(100),
+  }),
 ]);
 
 const grammarContentBlockActionSchema = z.object({
@@ -301,10 +395,16 @@ const resourceUrlSchema = z
   .trim()
   .min(1)
   .max(2000)
-  .refine((value) => /^https?:\/\//i.test(value), { message: "Resource links must start with http:// or https://" });
+  .refine((value) => /^https?:\/\//i.test(value), {
+    message: "Resource links must start with http:// or https://",
+  });
 
 const itemResourceMutationSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("create"), label: z.string().trim().min(1).max(120), url: resourceUrlSchema }),
+  z.object({
+    kind: z.literal("create"),
+    label: z.string().trim().min(1).max(120),
+    url: resourceUrlSchema,
+  }),
   z.object({
     kind: z.literal("update"),
     resourceId: z.string().min(1),
@@ -312,7 +412,10 @@ const itemResourceMutationSchema = z.discriminatedUnion("kind", [
     url: resourceUrlSchema.optional(),
   }),
   z.object({ kind: z.literal("delete"), resourceId: z.string().min(1) }),
-  z.object({ kind: z.literal("reorder"), orderedIds: z.array(z.string().min(1)).max(100) }),
+  z.object({
+    kind: z.literal("reorder"),
+    orderedIds: z.array(z.string().min(1)).max(100),
+  }),
 ]);
 
 const itemResourceActionSchema = z.object({
@@ -352,18 +455,31 @@ export async function seedUsageContextsAction(
 
     const view = await getVocabularyMappingView(learningItemId);
     if (view.mapping?.matchStatus !== "manual" || !view.entry) {
-      return { created: 0, reason: "Confirm a dictionary match for this word first — the tabs come from its forms." };
+      return {
+        created: 0,
+        reason:
+          "Confirm a dictionary match for this word first — the tabs come from its forms.",
+      };
     }
 
     const existing = await getUsageContexts(learningItemId);
     const proposed = proposeUsageContexts({
       lemma: view.entry.lemma,
-      forms: view.entry.forms.map((form) => ({ form: form.form, tags: form.tags })),
-      existingSourceForms: existing.map((context) => context.sourceForm).filter((form): form is string => form !== null),
+      forms: view.entry.forms.map((form) => ({
+        form: form.form,
+        tags: form.tags,
+      })),
+      existingSourceForms: existing
+        .map((context) => context.sourceForm)
+        .filter((form): form is string => form !== null),
     });
 
     if (proposed.length === 0) {
-      return { created: 0, reason: "The dictionary lists no inflected forms for this word beyond the word itself." };
+      return {
+        created: 0,
+        reason:
+          "The dictionary lists no inflected forms for this word beyond the word itself.",
+      };
     }
 
     for (const context of proposed) {
@@ -371,7 +487,13 @@ export async function seedUsageContextsAction(
         learningItemId,
         actorUserId: user.id,
         idempotencyKey: crypto.randomUUID(),
-        mutation: { kind: "create", learningItemId, label: context.label, note: context.note, sourceForm: context.sourceForm },
+        mutation: {
+          kind: "create",
+          learningItemId,
+          label: context.label,
+          note: context.note,
+          sourceForm: context.sourceForm,
+        },
       });
     }
     return { created: proposed.length, reason: null };
@@ -384,7 +506,9 @@ const publishItemActionSchema = z.object({
   idempotencyKey: z.string().min(1),
 });
 
-export async function publishItemAction(input: z.infer<typeof publishItemActionSchema>): Promise<ActionResult<void>> {
+export async function publishItemAction(
+  input: z.infer<typeof publishItemActionSchema>,
+): Promise<ActionResult<void>> {
   return runPublishAction(async () => {
     const parsed = publishItemActionSchema.parse(input);
     const user = await requireUser();
@@ -398,7 +522,9 @@ const archiveItemActionSchema = z.object({
   reason: z.string().trim().min(1).optional(),
 });
 
-export async function archiveItemAction(input: z.infer<typeof archiveItemActionSchema>): Promise<ActionResult<void>> {
+export async function archiveItemAction(
+  input: z.infer<typeof archiveItemActionSchema>,
+): Promise<ActionResult<void>> {
   return runPublishAction(async () => {
     const parsed = archiveItemActionSchema.parse(input);
     const user = await requireUser();
@@ -406,9 +532,14 @@ export async function archiveItemAction(input: z.infer<typeof archiveItemActionS
   });
 }
 
-const deleteItemActionSchema = z.object({ learningItemId: z.string().min(1), idempotencyKey: z.string().min(1) });
+const deleteItemActionSchema = z.object({
+  learningItemId: z.string().min(1),
+  idempotencyKey: z.string().min(1),
+});
 
-export async function deleteItemAction(input: z.infer<typeof deleteItemActionSchema>) {
+export async function deleteItemAction(
+  input: z.infer<typeof deleteItemActionSchema>,
+) {
   return runPublishAction(async () => {
     const parsed = deleteItemActionSchema.parse(input);
     const user = await requireUser();
@@ -423,7 +554,9 @@ const moveItemActionSchema = z.object({
   vocabularyGroupId: z.string().min(1).optional(),
 });
 
-export async function moveItemAction(input: z.infer<typeof moveItemActionSchema>): Promise<ActionResult<void>> {
+export async function moveItemAction(
+  input: z.infer<typeof moveItemActionSchema>,
+): Promise<ActionResult<void>> {
   return runAdminAction(async () => {
     const parsed = moveItemActionSchema.parse(input);
     const user = await requireUser();
@@ -438,7 +571,9 @@ const reorderItemsActionSchema = z.object({
   idempotencyKey: z.string().min(1),
 });
 
-export async function reorderItemsAction(input: z.infer<typeof reorderItemsActionSchema>): Promise<ActionResult<void>> {
+export async function reorderItemsAction(
+  input: z.infer<typeof reorderItemsActionSchema>,
+): Promise<ActionResult<void>> {
   return runAdminAction(async () => {
     const parsed = reorderItemsActionSchema.parse(input);
     const user = await requireUser();
@@ -446,7 +581,12 @@ export async function reorderItemsAction(input: z.infer<typeof reorderItemsActio
   });
 }
 
-const curriculumStatusActionSchema = z.enum(["draft", "pending", "published", "archived"]);
+const curriculumStatusActionSchema = z.enum([
+  "draft",
+  "pending",
+  "published",
+  "archived",
+]);
 
 const createLevelActionSchema = z.object({
   languageId: z.string().min(1),
@@ -455,14 +595,15 @@ const createLevelActionSchema = z.object({
   idempotencyKey: z.string().min(1),
 });
 
-export async function createLevelAction(input: z.infer<typeof createLevelActionSchema>): Promise<ActionResult<{ levelId: string }>> {
+export async function createLevelAction(
+  input: z.infer<typeof createLevelActionSchema>,
+): Promise<ActionResult<{ levelId: string }>> {
   return runPublishAction(async () => {
     const parsed = createLevelActionSchema.parse(input);
     const user = await requireUser();
     return createLevel({ ...parsed, actorUserId: user.id });
   });
 }
-
 
 const updateLevelActionSchema = z.object({
   levelId: z.string().min(1),
@@ -473,7 +614,9 @@ const updateLevelActionSchema = z.object({
   idempotencyKey: z.string().min(1),
 });
 
-export async function updateLevelAction(input: z.infer<typeof updateLevelActionSchema>): Promise<ActionResult<void>> {
+export async function updateLevelAction(
+  input: z.infer<typeof updateLevelActionSchema>,
+): Promise<ActionResult<void>> {
   return runPublishAction(async () => {
     const parsed = updateLevelActionSchema.parse(input);
     const user = await requireUser();
@@ -537,7 +680,9 @@ const bulkArchiveItemsActionSchema = z.object({
   idempotencyKey: z.string().min(1),
 });
 
-export async function bulkArchiveItemsAction(input: z.infer<typeof bulkArchiveItemsActionSchema>): Promise<ActionResult<void>> {
+export async function bulkArchiveItemsAction(
+  input: z.infer<typeof bulkArchiveItemsActionSchema>,
+): Promise<ActionResult<void>> {
   return runPublishAction(async () => {
     const parsed = bulkArchiveItemsActionSchema.parse(input);
     const user = await requireUser();
@@ -552,7 +697,9 @@ const bulkMoveItemsActionSchema = z.object({
   idempotencyKey: z.string().min(1),
 });
 
-export async function bulkMoveItemsAction(input: z.infer<typeof bulkMoveItemsActionSchema>): Promise<ActionResult<void>> {
+export async function bulkMoveItemsAction(
+  input: z.infer<typeof bulkMoveItemsActionSchema>,
+): Promise<ActionResult<void>> {
   return runPublishAction(async () => {
     const parsed = bulkMoveItemsActionSchema.parse(input);
     const user = await requireUser();

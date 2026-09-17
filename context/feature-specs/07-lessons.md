@@ -33,20 +33,20 @@ Do not implement lesson recovery after refresh.
 exists and is tested against real PostgreSQL — see
 `progress-tracker.md`'s spec 08 entry for what each unit built.
 
-| Requirement | Needed by | Status |
-| --- | --- | --- |
-| Database layer (Drizzle + Neon) | §45, §46, §49, §61 | Done (spec 08 unit 1) |
-| Internal user record / `users` domain | §10, §44 | Done (spec 08 unit 3) |
-| `curriculum` domain and real curriculum data | §15, §16, §24, §29 | Domain done (spec 08 unit 4) — see caveat below |
-| `srs` domain | §46, §47, §48 | Done (spec 08 unit 5) |
-| `progress` domain | §44, §53 | Done (spec 08 unit 4) |
-| Rate-limit provider | §50 | Done (spec 08 unit 7) — Upstash Redis; not wired to any route yet |
-| Idempotency key storage | §49 | Done (spec 08 unit 6) — `withIdempotency`; no real consumer yet |
-| Integration test harness | §79, §80 | Done (spec 08 units 1–3) — real Neon via `TEST_DATABASE_URL` |
-| `media` / R2 storage | §15 pronunciation audio | Not started — unrelated to unit 6, still deferred |
+| Requirement                                  | Needed by               | Status                                                            |
+| -------------------------------------------- | ----------------------- | ----------------------------------------------------------------- |
+| Database layer (Drizzle + Neon)              | §45, §46, §49, §61      | Done (spec 08 unit 1)                                             |
+| Internal user record / `users` domain        | §10, §44                | Done (spec 08 unit 3)                                             |
+| `curriculum` domain and real curriculum data | §15, §16, §24, §29      | Domain done (spec 08 unit 4) — see caveat below                   |
+| `srs` domain                                 | §46, §47, §48           | Done (spec 08 unit 5)                                             |
+| `progress` domain                            | §44, §53                | Done (spec 08 unit 4)                                             |
+| Rate-limit provider                          | §50                     | Done (spec 08 unit 7) — Upstash Redis; not wired to any route yet |
+| Idempotency key storage                      | §49                     | Done (spec 08 unit 6) — `withIdempotency`; no real consumer yet   |
+| Integration test harness                     | §79, §80                | Done (spec 08 units 1–3) — real Neon via `TEST_DATABASE_URL`      |
+| `media` / R2 storage                         | §15 pronunciation audio | Not started — unrelated to unit 6, still deferred                 |
 
 **Curriculum-data caveat, read before starting unit 6:** spec 08 deliberately
-built the real `domains/curriculum`/`domains/progress` as *additive* code
+built the real `domains/curriculum`/`domains/progress` as _additive_ code
 alongside — not replacing — this spec's fixture curriculum
 (`domains/curriculum/curriculum-fixtures.ts`, `FIXTURE_LANGUAGE_ID`), per an
 explicit user decision recorded in `progress-tracker.md` to avoid touching

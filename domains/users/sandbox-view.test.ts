@@ -16,7 +16,12 @@ describe("canViewSandboxAs", () => {
   });
 
   it("allows a developer to view their own sandbox persona (spec 11 §4 admits both roles)", () => {
-    expect(canViewSandboxAs(DEVELOPER, { isSandbox: true, sandboxOwnerUserId: "dev-1" })).toBe(true);
+    expect(
+      canViewSandboxAs(DEVELOPER, {
+        isSandbox: true,
+        sandboxOwnerUserId: "dev-1",
+      }),
+    ).toBe(true);
   });
 
   it("refuses another admin's sandbox", () => {
@@ -25,15 +30,27 @@ describe("canViewSandboxAs", () => {
 
   it("refuses a real learner account outright, even one an admin somehow 'owns'", () => {
     expect(canViewSandboxAs(ADMIN, REAL_LEARNER)).toBe(false);
-    expect(canViewSandboxAs(ADMIN, { isSandbox: false, sandboxOwnerUserId: "admin-1" })).toBe(false);
+    expect(
+      canViewSandboxAs(ADMIN, {
+        isSandbox: false,
+        sandboxOwnerUserId: "admin-1",
+      }),
+    ).toBe(false);
   });
 
   it("refuses an ordinary learner, whatever the target", () => {
     expect(canViewSandboxAs(LEARNER, OWNED_SANDBOX)).toBe(false);
-    expect(canViewSandboxAs(LEARNER, { isSandbox: true, sandboxOwnerUserId: "user-1" })).toBe(false);
+    expect(
+      canViewSandboxAs(LEARNER, {
+        isSandbox: true,
+        sandboxOwnerUserId: "user-1",
+      }),
+    ).toBe(false);
   });
 
   it("refuses a sandbox with no owner recorded", () => {
-    expect(canViewSandboxAs(ADMIN, { isSandbox: true, sandboxOwnerUserId: null })).toBe(false);
+    expect(
+      canViewSandboxAs(ADMIN, { isSandbox: true, sandboxOwnerUserId: null }),
+    ).toBe(false);
   });
 });

@@ -8,7 +8,9 @@ describe("isUniqueViolation", () => {
   });
 
   it("recognizes a wrapped DrizzleQueryError-shaped error with the SQLSTATE on .cause.code", () => {
-    expect(isUniqueViolation({ message: "Failed query", cause: { code: "23505" } })).toBe(true);
+    expect(
+      isUniqueViolation({ message: "Failed query", cause: { code: "23505" } }),
+    ).toBe(true);
   });
 
   it("returns false for an unrelated Postgres error code", () => {
@@ -17,7 +19,9 @@ describe("isUniqueViolation", () => {
   });
 
   it("returns false for a plain Error with no code", () => {
-    expect(isUniqueViolation(new Error("something else went wrong"))).toBe(false);
+    expect(isUniqueViolation(new Error("something else went wrong"))).toBe(
+      false,
+    );
   });
 
   it("returns false for non-object values", () => {

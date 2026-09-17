@@ -65,7 +65,11 @@ export interface VocabularyDetailCurriculum {
    * `usageContext: null` is the **General** tab — which is what every
    * example authored before usage contexts existed already is.
    */
-  examples: { targetText: string; translation: string; usageContext: { id: string; label: string; note: string | null } | null }[];
+  examples: {
+    targetText: string;
+    translation: string;
+    usageContext: { id: string; label: string; note: string | null } | null;
+  }[];
   /** The word's usage-context tabs in display order, so a tab with no examples yet still renders. */
   usageContexts: { id: string; label: string; note: string | null }[];
   creatorNotes: string | null;
@@ -131,11 +135,17 @@ export interface ResolvedVocabularyPresentation {
  * decision nobody has made — this resolver only ever touches the
  * explanatory/pronunciation fields.
  */
-export function resolveVocabularyPresentation(detail: Pick<VocabularyDetail, "curriculum" | "dictionary">): ResolvedVocabularyPresentation {
+export function resolveVocabularyPresentation(
+  detail: Pick<VocabularyDetail, "curriculum" | "dictionary">,
+): ResolvedVocabularyPresentation {
   const confirmed = detail.dictionary?.matchStatus === "manual";
-  const dictionaryDefinition = confirmed ? (detail.dictionary!.selectedSenses[0]?.gloss ?? null) : null;
+  const dictionaryDefinition = confirmed
+    ? (detail.dictionary!.selectedSenses[0]?.gloss ?? null)
+    : null;
   const preferredPronunciation = confirmed
-    ? (detail.dictionary!.pronunciations.find((p) => p.id === detail.dictionary!.preferredPronunciationId) ?? detail.dictionary!.pronunciations[0])
+    ? (detail.dictionary!.pronunciations.find(
+        (p) => p.id === detail.dictionary!.preferredPronunciationId,
+      ) ?? detail.dictionary!.pronunciations[0])
     : undefined;
   const dictionaryIpa = preferredPronunciation?.ipa ?? null;
 
@@ -144,9 +154,17 @@ export function resolveVocabularyPresentation(detail: Pick<VocabularyDetail, "cu
 
   return {
     definition,
-    definitionSource: dictionaryDefinition ? "dictionary" : detail.curriculum.teachingSummary ? "curriculum" : "none",
+    definitionSource: dictionaryDefinition
+      ? "dictionary"
+      : detail.curriculum.teachingSummary
+        ? "curriculum"
+        : "none",
     ipa,
-    ipaSource: dictionaryIpa ? "dictionary" : detail.curriculum.manualIpa ? "curriculum" : "none",
+    ipaSource: dictionaryIpa
+      ? "dictionary"
+      : detail.curriculum.manualIpa
+        ? "curriculum"
+        : "none",
   };
 }
 
@@ -169,8 +187,14 @@ export function resolveVocabularyPresentation(detail: Pick<VocabularyDetail, "cu
  * 2026-09-07 decision this implements.
  */
 export function resolveConfirmedDictionaryFields(view: {
-  mapping: Pick<VocabularyDictionaryMapping, "matchStatus" | "preferredPronunciationId"> | null;
-  entry: Pick<DictionaryEntryDetail, "lemma" | "partOfSpeech" | "senses" | "pronunciations"> | null;
+  mapping: Pick<
+    VocabularyDictionaryMapping,
+    "matchStatus" | "preferredPronunciationId"
+  > | null;
+  entry: Pick<
+    DictionaryEntryDetail,
+    "lemma" | "partOfSpeech" | "senses" | "pronunciations"
+  > | null;
   selectedSenseIds: string[];
 }): {
   confirmed: boolean;
@@ -186,12 +210,23 @@ export function resolveConfirmedDictionaryFields(view: {
   partOfSpeech: string | null;
 } {
   const confirmed = view.mapping?.matchStatus === "manual";
-  if (!confirmed || !view.entry) return { confirmed: false, definition: null, ipa: null, lemma: null, partOfSpeech: null };
+  if (!confirmed || !view.entry)
+    return {
+      confirmed: false,
+      definition: null,
+      ipa: null,
+      lemma: null,
+      partOfSpeech: null,
+    };
 
   const primarySenseId = view.selectedSenseIds[0];
-  const primarySense = view.entry.senses.find((sense) => sense.id === primarySenseId);
+  const primarySense = view.entry.senses.find(
+    (sense) => sense.id === primarySenseId,
+  );
   const preferredPronunciation =
-    view.entry.pronunciations.find((p) => p.id === view.mapping!.preferredPronunciationId) ?? view.entry.pronunciations[0];
+    view.entry.pronunciations.find(
+      (p) => p.id === view.mapping!.preferredPronunciationId,
+    ) ?? view.entry.pronunciations[0];
 
   return {
     confirmed: true,
@@ -207,7 +242,9 @@ async function loadCurriculumHalf(
   vocabularyItemId: string,
   { includeArchived = false }: { includeArchived?: boolean } = {},
 ): Promise<VocabularyDetailCurriculum | null> {
-  const allowedStatuses = includeArchived ? (["published", "archived"] as const) : (["published"] as const);
+  const allowedStatuses = includeArchived
+    ? (["published", "archived"] as const)
+    : (["published"] as const);
   const [row] = await db
     .select({
       learningItemId: vocabularyItems.learningItemId,
@@ -223,9 +260,15 @@ async function loadCurriculumHalf(
       groupName: vocabularyGroups.name,
     })
     .from(vocabularyItems)
-    .innerJoin(learningItems, eq(learningItems.id, vocabularyItems.learningItemId))
+    .innerJoin(
+      learningItems,
+      eq(learningItems.id, vocabularyItems.learningItemId),
+    )
     .innerJoin(levels, eq(levels.id, learningItems.levelId))
-    .innerJoin(vocabularyGroups, eq(vocabularyGroups.id, vocabularyItems.vocabularyGroupId))
+    .innerJoin(
+      vocabularyGroups,
+      eq(vocabularyGroups.id, vocabularyItems.vocabularyGroupId),
+    )
     // Learner-facing: a draft/pending item must never resolve here, for the
     // same reason it must not appear in a level view — no learner could have
     // organically reached it. `includeArchived` (spec 13: "archived item
@@ -259,11 +302,23 @@ async function loadCurriculumHalf(
       })
       .from(learningItemSentences)
       .innerJoin(sentences, eq(sentences.id, learningItemSentences.sentenceId))
-      .leftJoin(vocabularyUsageContexts, eq(vocabularyUsageContexts.id, learningItemSentences.usageContextId))
-      .where(and(eq(learningItemSentences.learningItemId, vocabularyItemId), eq(sentences.status, "published")))
+      .leftJoin(
+        vocabularyUsageContexts,
+        eq(vocabularyUsageContexts.id, learningItemSentences.usageContextId),
+      )
+      .where(
+        and(
+          eq(learningItemSentences.learningItemId, vocabularyItemId),
+          eq(sentences.status, "published"),
+        ),
+      )
       .orderBy(asc(learningItemSentences.position)),
     db
-      .select({ id: vocabularyUsageContexts.id, label: vocabularyUsageContexts.label, note: vocabularyUsageContexts.note })
+      .select({
+        id: vocabularyUsageContexts.id,
+        label: vocabularyUsageContexts.label,
+        note: vocabularyUsageContexts.note,
+      })
       .from(vocabularyUsageContexts)
       .where(eq(vocabularyUsageContexts.learningItemId, vocabularyItemId))
       .orderBy(asc(vocabularyUsageContexts.position)),
@@ -272,7 +327,13 @@ async function loadCurriculumHalf(
   const examples = exampleRows.map((row) => ({
     targetText: row.targetText,
     translation: row.translation,
-    usageContext: row.usageContextId ? { id: row.usageContextId, label: row.contextLabel ?? "", note: row.contextNote } : null,
+    usageContext: row.usageContextId
+      ? {
+          id: row.usageContextId,
+          label: row.contextLabel ?? "",
+          note: row.contextNote,
+        }
+      : null,
   }));
 
   return {
@@ -311,17 +372,26 @@ async function loadDictionaryHalf(
   // (spec 12: "Do not create new curriculum items automatically from
   // dictionary forms or synonyms").
   const synonyms = entry.relations
-    .filter((relation) => relation.relationType === "synonym" && relation.sourceStatus === "active")
+    .filter(
+      (relation) =>
+        relation.relationType === "synonym" &&
+        relation.sourceStatus === "active",
+    )
     .map((relation) => relation.targetLemma);
   const variants = entry.relations
     .filter(
       (relation) =>
-        (relation.relationType === "alternative_form" || relation.relationType === "form_of") &&
+        (relation.relationType === "alternative_form" ||
+          relation.relationType === "form_of") &&
         relation.sourceStatus === "active",
     )
     .map((relation) => relation.targetLemma);
 
-  const usageLabels = [...new Set(entry.senses.flatMap((sense) => [...sense.tags, ...sense.topics]))].sort();
+  const usageLabels = [
+    ...new Set(
+      entry.senses.flatMap((sense) => [...sense.tags, ...sense.topics]),
+    ),
+  ].sort();
 
   return {
     entryId: entry.id,
@@ -330,7 +400,9 @@ async function loadDictionaryHalf(
     // Preserves the admin's chosen order, and silently drops a selection
     // whose sense no longer exists — the mapping is already flagged for
     // review in that case, so the page must not crash on it.
-    selectedSenses: selectedSenseIds.map((id) => senseById.get(id)).filter((sense) => sense !== undefined),
+    selectedSenses: selectedSenseIds
+      .map((id) => senseById.get(id))
+      .filter((sense) => sense !== undefined),
     allSenses: entry.senses,
     pronunciations: entry.pronunciations,
     preferredPronunciationId: mapping.preferredPronunciationId,
@@ -357,14 +429,22 @@ async function loadDictionaryHalf(
  */
 export async function getVocabularyDetail(
   db: DbClient,
-  input: { vocabularyItemId: string; userId?: string | null; includeArchived?: boolean },
+  input: {
+    vocabularyItemId: string;
+    userId?: string | null;
+    includeArchived?: boolean;
+  },
 ): Promise<VocabularyDetail | null> {
-  const curriculum = await loadCurriculumHalf(db, input.vocabularyItemId, { includeArchived: input.includeArchived });
+  const curriculum = await loadCurriculumHalf(db, input.vocabularyItemId, {
+    includeArchived: input.includeArchived,
+  });
   if (!curriculum) return null;
 
   const [dictionary, progress] = await Promise.all([
     loadDictionaryHalf(db, input.vocabularyItemId),
-    input.userId ? getItemProgress(db, input.userId, input.vocabularyItemId) : Promise.resolve(null),
+    input.userId
+      ? getItemProgress(db, input.userId, input.vocabularyItemId)
+      : Promise.resolve(null),
   ]);
 
   return { curriculum, dictionary, progress };

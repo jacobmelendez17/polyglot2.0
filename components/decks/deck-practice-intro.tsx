@@ -35,7 +35,9 @@ export function DeckPracticeIntro({
   return (
     <div className="mx-auto flex min-h-svh max-w-md flex-col items-center justify-center gap-6 px-4 py-10 text-center">
       <div>
-        <h1 className="font-heading text-2xl font-semibold text-foreground">{deckName}</h1>
+        <h1 className="font-heading text-2xl font-semibold text-foreground">
+          {deckName}
+        </h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {itemCount} {itemCount === 1 ? "item" : "items"} · {questionCount}{" "}
           {questionCount === 1 ? "question" : "questions"}
@@ -49,16 +51,19 @@ export function DeckPracticeIntro({
           onCheckedChange={(checked) => onToggleKnowDontKnow(checked === true)}
         />
         <span>
-          <span className="block text-sm font-medium text-foreground">Know / Don&rsquo;t Know</span>
+          <span className="block text-sm font-medium text-foreground">
+            Know / Don&rsquo;t Know
+          </span>
           <span className="mt-0.5 block text-xs text-muted-foreground">
-            Mark each item as you go and get a breakdown at the end. Results are for this session only and are never
-            saved.
+            Mark each item as you go and get a breakdown at the end. Results are
+            for this session only and are never saved.
           </span>
         </span>
       </label>
 
       <p className="text-xs text-muted-foreground">
-        Deck practice never changes your SRS stages, review times, or curriculum progress.
+        Deck practice never changes your SRS stages, review times, or curriculum
+        progress.
       </p>
 
       <div className="flex w-full flex-col gap-2">

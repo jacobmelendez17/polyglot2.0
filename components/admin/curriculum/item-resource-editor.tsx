@@ -26,13 +26,18 @@ type ItemResourceEditorProps = {
  * the boundary. Like the other child collections, changes are live rather
  * than drafted.
  */
-export function ItemResourceEditor({ learningItemId, resources }: ItemResourceEditorProps) {
+export function ItemResourceEditor({
+  learningItemId,
+  resources,
+}: ItemResourceEditorProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState({ label: "", url: "" });
 
-  function run(action: () => Promise<{ ok: boolean; error?: { message: string } }>) {
+  function run(
+    action: () => Promise<{ ok: boolean; error?: { message: string } }>,
+  ) {
     setError(null);
     startTransition(async () => {
       const result = await action();
@@ -51,14 +56,24 @@ export function ItemResourceEditor({ learningItemId, resources }: ItemResourceEd
     if (target < 0 || target >= resources.length) return;
     const order = resources.map((resource) => resource.id);
     [order[index], order[target]] = [order[target]!, order[index]!];
-    run(() => itemResourceAction({ learningItemId, idempotencyKey: key(), mutation: { kind: "reorder", orderedIds: order } }));
+    run(() =>
+      itemResourceAction({
+        learningItemId,
+        idempotencyKey: key(),
+        mutation: { kind: "reorder", orderedIds: order },
+      }),
+    );
   }
 
   return (
     <section className="flex flex-col gap-4">
       <div>
-        <h2 className="font-heading text-lg font-semibold text-foreground">Resources</h2>
-        <p className="mt-1 text-sm text-muted-foreground">External links shown to learners. Changes are live immediately.</p>
+        <h2 className="font-heading text-lg font-semibold text-foreground">
+          Resources
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          External links shown to learners. Changes are live immediately.
+        </p>
       </div>
 
       {error ? (
@@ -67,11 +82,16 @@ export function ItemResourceEditor({ learningItemId, resources }: ItemResourceEd
         </p>
       ) : null}
 
-      {resources.length === 0 ? <p className="text-sm text-muted-foreground">No resources yet.</p> : null}
+      {resources.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No resources yet.</p>
+      ) : null}
 
       <div className="flex flex-col gap-2">
         {resources.map((resource, index) => (
-          <div key={resource.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-3">
+          <div
+            key={resource.id}
+            className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-3"
+          >
             <Input
               className="w-44"
               defaultValue={resource.label}
@@ -79,7 +99,17 @@ export function ItemResourceEditor({ learningItemId, resources }: ItemResourceEd
               onBlur={(event) => {
                 const label = event.target.value.trim();
                 if (label === "" || label === resource.label) return;
-                run(() => itemResourceAction({ learningItemId, idempotencyKey: key(), mutation: { kind: "update", resourceId: resource.id, label } }));
+                run(() =>
+                  itemResourceAction({
+                    learningItemId,
+                    idempotencyKey: key(),
+                    mutation: {
+                      kind: "update",
+                      resourceId: resource.id,
+                      label,
+                    },
+                  }),
+                );
               }}
             />
             <Input
@@ -89,10 +119,23 @@ export function ItemResourceEditor({ learningItemId, resources }: ItemResourceEd
               onBlur={(event) => {
                 const url = event.target.value.trim();
                 if (url === "" || url === resource.url) return;
-                run(() => itemResourceAction({ learningItemId, idempotencyKey: key(), mutation: { kind: "update", resourceId: resource.id, url } }));
+                run(() =>
+                  itemResourceAction({
+                    learningItemId,
+                    idempotencyKey: key(),
+                    mutation: { kind: "update", resourceId: resource.id, url },
+                  }),
+                );
               }}
             />
-            <Button type="button" variant="ghost" size="icon" aria-label={`Move ${resource.label} earlier`} disabled={isPending || index === 0} onClick={() => move(index, -1)}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label={`Move ${resource.label} earlier`}
+              disabled={isPending || index === 0}
+              onClick={() => move(index, -1)}
+            >
               <ArrowUp className="h-4 w-4" aria-hidden="true" />
             </Button>
             <Button
@@ -111,7 +154,15 @@ export function ItemResourceEditor({ learningItemId, resources }: ItemResourceEd
               size="icon"
               aria-label={`Delete ${resource.label}`}
               disabled={isPending}
-              onClick={() => run(() => itemResourceAction({ learningItemId, idempotencyKey: key(), mutation: { kind: "delete", resourceId: resource.id } }))}
+              onClick={() =>
+                run(() =>
+                  itemResourceAction({
+                    learningItemId,
+                    idempotencyKey: key(),
+                    mutation: { kind: "delete", resourceId: resource.id },
+                  }),
+                )
+              }
             >
               <Trash2 className="h-4 w-4" aria-hidden="true" />
             </Button>
@@ -126,7 +177,12 @@ export function ItemResourceEditor({ learningItemId, resources }: ItemResourceEd
             className="mt-1 w-44"
             value={draft.label}
             placeholder="Conjugation table"
-            onChange={(event) => setDraft((previous) => ({ ...previous, label: event.target.value }))}
+            onChange={(event) =>
+              setDraft((previous) => ({
+                ...previous,
+                label: event.target.value,
+              }))
+            }
           />
         </label>
         <label className="text-sm">
@@ -135,16 +191,30 @@ export function ItemResourceEditor({ learningItemId, resources }: ItemResourceEd
             className="mt-1 w-72"
             value={draft.url}
             placeholder="https://..."
-            onChange={(event) => setDraft((previous) => ({ ...previous, url: event.target.value }))}
+            onChange={(event) =>
+              setDraft((previous) => ({ ...previous, url: event.target.value }))
+            }
           />
         </label>
         <Button
           type="button"
-          disabled={isPending || draft.label.trim() === "" || draft.url.trim() === ""}
+          disabled={
+            isPending || draft.label.trim() === "" || draft.url.trim() === ""
+          }
           onClick={() => {
             const { label, url } = draft;
             setDraft({ label: "", url: "" });
-            run(() => itemResourceAction({ learningItemId, idempotencyKey: key(), mutation: { kind: "create", label: label.trim(), url: url.trim() } }));
+            run(() =>
+              itemResourceAction({
+                learningItemId,
+                idempotencyKey: key(),
+                mutation: {
+                  kind: "create",
+                  label: label.trim(),
+                  url: url.trim(),
+                },
+              }),
+            );
           }}
         >
           <Plus className="h-4 w-4" aria-hidden="true" />

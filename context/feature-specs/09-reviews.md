@@ -6,15 +6,15 @@ Implement the production SRS review experience for learned vocabulary and gramma
 
 The review system must:
 
-* load real due reviews from PostgreSQL
-* use the user's active language
-* test the configured required question types for each learning item
-* reuse the existing answer-checking system
-* apply SRS advancement or penalties only after a full item's required review questions are complete
-* save each completed item immediately and atomically
-* protect against duplicate, stale, concurrent, and replayed submissions
-* record enough review outcome history for statistics and future leech detection
-* present the distraction-free review UI defined in `ui-context.md`
+- load real due reviews from PostgreSQL
+- use the user's active language
+- test the configured required question types for each learning item
+- reuse the existing answer-checking system
+- apply SRS advancement or penalties only after a full item's required review questions are complete
+- save each completed item immediately and atomically
+- protect against duplicate, stale, concurrent, and replayed submissions
+- record enough review outcome history for statistics and future leech detection
+- present the distraction-free review UI defined in `ui-context.md`
 
 The authoritative review path must use the real `curriculum`, `progress`, and `srs` domains. Fixture curriculum/progress must not be used for production review decisions.
 
@@ -60,44 +60,44 @@ Normal scheduled reviews for official curriculum vocabulary and grammar:
 
 This spec includes:
 
-* due-review query
-* review queue construction
-* all currently due reviews by default
-* vocabulary review questions
-* configured grammar review question types
-* answer checking
-* incorrect-question retry behavior
-* SRS advancement
-* SRS penalties
-* minimum-stage enforcement
-* next-review scheduling
-* Fluent completion
-* atomic per-item persistence
-* stale/concurrent review protection
-* idempotency
-* review rate limiting
-* review outcome/history storage
-* permanent level unlocks triggered by review progress
-* review session statistics
-* empty/loading/error/completion states
-* desktop and mobile review UI
+- due-review query
+- review queue construction
+- all currently due reviews by default
+- vocabulary review questions
+- configured grammar review question types
+- answer checking
+- incorrect-question retry behavior
+- SRS advancement
+- SRS penalties
+- minimum-stage enforcement
+- next-review scheduling
+- Fluent completion
+- atomic per-item persistence
+- stale/concurrent review protection
+- idempotency
+- review rate limiting
+- review outcome/history storage
+- permanent level unlocks triggered by review progress
+- review session statistics
+- empty/loading/error/completion states
+- desktop and mobile review UI
 
 ### Out of scope
 
 Do not include:
 
-* leech-review practice UI
-* final leech classification thresholds
-* early reviews
-* free study
-* deck reviews
-* custom review filtering
-* configurable session-size settings
-* XP/rank/streak implementation
-* real dashboard aggregation
-* dashboard graph rewrites
-* practice progression
-* test progression
+- leech-review practice UI
+- final leech classification thresholds
+- early reviews
+- free study
+- deck reviews
+- custom review filtering
+- configurable session-size settings
+- XP/rank/streak implementation
+- real dashboard aggregation
+- dashboard graph rewrites
+- practice progression
+- test progression
 
 The database should capture the review outcomes needed for future leech detection, but actual leech classification remains deferred until its configurable thresholds are finalized.
 
@@ -119,10 +119,10 @@ Reviews should live inside the existing `(focus)` route group alongside lessons.
 
 During an active review session:
 
-* do not render the normal desktop application header
-* do not render the mobile application bottom navigation
-* provide an explicit Exit control
-* keep the learner focused on the current review
+- do not render the normal desktop application header
+- do not render the mobile application bottom navigation
+- provide an explicit Exit control
+- keep the learner focused on the current review
 
 The route always resolves the authenticated internal Polyglot user and that user's active language server-side.
 
@@ -196,18 +196,18 @@ The server must still reload the real progress row before completing an item.
 
 Do not place authoritative review state in:
 
-* `localStorage`
-* `sessionStorage`
-* browser cookies
-* client-provided SRS fields
+- `localStorage`
+- `sessionStorage`
+- browser cookies
+- client-provided SRS fields
 
 Refreshing or abandoning the session may discard unfinished in-memory review state.
 
 This is intentional:
 
-* already completed items remain saved
-* an item with only part of its required review complete remains due
-* that item's SRS stage is unchanged
+- already completed items remain saved
+- an item with only part of its required review complete remains due
+- that item's SRS stage is unchanged
 
 This is required by the existing atomic-review architecture.
 
@@ -268,11 +268,11 @@ The existing answer checker already handles the shared behaviors intentionally p
 
 Review answer candidates should be derived server-side from applicable curriculum/learner data, including:
 
-* official accepted answers
-* accepted variations
-* accepted synonyms
-* applicable user-created synonyms
-* article requirements where applicable
+- official accepted answers
+- accepted variations
+- accepted synonyms
+- applicable user-created synonyms
+- article requirements where applicable
 
 The client sends the typed response.
 
@@ -339,10 +339,10 @@ Levels 1 and 2 continue using the accelerated early-stage schedule already imple
 
 Reaching Fluent:
 
-* sets the item to Fluent
-* records `fluent_at` when first reached
-* ends the normal scheduled review cycle
-* does not prevent supplemental practice
+- sets the item to Fluent
+- records `fluent_at` when first reached
+- ends the normal scheduled review cycle
+- does not prevent supplemental practice
 
 ### Incorrect-answer penalty
 
@@ -551,10 +551,10 @@ penalized
 
 Do **not** store:
 
-* raw typed answers
-* every keystroke
-* sensitive answer payloads
-* a complete immutable answer-by-answer transcript
+- raw typed answers
+- every keystroke
+- sensitive answer payloads
+- a complete immutable answer-by-answer transcript
 
 Architecture requires aggregate/statistical review information, but explicitly does not require storing an immutable typed-answer history.
 
@@ -599,9 +599,9 @@ Do not hardcode:
 
 When the threshold is met for the first time:
 
-* persist the next level's unlock state
-* make the operation idempotent
-* keep the level permanently unlocked afterward
+- persist the next level's unlock state
+- make the operation idempotent
+- keep the level permanently unlocked afterward
 
 If reviewed items later fall below Familiar 1, the earned level must remain unlocked.
 
@@ -642,9 +642,9 @@ Top-center:
 
 Top-right:
 
-* remaining items
-* accuracy
-* other compact information only when useful
+- remaining items
+- accuracy
+- other compact information only when useful
 
 ### Input
 
@@ -660,11 +660,11 @@ Spanish review input provides the configured character helpers:
 
 Character helpers must:
 
-* support keyboard access
-* support touch
-* insert at the caret where practical
-* preserve existing input
-* remain visually secondary
+- support keyboard access
+- support touch
+- insert at the caret where practical
+- preserve existing input
+- remain visually secondary
 
 Do not hardcode Spanish helpers into the generic answer component; resolve them from language configuration.
 
@@ -698,9 +698,9 @@ Do not temporarily `disabled` the answer input if doing so causes focus loss. Pr
 
 Show:
 
-* clear success state
-* check/success indicator
-* brief positive transition
+- clear success state
+- check/success indicator
+- brief positive transition
 
 Feedback must remain fast.
 
@@ -712,17 +712,17 @@ Expand the feedback beneath the current interaction.
 
 Show:
 
-* that the answer was incorrect
-* what the learner entered
-* the expected answer
-* relevant supporting item information
-* a specific explanation when the answer checker can identify the issue
+- that the answer was incorrect
+- what the learner entered
+- the expected answer
+- relevant supporting item information
+- a specific explanation when the answer checker can identify the issue
 
 Examples include:
 
-* missing required article
-* wrong meaning
-* spelling issue where relevant
+- missing required article
+- wrong meaning
+- spelling issue where relevant
 
 Incorrect feedback should teach rather than simply display red styling.
 
@@ -784,9 +784,9 @@ Never expose database errors, stack traces, or internal tokens.
 
 When the initial review queue has no unresolved questions remaining, show a minimal completion view containing:
 
-* reviews completed
-* session accuracy
-* return-to-dashboard action
+- reviews completed
+- session accuracy
+- return-to-dashboard action
 
 Do not add a large new gamification/celebration system in this spec.
 
@@ -822,9 +822,9 @@ Never persist or log the learner's raw typed review answers.
 
 Do not send typed answers to:
 
-* Sentry
-* PostHog
-* structured application logs
+- Sentry
+- PostHog
+- structured application logs
 
 Logging may include safe metadata such as:
 
@@ -915,12 +915,12 @@ Implement this spec sequentially rather than in one large change.
 
 Implement and verify:
 
-* penalty calculation
-* minimum Beginner 1 floor
-* correct advancement
-* Familiar+ penalty factor
-* Fluent completion behavior
-* review-specific configuration
+- penalty calculation
+- minimum Beginner 1 floor
+- correct advancement
+- Familiar+ penalty factor
+- Fluent completion behavior
+- review-specific configuration
 
 No UI.
 
@@ -930,11 +930,11 @@ No database mutation.
 
 Add:
 
-* `review_events`
-* migration
-* indexes
-* due-review repository query
-* review history repository primitives
+- `review_events`
+- migration
+- indexes
+- due-review repository query
+- review history repository primitives
 
 Verify against real PostgreSQL integration tests.
 
@@ -942,14 +942,14 @@ Verify against real PostgreSQL integration tests.
 
 Implement:
 
-* signed ephemeral state
-* queue creation
-* deterministic testable ordering
-* vocabulary requirements
-* configured grammar requirements
-* shared answer checking
-* incorrect retry behavior
-* session statistics
+- signed ephemeral state
+- queue creation
+- deterministic testable ordering
+- vocabulary requirements
+- configured grammar requirements
+- shared answer checking
+- incorrect retry behavior
+- session statistics
 
 No authoritative SRS mutation until the completion boundary is reached.
 
@@ -957,15 +957,15 @@ No authoritative SRS mutation until the completion boundary is reached.
 
 Implement:
 
-* progress-row locking/revalidation
-* stale protection
-* SRS mutation
-* next review calculation
-* Fluent timestamp
-* review event insertion
-* level-unlock evaluation
-* idempotency
-* `review-submit` rate limiting
+- progress-row locking/revalidation
+- stale protection
+- SRS mutation
+- next review calculation
+- Fluent timestamp
+- review event insertion
+- level-unlock evaluation
+- idempotency
+- `review-submit` rate limiting
 
 Verify rollback, replay, and true concurrent submission behavior against PostgreSQL.
 
@@ -973,18 +973,18 @@ Verify rollback, replay, and true concurrent submission behavior against Postgre
 
 Build:
 
-* protected route
-* focus layout
-* top bar
-* review interaction
-* accent controls
-* keyboard flow
-* feedback
-* no-reviews state
-* completion state
-* error handling
-* mobile layout
-* reduced-motion support
+- protected route
+- focus layout
+- top bar
+- review interaction
+- accent controls
+- keyboard flow
+- feedback
+- no-reviews state
+- completion state
+- error handling
+- mobile layout
+- reduced-motion support
 
 ### Unit 6 — End-to-end verification
 

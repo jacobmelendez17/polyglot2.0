@@ -1,6 +1,9 @@
 "use client";
 
-import { updateGrammarSrsIntervalModeAction, updateVocabularySrsIntervalModeAction } from "@/app/(app)/settings/reviews/actions";
+import {
+  updateGrammarSrsIntervalModeAction,
+  updateVocabularySrsIntervalModeAction,
+} from "@/app/(app)/settings/reviews/actions";
 import { InlineSelectSettingField } from "@/components/settings/inline-select-setting-field";
 import type { SrsIntervalMode } from "@/domains/srs";
 
@@ -17,11 +20,21 @@ type SrsIntervalModeSelectProps = {
   initialValue: SrsIntervalMode;
 };
 
-export function SrsIntervalModeSelect({ contentType, initialValue }: SrsIntervalModeSelectProps) {
-  const action = contentType === "grammar" ? updateGrammarSrsIntervalModeAction : updateVocabularySrsIntervalModeAction;
+export function SrsIntervalModeSelect({
+  contentType,
+  initialValue,
+}: SrsIntervalModeSelectProps) {
+  const action =
+    contentType === "grammar"
+      ? updateGrammarSrsIntervalModeAction
+      : updateVocabularySrsIntervalModeAction;
   return (
     <InlineSelectSettingField
-      label={contentType === "grammar" ? "Grammar SRS Interval" : "Vocabulary SRS Interval"}
+      label={
+        contentType === "grammar"
+          ? "Grammar SRS Interval"
+          : "Vocabulary SRS Interval"
+      }
       description="Changing your SRS interval only affects reviews scheduled from this point forward. Reviews that already have a due time keep their existing due time."
       initialValue={initialValue}
       options={OPTIONS}

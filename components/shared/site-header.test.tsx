@@ -10,8 +10,13 @@ const { mockAuthState } = vi.hoisted(() => ({
 }));
 
 vi.mock("@clerk/nextjs", () => ({
-  Show: ({ when, children }: { when: "signed-in" | "signed-out"; children: ReactNode }) =>
-    (when === "signed-in") === mockAuthState.signedIn ? children : null,
+  Show: ({
+    when,
+    children,
+  }: {
+    when: "signed-in" | "signed-out";
+    children: ReactNode;
+  }) => ((when === "signed-in") === mockAuthState.signedIn ? children : null),
   SignInButton: ({ children }: { children: ReactNode }) => children,
   SignUpButton: ({ children }: { children: ReactNode }) => children,
   UserButton: () => <div data-testid="user-button" />,
@@ -25,9 +30,18 @@ describe("SiteHeader", () => {
   it("renders the wordmark, nav links, and signed-out auth controls", () => {
     render(<SiteHeader />);
 
-    expect(screen.getByRole("link", { name: "Polyglot" })).toHaveAttribute("href", "/");
-    expect(screen.getByRole("link", { name: "About" })).toHaveAttribute("href", "/about");
-    expect(screen.getByRole("link", { name: "Demo" })).toHaveAttribute("href", "/demo");
+    expect(screen.getByRole("link", { name: "Polyglot" })).toHaveAttribute(
+      "href",
+      "/",
+    );
+    expect(screen.getByRole("link", { name: "About" })).toHaveAttribute(
+      "href",
+      "/about",
+    );
+    expect(screen.getByRole("link", { name: "Demo" })).toHaveAttribute(
+      "href",
+      "/demo",
+    );
     expect(screen.getByRole("button", { name: "Log in" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Sign up" })).toBeInTheDocument();
   });
@@ -37,8 +51,12 @@ describe("SiteHeader", () => {
     render(<SiteHeader />);
 
     expect(screen.getByTestId("user-button")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Log in" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Sign up" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Log in" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Sign up" }),
+    ).not.toBeInTheDocument();
   });
 
   it("toggles aria-expanded on the mobile trigger when opened", async () => {
@@ -69,7 +87,9 @@ describe("SiteHeader", () => {
   it("renders the skip link as the first focusable element", () => {
     const { container } = render(<SiteHeader />);
 
-    const focusable = container.querySelectorAll("a, button, input, [tabindex]");
+    const focusable = container.querySelectorAll(
+      "a, button, input, [tabindex]",
+    );
     expect(focusable[0]).toHaveTextContent("Skip to main content");
   });
 });

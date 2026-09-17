@@ -33,10 +33,15 @@ type SandboxCurriculumPanelProps = {
  * Every write here targets the persona. The admin's own preference is never
  * touched, and the replay link persists nothing at all.
  */
-export function SandboxCurriculumPanel({ languageId, preview }: SandboxCurriculumPanelProps) {
+export function SandboxCurriculumPanel({
+  languageId,
+  preview,
+}: SandboxCurriculumPanelProps) {
   const router = useRouter();
   const [mode, setMode] = useState<CurriculumMode | null>(preview.currentMode);
-  const [themeId, setThemeId] = useState<string | null>(preview.selectedThemeId);
+  const [themeId, setThemeId] = useState<string | null>(
+    preview.selectedThemeId,
+  );
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -68,7 +73,8 @@ export function SandboxCurriculumPanel({ languageId, preview }: SandboxCurriculu
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
         <p className="text-sm text-muted-foreground">
-          Sets how the sandbox persona&apos;s next lesson is chosen. Your own preference is never changed.
+          Sets how the sandbox persona&apos;s next lesson is chosen. Your own
+          preference is never changed.
         </p>
 
         <CurriculumModePicker
@@ -90,12 +96,18 @@ export function SandboxCurriculumPanel({ languageId, preview }: SandboxCurriculu
         ) : null}
 
         <div className="flex flex-wrap items-center gap-3">
-          <Button type="button" disabled={!mode || isPending} onClick={handleApply}>
+          <Button
+            type="button"
+            disabled={!mode || isPending}
+            onClick={handleApply}
+          >
             Apply to persona
           </Button>
           <Button asChild variant="outline">
             {/* A replay writes nothing — the route re-checks Admin access itself. */}
-            <Link href="/onboarding/curriculum?replay=1">Replay choice screen</Link>
+            <Link href="/onboarding/curriculum?replay=1">
+              Replay choice screen
+            </Link>
           </Button>
           {saved ? (
             <span className="flex items-center gap-1 text-sm text-state-success">
@@ -106,10 +118,17 @@ export function SandboxCurriculumPanel({ languageId, preview }: SandboxCurriculu
         </div>
 
         <div className="flex flex-col gap-3">
-          <h3 className="text-sm font-medium text-foreground">The persona&apos;s next lesson would be</h3>
+          <h3 className="text-sm font-medium text-foreground">
+            The persona&apos;s next lesson would be
+          </h3>
           {preview.batchesByMode.map(({ mode: previewMode, items }) => (
-            <div key={previewMode} className="rounded-lg border border-border p-3">
-              <p className="text-sm font-medium text-foreground">{getCurriculumModeOption(previewMode).label}</p>
+            <div
+              key={previewMode}
+              className="rounded-lg border border-border p-3"
+            >
+              <p className="text-sm font-medium text-foreground">
+                {getCurriculumModeOption(previewMode).label}
+              </p>
               {items.length === 0 ? (
                 <p className="mt-1 text-sm text-muted-foreground">
                   {previewMode === "choose_group" && preview.themes.length === 0
@@ -125,7 +144,9 @@ export function SandboxCurriculumPanel({ languageId, preview }: SandboxCurriculu
                       title={item.themeName ?? "Grammar"}
                     >
                       <span className="text-foreground">{item.label}</span>
-                      <span className="ml-2">{item.type === "grammar" ? "grammar" : item.themeName}</span>
+                      <span className="ml-2">
+                        {item.type === "grammar" ? "grammar" : item.themeName}
+                      </span>
                     </li>
                   ))}
                 </ul>

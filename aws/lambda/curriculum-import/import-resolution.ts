@@ -2,7 +2,10 @@ import { createHash } from "node:crypto";
 
 import type { DbClient } from "@/db/client";
 import { previewVocabularyImport } from "@/domains/admin/bulk-import-service";
-import type { ImportFieldChange, ImportRowPreview } from "@/domains/admin/bulk-import-service";
+import type {
+  ImportFieldChange,
+  ImportRowPreview,
+} from "@/domains/admin/bulk-import-service";
 import type { CurriculumImportRowPreviewInput } from "@/domains/admin/curriculum-import-types";
 import { parseVocabularyImportFile } from "@/domains/curriculum/vocabulary-import-file-parser";
 import { validateVocabularyImportRow } from "@/domains/curriculum/vocabulary-import-parsing";
@@ -17,7 +20,8 @@ import type { CurriculumImportStorage } from "@/providers/storage/types";
  * that could quietly drift apart.
  */
 
-export const errorCode = (message: string) => (message.length > 200 ? `${message.slice(0, 197)}...` : message);
+export const errorCode = (message: string) =>
+  message.length > 200 ? `${message.slice(0, 197)}...` : message;
 
 /**
  * Flattens an error's `.cause` chain into one readable string. Spec 19 §34's
@@ -48,33 +52,66 @@ export class PreviewJobError extends Error {
   }
 }
 
-function describeParseError(error: { type: string; message?: string; columns?: string[]; count?: number }): string {
-  if (error.type === "missing_columns") return `Missing required column(s): ${error.columns?.join(", ")}.`;
-  if (error.type === "too_many_rows") return `This file has ${error.count} rows, over the import limit.`;
+function describeParseError(error: {
+  type: string;
+  message?: string;
+  columns?: string[];
+  count?: number;
+}): string {
+  if (error.type === "missing_columns")
+    return `Missing required column(s): ${error.columns?.join(", ")}.`;
+  if (error.type === "too_many_rows")
+    return `This file has ${error.count} rows, over the import limit.`;
   return error.message ?? "This file could not be parsed.";
 }
 
 /** Maps `bulk-import-service.ts`'s preview output onto the persisted row shape (spec 19 §20) — placement is folded into `changedFields` as synthetic level/group entries rather than adding dedicated columns, reusing the existing `{field, from, to}` shape. */
-export function toRowPreviewInput(row: ImportRowPreview): CurriculumImportRowPreviewInput {
-  const displayTerm = row.fields ? (row.fields.itemType === "vocabulary" ? row.fields.term : row.fields.structure) : (row.raw.word ?? null);
+export function toRowPreviewInput(
+  row: ImportRowPreview,
+): CurriculumImportRowPreviewInput {
+  const displayTerm = row.fields
+    ? row.fields.itemType === "vocabulary"
+      ? row.fields.term
+      : row.fields.structure
+    : (row.raw.word ?? null);
   const levelNumber = row.fields?.levelNumber ?? null;
-  const groupNumber = row.fields?.itemType === "vocabulary" ? row.fields.groupNumber : null;
+  const groupNumber =
+    row.fields?.itemType === "vocabulary" ? row.fields.groupNumber : null;
 
   const changedFields: ImportFieldChange[] = [...row.changes];
   if (row.placement) {
-    changedFields.push({ field: "level", from: String(row.placement.fromLevelNumber), to: String(row.placement.toLevelNumber) });
+    changedFields.push({
+      field: "level",
+      from: String(row.placement.fromLevelNumber),
+      to: String(row.placement.toLevelNumber),
+    });
     if (row.placement.fromGroupNumber !== row.placement.toGroupNumber) {
       changedFields.push({
         field: "group",
-        from: row.placement.fromGroupNumber === null ? null : String(row.placement.fromGroupNumber),
-        to: row.placement.toGroupNumber === null ? null : String(row.placement.toGroupNumber),
+        from:
+          row.placement.fromGroupNumber === null
+            ? null
+            : String(row.placement.fromGroupNumber),
+        to:
+          row.placement.toGroupNumber === null
+            ? null
+            : String(row.placement.toGroupNumber),
       });
     }
   }
 
-  const reviewReasonCode = row.action === "blocked" ? (row.fields === null ? "INVALID_ROW" : "BLOCKED") : null;
+  const reviewReasonCode =
+    row.action === "blocked"
+      ? row.fields === null
+        ? "INVALID_ROW"
+        : "BLOCKED"
+      : null;
   const reviewReason =
-    row.action === "blocked" ? (row.fields === null ? row.fieldIssues.map((issue) => issue.message).join(" ") : row.blockedReason) : null;
+    row.action === "blocked"
+      ? row.fields === null
+        ? row.fieldIssues.map((issue) => issue.message).join(" ")
+        : row.blockedReason
+      : null;
 
   return {
     rowNumber: row.rowNumber,
@@ -104,21 +141,35 @@ export type FreshImportResolution = {
 export async function resolveFreshImport(
   db: DbClient,
   storage: CurriculumImportStorage,
-  { key, fileExtension, languageId }: { key: string; fileExtension: "csv" | "tsv"; languageId: string },
+  {
+    key,
+    fileExtension,
+    languageId,
+  }: { key: string; fileExtension: "csv" | "tsv"; languageId: string },
 ): Promise<FreshImportResolution> {
   const fileContent = await storage.getObjectText(key);
   // Spec 19 §21 — computed here rather than by the browser: the create-
   // import action knows the id/key before any bytes exist (§6), so the
   // checksum is only ever knowable once something has actually read the file.
-  const sourceSha256 = createHash("sha256").update(fileContent, "utf8").digest("hex");
+  const sourceSha256 = createHash("sha256")
+    .update(fileContent, "utf8")
+    .digest("hex");
   const delimiter = fileExtension === "tsv" ? "\t" : ",";
   const parsed = parseVocabularyImportFile(fileContent, delimiter);
   if (!parsed.ok) {
-    throw new PreviewJobError("IMPORT_PARSE_FAILED", describeParseError(parsed.error));
+    throw new PreviewJobError(
+      "IMPORT_PARSE_FAILED",
+      describeParseError(parsed.error),
+    );
   }
 
-  const validatedRows = parsed.rows.map((row, index) => validateVocabularyImportRow(row, index));
-  const previews = await previewVocabularyImport(db, { languageId, validatedRows });
+  const validatedRows = parsed.rows.map((row, index) =>
+    validateVocabularyImportRow(row, index),
+  );
+  const previews = await previewVocabularyImport(db, {
+    languageId,
+    validatedRows,
+  });
 
   return { sourceSha256, previews, rowInputs: previews.map(toRowPreviewInput) };
 }

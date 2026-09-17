@@ -1,10 +1,19 @@
 import { describe, expect, it } from "vitest";
 
-import { ONBOARDING_SLIDE_COUNT, ONBOARDING_SLIDES } from "@/components/onboarding/onboarding-slides";
+import {
+  ONBOARDING_SLIDE_COUNT,
+  ONBOARDING_SLIDES,
+} from "@/components/onboarding/onboarding-slides";
 
 describe("ONBOARDING_SLIDES (spec 15)", () => {
   it("has exactly the five slides the spec names, in order", () => {
-    expect(ONBOARDING_SLIDES.map((slide) => slide.id)).toEqual(["welcome", "srs", "practice", "decks", "start"]);
+    expect(ONBOARDING_SLIDES.map((slide) => slide.id)).toEqual([
+      "welcome",
+      "srs",
+      "practice",
+      "decks",
+      "start",
+    ]);
     expect(ONBOARDING_SLIDE_COUNT).toBe(5);
   });
 

@@ -39,7 +39,7 @@ export function SiteHeaderScroll({
       data-scrolled={isScrolled}
       className={cn(
         "site-header sticky top-0 z-[var(--z-header)] h-[var(--nav-h)] w-full border-b border-transparent bg-transparent transition-[background-color,border-color] duration-[var(--dur-base)] ease-[var(--ease-soft)]",
-        className
+        className,
       )}
     >
       {children}

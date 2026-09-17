@@ -16,7 +16,8 @@
  * checkout to ingest the real language.
  */
 
-export const DEFAULT_WIKTEXTRACT_PATH = "data-sources/wiktextract/es-sample.jsonl";
+export const DEFAULT_WIKTEXTRACT_PATH =
+  "data-sources/wiktextract/es-sample.jsonl";
 export const DEFAULT_RLA_DIR = "data-sources/rla-es";
 
 export interface LexiconSourceConfig {
@@ -39,7 +40,8 @@ export interface LexiconSourceConfig {
 
 export function getLexiconSourceConfig(): LexiconSourceConfig {
   return {
-    wiktextractPath: process.env.LEXICON_WIKTEXTRACT_PATH?.trim() || DEFAULT_WIKTEXTRACT_PATH,
+    wiktextractPath:
+      process.env.LEXICON_WIKTEXTRACT_PATH?.trim() || DEFAULT_WIKTEXTRACT_PATH,
     rlaDirectory: process.env.LEXICON_RLA_DIR?.trim() || DEFAULT_RLA_DIR,
     wiktextractVersion: process.env.LEXICON_WIKTEXTRACT_VERSION?.trim() || null,
     rlaVersion: process.env.LEXICON_RLA_VERSION?.trim() || null,

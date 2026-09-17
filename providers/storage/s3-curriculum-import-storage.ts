@@ -1,7 +1,16 @@
-import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import {
+  DeleteObjectCommand,
+  GetObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-import type { CreatePresignedUploadInput, CurriculumImportStorage, PresignedUpload } from "./types";
+import type {
+  CreatePresignedUploadInput,
+  CurriculumImportStorage,
+  PresignedUpload,
+} from "./types";
 
 const DEFAULT_EXPIRES_IN_SECONDS = 300;
 
@@ -30,24 +39,45 @@ export class S3CurriculumImportStorage implements CurriculumImportStorage {
     this.client = new S3Client({ region });
   }
 
-  async createPresignedUploadUrl({ key, contentType, expiresInSeconds = DEFAULT_EXPIRES_IN_SECONDS }: CreatePresignedUploadInput): Promise<PresignedUpload> {
-    const command = new PutObjectCommand({ Bucket: this.bucketName, Key: key, ContentType: contentType });
-    const url = await getSignedUrl(this.client, command, { expiresIn: expiresInSeconds });
-    return { url, bucket: this.bucketName, key, expiresAt: new Date(Date.now() + expiresInSeconds * 1000) };
+  async createPresignedUploadUrl({
+    key,
+    contentType,
+    expiresInSeconds = DEFAULT_EXPIRES_IN_SECONDS,
+  }: CreatePresignedUploadInput): Promise<PresignedUpload> {
+    const command = new PutObjectCommand({
+      Bucket: this.bucketName,
+      Key: key,
+      ContentType: contentType,
+    });
+    const url = await getSignedUrl(this.client, command, {
+      expiresIn: expiresInSeconds,
+    });
+    return {
+      url,
+      bucket: this.bucketName,
+      key,
+      expiresAt: new Date(Date.now() + expiresInSeconds * 1000),
+    };
   }
 
   // S3's DeleteObject is already idempotent — it succeeds even when the key
   // doesn't exist (already expired via the lifecycle rule, or never
   // uploaded), so no existence check is needed first.
   async deleteObject(key: string): Promise<void> {
-    await this.client.send(new DeleteObjectCommand({ Bucket: this.bucketName, Key: key }));
+    await this.client.send(
+      new DeleteObjectCommand({ Bucket: this.bucketName, Key: key }),
+    );
   }
 
   async getObjectText(key: string): Promise<string> {
-    const result = await this.client.send(new GetObjectCommand({ Bucket: this.bucketName, Key: key }));
+    const result = await this.client.send(
+      new GetObjectCommand({ Bucket: this.bucketName, Key: key }),
+    );
     const text = await result.Body?.transformToString("utf-8");
     if (text === undefined) {
-      throw new Error(`Object "${key}" in bucket "${this.bucketName}" has no body.`);
+      throw new Error(
+        `Object "${key}" in bucket "${this.bucketName}" has no body.`,
+      );
     }
     return text;
   }

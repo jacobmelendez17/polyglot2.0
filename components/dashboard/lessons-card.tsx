@@ -2,7 +2,13 @@ import Link from "next/link";
 import { BookOpen } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import type { DashboardData } from "@/domains/dashboard";
 

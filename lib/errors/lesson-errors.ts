@@ -26,10 +26,13 @@ const DEFAULT_MESSAGES: Record<LessonErrorCode, string> = {
   LESSON_ITEM_NOT_ELIGIBLE: "That item isn't currently eligible for a lesson.",
   CURRICULUM_VALIDATION_FAILED: "That lesson content couldn't be validated.",
   RATE_LIMITED: "Please slow down and try again shortly.",
-  LESSON_STATE_INVALID: "Your lesson session is no longer valid. Please start a new lesson.",
-  LESSON_STATE_EXPIRED: "Your lesson session has expired. Please start a new lesson.",
+  LESSON_STATE_INVALID:
+    "Your lesson session is no longer valid. Please start a new lesson.",
+  LESSON_STATE_EXPIRED:
+    "Your lesson session has expired. Please start a new lesson.",
   LESSON_ALREADY_ENROLLED: "These items have already been learned.",
-  LESSON_QUIZ_NOT_READY: "You need to study every item before starting the quiz.",
+  LESSON_QUIZ_NOT_READY:
+    "You need to study every item before starting the quiz.",
 };
 
 /**

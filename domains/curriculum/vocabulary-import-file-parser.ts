@@ -1,7 +1,15 @@
 import { parse } from "csv-parse/sync";
 
-import { IMPORT_COLUMN_ALIASES, MAX_IMPORT_ROWS, REQUIRED_IMPORT_COLUMNS } from "./vocabulary-import-parsing";
-import type { ImportDelimiter, ImportFileParseResult, RawVocabularyImportRow } from "./vocabulary-import-parsing";
+import {
+  IMPORT_COLUMN_ALIASES,
+  MAX_IMPORT_ROWS,
+  REQUIRED_IMPORT_COLUMNS,
+} from "./vocabulary-import-parsing";
+import type {
+  ImportDelimiter,
+  ImportFileParseResult,
+  RawVocabularyImportRow,
+} from "./vocabulary-import-parsing";
 
 /**
  * The one function in this feature that actually touches `csv-parse` — kept
@@ -28,7 +36,10 @@ function normalizeHeader(header: string): string {
  * can render, matching this codebase's "the boundary validates, it doesn't
  * crash" convention.
  */
-export function parseVocabularyImportFile(content: string, delimiter: ImportDelimiter): ImportFileParseResult {
+export function parseVocabularyImportFile(
+  content: string,
+  delimiter: ImportDelimiter,
+): ImportFileParseResult {
   let records: RawVocabularyImportRow[];
   try {
     records = parse(content, {
@@ -45,21 +56,39 @@ export function parseVocabularyImportFile(content: string, delimiter: ImportDeli
       relax_column_count: true,
     }) as RawVocabularyImportRow[];
   } catch (error) {
-    return { ok: false, error: { type: "unparseable", message: error instanceof Error ? error.message : "Could not parse this file." } };
+    return {
+      ok: false,
+      error: {
+        type: "unparseable",
+        message:
+          error instanceof Error ? error.message : "Could not parse this file.",
+      },
+    };
   }
 
   if (records.length === 0) {
-    return { ok: false, error: { type: "unparseable", message: "The file has no data rows." } };
+    return {
+      ok: false,
+      error: { type: "unparseable", message: "The file has no data rows." },
+    };
   }
 
   if (records.length > MAX_IMPORT_ROWS) {
-    return { ok: false, error: { type: "too_many_rows", count: records.length } };
+    return {
+      ok: false,
+      error: { type: "too_many_rows", count: records.length },
+    };
   }
 
   const presentColumns = new Set(Object.keys(records[0]!));
-  const missingRequired = REQUIRED_IMPORT_COLUMNS.filter((column) => !presentColumns.has(column));
+  const missingRequired = REQUIRED_IMPORT_COLUMNS.filter(
+    (column) => !presentColumns.has(column),
+  );
   if (missingRequired.length > 0) {
-    return { ok: false, error: { type: "missing_columns", columns: missingRequired } };
+    return {
+      ok: false,
+      error: { type: "missing_columns", columns: missingRequired },
+    };
   }
 
   return { ok: true, rows: records };

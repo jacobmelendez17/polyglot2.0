@@ -4,7 +4,11 @@ import { Check, X } from "lucide-react";
 import { AccentHelpers } from "@/components/shared/accent-helpers";
 import { AnswerInput } from "@/components/shared/answer-input";
 import { ExitFocusButton } from "@/components/shared/exit-focus-button";
-import type { QuizAnswerFeedback, QuizQuestionView, QuizStats } from "@/domains/lessons";
+import type {
+  QuizAnswerFeedback,
+  QuizQuestionView,
+  QuizStats,
+} from "@/domains/lessons";
 
 type QuizViewProps = {
   question: QuizQuestionView;
@@ -37,7 +41,11 @@ export function QuizView({
   onAdvance,
   onExit,
 }: QuizViewProps) {
-  const inputState = !feedback ? "default" : feedback.kind === "incorrect" ? "incorrect" : "correct";
+  const inputState = !feedback
+    ? "default"
+    : feedback.kind === "incorrect"
+      ? "incorrect"
+      : "correct";
 
   return (
     <div className="mx-auto flex min-h-svh max-w-2xl flex-col px-4 py-6">
@@ -45,16 +53,23 @@ export function QuizView({
         <ExitFocusButton label="Exit lesson" onClick={onExit} />
         {quizStats ? (
           <p className="text-xs text-muted-foreground">
-            Beginner 1 · {quizStats.satisfiedCount} / {quizStats.requiredCount} ·{" "}
-            {quizStats.attempts === 0 ? "—" : `${Math.round((quizStats.correctAttempts / quizStats.attempts) * 100)}%`}
+            Beginner 1 · {quizStats.satisfiedCount} / {quizStats.requiredCount}{" "}
+            ·{" "}
+            {quizStats.attempts === 0
+              ? "—"
+              : `${Math.round((quizStats.correctAttempts / quizStats.attempts) * 100)}%`}
           </p>
         ) : null}
       </div>
 
       <div className="flex flex-1 flex-col items-center justify-center gap-8 py-12">
         <div className="text-center">
-          <p className="font-heading text-4xl font-semibold text-foreground sm:text-5xl">{question.prompt}</p>
-          <p className="mt-2 text-sm text-muted-foreground">{question.directionLabel}</p>
+          <p className="font-heading text-4xl font-semibold text-foreground sm:text-5xl">
+            {question.prompt}
+          </p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {question.directionLabel}
+          </p>
         </div>
 
         <QuestionAnswerField
@@ -69,7 +84,9 @@ export function QuizView({
           onAdvance={onAdvance}
         />
 
-        {feedback && feedback.kind !== "empty" ? <FeedbackRegion feedback={feedback} /> : null}
+        {feedback && feedback.kind !== "empty" ? (
+          <FeedbackRegion feedback={feedback} />
+        ) : null}
       </div>
     </div>
   );
@@ -111,7 +128,10 @@ function QuestionAnswerField({
     setAnswer(next);
     requestAnimationFrame(() => {
       input.focus();
-      input.setSelectionRange(start + character.length, start + character.length);
+      input.setSelectionRange(
+        start + character.length,
+        start + character.length,
+      );
     });
   }
 
@@ -145,7 +165,11 @@ function QuestionAnswerField({
   );
 }
 
-function FeedbackRegion({ feedback }: { feedback: Exclude<QuizAnswerFeedback, { kind: "empty" }> }) {
+function FeedbackRegion({
+  feedback,
+}: {
+  feedback: Exclude<QuizAnswerFeedback, { kind: "empty" }>;
+}) {
   if (feedback.kind === "correct") {
     return (
       <div className="flex items-center gap-2 text-state-success" role="status">
@@ -156,7 +180,10 @@ function FeedbackRegion({ feedback }: { feedback: Exclude<QuizAnswerFeedback, { 
   }
 
   return (
-    <div className="flex w-full max-w-sm flex-col items-center gap-2 text-center" role="status">
+    <div
+      className="flex w-full max-w-sm flex-col items-center gap-2 text-center"
+      role="status"
+    >
       <div className="flex items-center gap-2 text-destructive">
         <X className="h-5 w-5" aria-hidden="true" />
         <span className="text-sm font-medium">Not quite</span>
@@ -169,17 +196,22 @@ function FeedbackRegion({ feedback }: { feedback: Exclude<QuizAnswerFeedback, { 
         </div>
         <div className="flex justify-between gap-2">
           <dt className="text-muted-foreground">Expected</dt>
-          <dd className="font-medium text-foreground">{feedback.expectedAnswer}</dd>
+          <dd className="font-medium text-foreground">
+            {feedback.expectedAnswer}
+          </dd>
         </div>
       </dl>
 
       {feedback.reason === "missing_article" ? (
         <p className="text-xs text-muted-foreground">
-          This word requires the article &ldquo;{feedback.article}&rdquo; when translating into the target language.
+          This word requires the article &ldquo;{feedback.article}&rdquo; when
+          translating into the target language.
         </p>
       ) : null}
 
-      <p className="text-xs text-muted-foreground">This question will come back later. No progress was affected.</p>
+      <p className="text-xs text-muted-foreground">
+        This question will come back later. No progress was affected.
+      </p>
     </div>
   );
 }

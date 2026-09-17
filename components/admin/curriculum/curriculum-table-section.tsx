@@ -22,7 +22,11 @@ type CurriculumTableSectionProps = {
  * `useEffect` — a `useEffect` here would set state one render late,
  * flashing the stale selection against the new list first.
  */
-export function CurriculumTableSection({ items, levels, groups }: CurriculumTableSectionProps) {
+export function CurriculumTableSection({
+  items,
+  levels,
+  groups,
+}: CurriculumTableSectionProps) {
   const [priorItems, setPriorItems] = useState(items);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -41,7 +45,11 @@ export function CurriculumTableSection({ items, levels, groups }: CurriculumTabl
   }
 
   function toggleAll() {
-    setSelectedIds((prev) => (items.every((item) => prev.has(item.id)) ? new Set() : new Set(items.map((item) => item.id))));
+    setSelectedIds((prev) =>
+      items.every((item) => prev.has(item.id))
+        ? new Set()
+        : new Set(items.map((item) => item.id)),
+    );
   }
 
   const selectedItems = items.filter((item) => selectedIds.has(item.id));
@@ -49,9 +57,19 @@ export function CurriculumTableSection({ items, levels, groups }: CurriculumTabl
   return (
     <div>
       {selectedItems.length > 0 ? (
-        <BulkActionsBar selectedItems={selectedItems} levels={levels} groups={groups} onDone={() => setSelectedIds(new Set())} />
+        <BulkActionsBar
+          selectedItems={selectedItems}
+          levels={levels}
+          groups={groups}
+          onDone={() => setSelectedIds(new Set())}
+        />
       ) : null}
-      <CurriculumTable items={items} selectedIds={selectedIds} onToggleItem={toggleItem} onToggleAll={toggleAll} />
+      <CurriculumTable
+        items={items}
+        selectedIds={selectedIds}
+        onToggleItem={toggleItem}
+        onToggleAll={toggleAll}
+      />
     </div>
   );
 }

@@ -5,196 +5,196 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-    --font-heading: var(--font-sans);
-    --font-sans: var(--font-sans);
-    --font-mono: var(--font-mono);
-    --color-learning-vocabulary: var(--learning-vocabulary);
-    --color-learning-grammar: var(--learning-grammar);
-    --color-state-success: var(--state-success);
-    --color-state-warning: var(--state-warning);
-    --color-srs-beginner: var(--srs-beginner);
-    --color-srs-familiar: var(--srs-familiar);
-    --color-srs-intermediate: var(--srs-intermediate);
-    --color-srs-master: var(--srs-master);
-    --color-srs-fluent: var(--srs-fluent);
-    --color-sidebar-ring: var(--sidebar-ring);
-    --color-sidebar-border: var(--sidebar-border);
-    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-    --color-sidebar-accent: var(--sidebar-accent);
-    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-    --color-sidebar-primary: var(--sidebar-primary);
-    --color-sidebar-foreground: var(--sidebar-foreground);
-    --color-sidebar: var(--sidebar);
-    --color-chart-5: var(--chart-5);
-    --color-chart-4: var(--chart-4);
-    --color-chart-3: var(--chart-3);
-    --color-chart-2: var(--chart-2);
-    --color-chart-1: var(--chart-1);
-    --color-ring: var(--ring);
-    --color-input: var(--input);
-    --color-border: var(--border);
-    --color-destructive: var(--destructive);
-    --color-accent-foreground: var(--accent-foreground);
-    --color-accent: var(--accent);
-    --color-muted-foreground: var(--muted-foreground);
-    --color-muted: var(--muted);
-    --color-secondary-foreground: var(--secondary-foreground);
-    --color-secondary: var(--secondary);
-    --color-primary-foreground: var(--primary-foreground);
-    --color-primary: var(--primary);
-    --color-popover-foreground: var(--popover-foreground);
-    --color-popover: var(--popover);
-    --color-card-foreground: var(--card-foreground);
-    --color-card: var(--card);
-    --color-foreground: var(--foreground);
-    --color-background: var(--background);
-    --radius-sm: calc(var(--radius) * 0.6);
-    --radius-md: calc(var(--radius) * 0.8);
-    --radius-lg: var(--radius);
-    --radius-xl: calc(var(--radius) * 1.4);
-    --radius-2xl: calc(var(--radius) * 1.8);
-    --radius-3xl: calc(var(--radius) * 2.2);
-    --radius-4xl: calc(var(--radius) * 2.6);
+  --font-heading: var(--font-sans);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --color-learning-vocabulary: var(--learning-vocabulary);
+  --color-learning-grammar: var(--learning-grammar);
+  --color-state-success: var(--state-success);
+  --color-state-warning: var(--state-warning);
+  --color-srs-beginner: var(--srs-beginner);
+  --color-srs-familiar: var(--srs-familiar);
+  --color-srs-intermediate: var(--srs-intermediate);
+  --color-srs-master: var(--srs-master);
+  --color-srs-fluent: var(--srs-fluent);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
 :root {
-    /* Polyglot design tokens — see ui-context.md */
-    --bg-base: #F8EFE7;
-    --bg-surface: #FFFFFF;
-    --bg-warm: #F3DDD3;
-    --bg-soft: #F1E7D9;
-    --text-primary: #3E4440;
-    --text-muted: #97938A;
-    --accent-primary: #7FA69C;
-    --accent-primary-hover: #6E978C;
-    --accent-foreground: #27322E;
-    --border-default: #E1D4C2;
-    --grid-line: #EFE3D4;
-    --accent-peach: #EBC4B4;
-    --state-error: #BE7068;
-    --state-success: #6F9B7F;
-    --state-warning: #D4A85F;
-    --learning-vocabulary: #7FA8C2;
-    --learning-grammar: #C98279;
-    --srs-beginner: #CFE1D8;
-    --srs-familiar: #ADCCBE;
-    --srs-intermediate: #8CB5A4;
-    --srs-master: #69947F;
-    --srs-fluent: #405F50;
+  /* Polyglot design tokens — see ui-context.md */
+  --bg-base: #f8efe7;
+  --bg-surface: #ffffff;
+  --bg-warm: #f3ddd3;
+  --bg-soft: #f1e7d9;
+  --text-primary: #3e4440;
+  --text-muted: #97938a;
+  --accent-primary: #7fa69c;
+  --accent-primary-hover: #6e978c;
+  --accent-foreground: #27322e;
+  --border-default: #e1d4c2;
+  --grid-line: #efe3d4;
+  --accent-peach: #ebc4b4;
+  --state-error: #be7068;
+  --state-success: #6f9b7f;
+  --state-warning: #d4a85f;
+  --learning-vocabulary: #7fa8c2;
+  --learning-grammar: #c98279;
+  --srs-beginner: #cfe1d8;
+  --srs-familiar: #adccbe;
+  --srs-intermediate: #8cb5a4;
+  --srs-master: #69947f;
+  --srs-fluent: #405f50;
 
-    /* RGB triplet of --bg-warm, for compositing at partial opacity */
-    --bg-warm-rgb: 243 221 211;
+  /* RGB triplet of --bg-warm, for compositing at partial opacity */
+  --bg-warm-rgb: 243 221 211;
 
-    /* Layout, z-index, and motion tokens — see context/feature-specs/02-landing-page.md */
-    --nav-h: 64px;
-    --z-header: 40;
-    --z-sheet: 50;
-    --z-skip: 60;
-    --dur-fast: 140ms;
-    --dur-base: 240ms;
-    --dur-slow: 520ms;
-    --ease-out: cubic-bezier(.22, .61, .36, 1);
-    --ease-soft: cubic-bezier(.4, 0, .2, 1);
+  /* Layout, z-index, and motion tokens — see context/feature-specs/02-landing-page.md */
+  --nav-h: 64px;
+  --z-header: 40;
+  --z-sheet: 50;
+  --z-skip: 60;
+  --dur-fast: 140ms;
+  --dur-base: 240ms;
+  --dur-slow: 520ms;
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-soft: cubic-bezier(0.4, 0, 0.2, 1);
 
-    /* Spec 20 Appearance — Font Family. Default points at Cozy (Shantell
+  /* Spec 20 Appearance — Font Family. Default points at Cozy (Shantell
        Sans, the spec's own stated default); [data-font-family] below
        repoints it, never redefined per-component. */
-    --font-sans: var(--font-cozy);
+  --font-sans: var(--font-cozy);
 
-    /* shadcn/ui contract, aliased to the Polyglot tokens above */
-    --radius: 0.5rem;
-    --background: var(--bg-base);
-    --foreground: var(--text-primary);
-    --card: var(--bg-surface);
-    --card-foreground: var(--text-primary);
-    --popover: var(--bg-surface);
-    --popover-foreground: var(--text-primary);
-    --primary: var(--accent-primary);
-    --primary-foreground: var(--accent-foreground);
-    --secondary: var(--bg-warm);
-    --secondary-foreground: var(--text-primary);
-    --muted: var(--bg-soft);
-    --muted-foreground: var(--text-muted);
-    --accent: var(--accent-peach);
-    --accent-foreground: var(--text-primary);
-    --destructive: var(--state-error);
-    --border: var(--border-default);
-    --input: var(--border-default);
-    --ring: var(--accent-primary);
-    --chart-1: var(--srs-beginner);
-    --chart-2: var(--srs-familiar);
-    --chart-3: var(--srs-intermediate);
-    --chart-4: var(--srs-master);
-    --chart-5: var(--srs-fluent);
-    --sidebar: var(--bg-surface);
-    --sidebar-foreground: var(--text-primary);
-    --sidebar-primary: var(--accent-primary);
-    --sidebar-primary-foreground: var(--accent-foreground);
-    --sidebar-accent: var(--bg-warm);
-    --sidebar-accent-foreground: var(--text-primary);
-    --sidebar-border: var(--border-default);
-    --sidebar-ring: var(--accent-primary);
+  /* shadcn/ui contract, aliased to the Polyglot tokens above */
+  --radius: 0.5rem;
+  --background: var(--bg-base);
+  --foreground: var(--text-primary);
+  --card: var(--bg-surface);
+  --card-foreground: var(--text-primary);
+  --popover: var(--bg-surface);
+  --popover-foreground: var(--text-primary);
+  --primary: var(--accent-primary);
+  --primary-foreground: var(--accent-foreground);
+  --secondary: var(--bg-warm);
+  --secondary-foreground: var(--text-primary);
+  --muted: var(--bg-soft);
+  --muted-foreground: var(--text-muted);
+  --accent: var(--accent-peach);
+  --accent-foreground: var(--text-primary);
+  --destructive: var(--state-error);
+  --border: var(--border-default);
+  --input: var(--border-default);
+  --ring: var(--accent-primary);
+  --chart-1: var(--srs-beginner);
+  --chart-2: var(--srs-familiar);
+  --chart-3: var(--srs-intermediate);
+  --chart-4: var(--srs-master);
+  --chart-5: var(--srs-fluent);
+  --sidebar: var(--bg-surface);
+  --sidebar-foreground: var(--text-primary);
+  --sidebar-primary: var(--accent-primary);
+  --sidebar-primary-foreground: var(--accent-foreground);
+  --sidebar-accent: var(--bg-warm);
+  --sidebar-accent-foreground: var(--text-primary);
+  --sidebar-border: var(--border-default);
+  --sidebar-ring: var(--accent-primary);
 }
 
 .dark {
-    /* Polyglot design tokens — see ui-context.md */
-    --bg-base: #202521;
-    --bg-surface: #292F2B;
-    --bg-warm: #3B302C;
-    --bg-soft: #32352F;
-    --text-primary: #F3ECE4;
-    --text-muted: #B8B0A6;
-    --accent-primary: #8DB5AA;
-    --accent-primary-hover: #9BC3B8;
-    --accent-foreground: #1F2925;
-    --border-default: #444B45;
-    --grid-line: #343A35;
-    --accent-peach: #9B7061;
-    --state-error: #D3877F;
-    --state-success: #87B395;
-    --state-warning: #D8B371;
-    --learning-vocabulary: #8DB5CE;
-    --learning-grammar: #D79289;
-    --bg-warm-rgb: 59 48 44;
-    /* SRS stage hexes are not yet redefined for dark contrast — see progress-tracker.md */
-    --srs-beginner: #CFE1D8;
-    --srs-familiar: #ADCCBE;
-    --srs-intermediate: #8CB5A4;
-    --srs-master: #69947F;
-    --srs-fluent: #405F50;
+  /* Polyglot design tokens — see ui-context.md */
+  --bg-base: #202521;
+  --bg-surface: #292f2b;
+  --bg-warm: #3b302c;
+  --bg-soft: #32352f;
+  --text-primary: #f3ece4;
+  --text-muted: #b8b0a6;
+  --accent-primary: #8db5aa;
+  --accent-primary-hover: #9bc3b8;
+  --accent-foreground: #1f2925;
+  --border-default: #444b45;
+  --grid-line: #343a35;
+  --accent-peach: #9b7061;
+  --state-error: #d3877f;
+  --state-success: #87b395;
+  --state-warning: #d8b371;
+  --learning-vocabulary: #8db5ce;
+  --learning-grammar: #d79289;
+  --bg-warm-rgb: 59 48 44;
+  /* SRS stage hexes are not yet redefined for dark contrast — see progress-tracker.md */
+  --srs-beginner: #cfe1d8;
+  --srs-familiar: #adccbe;
+  --srs-intermediate: #8cb5a4;
+  --srs-master: #69947f;
+  --srs-fluent: #405f50;
 
-    /* shadcn/ui contract, aliased to the Polyglot tokens above */
-    --background: var(--bg-base);
-    --foreground: var(--text-primary);
-    --card: var(--bg-surface);
-    --card-foreground: var(--text-primary);
-    --popover: var(--bg-surface);
-    --popover-foreground: var(--text-primary);
-    --primary: var(--accent-primary);
-    --primary-foreground: var(--accent-foreground);
-    --secondary: var(--bg-warm);
-    --secondary-foreground: var(--text-primary);
-    --muted: var(--bg-soft);
-    --muted-foreground: var(--text-muted);
-    --accent: var(--accent-peach);
-    --accent-foreground: var(--text-primary);
-    --destructive: var(--state-error);
-    --border: var(--border-default);
-    --input: var(--border-default);
-    --ring: var(--accent-primary);
-    --chart-1: var(--srs-beginner);
-    --chart-2: var(--srs-familiar);
-    --chart-3: var(--srs-intermediate);
-    --chart-4: var(--srs-master);
-    --chart-5: var(--srs-fluent);
-    --sidebar: var(--bg-surface);
-    --sidebar-foreground: var(--text-primary);
-    --sidebar-primary: var(--accent-primary);
-    --sidebar-primary-foreground: var(--accent-foreground);
-    --sidebar-accent: var(--bg-warm);
-    --sidebar-accent-foreground: var(--text-primary);
-    --sidebar-border: var(--border-default);
-    --sidebar-ring: var(--accent-primary);
+  /* shadcn/ui contract, aliased to the Polyglot tokens above */
+  --background: var(--bg-base);
+  --foreground: var(--text-primary);
+  --card: var(--bg-surface);
+  --card-foreground: var(--text-primary);
+  --popover: var(--bg-surface);
+  --popover-foreground: var(--text-primary);
+  --primary: var(--accent-primary);
+  --primary-foreground: var(--accent-foreground);
+  --secondary: var(--bg-warm);
+  --secondary-foreground: var(--text-primary);
+  --muted: var(--bg-soft);
+  --muted-foreground: var(--text-muted);
+  --accent: var(--accent-peach);
+  --accent-foreground: var(--text-primary);
+  --destructive: var(--state-error);
+  --border: var(--border-default);
+  --input: var(--border-default);
+  --ring: var(--accent-primary);
+  --chart-1: var(--srs-beginner);
+  --chart-2: var(--srs-familiar);
+  --chart-3: var(--srs-intermediate);
+  --chart-4: var(--srs-master);
+  --chart-5: var(--srs-fluent);
+  --sidebar: var(--bg-surface);
+  --sidebar-foreground: var(--text-primary);
+  --sidebar-primary: var(--accent-primary);
+  --sidebar-primary-foreground: var(--accent-foreground);
+  --sidebar-accent: var(--bg-warm);
+  --sidebar-accent-foreground: var(--text-primary);
+  --sidebar-border: var(--border-default);
+  --sidebar-ring: var(--accent-primary);
 }
 
 /*
@@ -209,42 +209,42 @@
  * default already.
  */
 [data-palette="ocean"] {
-    --accent-primary: #4A8FA0;
-    --accent-primary-hover: #3D7A8A;
-    --accent-foreground: #16292D;
+  --accent-primary: #4a8fa0;
+  --accent-primary-hover: #3d7a8a;
+  --accent-foreground: #16292d;
 }
 .dark[data-palette="ocean"] {
-    --accent-primary: #5FA8BA;
-    --accent-primary-hover: #6FB5C6;
-    --accent-foreground: #0F2226;
+  --accent-primary: #5fa8ba;
+  --accent-primary-hover: #6fb5c6;
+  --accent-foreground: #0f2226;
 }
 [data-palette="amber"] {
-    --accent-primary: #C98A3E;
-    --accent-primary-hover: #B77A32;
-    --accent-foreground: #2E2013;
+  --accent-primary: #c98a3e;
+  --accent-primary-hover: #b77a32;
+  --accent-foreground: #2e2013;
 }
 .dark[data-palette="amber"] {
-    --accent-primary: #D9A45F;
-    --accent-primary-hover: #E3B378;
-    --accent-foreground: #2A1D10;
+  --accent-primary: #d9a45f;
+  --accent-primary-hover: #e3b378;
+  --accent-foreground: #2a1d10;
 }
 [data-palette="plum"] {
-    --accent-primary: #9B6FA6;
-    --accent-primary-hover: #8B5F96;
-    --accent-foreground: #2A1E2D;
+  --accent-primary: #9b6fa6;
+  --accent-primary-hover: #8b5f96;
+  --accent-foreground: #2a1e2d;
 }
 .dark[data-palette="plum"] {
-    --accent-primary: #B084BC;
-    --accent-primary-hover: #BC96C4;
-    --accent-foreground: #241A26;
+  --accent-primary: #b084bc;
+  --accent-primary-hover: #bc96c4;
+  --accent-foreground: #241a26;
 }
 
 /* Spec 20 Appearance — Font Family. `cozy` is the :root default (no override needed). */
 [data-font-family="formal"] {
-    --font-sans: var(--font-formal);
+  --font-sans: var(--font-formal);
 }
 [data-font-family="standard"] {
-    --font-sans: var(--font-standard);
+  --font-sans: var(--font-standard);
 }
 
 /*
@@ -257,16 +257,16 @@
  * so the largest size stays usable without horizontal overflow.
  */
 html[data-font-scale="small"] {
-    font-size: 87.5%;
+  font-size: 87.5%;
 }
 html[data-font-scale="default"] {
-    font-size: 100%;
+  font-size: 100%;
 }
 html[data-font-scale="large"] {
-    font-size: 112.5%;
+  font-size: 112.5%;
 }
 html[data-font-scale="extra_large"] {
-    font-size: 125%;
+  font-size: 125%;
 }
 
 /*
@@ -281,235 +281,245 @@ html[data-font-scale="extra_large"] {
  * difference between the two, on top of the color that's always there.
  */
 [data-color-blind="true"] .chart-bar-vocabulary {
-    border: 2px solid var(--learning-vocabulary);
+  border: 2px solid var(--learning-vocabulary);
 }
 [data-color-blind="true"] .chart-bar-grammar {
-    border: 2px dashed var(--learning-grammar);
+  border: 2px dashed var(--learning-grammar);
 }
 
 /* --nav-h grows at the `md` breakpoint — see context/feature-specs/02-landing-page.md */
 @media (min-width: 768px) {
-    :root {
-        --nav-h: 80px;
-    }
+  :root {
+    --nav-h: 80px;
+  }
 }
 
 @layer utilities {
-    /* Opt an in-page anchor target into clearing the sticky navbar on scroll-to. */
-    .scroll-anchor {
-        scroll-margin-top: var(--nav-h);
-    }
+  /* Opt an in-page anchor target into clearing the sticky navbar on scroll-to. */
+  .scroll-anchor {
+    scroll-margin-top: var(--nav-h);
+  }
 
-    /* Decorative, CSS-only landing-page motion — see context/feature-specs/03-landing-page.md.
+  /* Decorative, CSS-only landing-page motion — see context/feature-specs/03-landing-page.md.
        transform-only per that spec's animation rule, so these never fight Reveal's own
        transform/opacity transition on the same element. */
-    .animate-float {
-        animation: lp-float 8s ease-in-out infinite;
-    }
-    .animate-bob {
-        animation: lp-bob 3.2s ease-in-out infinite;
-    }
-    .animate-marquee {
-        animation: lp-marquee 36s linear infinite;
-    }
+  .animate-float {
+    animation: lp-float 8s ease-in-out infinite;
+  }
+  .animate-bob {
+    animation: lp-bob 3.2s ease-in-out infinite;
+  }
+  .animate-marquee {
+    animation: lp-marquee 36s linear infinite;
+  }
 
-    /* Onboarding slide demonstrations (spec 15). Deliberately CSS-only:
+  /* Onboarding slide demonstrations (spec 15). Deliberately CSS-only:
        these loop for as long as a slide is on screen, and spec 15 forbids
        driving purely visual motion from React state. Being CSS also means
        there are no timers or listeners to clean up when a slide unmounts.
        Every one animates transform/opacity only. */
-    .animate-ob-step {
-        animation: ob-step 4.8s ease-in-out infinite;
-    }
-    .animate-ob-wave {
-        animation: ob-wave 1.1s ease-in-out infinite;
-    }
-    .animate-ob-mic {
-        animation: ob-mic 2.4s ease-in-out infinite;
-    }
-    .animate-ob-card {
-        animation: ob-card 5.2s ease-in-out infinite;
-    }
-    .animate-ob-verdict {
-        animation: ob-verdict 5.2s ease-in-out infinite;
-    }
-    .animate-ob-ring {
-        animation: ob-ring 3.6s ease-out infinite;
-    }
-    /* One-shot, not a loop: spec 15's "Start Now!" emphasis runs once when
+  .animate-ob-step {
+    animation: ob-step 4.8s ease-in-out infinite;
+  }
+  .animate-ob-wave {
+    animation: ob-wave 1.1s ease-in-out infinite;
+  }
+  .animate-ob-mic {
+    animation: ob-mic 2.4s ease-in-out infinite;
+  }
+  .animate-ob-card {
+    animation: ob-card 5.2s ease-in-out infinite;
+  }
+  .animate-ob-verdict {
+    animation: ob-verdict 5.2s ease-in-out infinite;
+  }
+  .animate-ob-ring {
+    animation: ob-ring 3.6s ease-out infinite;
+  }
+  /* One-shot, not a loop: spec 15's "Start Now!" emphasis runs once when
        slide 5 becomes active. The button is keyed on the slide, so mounting
        is the trigger — no timer, no state flag. */
-    .animate-ob-emphasis {
-        animation: ob-emphasis 620ms var(--ease-out) both;
-    }
+  .animate-ob-emphasis {
+    animation: ob-emphasis 620ms var(--ease-out) both;
+  }
 
-    /* Stagger utilities for the looping demonstrations above. Explicit
+  /* Stagger utilities for the looping demonstrations above. Explicit
        classes rather than arbitrary `[animation-delay:*]` values, matching
        how the rest of this file expresses motion. */
-    .ob-delay-1 {
-        animation-delay: 0.15s;
-    }
-    .ob-delay-2 {
-        animation-delay: 0.3s;
-    }
-    .ob-delay-3 {
-        animation-delay: 0.45s;
-    }
-    .ob-delay-4 {
-        animation-delay: 0.6s;
-    }
-    /* The four SRS stages divide one 4.8s cycle evenly. */
-    .ob-step-1 {
-        animation-delay: 0s;
-    }
-    .ob-step-2 {
-        animation-delay: 1.2s;
-    }
-    .ob-step-3 {
-        animation-delay: 2.4s;
-    }
-    .ob-step-4 {
-        animation-delay: 3.6s;
-    }
+  .ob-delay-1 {
+    animation-delay: 0.15s;
+  }
+  .ob-delay-2 {
+    animation-delay: 0.3s;
+  }
+  .ob-delay-3 {
+    animation-delay: 0.45s;
+  }
+  .ob-delay-4 {
+    animation-delay: 0.6s;
+  }
+  /* The four SRS stages divide one 4.8s cycle evenly. */
+  .ob-step-1 {
+    animation-delay: 0s;
+  }
+  .ob-step-2 {
+    animation-delay: 1.2s;
+  }
+  .ob-step-3 {
+    animation-delay: 2.4s;
+  }
+  .ob-step-4 {
+    animation-delay: 3.6s;
+  }
 }
 
 @keyframes lp-float {
-    0%, 100% {
-        transform: translateY(0) rotate(0deg);
-    }
-    50% {
-        transform: translateY(-10px) rotate(-3deg);
-    }
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(-3deg);
+  }
 }
 
 @keyframes lp-bob {
-    0%, 100% {
-        transform: translateY(0);
-    }
-    50% {
-        transform: translateY(-4px);
-    }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
 }
 
 @keyframes lp-marquee {
-    from {
-        transform: translateX(0);
-    }
-    to {
-        transform: translateX(-50%);
-    }
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
 }
 
 /* Onboarding keyframes (spec 15). transform/opacity only — never layout
    properties, which would force reflow on every frame of a loop. */
 @keyframes ob-step {
-    0%, 100% {
-        opacity: 0.45;
-        transform: scale(1);
-    }
-    8%, 22% {
-        opacity: 1;
-        transform: scale(1.06);
-    }
-    38% {
-        opacity: 0.45;
-        transform: scale(1);
-    }
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+  8%,
+  22% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+  38% {
+    opacity: 0.45;
+    transform: scale(1);
+  }
 }
 
 @keyframes ob-wave {
-    0%, 100% {
-        transform: scaleY(0.35);
-    }
-    50% {
-        transform: scaleY(1);
-    }
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
 }
 
 @keyframes ob-mic {
-    0%, 100% {
-        transform: scale(1);
-    }
-    50% {
-        transform: scale(1.08);
-    }
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
 }
 
 @keyframes ob-card {
-    0%, 100% {
-        opacity: 1;
-        transform: translateY(0) rotate(0deg);
-    }
-    42% {
-        opacity: 1;
-        transform: translateY(0) rotate(0deg);
-    }
-    54% {
-        opacity: 0;
-        transform: translateY(-14px) rotate(-5deg);
-    }
-    56% {
-        opacity: 0;
-        transform: translateY(14px) rotate(4deg);
-    }
-    70%, 100% {
-        opacity: 1;
-        transform: translateY(0) rotate(0deg);
-    }
+  0%,
+  100% {
+    opacity: 1;
+    transform: translateY(0) rotate(0deg);
+  }
+  42% {
+    opacity: 1;
+    transform: translateY(0) rotate(0deg);
+  }
+  54% {
+    opacity: 0;
+    transform: translateY(-14px) rotate(-5deg);
+  }
+  56% {
+    opacity: 0;
+    transform: translateY(14px) rotate(4deg);
+  }
+  70%,
+  100% {
+    opacity: 1;
+    transform: translateY(0) rotate(0deg);
+  }
 }
 
 @keyframes ob-verdict {
-    0%, 40% {
-        opacity: 0.4;
-        transform: scale(1);
-    }
-    50%, 88% {
-        opacity: 1;
-        transform: scale(1.05);
-    }
-    100% {
-        opacity: 0.4;
-        transform: scale(1);
-    }
+  0%,
+  40% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+  50%,
+  88% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+  100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
 }
 
 @keyframes ob-ring {
-    0% {
-        opacity: 0.55;
-        transform: scale(0.7);
-    }
-    100% {
-        opacity: 0;
-        transform: scale(1.35);
-    }
+  0% {
+    opacity: 0.55;
+    transform: scale(0.7);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.35);
+  }
 }
 
 @keyframes ob-emphasis {
-    0% {
-        transform: scale(1);
-    }
-    45% {
-        transform: scale(1.18);
-    }
-    75% {
-        transform: scale(0.97);
-    }
-    100% {
-        transform: scale(1);
-    }
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.18);
+  }
+  75% {
+    transform: scale(0.97);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 @keyframes graph-paper-drift {
-    from {
-        background-position: 0 0;
-    }
-    to {
-        background-position: 56px 56px;
-    }
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 56px 56px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .animate-float,
+  .animate-float,
     .animate-bob,
     .animate-marquee,
     .animate-pulse,
@@ -523,51 +533,51 @@ html[data-font-scale="extra_large"] {
     .animate-ob-verdict,
     .animate-ob-ring,
     .animate-ob-emphasis {
-        animation: none !important;
-    }
-    /* Without their loop, the staged elements must not be left stuck at a
+    animation: none !important;
+  }
+  /* Without their loop, the staged elements must not be left stuck at a
        keyframe's low opacity — reduced motion removes the movement, not the
        content. */
-    .animate-ob-step,
-    .animate-ob-verdict,
-    .animate-ob-card {
-        opacity: 1 !important;
-    }
-    .animate-ob-ring {
-        opacity: 0 !important;
-    }
-    body {
-        animation: none !important;
-    }
+  .animate-ob-step,
+  .animate-ob-verdict,
+  .animate-ob-card {
+    opacity: 1 !important;
+  }
+  .animate-ob-ring {
+    opacity: 0 !important;
+  }
+  body {
+    animation: none !important;
+  }
 }
 
 /* site-header.tsx scrolled state: translucent + blurred, falling back to a
    solid warm surface where backdrop-filter is unsupported. */
 .site-header[data-scrolled="true"] {
-    background-color: var(--bg-warm);
-    border-color: var(--border-default);
+  background-color: var(--bg-warm);
+  border-color: var(--border-default);
 }
 
 @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
-    .site-header[data-scrolled="true"] {
-        background-color: rgb(var(--bg-warm-rgb) / 0.85);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-    }
+  .site-header[data-scrolled="true"] {
+    background-color: rgb(var(--bg-warm-rgb) / 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
 }
 
 /* site-nav-mobile.tsx sheet panel: skip the slide/fade entirely under reduced motion. */
 @media (prefers-reduced-motion: reduce) {
-    .mobile-nav-sheet {
-        transition: none !important;
-        animation: none !important;
-    }
+  .mobile-nav-sheet {
+    transition: none !important;
+    animation: none !important;
+  }
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
-    }
+  }
   body {
     @apply bg-background text-foreground;
     /* Notebook/graph-paper background — ui-context.md's "recurring brand motif".
@@ -578,14 +588,18 @@ html[data-font-scale="extra_large"] {
        live custom properties, so this goes back to color-mix() directly and
        adapts to the dark theme automatically without a separate override.
        Drifts diagonally by exactly one tile so the loop is seamless. */
-    --graph-paper-line: color-mix(in oklch, var(--grid-line), var(--text-primary) 3%);
+    --graph-paper-line: color-mix(
+      in oklch,
+      var(--grid-line),
+      var(--text-primary) 3%
+    );
     background-image:
       linear-gradient(to right, var(--graph-paper-line) 1px, transparent 1px),
       linear-gradient(to bottom, var(--graph-paper-line) 1px, transparent 1px);
     background-size: 56px 56px;
     animation: graph-paper-drift 16s linear infinite;
-    }
+  }
   html {
     @apply font-sans;
-    }
+  }
 }

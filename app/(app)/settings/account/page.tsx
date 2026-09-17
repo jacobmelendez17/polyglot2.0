@@ -17,7 +17,9 @@ export default async function AccountSettingsPage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="rounded-xl border border-border bg-card p-6">
-        <h2 className="font-heading text-lg font-semibold text-foreground">Personal Information</h2>
+        <h2 className="font-heading text-lg font-semibold text-foreground">
+          Personal Information
+        </h2>
         <div className="mt-2">
           <NameField initialName={user.displayName} />
           <UsernameField initialUsername={user.username} />
@@ -28,12 +30,16 @@ export default async function AccountSettingsPage() {
 
       {/* Spec 20 Beta: "Coming Soon" only — no fake toggle, no backend field for it. */}
       <div className="rounded-xl border border-border bg-card p-6">
-        <h2 className="font-heading text-lg font-semibold text-foreground">Beta Mode</h2>
+        <h2 className="font-heading text-lg font-semibold text-foreground">
+          Beta Mode
+        </h2>
         <p className="mt-2 text-sm text-muted-foreground">Coming Soon</p>
       </div>
 
       <div className="rounded-xl border border-border bg-card p-6">
-        <h2 className="font-heading text-lg font-semibold text-foreground">Tours</h2>
+        <h2 className="font-heading text-lg font-semibold text-foreground">
+          Tours
+        </h2>
         <div className="mt-2">
           <ToursSection />
         </div>

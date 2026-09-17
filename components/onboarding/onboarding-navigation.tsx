@@ -45,7 +45,12 @@ export function OnboardingNavigation({
 }: OnboardingNavigationProps) {
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-10 px-4 pb-4 sm:pb-6">
-      <div className={cn("mx-auto flex w-full items-center justify-between gap-3", ONBOARDING_CONTENT_WIDTH)}>
+      <div
+        className={cn(
+          "mx-auto flex w-full items-center justify-between gap-3",
+          ONBOARDING_CONTENT_WIDTH,
+        )}
+      >
         <Button
           type="button"
           variant="ghost"
@@ -76,7 +81,12 @@ export function OnboardingNavigation({
             Start Now!
           </Button>
         ) : (
-          <Button type="button" size="lg" className="pointer-events-auto cursor-pointer" onClick={onNext}>
+          <Button
+            type="button"
+            size="lg"
+            className="pointer-events-auto cursor-pointer"
+            onClick={onNext}
+          >
             Next
             <ArrowRight aria-hidden="true" />
           </Button>

@@ -39,6 +39,7 @@ Spec 20 Appearance also offers a curated accent choice on top of the base theme,
 The public landing page may be more expressive and animated than the authenticated application.
 
 **Landing page**
+
 - Large typography
 - Animated multilingual details
 - Handwritten/writing effects
@@ -47,6 +48,7 @@ The public landing page may be more expressive and animated than the authenticat
 - Stronger storytelling
 
 **Application**
+
 - Cleaner and more task-focused
 - Still warm, handwritten, and animated
 - Prioritize learning clarity and speed over decoration
@@ -63,54 +65,54 @@ The light palette is based on the existing Polyglot design shown in the referenc
 
 ### Light Theme
 
-| Role | CSS Variable | Value |
-| --- | --- | --- |
-| Page background | `--bg-base` | `#F8EFE7` |
-| Primary surface | `--bg-surface` | `#FFFFFF` |
-| Warm surface | `--bg-warm` | `#F3DDD3` |
-| Soft neutral surface | `--bg-soft` | `#F1E7D9` |
-| Primary text | `--text-primary` | `#3E4440` |
-| Muted text | `--text-muted` | `#97938A` |
-| Primary accent | `--accent-primary` | `#7FA69C` |
+| Role                 | CSS Variable             | Value     |
+| -------------------- | ------------------------ | --------- |
+| Page background      | `--bg-base`              | `#F8EFE7` |
+| Primary surface      | `--bg-surface`           | `#FFFFFF` |
+| Warm surface         | `--bg-warm`              | `#F3DDD3` |
+| Soft neutral surface | `--bg-soft`              | `#F1E7D9` |
+| Primary text         | `--text-primary`         | `#3E4440` |
+| Muted text           | `--text-muted`           | `#97938A` |
+| Primary accent       | `--accent-primary`       | `#7FA69C` |
 | Primary accent hover | `--accent-primary-hover` | `#6E978C` |
-| Accent foreground | `--accent-foreground` | `#27322E` |
-| Border | `--border-default` | `#E1D4C2` |
-| Grid line | `--grid-line` | `#EFE3D4` |
-| Peach accent | `--accent-peach` | `#EBC4B4` |
-| Error | `--state-error` | `#BE7068` |
-| Success | `--state-success` | `#6F9B7F` |
-| Warning | `--state-warning` | `#D4A85F` |
+| Accent foreground    | `--accent-foreground`    | `#27322E` |
+| Border               | `--border-default`       | `#E1D4C2` |
+| Grid line            | `--grid-line`            | `#EFE3D4` |
+| Peach accent         | `--accent-peach`         | `#EBC4B4` |
+| Error                | `--state-error`          | `#BE7068` |
+| Success              | `--state-success`        | `#6F9B7F` |
+| Warning              | `--state-warning`        | `#D4A85F` |
 
 ### Dark Theme
 
 Dark mode should use warm charcoal and muted botanical tones.
 
-| Role | CSS Variable | Value |
-| --- | --- | --- |
-| Page background | `--bg-base` | `#202521` |
-| Primary surface | `--bg-surface` | `#292F2B` |
-| Warm surface | `--bg-warm` | `#3B302C` |
-| Soft neutral surface | `--bg-soft` | `#32352F` |
-| Primary text | `--text-primary` | `#F3ECE4` |
-| Muted text | `--text-muted` | `#B8B0A6` |
-| Primary accent | `--accent-primary` | `#8DB5AA` |
+| Role                 | CSS Variable             | Value     |
+| -------------------- | ------------------------ | --------- |
+| Page background      | `--bg-base`              | `#202521` |
+| Primary surface      | `--bg-surface`           | `#292F2B` |
+| Warm surface         | `--bg-warm`              | `#3B302C` |
+| Soft neutral surface | `--bg-soft`              | `#32352F` |
+| Primary text         | `--text-primary`         | `#F3ECE4` |
+| Muted text           | `--text-muted`           | `#B8B0A6` |
+| Primary accent       | `--accent-primary`       | `#8DB5AA` |
 | Primary accent hover | `--accent-primary-hover` | `#9BC3B8` |
-| Accent foreground | `--accent-foreground` | `#1F2925` |
-| Border | `--border-default` | `#444B45` |
-| Grid line | `--grid-line` | `#343A35` |
-| Peach accent | `--accent-peach` | `#9B7061` |
-| Error | `--state-error` | `#D3877F` |
-| Success | `--state-success` | `#87B395` |
-| Warning | `--state-warning` | `#D8B371` |
+| Accent foreground    | `--accent-foreground`    | `#1F2925` |
+| Border               | `--border-default`       | `#444B45` |
+| Grid line            | `--grid-line`            | `#343A35` |
+| Peach accent         | `--accent-peach`         | `#9B7061` |
+| Error                | `--state-error`          | `#D3877F` |
+| Success              | `--state-success`        | `#87B395` |
+| Warning              | `--state-warning`        | `#D8B371` |
 
 ### Learning-Type Colors
 
 Only learning categories that currently require a strong visual identity receive dedicated colors.
 
-| Learning Type | CSS Variable | Light | Dark |
-| --- | --- | --- | --- |
-| Vocabulary | `--learning-vocabulary` | `#7FA8C2` | `#8DB5CE` |
-| Grammar | `--learning-grammar` | `#C98279` | `#D79289` |
+| Learning Type | CSS Variable            | Light     | Dark      |
+| ------------- | ----------------------- | --------- | --------- |
+| Vocabulary    | `--learning-vocabulary` | `#7FA8C2` | `#8DB5CE` |
+| Grammar       | `--learning-grammar`    | `#C98279` | `#D79289` |
 
 Do not invent unique colors for speaking, listening, reading, writing, tests, or other practice types unless the design is explicitly expanded later.
 
@@ -118,13 +120,13 @@ Do not invent unique colors for speaking, listening, reading, writing, tests, or
 
 SRS progression uses a light-to-dark green progression.
 
-| Stage | CSS Variable | Light |
-| --- | --- | --- |
-| Beginner | `--srs-beginner` | `#CFE1D8` |
-| Familiar | `--srs-familiar` | `#ADCCBE` |
+| Stage        | CSS Variable         | Light     |
+| ------------ | -------------------- | --------- |
+| Beginner     | `--srs-beginner`     | `#CFE1D8` |
+| Familiar     | `--srs-familiar`     | `#ADCCBE` |
 | Intermediate | `--srs-intermediate` | `#8CB5A4` |
-| Master | `--srs-master` | `#69947F` |
-| Fluent | `--srs-fluent` | `#405F50` |
+| Master       | `--srs-master`       | `#69947F` |
+| Fluent       | `--srs-fluent`       | `#405F50` |
 
 Dark mode may adjust these values for contrast while preserving the same ordering from light green to deep green.
 
@@ -186,7 +188,7 @@ The handwritten typeface is intentional and should be used for:
 
 Do not replace it with Geist, Inter, Arial, or another generic UI typeface unless explicitly instructed.
 
-**Spec 20 Appearance's Font Family setting is that explicit instruction** — Shantell Sans ("Polyglot / Cozy") remains the default and the primary visual voice everywhere it isn't overridden, but a learner may opt into "Formal" (Lora) or "Standard" (Inter) for the whole app via Settings. This is a learner-chosen, persisted *alternative*, not a redesign of the default — see `context/architecture.md`'s "Appearance Architecture."
+**Spec 20 Appearance's Font Family setting is that explicit instruction** — Shantell Sans ("Polyglot / Cozy") remains the default and the primary visual voice everywhere it isn't overridden, but a learner may opt into "Formal" (Lora) or "Standard" (Inter) for the whole app via Settings. This is a learner-chosen, persisted _alternative_, not a redesign of the default — see `context/architecture.md`'s "Appearance Architecture."
 
 ### Mono Font
 
@@ -231,11 +233,11 @@ Avoid overly polished corporate typography or aggressive gamified display fonts.
 
 Use moderate rounding.
 
-| Context | Class |
-| --- | --- |
-| Small badges / compact controls | `rounded-md` |
-| Buttons / inputs | `rounded-lg` |
-| Cards / dashboard widgets | `rounded-xl` |
+| Context                              | Class         |
+| ------------------------------------ | ------------- |
+| Small badges / compact controls      | `rounded-md`  |
+| Buttons / inputs                     | `rounded-lg`  |
+| Cards / dashboard widgets            | `rounded-xl`  |
 | Large panels / modals / celebrations | `rounded-2xl` |
 
 Pill shapes are appropriate for:
@@ -593,12 +595,15 @@ Exit                [ progress bar ]                Session stats
 ### Top Bar
 
 **Top left**
+
 - Exit
 
 **Top center**
+
 - Review progress bar
 
 **Top right**
+
 - Remaining items
 - Accuracy percentage
 - Other compact session statistics when useful
@@ -774,12 +779,12 @@ Animation quality is a product goal, and animation quality is mostly a performan
 
 ### Budgets
 
-| Metric | Target |
-| --- | --- |
-| Largest Contentful Paint, p75 | under 2.5 s |
-| Interaction to Next Paint, p75 | under 200 ms |
-| Cumulative Layout Shift | under 0.1 |
-| Animation frame rate | 60 fps, no dropped frames during review feedback |
+| Metric                         | Target                                           |
+| ------------------------------ | ------------------------------------------------ |
+| Largest Contentful Paint, p75  | under 2.5 s                                      |
+| Interaction to Next Paint, p75 | under 200 ms                                     |
+| Cumulative Layout Shift        | under 0.1                                        |
+| Animation frame rate           | 60 fps, no dropped frames during review feedback |
 
 ### Rules
 
@@ -831,11 +836,11 @@ Use **Lucide React** for normal interface icons.
 
 Guidelines:
 
-| Context | Size |
-| --- | --- |
-| Inline | `h-4 w-4` |
+| Context              | Size      |
+| -------------------- | --------- |
+| Inline               | `h-4 w-4` |
 | Buttons / navigation | `h-5 w-5` |
-| Major card icon | `h-6 w-6` |
+| Major card icon      | `h-6 w-6` |
 
 Use stroke-based icons consistently.
 

@@ -10,11 +10,18 @@ type EmptyStateProps = {
   action?: { label: string; href: string };
 };
 
-export function EmptyState({ icon: Icon, title, description, action }: EmptyStateProps) {
+export function EmptyState({
+  icon: Icon,
+  title,
+  description,
+  action,
+}: EmptyStateProps) {
   return (
     <div className="flex flex-col items-center gap-2 rounded-lg bg-muted/50 px-4 py-8 text-center">
       <Icon className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
-      <p className="font-heading text-sm font-medium text-foreground">{title}</p>
+      <p className="font-heading text-sm font-medium text-foreground">
+        {title}
+      </p>
       <p className="max-w-xs text-sm text-muted-foreground">{description}</p>
       {action ? (
         <Button asChild size="sm" variant="outline" className="mt-2">

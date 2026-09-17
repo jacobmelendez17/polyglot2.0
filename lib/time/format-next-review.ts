@@ -28,7 +28,11 @@ function pluralize(count: number, unit: string): string {
  * instead of a nonsensical "60 minutes", and one 23.6 hours out reads as a
  * date instead of "24 hours".
  */
-export function formatNextReviewLabel(target: Date, now: Date, timeZone: string): string {
+export function formatNextReviewLabel(
+  target: Date,
+  now: Date,
+  timeZone: string,
+): string {
   const diffMs = target.getTime() - now.getTime();
 
   if (diffMs <= 0) return "Due now";
@@ -44,7 +48,9 @@ export function formatNextReviewLabel(target: Date, now: Date, timeZone: string)
 
   if (diffMs < ONE_DAY_MS) {
     const hours = Math.round(diffMs / ONE_HOUR_MS);
-    return hours >= 24 ? formatAbsoluteDate(target, timeZone) : pluralize(hours, "hour");
+    return hours >= 24
+      ? formatAbsoluteDate(target, timeZone)
+      : pluralize(hours, "hour");
   }
 
   return formatAbsoluteDate(target, timeZone);

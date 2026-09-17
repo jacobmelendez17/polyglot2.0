@@ -9,8 +9,13 @@ const { mockAuthState } = vi.hoisted(() => ({
 }));
 
 vi.mock("@clerk/nextjs", () => ({
-  Show: ({ when, children }: { when: "signed-in" | "signed-out"; children: ReactNode }) =>
-    (when === "signed-in") === mockAuthState.signedIn ? children : null,
+  Show: ({
+    when,
+    children,
+  }: {
+    when: "signed-in" | "signed-out";
+    children: ReactNode;
+  }) => ((when === "signed-in") === mockAuthState.signedIn ? children : null),
 }));
 
 describe("LandingCta", () => {
@@ -21,9 +26,17 @@ describe("LandingCta", () => {
   it("renders Sign up and Try the demo when signed out", () => {
     render(<LandingCta />);
 
-    expect(screen.getByRole("link", { name: "Sign up" })).toHaveAttribute("href", "/sign-up");
-    expect(screen.getByRole("link", { name: "Try the demo" })).toHaveAttribute("href", "/demo");
-    expect(screen.queryByRole("link", { name: "Go to dashboard" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Sign up" })).toHaveAttribute(
+      "href",
+      "/sign-up",
+    );
+    expect(screen.getByRole("link", { name: "Try the demo" })).toHaveAttribute(
+      "href",
+      "/demo",
+    );
+    expect(
+      screen.queryByRole("link", { name: "Go to dashboard" }),
+    ).not.toBeInTheDocument();
   });
 
   it("renders only a single Go to dashboard link when signed in", () => {

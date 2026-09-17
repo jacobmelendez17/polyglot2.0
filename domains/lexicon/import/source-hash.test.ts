@@ -4,7 +4,9 @@ import { hashBytes, hashSourceValue } from "./source-hash";
 
 describe("hashSourceValue", () => {
   it("is stable regardless of object key order", () => {
-    expect(hashSourceValue({ a: 1, b: 2 })).toBe(hashSourceValue({ b: 2, a: 1 }));
+    expect(hashSourceValue({ a: 1, b: 2 })).toBe(
+      hashSourceValue({ b: 2, a: 1 }),
+    );
   });
 
   it("is stable through nesting", () => {
@@ -18,15 +20,21 @@ describe("hashSourceValue", () => {
   });
 
   it("changes when any value changes", () => {
-    expect(hashSourceValue({ gloss: "father" })).not.toBe(hashSourceValue({ gloss: "dad" }));
+    expect(hashSourceValue({ gloss: "father" })).not.toBe(
+      hashSourceValue({ gloss: "dad" }),
+    );
   });
 
   it("distinguishes an accented value from its unaccented counterpart", () => {
-    expect(hashSourceValue({ word: "si" })).not.toBe(hashSourceValue({ word: "sí" }));
+    expect(hashSourceValue({ word: "si" })).not.toBe(
+      hashSourceValue({ word: "sí" }),
+    );
   });
 
   it("ignores explicitly undefined fields, which JSON cannot represent anyway", () => {
-    expect(hashSourceValue({ a: 1, b: undefined })).toBe(hashSourceValue({ a: 1 }));
+    expect(hashSourceValue({ a: 1, b: undefined })).toBe(
+      hashSourceValue({ a: 1 }),
+    );
   });
 });
 

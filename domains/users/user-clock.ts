@@ -20,25 +20,38 @@ import { users } from "@/db/schema";
  */
 
 /** Resolves the perceived current time for one user. `realNow` is injectable for deterministic tests. */
-export async function resolveUserNow(db: DbClient, userId: string, realNow: Date = new Date()): Promise<Date> {
+export async function resolveUserNow(
+  db: DbClient,
+  userId: string,
+  realNow: Date = new Date(),
+): Promise<Date> {
   const [row] = await db
     .select({ offsetSeconds: users.sandboxTimeOffsetSeconds })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
   const offsetSeconds = row?.offsetSeconds ?? 0;
-  return offsetSeconds === 0 ? realNow : new Date(realNow.getTime() + offsetSeconds * 1000);
+  return offsetSeconds === 0
+    ? realNow
+    : new Date(realNow.getTime() + offsetSeconds * 1000);
 }
 
 /** Sets a sandbox persona's clock offset. Rejected by the database's own check constraint for a non-sandbox user. */
-export async function setSandboxTimeOffset(db: DbClient, sandboxUserId: string, offsetSeconds: number): Promise<void> {
+export async function setSandboxTimeOffset(
+  db: DbClient,
+  sandboxUserId: string,
+  offsetSeconds: number,
+): Promise<void> {
   await db
     .update(users)
     .set({ sandboxTimeOffsetSeconds: offsetSeconds })
     .where(eq(users.id, sandboxUserId));
 }
 
-export async function getSandboxTimeOffset(db: DbClient, sandboxUserId: string): Promise<number> {
+export async function getSandboxTimeOffset(
+  db: DbClient,
+  sandboxUserId: string,
+): Promise<number> {
   const [row] = await db
     .select({ offsetSeconds: users.sandboxTimeOffsetSeconds })
     .from(users)

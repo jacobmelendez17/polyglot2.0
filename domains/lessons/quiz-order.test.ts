@@ -34,7 +34,9 @@ function makeGrammar(id: string): GrammarItem {
     usage: "placeholder",
     examples: [],
     resources: [],
-    requiredQuestions: [{ format: "translation", direction: "targetToEnglish" }],
+    requiredQuestions: [
+      { format: "translation", direction: "targetToEnglish" },
+    ],
   };
 }
 
@@ -50,10 +52,17 @@ describe("interleaveQuizQuestions", () => {
   });
 
   it("is deterministic across repeated calls", () => {
-    const items = [makeVocab("a"), makeVocab("b"), makeVocab("c"), makeGrammar("d")];
+    const items = [
+      makeVocab("a"),
+      makeVocab("b"),
+      makeVocab("c"),
+      makeGrammar("d"),
+    ];
     const questions = buildQuizQuestions(items);
     const first = interleaveQuizQuestions(questions).map((q) => q.id);
-    const second = interleaveQuizQuestions(buildQuizQuestions(items)).map((q) => q.id);
+    const second = interleaveQuizQuestions(buildQuizQuestions(items)).map(
+      (q) => q.id,
+    );
     expect(first).toEqual(second);
   });
 

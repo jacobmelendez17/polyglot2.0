@@ -1,5 +1,17 @@
 import { sql } from "drizzle-orm";
-import { check, foreignKey, index, integer, jsonb, pgEnum, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import {
+  check,
+  foreignKey,
+  index,
+  integer,
+  jsonb,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+  unique,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 import { timestamps } from "./columns";
 import { languages } from "./languages";
@@ -14,10 +26,18 @@ import { users } from "./users";
  * Postgres sorts an enum column by declaration order, not alphabetically,
  * so `ORDER BY status` gives a sensible workflow progression for free.
  */
-export const curriculumStatusEnum = pgEnum("curriculum_status", ["draft", "pending", "published", "archived"]);
+export const curriculumStatusEnum = pgEnum("curriculum_status", [
+  "draft",
+  "pending",
+  "published",
+  "archived",
+]);
 
 /** Spec 08 §8 — Learning Item Type. v1 supports vocabulary/grammar; the shared identity design must stay compatible with future types (kanji, radicals) without a redesign. */
-export const learningItemTypeEnum = pgEnum("learning_item_type", ["vocabulary", "grammar"]);
+export const learningItemTypeEnum = pgEnum("learning_item_type", [
+  "vocabulary",
+  "grammar",
+]);
 
 /**
  * Spec 20 General — NSFW Content. A property of the content itself, not of
@@ -28,7 +48,10 @@ export const learningItemTypeEnum = pgEnum("learning_item_type", ["vocabulary", 
  * this is the plumbing the learner-facing preference and its filtering
  * checks against, ready for whenever that authoring UI does exist.
  */
-export const contentClassificationEnum = pgEnum("content_classification", ["safe", "nsfw"]);
+export const contentClassificationEnum = pgEnum("content_classification", [
+  "safe",
+  "nsfw",
+]);
 
 /**
  * Spec 11 (rewrite) — Accepted-Answer Side. Same two values and meaning as
@@ -47,7 +70,14 @@ export const answerSideEnum = pgEnum("answer_side", ["term", "meaning"]);
  * would be a curriculum progression decision nobody has made. A level with
  * no band set simply renders `Level 1 - 1/13`.
  */
-export const cefrLevelEnum = pgEnum("cefr_level", ["A1", "A2", "B1", "B2", "C1", "C2"]);
+export const cefrLevelEnum = pgEnum("cefr_level", [
+  "A1",
+  "A2",
+  "B1",
+  "B2",
+  "C1",
+  "C2",
+]);
 export type CefrLevel = (typeof cefrLevelEnum.enumValues)[number];
 
 /**
@@ -65,7 +95,15 @@ export type CefrLevel = (typeof cefrLevelEnum.enumValues)[number];
  * modelled, with evidence, by `domains/lexicon`'s regional evidence, and a
  * second, weaker answer to the same question would be worse than none.
  */
-export const registerEnum = pgEnum("register", ["neutral", "formal", "informal", "colloquial", "slang", "vulgar", "literary"]);
+export const registerEnum = pgEnum("register", [
+  "neutral",
+  "formal",
+  "informal",
+  "colloquial",
+  "slang",
+  "vulgar",
+  "literary",
+]);
 export type Register = (typeof registerEnum.enumValues)[number];
 
 /**
@@ -76,8 +114,12 @@ export type Register = (typeof registerEnum.enumValues)[number];
  * page-builder system, so this stays a closed set rather than an open
  * block registry.
  */
-export const grammarContentBlockTypeEnum = pgEnum("grammar_content_block_type", ["text", "example", "note"]);
-export type GrammarContentBlockType = (typeof grammarContentBlockTypeEnum.enumValues)[number];
+export const grammarContentBlockTypeEnum = pgEnum(
+  "grammar_content_block_type",
+  ["text", "example", "note"],
+);
+export type GrammarContentBlockType =
+  (typeof grammarContentBlockTypeEnum.enumValues)[number];
 
 /**
  * Curriculum levels (spec 08 §14). Level numbers are scoped to language, not
@@ -118,7 +160,10 @@ export const levels = pgTable(
     ...timestamps(),
   },
   (t) => [
-    unique("levels_language_id_level_number_key").on(t.languageId, t.levelNumber),
+    unique("levels_language_id_level_number_key").on(
+      t.languageId,
+      t.levelNumber,
+    ),
     unique("levels_id_language_id_key").on(t.id, t.languageId),
   ],
 );
@@ -175,7 +220,9 @@ export const learningItems = pgTable(
     // explicitly rather than relying on this default.
     status: curriculumStatusEnum("status").notNull().default("pending"),
     // Spec 20 General — NSFW Content. See `contentClassificationEnum`.
-    contentClassification: contentClassificationEnum("content_classification").notNull().default("safe"),
+    contentClassification: contentClassificationEnum("content_classification")
+      .notNull()
+      .default("safe"),
     position: integer("position").notNull(),
     lessonPriority: integer("lesson_priority").notNull(),
     // Spec 11 (rewrite) — optimistic-concurrency version, bumped on every
@@ -189,7 +236,11 @@ export const learningItems = pgTable(
   (t) => [
     unique("learning_items_id_language_id_key").on(t.id, t.languageId),
     // Spec 08 §17: duplicate positions of the same item type within the same level must not silently occur.
-    unique("learning_items_level_type_position_key").on(t.levelId, t.type, t.position),
+    unique("learning_items_level_type_position_key").on(
+      t.levelId,
+      t.type,
+      t.position,
+    ),
     foreignKey({
       name: "learning_items_level_language_fk",
       columns: [t.levelId, t.languageId],
@@ -197,7 +248,11 @@ export const learningItems = pgTable(
     }).onDelete("restrict"),
     // Spec 11 §10/§13 — Admin curriculum listing: filter by status (almost
     // always combined with a language scope) and sort by recency.
-    index("learning_items_language_status_updated_idx").on(t.languageId, t.status, t.updatedAt.desc()),
+    index("learning_items_language_status_updated_idx").on(
+      t.languageId,
+      t.status,
+      t.updatedAt.desc(),
+    ),
   ],
 );
 
@@ -209,8 +264,13 @@ export const learningItems = pgTable(
  * item's identity and the primary meaning is the answer a learner is graded
  * against, so neither is ever dictionary-supplied in the first place.
  */
-export const DICTIONARY_OVERRIDABLE_FIELDS = ["definition", "partOfSpeech", "ipa"] as const;
-export type DictionaryOverridableField = (typeof DICTIONARY_OVERRIDABLE_FIELDS)[number];
+export const DICTIONARY_OVERRIDABLE_FIELDS = [
+  "definition",
+  "partOfSpeech",
+  "ipa",
+] as const;
+export type DictionaryOverridableField =
+  (typeof DICTIONARY_OVERRIDABLE_FIELDS)[number];
 
 /**
  * Vocabulary-specific fields (spec 08 §18), one-to-one with `learning_items`
@@ -268,10 +328,15 @@ export const vocabularyItems = pgTable("vocabulary_items", {
  */
 export type GrammarQuestionDirection = "targetToEnglish" | "englishToTarget";
 export type GrammarQuestionFormat = "translation";
-export type GrammarQuestionRequirement = { format: GrammarQuestionFormat; direction: GrammarQuestionDirection };
+export type GrammarQuestionRequirement = {
+  format: GrammarQuestionFormat;
+  direction: GrammarQuestionDirection;
+};
 
 /** The one currently-real default: every grammar item seeded before this column existed only ever required a single targetToEnglish translation question. */
-const DEFAULT_REQUIRED_QUESTIONS: GrammarQuestionRequirement[] = [{ format: "translation", direction: "targetToEnglish" }];
+const DEFAULT_REQUIRED_QUESTIONS: GrammarQuestionRequirement[] = [
+  { format: "translation", direction: "targetToEnglish" },
+];
 
 /**
  * Grammar-specific fields (spec 08 §19), one-to-one with `learning_items`.
@@ -320,7 +385,9 @@ export const sentences = pgTable("sentences", {
   translation: text("translation").notNull(),
   status: curriculumStatusEnum("status").notNull().default("draft"),
   // Spec 20 General — NSFW Content. See `contentClassificationEnum`.
-  contentClassification: contentClassificationEnum("content_classification").notNull().default("safe"),
+  contentClassification: contentClassificationEnum("content_classification")
+    .notNull()
+    .default("safe"),
   ...timestamps(),
 });
 
@@ -365,7 +432,10 @@ export const vocabularyUsageContexts = pgTable(
     ...timestamps(),
   },
   (t) => [
-    unique("vocabulary_usage_contexts_item_position_key").on(t.learningItemId, t.position),
+    unique("vocabulary_usage_contexts_item_position_key").on(
+      t.learningItemId,
+      t.position,
+    ),
     index("vocabulary_usage_contexts_item_idx").on(t.learningItemId),
   ],
 );
@@ -395,12 +465,18 @@ export const learningItemSentences = pgTable(
     sentenceId: uuid("sentence_id")
       .notNull()
       .references(() => sentences.id, { onDelete: "restrict" }),
-    usageContextId: uuid("usage_context_id").references(() => vocabularyUsageContexts.id, { onDelete: "set null" }),
+    usageContextId: uuid("usage_context_id").references(
+      () => vocabularyUsageContexts.id,
+      { onDelete: "set null" },
+    ),
     position: integer("position").notNull(),
     ...timestamps(),
   },
   (t) => [
-    unique("learning_item_sentences_item_position_key").on(t.learningItemId, t.position),
+    unique("learning_item_sentences_item_position_key").on(
+      t.learningItemId,
+      t.position,
+    ),
     index("learning_item_sentences_usage_context_idx").on(t.usageContextId),
   ],
 );
@@ -430,7 +506,11 @@ export const acceptedAnswers = pgTable(
     ...timestamps(),
   },
   (t) => [
-    unique("accepted_answers_item_side_normalized_key").on(t.learningItemId, t.side, t.normalizedValue),
+    unique("accepted_answers_item_side_normalized_key").on(
+      t.learningItemId,
+      t.side,
+      t.normalizedValue,
+    ),
     index("accepted_answers_learning_item_idx").on(t.learningItemId),
   ],
 );
@@ -471,7 +551,9 @@ export const curriculumItemDrafts = pgTable(
     createdBy: uuid("created_by")
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
       .defaultNow()
@@ -516,7 +598,10 @@ export const grammarContentBlocks = pgTable(
     ...timestamps(),
   },
   (t) => [
-    unique("grammar_content_blocks_item_position_key").on(t.learningItemId, t.position),
+    unique("grammar_content_blocks_item_position_key").on(
+      t.learningItemId,
+      t.position,
+    ),
     index("grammar_content_blocks_item_idx").on(t.learningItemId),
     check(
       "grammar_content_blocks_shape_check",
@@ -552,7 +637,10 @@ export const learningItemResources = pgTable(
     ...timestamps(),
   },
   (t) => [
-    unique("learning_item_resources_item_position_key").on(t.learningItemId, t.position),
+    unique("learning_item_resources_item_position_key").on(
+      t.learningItemId,
+      t.position,
+    ),
     index("learning_item_resources_item_idx").on(t.learningItemId),
   ],
 );

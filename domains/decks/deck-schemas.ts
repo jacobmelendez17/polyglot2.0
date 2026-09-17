@@ -15,9 +15,18 @@ export const DECK_ITEM_PICKER_LIMIT = 100;
 export const DECK_ITEMS_MAX = 500;
 
 /** Same permissive UUID-shape reasoning as `domains/curriculum/curriculum-mutation-schemas.ts` — this codebase's seeded fixture IDs don't satisfy `z.uuid()`'s stricter RFC 4122 version check. */
-const uuidLike = z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, "Invalid UUID");
+const uuidLike = z
+  .string()
+  .regex(
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    "Invalid UUID",
+  );
 
-export const deckNameSchema = z.string().trim().min(1).max(DECK_NAME_MAX_LENGTH);
+export const deckNameSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(DECK_NAME_MAX_LENGTH);
 
 /** An omitted, empty, or whitespace-only description is stored as NULL, never as "". */
 export const deckDescriptionSchema = z
@@ -36,9 +45,12 @@ const learningItemIdsSchema = z
   .max(DECK_ITEMS_MAX)
   .transform((ids) => [...new Set(ids)]);
 
-export const nonEmptyLearningItemIdsSchema = learningItemIdsSchema.refine((ids) => ids.length > 0, {
-  message: "A deck needs at least one item.",
-});
+export const nonEmptyLearningItemIdsSchema = learningItemIdsSchema.refine(
+  (ids) => ids.length > 0,
+  {
+    message: "A deck needs at least one item.",
+  },
+);
 
 export const createPersonalDeckSchema = z.object({
   name: deckNameSchema,
@@ -74,10 +86,16 @@ export const deckIdSchema = z.object({ deckId: uuidLike });
  * deck must name the level that reveals it; a `theme` deck must not, and the
  * database's `decks_shape_check` enforces the same pairing independently.
  */
-export const polyglotDeckAvailabilitySchema = z.discriminatedUnion("availability", [
-  z.object({ availability: z.literal("theme"), gateLevelId: z.null().default(null) }),
-  z.object({ availability: z.literal("level"), gateLevelId: uuidLike }),
-]);
+export const polyglotDeckAvailabilitySchema = z.discriminatedUnion(
+  "availability",
+  [
+    z.object({
+      availability: z.literal("theme"),
+      gateLevelId: z.null().default(null),
+    }),
+    z.object({ availability: z.literal("level"), gateLevelId: uuidLike }),
+  ],
+);
 
 export const createPolyglotDeckSchema = z.intersection(
   z.object({

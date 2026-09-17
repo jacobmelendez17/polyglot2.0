@@ -9,18 +9,22 @@ describe("LessonsCard", () => {
 
     expect(screen.getByRole("link", { name: "Start lessons" })).toHaveAttribute(
       "href",
-      "/lessons"
+      "/lessons",
     );
     expect(screen.getByRole("link", { name: "Customize" })).toHaveAttribute(
       "href",
-      "/lessons/customize"
+      "/lessons/customize",
     );
   });
 
   it("renders an empty state when no lessons are available", () => {
     render(<LessonsCard lessons={{ availableCount: 0 }} />);
 
-    expect(screen.getByText("No lessons available right now")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Start lessons" })).not.toBeInTheDocument();
+    expect(
+      screen.getByText("No lessons available right now"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Start lessons" }),
+    ).not.toBeInTheDocument();
   });
 });

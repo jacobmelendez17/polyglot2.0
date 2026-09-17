@@ -13,15 +13,21 @@ type InactivityEmailToggleProps = {
  * background job that would send it are deferred to when the email
  * workflow itself is implemented — this stores the preference only.
  */
-export function InactivityEmailToggle({ initialValue }: InactivityEmailToggleProps) {
+export function InactivityEmailToggle({
+  initialValue,
+}: InactivityEmailToggleProps) {
   return (
     <InlineToggleSettingField
       label="Inactivity Email"
       description="Receive an encouragement email after being inactive."
       initialValue={initialValue}
       onSave={async (inactivityEmail) => {
-        const result = await updateNotificationPreferencesAction({ inactivityEmail });
-        return result.ok ? { ok: true, value: result.data.inactivityEmail } : { ok: false, message: result.error.message };
+        const result = await updateNotificationPreferencesAction({
+          inactivityEmail,
+        });
+        return result.ok
+          ? { ok: true, value: result.data.inactivityEmail }
+          : { ok: false, message: result.error.message };
       }}
     />
   );

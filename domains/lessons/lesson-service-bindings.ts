@@ -5,7 +5,10 @@ import { getRateLimiter } from "@/providers/rate-limit";
 import { LessonError } from "@/lib/errors/lesson-errors";
 
 import { completeLesson as completeLessonTransaction } from "./lesson-completion";
-import type { CompleteLessonInput, LessonCompletionResult } from "./lesson-completion";
+import type {
+  CompleteLessonInput,
+  LessonCompletionResult,
+} from "./lesson-completion";
 import * as service from "./lesson-service";
 import type {
   OpenLessonItemInput,
@@ -32,14 +35,26 @@ type WithoutCurriculum<T> = Omit<T, "curriculum">;
  * orchestration stays database-free and unit-testable, and the one place
  * that knows about the database is this bindings module.
  */
-export async function startLesson(input: WithoutCurriculum<StartLessonInput> & { settings?: undefined }) {
+export async function startLesson(
+  input: WithoutCurriculum<StartLessonInput> & { settings?: undefined },
+) {
   const settings = await getLanguageSettings(input.userId, input.languageId);
-  return service.startLesson({ ...input, settings, curriculum: databaseCurriculumReader });
+  return service.startLesson({
+    ...input,
+    settings,
+    curriculum: databaseCurriculumReader,
+  });
 }
 
 /** The themes the learner can pick from, for the curriculum preference screen and Settings. Read-only. */
-export async function listAvailableThemes(input: { userId: string; languageId: string }) {
-  return service.listAvailableThemes({ ...input, curriculum: databaseCurriculumReader });
+export async function listAvailableThemes(input: {
+  userId: string;
+  languageId: string;
+}) {
+  return service.listAvailableThemes({
+    ...input,
+    curriculum: databaseCurriculumReader,
+  });
 }
 
 export async function openLessonItem(input: OpenLessonItemInput) {
@@ -50,8 +65,13 @@ export async function startQuiz(input: WithoutCurriculum<StartQuizInput>) {
   return service.startQuiz({ ...input, curriculum: databaseCurriculumReader });
 }
 
-export async function submitQuizAnswer(input: WithoutCurriculum<SubmitQuizAnswerInput>) {
-  return service.submitQuizAnswer({ ...input, curriculum: databaseCurriculumReader });
+export async function submitQuizAnswer(
+  input: WithoutCurriculum<SubmitQuizAnswerInput>,
+) {
+  return service.submitQuizAnswer({
+    ...input,
+    curriculum: databaseCurriculumReader,
+  });
 }
 
 /**
@@ -63,14 +83,26 @@ export async function submitQuizAnswer(input: WithoutCurriculum<SubmitQuizAnswer
  * `*-service.ts`: the rate-limit provider is `server-only`-guarded and would
  * make the transaction module untestable against a rolled-back transaction.
  */
-export async function completeLesson(input: WithoutCurriculum<CompleteLessonInput>): Promise<LessonCompletionResult> {
-  const decision = await getRateLimiter().check({ policy: "lesson-complete", subject: input.userId });
+export async function completeLesson(
+  input: WithoutCurriculum<CompleteLessonInput>,
+): Promise<LessonCompletionResult> {
+  const decision = await getRateLimiter().check({
+    policy: "lesson-complete",
+    subject: input.userId,
+  });
   if (!decision.allowed) {
-    throw new LessonError("RATE_LIMITED", `Please slow down and try again in ${decision.retryAfterSeconds}s.`);
+    throw new LessonError(
+      "RATE_LIMITED",
+      `Please slow down and try again in ${decision.retryAfterSeconds}s.`,
+    );
   }
   // The sandbox clock applies to enrollment too: a persona simulating a
   // future date must have its `learnedAt` and first-review time land on that
   // date, or its schedule would immediately contradict its own perceived now.
   const now = input.now ?? (await resolveUserNow(db, input.userId));
-  return completeLessonTransaction(db, { ...input, now, curriculum: databaseCurriculumReader });
+  return completeLessonTransaction(db, {
+    ...input,
+    now,
+    curriculum: databaseCurriculumReader,
+  });
 }

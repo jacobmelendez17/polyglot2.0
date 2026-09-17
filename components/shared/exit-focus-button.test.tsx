@@ -14,7 +14,9 @@ describe("ExitFocusButton", () => {
 
   it("supports a different label for a different focus session", () => {
     render(<ExitFocusButton label="Exit review" onClick={() => {}} />);
-    expect(screen.getByRole("button", { name: "Exit review" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Exit review" }),
+    ).toBeInTheDocument();
   });
 
   it("calls onClick when activated", async () => {

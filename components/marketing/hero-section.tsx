@@ -1,5 +1,8 @@
 import { Reveal } from "@/components/shared/reveal";
-import { AlternatingHandwritingWord, type HandwritingVariant } from "@/components/marketing/alternating-handwriting-word";
+import {
+  AlternatingHandwritingWord,
+  type HandwritingVariant,
+} from "@/components/marketing/alternating-handwriting-word";
 import { LandingCta } from "@/components/marketing/landing-cta";
 import heroHereJapSprite from "@/public/sprites/hero-here-jap.json";
 import heroHereKorSprite from "@/public/sprites/hero-here-kor.json";
@@ -48,10 +51,14 @@ export function HeroSection() {
       <Reveal className="relative z-10 mx-auto flex max-w-3xl flex-col items-center gap-6">
         <h1 className="text-balance text-4xl leading-tight font-semibold text-foreground sm:text-5xl md:text-6xl lg:text-7xl">
           Fluency begins{" "}
-          <AlternatingHandwritingWord variants={HERE_VARIANTS} intervalMs={HERE_INTERVAL_MS} />
+          <AlternatingHandwritingWord
+            variants={HERE_VARIANTS}
+            intervalMs={HERE_INTERVAL_MS}
+          />
         </h1>
         <p className="max-w-xl text-balance text-base text-muted-foreground sm:text-lg">
-          Languages catered to you! Learn, practice, and immerse yourself in personalized study material. Try today for free.
+          Languages catered to you! Learn, practice, and immerse yourself in
+          personalized study material. Try today for free.
         </p>
         <LandingCta />
       </Reveal>
@@ -84,7 +91,11 @@ function FloatingGreetings() {
           <span
             key={greeting.lang}
             className="animate-float absolute text-2xl text-[color:var(--accent-peach)] opacity-60 sm:text-4xl"
-            style={{ top: spot.top, left: spot.left, animationDuration: `${spot.durationS}s` }}
+            style={{
+              top: spot.top,
+              left: spot.left,
+              animationDuration: `${spot.durationS}s`,
+            }}
           >
             {greeting.text}
           </span>
@@ -105,7 +116,9 @@ function GreetingMarquee() {
       <div className="animate-marquee flex w-max gap-10">
         {track.map((greeting, index) => (
           <span key={index} className="flex shrink-0 items-baseline gap-2">
-            <span className="text-lg font-medium text-foreground">{greeting.text}</span>
+            <span className="text-lg font-medium text-foreground">
+              {greeting.text}
+            </span>
             <span className="text-xs tracking-wide text-muted-foreground uppercase">
               {greeting.lang}
             </span>

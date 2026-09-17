@@ -5,17 +5,24 @@ import { LevelContentView } from "@/components/levels/level-content-view";
 import { LevelPageHeader } from "@/components/levels/level-page-header";
 import { LevelSelector } from "@/components/levels/level-selector";
 import { buildLevelViewModel, parseLevelNumber } from "@/domains/curriculum";
-import { getLevelByLanguageAndNumber, getLevelItems } from "@/domains/curriculum/server";
+import {
+  getLevelByLanguageAndNumber,
+  getLevelItems,
+} from "@/domains/curriculum/server";
 import { requireUser } from "@/domains/users/server";
 
 type LevelPageProps = {
   params: Promise<{ level: string }>;
 };
 
-export async function generateMetadata({ params }: LevelPageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: LevelPageProps): Promise<Metadata> {
   const { level } = await params;
   const levelNumber = parseLevelNumber(level);
-  return { title: levelNumber ? `Level ${levelNumber} — Polyglot` : "Polyglot" };
+  return {
+    title: levelNumber ? `Level ${levelNumber} — Polyglot` : "Polyglot",
+  };
 }
 
 /**
@@ -34,7 +41,10 @@ export default async function LevelPage({ params }: LevelPageProps) {
   // returning null) when unauthenticated, so an unauthenticated request
   // never reaches this far in practice.
   const user = await requireUser();
-  const level_ = await getLevelByLanguageAndNumber(user.activeLanguageId, levelNumber);
+  const level_ = await getLevelByLanguageAndNumber(
+    user.activeLanguageId,
+    levelNumber,
+  );
   // A valid-range level with no published `levels` row yet is "not yet
   // published" (spec 10 §29), not a 404 — only the route param's own
   // validity (checked above) is a real not-found case.

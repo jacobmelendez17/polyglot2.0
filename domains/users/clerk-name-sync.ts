@@ -11,7 +11,10 @@
  * (never omitted) so an existing Clerk last name is actually cleared rather
  * than left stale from a previous, longer name.
  */
-export function splitDisplayNameForClerk(displayName: string): { firstName: string; lastName: string } {
+export function splitDisplayNameForClerk(displayName: string): {
+  firstName: string;
+  lastName: string;
+} {
   const [firstName, ...rest] = displayName.trim().split(/\s+/);
   return { firstName: firstName ?? "", lastName: rest.join(" ") };
 }

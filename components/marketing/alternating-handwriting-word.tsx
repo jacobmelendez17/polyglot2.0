@@ -22,7 +22,10 @@ function heightEmOf(variant: HandwritingVariant) {
 }
 
 function widthEmOf(variant: HandwritingVariant) {
-  return heightEmOf(variant) * (variant.manifest.frameWidth / variant.manifest.frameHeight);
+  return (
+    heightEmOf(variant) *
+    (variant.manifest.frameWidth / variant.manifest.frameHeight)
+  );
 }
 
 /**

@@ -54,62 +54,86 @@ import type {
  */
 
 async function checkAdminRateLimit(actorUserId: string): Promise<void> {
-  const decision = await getRateLimiter().check({ policy: "admin-mutation", subject: actorUserId });
+  const decision = await getRateLimiter().check({
+    policy: "admin-mutation",
+    subject: actorUserId,
+  });
   if (!decision.allowed) {
-    throw new LexiconError("RATE_LIMITED", `Please slow down and try again in ${decision.retryAfterSeconds}s.`);
+    throw new LexiconError(
+      "RATE_LIMITED",
+      `Please slow down and try again in ${decision.retryAfterSeconds}s.`,
+    );
   }
 }
 
-export async function rematchVocabularyItem(input: RematchVocabularyItemInput): Promise<mapping.MatchVocabularyItemResult> {
+export async function rematchVocabularyItem(
+  input: RematchVocabularyItemInput,
+): Promise<mapping.MatchVocabularyItemResult> {
   const parsed = rematchVocabularyItemInputSchema.parse(input);
   await checkAdminRateLimit(parsed.actorUserId);
   return mapping.matchVocabularyItem(db, parsed.vocabularyItemId);
 }
 
 /** Spec 13: runs immediately after a bulk vocabulary import commits. */
-export async function matchImportedVocabularyItems(input: MatchImportedVocabularyItemsInput): Promise<mapping.MatchAllResult> {
+export async function matchImportedVocabularyItems(
+  input: MatchImportedVocabularyItemsInput,
+): Promise<mapping.MatchAllResult> {
   const parsed = matchImportedVocabularyItemsInputSchema.parse(input);
   await checkAdminRateLimit(parsed.actorUserId);
   return mapping.matchImportedVocabularyItems(db, parsed.vocabularyItemIds);
 }
 
-export async function setVocabularyDictionaryEntry(input: SetManualMappingInput): Promise<VocabularyDictionaryMapping> {
+export async function setVocabularyDictionaryEntry(
+  input: SetManualMappingInput,
+): Promise<VocabularyDictionaryMapping> {
   const parsed = setManualMappingInputSchema.parse(input);
   await checkAdminRateLimit(parsed.actorUserId);
   return mapping.selectDictionaryEntry(db, parsed);
 }
 
-export async function confirmVocabularyMapping(input: ConfirmMappingInput): Promise<VocabularyDictionaryMapping> {
+export async function confirmVocabularyMapping(
+  input: ConfirmMappingInput,
+): Promise<VocabularyDictionaryMapping> {
   const parsed = confirmMappingInputSchema.parse(input);
   await checkAdminRateLimit(parsed.actorUserId);
   return mapping.confirmVocabularyMapping(db, parsed);
 }
 
-export async function bulkConfirmVocabularyMappings(input: BulkConfirmVocabularyMappingsInput): Promise<{ confirmed: string[] }> {
+export async function bulkConfirmVocabularyMappings(
+  input: BulkConfirmVocabularyMappingsInput,
+): Promise<{ confirmed: string[] }> {
   const parsed = bulkConfirmVocabularyMappingsInputSchema.parse(input);
   await checkAdminRateLimit(parsed.actorUserId);
   return mapping.bulkConfirmVocabularyMappings(db, parsed);
 }
 
-export async function selectVocabularySenses(input: SelectSensesInput): Promise<string[]> {
+export async function selectVocabularySenses(
+  input: SelectSensesInput,
+): Promise<string[]> {
   const parsed = selectSensesInputSchema.parse(input);
   await checkAdminRateLimit(parsed.actorUserId);
   return mapping.selectVocabularySenses(db, parsed);
 }
 
-export async function selectPreferredPronunciation(input: SelectPronunciationInput): Promise<VocabularyDictionaryMapping> {
+export async function selectPreferredPronunciation(
+  input: SelectPronunciationInput,
+): Promise<VocabularyDictionaryMapping> {
   const parsed = selectPronunciationInputSchema.parse(input);
   await checkAdminRateLimit(parsed.actorUserId);
   return mapping.selectPreferredPronunciation(db, parsed);
 }
 
-export async function getVocabularyDetail(
-  input: { vocabularyItemId: string; userId?: string | null; includeArchived?: boolean },
-): Promise<VocabularyDetail | null> {
+export async function getVocabularyDetail(input: {
+  vocabularyItemId: string;
+  userId?: string | null;
+  includeArchived?: boolean;
+}): Promise<VocabularyDetail | null> {
   return composeVocabularyDetail(db, input);
 }
 
-export async function getVocabularyMapping(vocabularyItemId: string): Promise<VocabularyDictionaryMapping | null> {
+export async function getVocabularyMapping(
+  vocabularyItemId: string,
+): Promise<VocabularyDictionaryMapping | null> {
   return repository.getMapping(db, vocabularyItemId);
 }
 
@@ -118,20 +142,28 @@ export async function getVocabularyMapping(vocabularyItemId: string): Promise<Vo
  * — the lesson flow's one call for "everything the dictionary has" across a
  * whole lesson batch, never one call per item.
  */
-export async function getConfirmedDictionaryDataForItems(vocabularyItemIds: string[]): Promise<Map<string, ConfirmedLessonDictionaryData>> {
+export async function getConfirmedDictionaryDataForItems(
+  vocabularyItemIds: string[],
+): Promise<Map<string, ConfirmedLessonDictionaryData>> {
   return repository.getConfirmedDictionaryDataForItems(db, vocabularyItemIds);
 }
 
-export async function getSelectedSenseIds(vocabularyItemId: string): Promise<string[]> {
+export async function getSelectedSenseIds(
+  vocabularyItemId: string,
+): Promise<string[]> {
   return repository.getSelectedSenseIds(db, vocabularyItemId);
 }
 
-export async function getDictionaryEntryDetail(entryId: string): Promise<DictionaryEntryDetail | null> {
+export async function getDictionaryEntryDetail(
+  entryId: string,
+): Promise<DictionaryEntryDetail | null> {
   return repository.getDictionaryEntryDetail(db, entryId);
 }
 
 /** Admin dictionary search. The query is normalized the same way stored lemmas are, so accents behave identically on both sides. */
-export async function searchDictionary(input: SearchDictionaryInput): Promise<DictionaryEntrySummary[]> {
+export async function searchDictionary(
+  input: SearchDictionaryInput,
+): Promise<DictionaryEntrySummary[]> {
   const parsed = searchDictionaryInputSchema.parse(input);
   return repository.searchDictionaryEntries(db, {
     languageId: parsed.languageId,
@@ -140,12 +172,16 @@ export async function searchDictionary(input: SearchDictionaryInput): Promise<Di
   });
 }
 
-export async function getMappingQueue(input: MappingQueueInput): Promise<repository.MappingQueuePage> {
+export async function getMappingQueue(
+  input: MappingQueueInput,
+): Promise<repository.MappingQueuePage> {
   const parsed = mappingQueueInputSchema.parse(input);
   return repository.getMappingQueue(db, parsed);
 }
 
-export async function getMappingStatusCounts(languageId: string): Promise<Record<DictionaryMatchStatus | "no_mapping", number>> {
+export async function getMappingStatusCounts(
+  languageId: string,
+): Promise<Record<DictionaryMatchStatus | "no_mapping", number>> {
   return repository.getMappingStatusCounts(db, languageId);
 }
 
@@ -178,17 +214,31 @@ export interface VocabularyMappingView {
  * one returns *every* sense so an admin can pick among them, where the read
  * model leads with the selected ones.
  */
-export async function getVocabularyMappingView(vocabularyItemId: string): Promise<VocabularyMappingView> {
+export async function getVocabularyMappingView(
+  vocabularyItemId: string,
+): Promise<VocabularyMappingView> {
   const mapping = await repository.getMapping(db, vocabularyItemId);
   if (!mapping?.dictionaryEntryId) {
-    return { mapping, entry: null, selectedSenseIds: [], attributionText: null };
+    return {
+      mapping,
+      entry: null,
+      selectedSenseIds: [],
+      attributionText: null,
+    };
   }
 
   const [entry, selectedSenseIds] = await Promise.all([
     repository.getDictionaryEntryDetail(db, mapping.dictionaryEntryId),
     repository.getSelectedSenseIds(db, vocabularyItemId),
   ]);
-  const attribution = entry ? await repository.getSourceAttribution(db, entry.sourceId) : null;
+  const attribution = entry
+    ? await repository.getSourceAttribution(db, entry.sourceId)
+    : null;
 
-  return { mapping, entry, selectedSenseIds, attributionText: attribution?.attributionText ?? null };
+  return {
+    mapping,
+    entry,
+    selectedSenseIds,
+    attributionText: attribution?.attributionText ?? null,
+  };
 }

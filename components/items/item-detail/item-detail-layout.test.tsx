@@ -3,10 +3,15 @@ import { render, screen } from "@testing-library/react";
 
 import { ItemDetailLayout } from "@/components/items/item-detail/item-detail-layout";
 import { buildItemDetailView } from "@/domains/curriculum";
-import type { ItemDetailSource, ItemNavigationView } from "@/domains/curriculum";
+import type {
+  ItemDetailSource,
+  ItemNavigationView,
+} from "@/domains/curriculum";
 import type { ItemProgress } from "@/domains/progress";
 
-function vocabularySource(overrides: Partial<Extract<ItemDetailSource, { type: "vocabulary" }>> = {}): ItemDetailSource {
+function vocabularySource(
+  overrides: Partial<Extract<ItemDetailSource, { type: "vocabulary" }>> = {},
+): ItemDetailSource {
   return {
     type: "vocabulary",
     itemId: "item-1",
@@ -14,7 +19,14 @@ function vocabularySource(overrides: Partial<Extract<ItemDetailSource, { type: "
     cefrLevel: "A1",
     register: "neutral",
     patterns: [],
-    examples: [{ id: "example-1", targetText: "El gato duerme.", translation: "The cat sleeps.", patternId: null }],
+    examples: [
+      {
+        id: "example-1",
+        targetText: "El gato duerme.",
+        translation: "The cat sleeps.",
+        patternId: null,
+      },
+    ],
     resources: [],
     displayWord: "el gato",
     translation: "cat",
@@ -34,7 +46,9 @@ function vocabularySource(overrides: Partial<Extract<ItemDetailSource, { type: "
   };
 }
 
-function grammarSource(overrides: Partial<Extract<ItemDetailSource, { type: "grammar" }>> = {}): ItemDetailSource {
+function grammarSource(
+  overrides: Partial<Extract<ItemDetailSource, { type: "grammar" }>> = {},
+): ItemDetailSource {
   return {
     type: "grammar",
     itemId: "item-2",
@@ -83,7 +97,10 @@ function progress(overrides: Partial<ItemProgress> = {}): ItemProgress {
   };
 }
 
-function renderPage(source: ItemDetailSource, extra: Partial<Parameters<typeof ItemDetailLayout>[0]> = {}) {
+function renderPage(
+  source: ItemDetailSource,
+  extra: Partial<Parameters<typeof ItemDetailLayout>[0]> = {},
+) {
   return render(
     <ItemDetailLayout
       view={buildItemDetailView(source)}
@@ -106,7 +123,9 @@ describe("ItemDetailLayout — hero", () => {
 
     expect(screen.getByText("Vocabulary Info")).toBeInTheDocument();
     expect(screen.getByText("A1 · Level 1 · 1/12")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("el gato");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+      "el gato",
+    );
     // Twice: the hero, and the sticky header's copy of it.
     expect(screen.getAllByText("cat")).toHaveLength(2);
   });
@@ -121,14 +140,20 @@ describe("ItemDetailLayout — hero", () => {
   it("wraps the arrows around the ends of the set", () => {
     renderPage(vocabularySource());
 
-    expect(screen.getByRole("link", { name: "Previous item in Home & Basics" })).toHaveAttribute("href", "/items/item-last");
-    expect(screen.getByRole("link", { name: "Next item in Home & Basics" })).toHaveAttribute("href", "/items/item-2");
+    expect(
+      screen.getByRole("link", { name: "Previous item in Home & Basics" }),
+    ).toHaveAttribute("href", "/items/item-last");
+    expect(
+      screen.getByRole("link", { name: "Next item in Home & Basics" }),
+    ).toHaveAttribute("href", "/items/item-2");
   });
 
   it("renders no arrows for an item with nowhere to navigate", () => {
     renderPage(vocabularySource(), { navigation: null });
 
-    expect(screen.queryByRole("link", { name: /Previous item/ })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /Previous item/ }),
+    ).not.toBeInTheDocument();
     expect(screen.getByText("A1 · Level 1")).toBeInTheDocument();
   });
 });
@@ -139,27 +164,46 @@ describe("ItemDetailLayout — sections", () => {
 
     for (const label of ["Info", "Examples", "Progress", "Resources"]) {
       // Two tab rows render: the card's own and the sticky header's copy.
-      expect(screen.getAllByRole("button", { name: label }).length).toBeGreaterThan(0);
+      expect(
+        screen.getAllByRole("button", { name: label }).length,
+      ).toBeGreaterThan(0);
     }
-    expect(screen.getByRole("heading", { name: "Your Progress" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Your Progress" }),
+    ).toBeInTheDocument();
   });
 
   it("hides Progress entirely in lesson mode (spec 18)", () => {
     render(
-      <ItemDetailLayout view={buildItemDetailView(vocabularySource())} navigation={null} languageCode="es-MX" mode="lesson" />,
+      <ItemDetailLayout
+        view={buildItemDetailView(vocabularySource())}
+        navigation={null}
+        languageCode="es-MX"
+        mode="lesson"
+      />,
     );
 
-    expect(screen.queryByRole("button", { name: "Progress" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Your Progress" })).not.toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Info" }).length).toBeGreaterThan(0);
+    expect(
+      screen.queryByRole("button", { name: "Progress" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Your Progress" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getAllByRole("button", { name: "Info" }).length,
+    ).toBeGreaterThan(0);
   });
 
   it("titles the About card by item type", () => {
     renderPage(vocabularySource());
-    expect(screen.getByRole("heading", { name: "Definition" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Definition" }),
+    ).toBeInTheDocument();
 
     renderPage(grammarSource({ title: "Ser vs. estar" }));
-    expect(screen.getByRole("heading", { name: "About Ser vs. estar" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "About Ser vs. estar" }),
+    ).toBeInTheDocument();
   });
 
   it("omits the Context card for an item with no patterns configured", () => {
@@ -171,7 +215,14 @@ describe("ItemDetailLayout — sections", () => {
     renderPage(
       vocabularySource({
         patterns: [{ id: "pattern-1", label: "como", note: null }],
-        examples: [{ id: "example-1", targetText: "Como pan.", translation: "I eat bread.", patternId: "pattern-1" }],
+        examples: [
+          {
+            id: "example-1",
+            targetText: "Como pan.",
+            translation: "I eat bread.",
+            patternId: "pattern-1",
+          },
+        ],
       }),
     );
 

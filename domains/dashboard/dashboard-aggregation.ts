@@ -1,6 +1,10 @@
 import { previousDateKey } from "@/lib/time/zoned-date";
 
-import type { ForecastBucket, ReviewHistoryPoint, StreakDay } from "./dashboard-types";
+import type {
+  ForecastBucket,
+  ReviewHistoryPoint,
+  StreakDay,
+} from "./dashboard-types";
 
 /**
  * Pure bucketing helpers over real timestamps — the dashboard's forecast bar
@@ -17,7 +21,15 @@ import type { ForecastBucket, ReviewHistoryPoint, StreakDay } from "./dashboard-
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
-const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+const WEEKDAY_LABELS = [
+  "Sun",
+  "Mon",
+  "Tue",
+  "Wed",
+  "Thu",
+  "Fri",
+  "Sat",
+] as const;
 
 function hourLabel(date: Date): string {
   const hours = date.getHours();
@@ -30,50 +42,100 @@ export type ForecastSourceItem = {
   itemType: "vocabulary" | "grammar";
 };
 
-function bucketForecast(now: Date, items: ForecastSourceItem[], bucketCount: number, bucketMs: number, label: (date: Date) => string): ForecastBucket[] {
+function bucketForecast(
+  now: Date,
+  items: ForecastSourceItem[],
+  bucketCount: number,
+  bucketMs: number,
+  label: (date: Date) => string,
+): ForecastBucket[] {
   return Array.from({ length: bucketCount }, (_, index) => {
     const bucketStart = new Date(now.getTime() + index * bucketMs);
     const bucketEnd = new Date(bucketStart.getTime() + bucketMs);
-    const inBucket = items.filter((item) => item.nextReviewAt >= bucketStart && item.nextReviewAt < bucketEnd);
+    const inBucket = items.filter(
+      (item) =>
+        item.nextReviewAt >= bucketStart && item.nextReviewAt < bucketEnd,
+    );
     return {
       timestamp: bucketStart.toISOString(),
       label: label(bucketStart),
-      vocabularyCount: inBucket.filter((item) => item.itemType === "vocabulary").length,
-      grammarCount: inBucket.filter((item) => item.itemType === "grammar").length,
+      vocabularyCount: inBucket.filter((item) => item.itemType === "vocabulary")
+        .length,
+      grammarCount: inBucket.filter((item) => item.itemType === "grammar")
+        .length,
     };
   });
 }
 
 /** `items` must already exclude anything due now or earlier — `dashboard-service.ts` sources this from `getUpcomingReviewForecast`, which enforces that at the query level. */
-export function buildForecastBuckets(now: Date, items: ForecastSourceItem[]): { "24h": ForecastBucket[]; "7d": ForecastBucket[] } {
+export function buildForecastBuckets(
+  now: Date,
+  items: ForecastSourceItem[],
+): { "24h": ForecastBucket[]; "7d": ForecastBucket[] } {
   return {
     "24h": bucketForecast(now, items, 8, 3 * HOUR_MS, hourLabel),
-    "7d": bucketForecast(now, items, 7, DAY_MS, (date) => WEEKDAY_LABELS[date.getDay()]),
+    "7d": bucketForecast(
+      now,
+      items,
+      7,
+      DAY_MS,
+      (date) => WEEKDAY_LABELS[date.getDay()],
+    ),
   };
 }
 
-function bucketReviewHistory(now: Date, timestamps: Date[], bucketCount: number, bucketMs: number, label: (date: Date) => string): ReviewHistoryPoint[] {
+function bucketReviewHistory(
+  now: Date,
+  timestamps: Date[],
+  bucketCount: number,
+  bucketMs: number,
+  label: (date: Date) => string,
+): ReviewHistoryPoint[] {
   return Array.from({ length: bucketCount }, (_, index) => {
     // History looks backward: the *last* bucket (index === bucketCount - 1)
     // is the most recent window, ending at `now` — the mirror image of
     // `bucketForecast`, whose first bucket starts at `now` and looks
     // forward. Getting this backwards would put future-looking ranges in a
     // "history" chart.
-    const bucketEnd = new Date(now.getTime() - (bucketCount - 1 - index) * bucketMs);
+    const bucketEnd = new Date(
+      now.getTime() - (bucketCount - 1 - index) * bucketMs,
+    );
     const bucketStart = new Date(bucketEnd.getTime() - bucketMs);
-    const completedCount = timestamps.filter((timestamp) => timestamp >= bucketStart && timestamp < bucketEnd).length;
-    return { timestamp: bucketStart.toISOString(), label: label(bucketStart), completedCount };
+    const completedCount = timestamps.filter(
+      (timestamp) => timestamp >= bucketStart && timestamp < bucketEnd,
+    ).length;
+    return {
+      timestamp: bucketStart.toISOString(),
+      label: label(bucketStart),
+      completedCount,
+    };
   });
 }
 
 export function buildReviewHistoryBuckets(
   now: Date,
   timestamps: Date[],
-): { "24h": ReviewHistoryPoint[]; "7d": ReviewHistoryPoint[]; "30d": ReviewHistoryPoint[] } {
+): {
+  "24h": ReviewHistoryPoint[];
+  "7d": ReviewHistoryPoint[];
+  "30d": ReviewHistoryPoint[];
+} {
   return {
     "24h": bucketReviewHistory(now, timestamps, 8, 3 * HOUR_MS, hourLabel),
-    "7d": bucketReviewHistory(now, timestamps, 7, DAY_MS, (date) => WEEKDAY_LABELS[date.getDay()]),
-    "30d": bucketReviewHistory(now, timestamps, 10, 3 * DAY_MS, (date) => `${date.getMonth() + 1}/${date.getDate()}`),
+    "7d": bucketReviewHistory(
+      now,
+      timestamps,
+      7,
+      DAY_MS,
+      (date) => WEEKDAY_LABELS[date.getDay()],
+    ),
+    "30d": bucketReviewHistory(
+      now,
+      timestamps,
+      10,
+      3 * DAY_MS,
+      (date) => `${date.getMonth() + 1}/${date.getDate()}`,
+    ),
   };
 }
 
@@ -86,7 +148,9 @@ export function buildReviewHistoryBuckets(
  * invented silently.
  */
 export function buildStreak(now: Date, reviewTimestamps: Date[]): StreakDay[] {
-  const activeDates = new Set(reviewTimestamps.map((timestamp) => timestamp.toISOString().slice(0, 10)));
+  const activeDates = new Set(
+    reviewTimestamps.map((timestamp) => timestamp.toISOString().slice(0, 10)),
+  );
   const dayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1; // 0 = Monday
   const monday = new Date(now.getTime() - dayOfWeek * DAY_MS);
 

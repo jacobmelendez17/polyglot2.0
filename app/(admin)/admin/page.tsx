@@ -18,12 +18,24 @@ export const metadata: Metadata = {
 };
 
 const QUICK_LINKS = [
-  { label: "Curriculum", href: "/admin/curriculum", description: "Browse and manage official curriculum." },
+  {
+    label: "Curriculum",
+    href: "/admin/curriculum",
+    description: "Browse and manage official curriculum.",
+  },
 ] as const;
 
 const SHARED_LINKS = [
-  { label: "Logs", href: "/admin/logs", description: "Review administrative and system activity." },
-  { label: "Sandbox", href: "/admin/sandbox", description: "Test learning behavior in an isolated environment." },
+  {
+    label: "Logs",
+    href: "/admin/logs",
+    description: "Review administrative and system activity.",
+  },
+  {
+    label: "Sandbox",
+    href: "/admin/sandbox",
+    description: "Test learning behavior in an isolated environment.",
+  },
 ] as const;
 
 /**
@@ -40,7 +52,9 @@ export default async function AdminOverviewPage() {
   const user = await requireUser();
   const canManage = canManageCurriculum(user);
   const links = canManage ? [...QUICK_LINKS, ...SHARED_LINKS] : SHARED_LINKS;
-  const counts = canManage ? await getAdminCurriculumStatusCounts(user.activeLanguageId) : null;
+  const counts = canManage
+    ? await getAdminCurriculumStatusCounts(user.activeLanguageId)
+    : null;
 
   return (
     <div>
@@ -56,8 +70,13 @@ export default async function AdminOverviewPage() {
       {counts ? (
         <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {STAT_LABELS.map(({ key, label }) => (
-            <div key={key} className="rounded-xl border border-border bg-card p-4">
-              <p className="text-2xl font-semibold text-foreground">{counts[key]}</p>
+            <div
+              key={key}
+              className="rounded-xl border border-border bg-card p-4"
+            >
+              <p className="text-2xl font-semibold text-foreground">
+                {counts[key]}
+              </p>
               <p className="text-sm text-muted-foreground">{label}</p>
             </div>
           ))}
@@ -72,7 +91,9 @@ export default async function AdminOverviewPage() {
             className="rounded-xl border border-border bg-card p-4 transition-colors hover:bg-muted"
           >
             <p className="font-medium text-foreground">{link.label}</p>
-            <p className="mt-1 text-sm text-muted-foreground">{link.description}</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {link.description}
+            </p>
           </Link>
         ))}
       </div>

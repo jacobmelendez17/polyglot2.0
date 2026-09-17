@@ -17,7 +17,9 @@ import type { PolyglotUser } from "./user-types";
  *   "completed" is simply "not null"; the value itself is never compared
  *   against a version or a date window. Onboarding is shown once.
  */
-export function isOnboardingRequired(user: Pick<PolyglotUser, "isSandbox" | "onboardingCompletedAt">): boolean {
+export function isOnboardingRequired(
+  user: Pick<PolyglotUser, "isSandbox" | "onboardingCompletedAt">,
+): boolean {
   if (user.isSandbox) return false;
   return user.onboardingCompletedAt === null;
 }

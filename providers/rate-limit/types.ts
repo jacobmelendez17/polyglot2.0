@@ -31,7 +31,8 @@ export type RateLimitCheckInput = {
   subject: string;
 };
 
-export type RateLimitDecision = { allowed: true } | { allowed: false; retryAfterSeconds: number };
+export type RateLimitDecision =
+  { allowed: true } | { allowed: false; retryAfterSeconds: number };
 
 export interface RateLimiter {
   check(input: RateLimitCheckInput): Promise<RateLimitDecision>;

@@ -8,11 +8,11 @@ Create a reusable global Polyglot footer that appears at the bottom of all appli
 
 The footer should provide:
 
-* Polyglot branding
-* useful navigation
-* support/resources
-* legal links
-* product/version information
+- Polyglot branding
+- useful navigation
+- support/resources
+- legal links
+- product/version information
 
 The footer should feel like a complete website footer, not simply a copyright bar.
 
@@ -44,9 +44,9 @@ The footer must never cover page content, lesson controls, review controls, dial
 
 Include:
 
-* Polyglot logo/icon
-* **Polyglot**
-* short tagline
+- Polyglot logo/icon
+- **Polyglot**
+- short tagline
 
 Use:
 
@@ -60,11 +60,11 @@ The brand section should be the visually strongest part of the footer without ov
 
 Include useful product navigation such as:
 
-* Levels
-* Decks
-* Reviews
-* Practice — only when the route exists
-* Journey — only when the route exists
+- Levels
+- Decks
+- Reviews
+- Practice — only when the route exists
+- Journey — only when the route exists
 
 Do not link to unfinished routes or intentional 404 pages.
 
@@ -76,9 +76,9 @@ Authenticated destinations may remain accessible only according to their existin
 
 Include:
 
-* About
-* Demo — once the Demo route exists
-* Feedback
+- About
+- Demo — once the Demo route exists
+- Feedback
 
 Additional resource links may be added later when real destinations exist.
 
@@ -90,8 +90,8 @@ Do not add placeholder links.
 
 Include:
 
-* Privacy
-* Terms
+- Privacy
+- Terms
 
 Recommended routes:
 
@@ -162,28 +162,28 @@ Follow the existing Polyglot design system.
 
 Use:
 
-* existing theme colors
-* existing typography
-* existing spacing
-* subtle top border
-* muted secondary text
-* existing link hover/focus treatment
-* existing border radius conventions where appropriate
+- existing theme colors
+- existing typography
+- existing spacing
+- subtle top border
+- muted secondary text
+- existing link hover/focus treatment
+- existing border radius conventions where appropriate
 
 The footer should work in:
 
-* light mode
-* dark mode
-* system mode
+- light mode
+- dark mode
+- system mode
 
 It should visually complement Polyglot's cozy/playful design without becoming another marketing hero section.
 
 Avoid:
 
-* excessive animation
-* large illustrations
-* huge CTA sections
-* unrelated promotional content
+- excessive animation
+- large illustrations
+- huge CTA sections
+- unrelated promotional content
 
 ---
 
@@ -197,9 +197,9 @@ Mobile should stack sections cleanly.
 
 Verify at minimum:
 
-* 390px
-* 768px
-* desktop
+- 390px
+- 768px
+- desktop
 
 There must be no horizontal overflow.
 
@@ -210,18 +210,18 @@ There must be no horizontal overflow.
 Use semantic elements:
 
 ```html
-<footer>
+<footer></footer>
 ```
 
 Footer navigation should use appropriately labeled `<nav>` elements.
 
 Ensure:
 
-* keyboard navigation works
-* focus states are visible
-* links meet contrast requirements
-* link meaning does not depend only on color
-* layout remains usable when text is enlarged
+- keyboard navigation works
+- focus states are visible
+- links meet contrast requirements
+- link meaning does not depend only on color
+- layout remains usable when text is enlarged
 
 ---
 
@@ -245,15 +245,15 @@ For Beta 0.1, unfinished product links should simply be omitted until their feat
 
 Do not add in this spec:
 
-* newsletter signup
-* mailing-list infrastructure
-* social-media integrations
-* community links without real destinations
-* language switching
-* authentication controls
-* account controls
-* payments/subscriptions
-* app-store badges
+- newsletter signup
+- mailing-list infrastructure
+- social-media integrations
+- community links without real destinations
+- language switching
+- authentication controls
+- account controls
+- payments/subscriptions
+- app-store badges
 
 The footer should be easy to extend later without requiring a redesign.
 
@@ -263,34 +263,34 @@ The footer should be easy to extend later without requiring a redesign.
 
 Verify:
 
-* footer renders globally
-* short pages push footer to bottom of viewport
-* long pages place footer after content
-* footer never overlaps content
-* every displayed link resolves successfully
-* authenticated links retain existing auth behavior
-* mobile has no horizontal overflow
-* light/dark/system themes work
-* keyboard navigation works
-* visible focus states work
+- footer renders globally
+- short pages push footer to bottom of viewport
+- long pages place footer after content
+- footer never overlaps content
+- every displayed link resolves successfully
+- authenticated links retain existing auth behavior
+- mobile has no horizontal overflow
+- light/dark/system themes work
+- keyboard navigation works
+- visible focus states work
 
 ---
 
 ## Check When Done
 
-* [ ] Shared Footer component created
-* [ ] Integrated into global application layout
-* [ ] Sticky-to-bottom layout behavior works without `position: fixed`
-* [ ] Polyglot logo/name/tagline included
-* [ ] Product links included where routes exist
-* [ ] About included
-* [ ] Demo included only when available
-* [ ] Feedback included
-* [ ] Privacy included
-* [ ] Terms included
-* [ ] Copyright included
-* [ ] Beta version displayed
-* [ ] No placeholder or dead links
-* [ ] Responsive layout verified
-* [ ] Light and dark mode verified
-* [ ] Accessibility verified
+- [ ] Shared Footer component created
+- [ ] Integrated into global application layout
+- [ ] Sticky-to-bottom layout behavior works without `position: fixed`
+- [ ] Polyglot logo/name/tagline included
+- [ ] Product links included where routes exist
+- [ ] About included
+- [ ] Demo included only when available
+- [ ] Feedback included
+- [ ] Privacy included
+- [ ] Terms included
+- [ ] Copyright included
+- [ ] Beta version displayed
+- [ ] No placeholder or dead links
+- [ ] Responsive layout verified
+- [ ] Light and dark mode verified
+- [ ] Accessibility verified

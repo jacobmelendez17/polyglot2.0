@@ -12,7 +12,12 @@ describe("calculateVacationAdjustedReview", () => {
     const waitStartedAt = new Date("2026-01-05T00:00:00Z"); // started before the vacation
     const nextReviewAt = new Date(vacationStartedAt.getTime() + 3 * DAY_MS); // "3 days away" when vacation starts
 
-    const result = calculateVacationAdjustedReview({ nextReviewAt, waitStartedAt, vacationStartedAt, vacationEndedAt });
+    const result = calculateVacationAdjustedReview({
+      nextReviewAt,
+      waitStartedAt,
+      vacationStartedAt,
+      vacationEndedAt,
+    });
 
     expect(result).toEqual(new Date(vacationEndedAt.getTime() + 3 * DAY_MS));
   });
@@ -23,7 +28,12 @@ describe("calculateVacationAdjustedReview", () => {
     const waitStartedAt = new Date(vacationStartedAt.getTime() + 5 * DAY_MS); // learned 5 days into vacation
     const nextReviewAt = new Date(waitStartedAt.getTime() + 4 * HOUR_MS); // normal 4-hour Beginner 1 interval
 
-    const result = calculateVacationAdjustedReview({ nextReviewAt, waitStartedAt, vacationStartedAt, vacationEndedAt });
+    const result = calculateVacationAdjustedReview({
+      nextReviewAt,
+      waitStartedAt,
+      vacationStartedAt,
+      vacationEndedAt,
+    });
 
     expect(result).toEqual(new Date(vacationEndedAt.getTime() + 4 * HOUR_MS));
   });
@@ -34,7 +44,12 @@ describe("calculateVacationAdjustedReview", () => {
     const waitStartedAt = new Date(vacationStartedAt.getTime() - 5 * DAY_MS);
     const nextReviewAt = new Date(vacationStartedAt.getTime() - 2 * DAY_MS); // already 2 days overdue at vacation start
 
-    const result = calculateVacationAdjustedReview({ nextReviewAt, waitStartedAt, vacationStartedAt, vacationEndedAt });
+    const result = calculateVacationAdjustedReview({
+      nextReviewAt,
+      waitStartedAt,
+      vacationStartedAt,
+      vacationEndedAt,
+    });
 
     expect(result.getTime()).toBeLessThanOrEqual(vacationEndedAt.getTime());
   });
@@ -45,7 +60,12 @@ describe("calculateVacationAdjustedReview", () => {
     const waitStartedAt = new Date(vacationStartedAt.getTime() - 5 * DAY_MS);
     const nextReviewAt = new Date(waitStartedAt.getTime() + 60 * DAY_MS); // a long Master-stage interval
 
-    const result = calculateVacationAdjustedReview({ nextReviewAt, waitStartedAt, vacationStartedAt, vacationEndedAt });
+    const result = calculateVacationAdjustedReview({
+      nextReviewAt,
+      waitStartedAt,
+      vacationStartedAt,
+      vacationEndedAt,
+    });
 
     expect(result).toEqual(new Date(nextReviewAt.getTime() + 10 * DAY_MS));
   });
@@ -56,7 +76,12 @@ describe("calculateVacationAdjustedReview", () => {
     const waitStartedAt = vacationStartedAt;
     const nextReviewAt = new Date(vacationStartedAt.getTime() + 3 * DAY_MS);
 
-    const result = calculateVacationAdjustedReview({ nextReviewAt, waitStartedAt, vacationStartedAt, vacationEndedAt });
+    const result = calculateVacationAdjustedReview({
+      nextReviewAt,
+      waitStartedAt,
+      vacationStartedAt,
+      vacationEndedAt,
+    });
 
     expect(result).toEqual(new Date(vacationEndedAt.getTime() + 3 * DAY_MS));
   });
@@ -67,7 +92,12 @@ describe("calculateVacationAdjustedReview", () => {
     const waitStartedAt = new Date(vacationStartedAt.getTime() - DAY_MS);
     const nextReviewAt = new Date(vacationStartedAt.getTime() + DAY_MS);
 
-    const result = calculateVacationAdjustedReview({ nextReviewAt, waitStartedAt, vacationStartedAt, vacationEndedAt });
+    const result = calculateVacationAdjustedReview({
+      nextReviewAt,
+      waitStartedAt,
+      vacationStartedAt,
+      vacationEndedAt,
+    });
 
     expect(result).toEqual(nextReviewAt);
   });

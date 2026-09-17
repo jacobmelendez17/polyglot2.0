@@ -10,5 +10,8 @@
 
 /** e.g. `Sep 9, 2026`. */
 export function formatAbsoluteDate(date: Date, timeZone: string): string {
-  return new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone }).format(date);
+  return new Intl.DateTimeFormat("en-US", {
+    dateStyle: "medium",
+    timeZone,
+  }).format(date);
 }

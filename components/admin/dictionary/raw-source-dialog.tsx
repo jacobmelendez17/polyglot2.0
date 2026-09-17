@@ -14,7 +14,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-type RawVersion = { id: string; sourceHash: string; createdAt: string; json: string };
+type RawVersion = {
+  id: string;
+  sourceHash: string;
+  createdAt: string;
+  json: string;
+};
 
 /**
  * Spec 12's "View Raw Source" control — admin-only inspection of the
@@ -26,7 +31,13 @@ type RawVersion = { id: string; sourceHash: string; createdAt: string; json: str
  * `<pre>`, never as markup — imported content is untrusted, and upstream
  * HTML must never be rendered.
  */
-export function RawSourceDialog({ entryId, lemma }: { entryId: string; lemma: string }) {
+export function RawSourceDialog({
+  entryId,
+  lemma,
+}: {
+  entryId: string;
+  lemma: string;
+}) {
   const [open, setOpen] = useState(false);
   const [versions, setVersions] = useState<RawVersion[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -58,7 +69,8 @@ export function RawSourceDialog({ entryId, lemma }: { entryId: string; lemma: st
         <DialogHeader>
           <DialogTitle>Raw source for {lemma}</DialogTitle>
           <DialogDescription>
-            The unmodified upstream record, retained for source history and import debugging. Never shown to learners.
+            The unmodified upstream record, retained for source history and
+            import debugging. Never shown to learners.
           </DialogDescription>
         </DialogHeader>
 
@@ -69,13 +81,18 @@ export function RawSourceDialog({ entryId, lemma }: { entryId: string; lemma: st
         ) : isPending || versions === null ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
         ) : versions.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No source versions have been retained for this entry.</p>
+          <p className="text-sm text-muted-foreground">
+            No source versions have been retained for this entry.
+          </p>
         ) : (
           <div className="max-h-96 space-y-3 overflow-y-auto">
             {versions.map((version) => (
               <div key={version.id}>
                 <p className="mb-1 text-xs text-muted-foreground">
-                  {version.createdAt} · <span className="font-mono">{version.sourceHash.slice(0, 12)}</span>
+                  {version.createdAt} ·{" "}
+                  <span className="font-mono">
+                    {version.sourceHash.slice(0, 12)}
+                  </span>
                 </p>
                 <pre className="overflow-x-auto rounded-md bg-muted p-3 text-xs whitespace-pre-wrap break-all text-foreground">
                   {version.json}

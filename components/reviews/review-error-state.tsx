@@ -23,9 +23,13 @@ export function ReviewErrorState({ error }: ReviewErrorStateProps) {
   return (
     <div className="mx-auto flex min-h-svh max-w-md flex-col items-center justify-center gap-3 px-4 text-center">
       <AlertCircle className="h-8 w-8 text-destructive" aria-hidden="true" />
-      <h1 className="font-heading text-xl font-semibold text-foreground">We couldn&apos;t save this review</h1>
+      <h1 className="font-heading text-xl font-semibold text-foreground">
+        We couldn&apos;t save this review
+      </h1>
       <p className="text-sm text-muted-foreground">{error.message}</p>
-      <p className="text-xs text-muted-foreground">Your SRS progress was not changed.</p>
+      <p className="text-xs text-muted-foreground">
+        Your SRS progress was not changed.
+      </p>
       <div className="mt-2 flex gap-2">
         {isRecoverable ? (
           <Button onClick={() => window.location.reload()}>Try again</Button>

@@ -8,13 +8,19 @@ import type { PolyglotUser, UserRole } from "./user-types";
  * object with a `role` field (not just `PolyglotUser`) so it composes with
  * whatever shape a caller already has in hand.
  */
-export function hasRole(user: Pick<PolyglotUser, "role">, allowed: UserRole | UserRole[]): boolean {
+export function hasRole(
+  user: Pick<PolyglotUser, "role">,
+  allowed: UserRole | UserRole[],
+): boolean {
   const roles = Array.isArray(allowed) ? allowed : [allowed];
   return roles.includes(user.role);
 }
 
 /** Throws `FORBIDDEN` unless `user` has one of `allowed`; otherwise returns `user` unchanged, for chaining. */
-export function requireRole<T extends Pick<PolyglotUser, "role">>(user: T, allowed: UserRole | UserRole[]): T {
+export function requireRole<T extends Pick<PolyglotUser, "role">>(
+  user: T,
+  allowed: UserRole | UserRole[],
+): T {
   if (!hasRole(user, allowed)) {
     throw new AppError("FORBIDDEN");
   }

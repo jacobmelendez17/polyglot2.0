@@ -22,7 +22,11 @@ export function RangeToggle<T extends string>({
   layoutId,
 }: RangeToggleProps<T>) {
   return (
-    <div role="group" aria-label={label} className="inline-flex items-center gap-1 rounded-lg bg-muted p-1">
+    <div
+      role="group"
+      aria-label={label}
+      className="inline-flex items-center gap-1 rounded-lg bg-muted p-1"
+    >
       {options.map((option) => {
         const isActive = option.value === value;
         return (
@@ -33,7 +37,9 @@ export function RangeToggle<T extends string>({
             onClick={() => onChange(option.value)}
             className={cn(
               "relative rounded-md px-3 py-1 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-              isActive ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+              isActive
+                ? "text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground",
             )}
           >
             {isActive ? (

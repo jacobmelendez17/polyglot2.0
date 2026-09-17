@@ -1,5 +1,16 @@
 import { sql } from "drizzle-orm";
-import { boolean, index, integer, jsonb, pgEnum, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  index,
+  integer,
+  jsonb,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+  unique,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 import { timestamps } from "./columns";
 import { learningItemTypeEnum, learningItems } from "./curriculum";
@@ -38,13 +49,10 @@ export const curriculumImportStatusEnum = pgEnum("curriculum_import_status", [
  * "BLOCKED / NEEDS REVIEW" bucket); either way it needs an explicit admin
  * disposition before the import can be confirmed (spec 19 §9).
  */
-export const curriculumImportRowClassificationEnum = pgEnum("curriculum_import_row_classification", [
-  "create",
-  "update",
-  "move",
-  "unchanged",
-  "blocked",
-]);
+export const curriculumImportRowClassificationEnum = pgEnum(
+  "curriculum_import_row_classification",
+  ["create", "update", "move", "unchanged", "blocked"],
+);
 
 /**
  * Version 1's only resolution for a blocked/needs-review row (spec 19 §9).
@@ -52,7 +60,10 @@ export const curriculumImportRowClassificationEnum = pgEnum("curriculum_import_r
  * disposition (e.g. an explicit homonym approval) is an enum value, not a
  * schema change.
  */
-export const curriculumImportRowDispositionEnum = pgEnum("curriculum_import_row_disposition", ["skip"]);
+export const curriculumImportRowDispositionEnum = pgEnum(
+  "curriculum_import_row_disposition",
+  ["skip"],
+);
 
 /**
  * Spec 19 §20. `environment` records the `APP_ENV` the import ran under —
@@ -110,13 +121,17 @@ export const curriculumImports = pgTable(
 
     uploadedAt: timestamp("uploaded_at", { withTimezone: true }),
     previewStartedAt: timestamp("preview_started_at", { withTimezone: true }),
-    previewCompletedAt: timestamp("preview_completed_at", { withTimezone: true }),
+    previewCompletedAt: timestamp("preview_completed_at", {
+      withTimezone: true,
+    }),
     confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
     importStartedAt: timestamp("import_started_at", { withTimezone: true }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
 
     archivedAt: timestamp("archived_at", { withTimezone: true }),
-    archivedByUserId: uuid("archived_by_user_id").references(() => users.id, { onDelete: "restrict" }),
+    archivedByUserId: uuid("archived_by_user_id").references(() => users.id, {
+      onDelete: "restrict",
+    }),
 
     ...timestamps(),
   },
@@ -156,10 +171,16 @@ export const curriculumImportRows = pgTable(
     levelNumber: integer("level_number"),
     groupNumber: integer("group_number"),
 
-    classification: curriculumImportRowClassificationEnum("classification").notNull(),
-    previousClassification: curriculumImportRowClassificationEnum("previous_classification"),
+    classification:
+      curriculumImportRowClassificationEnum("classification").notNull(),
+    previousClassification: curriculumImportRowClassificationEnum(
+      "previous_classification",
+    ),
 
-    resolvedLearningItemId: uuid("resolved_learning_item_id").references(() => learningItems.id, { onDelete: "set null" }),
+    resolvedLearningItemId: uuid("resolved_learning_item_id").references(
+      () => learningItems.id,
+      { onDelete: "set null" },
+    ),
 
     // The ImportFieldChange[] shape (`{ field, from, to }`) from
     // `bulk-import-service.ts` — enough for a review screen to show what
@@ -171,7 +192,9 @@ export const curriculumImportRows = pgTable(
 
     adminDisposition: curriculumImportRowDispositionEnum("admin_disposition"),
 
-    changedSincePreview: boolean("changed_since_preview").notNull().default(false),
+    changedSincePreview: boolean("changed_since_preview")
+      .notNull()
+      .default(false),
 
     ...timestamps(),
   },

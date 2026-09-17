@@ -15,7 +15,9 @@ function resolveInitialVisibility(): boolean {
     typeof window.matchMedia === "function" &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  return prefersReducedMotion || typeof window.IntersectionObserver === "undefined";
+  return (
+    prefersReducedMotion || typeof window.IntersectionObserver === "undefined"
+  );
 }
 
 export function Reveal({
@@ -43,7 +45,7 @@ export function Reveal({
           observer.unobserve(node);
         }
       },
-      { threshold: 0.15 }
+      { threshold: 0.15 },
     );
 
     observer.observe(node);
@@ -57,7 +59,7 @@ export function Reveal({
       className={cn(
         "transition-[opacity,transform] duration-[var(--dur-slow)] ease-[var(--ease-out)]",
         isVisible ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0",
-        className
+        className,
       )}
     >
       {children}

@@ -15,7 +15,9 @@ export function NameField({ initialName }: NameFieldProps) {
       initialValue={initialName}
       onSave={async (displayName) => {
         const result = await updateNameAction({ displayName });
-        return result.ok ? { ok: true, value: result.data.displayName } : { ok: false, message: result.error.message };
+        return result.ok
+          ? { ok: true, value: result.data.displayName }
+          : { ok: false, message: result.error.message };
       }}
     />
   );

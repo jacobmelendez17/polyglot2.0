@@ -9,7 +9,10 @@ describe("InMemoryRateLimiter", () => {
     const limit = RATE_LIMIT_POLICIES["lesson-complete"].maxRequests;
 
     for (let i = 0; i < limit; i++) {
-      const result = await limiter.check({ policy: "lesson-complete", subject: "user-1" });
+      const result = await limiter.check({
+        policy: "lesson-complete",
+        subject: "user-1",
+      });
       expect(result.allowed).toBe(true);
     }
   });
@@ -22,7 +25,10 @@ describe("InMemoryRateLimiter", () => {
       await limiter.check({ policy: "lesson-complete", subject: "user-2" });
     }
 
-    const result = await limiter.check({ policy: "lesson-complete", subject: "user-2" });
+    const result = await limiter.check({
+      policy: "lesson-complete",
+      subject: "user-2",
+    });
     expect(result.allowed).toBe(false);
     if (!result.allowed) {
       expect(result.retryAfterSeconds).toBeGreaterThan(0);
@@ -32,17 +38,24 @@ describe("InMemoryRateLimiter", () => {
   it("resets the window after it elapses", async () => {
     const limiter = new InMemoryRateLimiter({ appEnv: "test" });
     const limit = RATE_LIMIT_POLICIES["lesson-complete"].maxRequests;
-    const windowMs = RATE_LIMIT_POLICIES["lesson-complete"].windowSeconds * 1000;
+    const windowMs =
+      RATE_LIMIT_POLICIES["lesson-complete"].windowSeconds * 1000;
 
     for (let i = 0; i < limit; i++) {
       await limiter.check({ policy: "lesson-complete", subject: "user-3" });
     }
-    expect((await limiter.check({ policy: "lesson-complete", subject: "user-3" })).allowed).toBe(false);
+    expect(
+      (await limiter.check({ policy: "lesson-complete", subject: "user-3" }))
+        .allowed,
+    ).toBe(false);
 
     const realNow = Date.now;
     Date.now = () => realNow() + windowMs + 1;
     try {
-      expect((await limiter.check({ policy: "lesson-complete", subject: "user-3" })).allowed).toBe(true);
+      expect(
+        (await limiter.check({ policy: "lesson-complete", subject: "user-3" }))
+          .allowed,
+      ).toBe(true);
     } finally {
       Date.now = realNow;
     }
@@ -56,8 +69,14 @@ describe("InMemoryRateLimiter", () => {
     for (let i = 0; i < limit; i++) {
       await preview.check({ policy: "lesson-complete", subject: "user-4" });
     }
-    expect((await preview.check({ policy: "lesson-complete", subject: "user-4" })).allowed).toBe(false);
-    expect((await production.check({ policy: "lesson-complete", subject: "user-4" })).allowed).toBe(true);
+    expect(
+      (await preview.check({ policy: "lesson-complete", subject: "user-4" }))
+        .allowed,
+    ).toBe(false);
+    expect(
+      (await production.check({ policy: "lesson-complete", subject: "user-4" }))
+        .allowed,
+    ).toBe(true);
   });
 
   it("identifies subjects independently — one user's usage never affects another's", async () => {
@@ -67,15 +86,27 @@ describe("InMemoryRateLimiter", () => {
     for (let i = 0; i < limit; i++) {
       await limiter.check({ policy: "lesson-complete", subject: "user-5" });
     }
-    expect((await limiter.check({ policy: "lesson-complete", subject: "user-5" })).allowed).toBe(false);
-    expect((await limiter.check({ policy: "lesson-complete", subject: "user-6" })).allowed).toBe(true);
+    expect(
+      (await limiter.check({ policy: "lesson-complete", subject: "user-5" }))
+        .allowed,
+    ).toBe(false);
+    expect(
+      (await limiter.check({ policy: "lesson-complete", subject: "user-6" }))
+        .allowed,
+    ).toBe(true);
   });
 
   it("a store failure denies a fail-closed policy", async () => {
     expect(RATE_LIMIT_POLICIES["lesson-complete"].failOpen).toBe(false);
-    const limiter = new InMemoryRateLimiter({ appEnv: "test", simulateFailure: () => true });
+    const limiter = new InMemoryRateLimiter({
+      appEnv: "test",
+      simulateFailure: () => true,
+    });
 
-    const result = await limiter.check({ policy: "lesson-complete", subject: "user-7" });
+    const result = await limiter.check({
+      policy: "lesson-complete",
+      subject: "user-7",
+    });
     expect(result.allowed).toBe(false);
   });
 
@@ -88,23 +119,62 @@ describe("InMemoryRateLimiter", () => {
       appEnv: "test",
       simulateFailure: () => true,
       policies: {
-        "lesson-complete": { windowSeconds: 60, maxRequests: 5, failOpen: true },
+        "lesson-complete": {
+          windowSeconds: 60,
+          maxRequests: 5,
+          failOpen: true,
+        },
         "review-submit": { windowSeconds: 60, maxRequests: 5, failOpen: true },
         "admin-mutation": { windowSeconds: 60, maxRequests: 5, failOpen: true },
         "admin-publish": { windowSeconds: 60, maxRequests: 5, failOpen: true },
-        "sandbox-mutation": { windowSeconds: 60, maxRequests: 5, failOpen: true },
+        "sandbox-mutation": {
+          windowSeconds: 60,
+          maxRequests: 5,
+          failOpen: true,
+        },
         "deck-mutation": { windowSeconds: 60, maxRequests: 5, failOpen: true },
-        "deck-practice-answer": { windowSeconds: 60, maxRequests: 5, failOpen: true },
-        "onboarding-complete": { windowSeconds: 60, maxRequests: 5, failOpen: true },
-        "curriculum-preference": { windowSeconds: 60, maxRequests: 5, failOpen: true },
-        "account-settings": { windowSeconds: 60, maxRequests: 5, failOpen: true },
-        "username-change": { windowSeconds: 60, maxRequests: 5, failOpen: true },
-        "danger-zone-reset": { windowSeconds: 60, maxRequests: 5, failOpen: true },
-        "danger-zone-account-reset": { windowSeconds: 60, maxRequests: 5, failOpen: true },
+        "deck-practice-answer": {
+          windowSeconds: 60,
+          maxRequests: 5,
+          failOpen: true,
+        },
+        "onboarding-complete": {
+          windowSeconds: 60,
+          maxRequests: 5,
+          failOpen: true,
+        },
+        "curriculum-preference": {
+          windowSeconds: 60,
+          maxRequests: 5,
+          failOpen: true,
+        },
+        "account-settings": {
+          windowSeconds: 60,
+          maxRequests: 5,
+          failOpen: true,
+        },
+        "username-change": {
+          windowSeconds: 60,
+          maxRequests: 5,
+          failOpen: true,
+        },
+        "danger-zone-reset": {
+          windowSeconds: 60,
+          maxRequests: 5,
+          failOpen: true,
+        },
+        "danger-zone-account-reset": {
+          windowSeconds: 60,
+          maxRequests: 5,
+          failOpen: true,
+        },
       },
     });
 
-    const result = await limiter.check({ policy: "lesson-complete", subject: "user-8" });
+    const result = await limiter.check({
+      policy: "lesson-complete",
+      subject: "user-8",
+    });
     expect(result.allowed).toBe(true);
   });
 });

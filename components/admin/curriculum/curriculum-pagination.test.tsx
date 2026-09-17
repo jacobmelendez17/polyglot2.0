@@ -5,7 +5,9 @@ import { CurriculumPagination } from "./curriculum-pagination";
 
 describe("CurriculumPagination", () => {
   it("renders a Next page link when there is a next page", () => {
-    render(<CurriculumPagination nextHref="/admin/curriculum?language=lang-1&cursor=abc" />);
+    render(
+      <CurriculumPagination nextHref="/admin/curriculum?language=lang-1&cursor=abc" />,
+    );
     expect(screen.getByRole("link", { name: "Next page" })).toHaveAttribute(
       "href",
       "/admin/curriculum?language=lang-1&cursor=abc",

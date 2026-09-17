@@ -5,7 +5,11 @@ import type { DbClient } from "@/db/client";
 
 import type { LexicalSourceDefinition } from "../lexical-source-registry";
 
-import { parseHunspellDictionary, parseHunspellEncoding, toBufferEncoding } from "./hunspell-adapter";
+import {
+  parseHunspellDictionary,
+  parseHunspellEncoding,
+  toBufferEncoding,
+} from "./hunspell-adapter";
 import {
   buildImportScopeKey,
   createLexicalImport,
@@ -72,14 +76,20 @@ export async function runRegionalImport(
 
   const dicBuffer = readFileSync(dicPath);
   if (dicBuffer.byteLength > MAX_DIC_BYTES) {
-    throw new Error(`Regional word list exceeds the maximum permitted size (${dicBuffer.byteLength} bytes).`);
+    throw new Error(
+      `Regional word list exceeds the maximum permitted size (${dicBuffer.byteLength} bytes).`,
+    );
   }
 
   const sourceId = await upsertLexicalSource(db, input.sourceDefinition);
   const fileChecksum = hashBytes(dicBuffer);
 
   const scopeKey = buildImportScopeKey("full_language");
-  const alreadyCompleted = await findCompletedImport(db, { sourceId, fileChecksum, scopeKey });
+  const alreadyCompleted = await findCompletedImport(db, {
+    sourceId,
+    fileChecksum,
+    scopeKey,
+  });
   if (alreadyCompleted) {
     return {
       importId: alreadyCompleted.id,
@@ -109,13 +119,19 @@ export async function runRegionalImport(
 
   try {
     await db.transaction(async (tx) => {
-      for (let offset = 0; offset < entries.length; offset += LEXEME_BATCH_SIZE) {
-        const slice = entries.slice(offset, offset + LEXEME_BATCH_SIZE).map((entry) => ({
-          regionCode: input.regionCode,
-          word: entry.word,
-          normalizedWord: entry.normalizedWord,
-          affixFlags: entry.affixFlags,
-        }));
+      for (
+        let offset = 0;
+        offset < entries.length;
+        offset += LEXEME_BATCH_SIZE
+      ) {
+        const slice = entries
+          .slice(offset, offset + LEXEME_BATCH_SIZE)
+          .map((entry) => ({
+            regionCode: input.regionCode,
+            word: entry.word,
+            normalizedWord: entry.normalizedWord,
+            affixFlags: entry.affixFlags,
+          }));
         retained += await persistRegionalLexemeBatch(tx, {
           sourceId,
           importId: lexicalImport.id,
@@ -133,7 +149,10 @@ export async function runRegionalImport(
   } catch (error) {
     await updateLexicalImport(db, lexicalImport.id, {
       status: "failed",
-      failureReason: error instanceof Error ? error.message.slice(0, 500) : "Unknown regional import failure",
+      failureReason:
+        error instanceof Error
+          ? error.message.slice(0, 500)
+          : "Unknown regional import failure",
       recordsScanned: entries.length,
     });
     throw error;

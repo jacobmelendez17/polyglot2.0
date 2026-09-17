@@ -37,7 +37,9 @@ export function DeckItemList({ items }: DeckItemListProps) {
             )}
           >
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-medium text-foreground">{item.primary}</span>
+              <span className="block truncate text-sm font-medium text-foreground">
+                {item.primary}
+              </span>
               <span className="block truncate text-xs text-muted-foreground">
                 {item.secondary} · {TYPE_LABEL[item.itemType]}
               </span>

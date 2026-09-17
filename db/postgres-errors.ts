@@ -20,9 +20,16 @@ export function isUniqueViolation(error: unknown): boolean {
 }
 
 function getCause(error: unknown): unknown {
-  return typeof error === "object" && error !== null && "cause" in error ? (error as { cause: unknown }).cause : undefined;
+  return typeof error === "object" && error !== null && "cause" in error
+    ? (error as { cause: unknown }).cause
+    : undefined;
 }
 
 function hasSqlState(error: unknown, sqlState: string): boolean {
-  return typeof error === "object" && error !== null && "code" in error && (error as { code: unknown }).code === sqlState;
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code: unknown }).code === sqlState
+  );
 }

@@ -1,18 +1,22 @@
 name: CI
 
-# Spec 08 unit 8 (§46's CI Scope) — this covers only what a database
-# foundation needs: fast checks with no database, plus real integration
-# tests against an ephemeral Neon branch. It intentionally does NOT include
-# e2e (Playwright), dependency/security scanning, or deployment — those are
-# separate workflows (`e2e.yml`, `security.yml`) architecture.md reserves,
-# out of scope for this spec.
+# Spec 08 unit 8 (§46's CI Scope) originally covered only a database
+# foundation's fast checks plus real integration tests against an ephemeral
+# Neon branch, all inside one combined job. Spec 23 splits that job into one
+# job per required-status-check category (architecture.md's "unique, stable
+# job names" requirement) so each can be required independently in branch
+# protection, and adds the Formatting category `code-standards.md` always
+# documented but this repo never actually enforced (see progress-tracker.md's
+# spec 23 entry for why — a one-time repo-wide reformat shipped alongside
+# this workflow change). `e2e.yml` (Critical E2E) and `security.yml`
+# (Dependency / Security Gate) remain separate workflows, same as before.
 #
 # UNVERIFIED: written and reviewable, but never run for real — it needs
 # repository secrets (NEON_API_KEY, CI_CLERK_PUBLISHABLE_KEY,
 # CI_CLERK_SECRET_KEY, CI_LESSON_STATE_SECRET) and variables
 # (NEON_PROJECT_ID, NEON_TEST_PARENT_BRANCH — a non-production branch to
 # fork ephemeral test branches from) that only the project owner can add.
-# See progress-tracker.md's spec 08 unit 8 entry for the full list and why.
+# See progress-tracker.md's spec 23 entry for the full list and why.
 
 on:
   pull_request:
@@ -30,8 +34,8 @@ env:
   NODE_VERSION: "22"
 
 jobs:
-  verify:
-    name: Typecheck, lint, unit tests, build
+  typecheck:
+    name: TypeScript
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -44,33 +48,48 @@ jobs:
       # progress-tracker.md's Environment Notes); npm ci needs it too.
       - run: npm ci --legacy-peer-deps
       - run: npx tsc --noEmit
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --legacy-peer-deps
       - run: npx eslint .
+
+  format:
+    name: Formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --legacy-peer-deps
+      - run: npm run format:check
+
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --legacy-peer-deps
       # Fast, database-free suite only (vitest.config.mts excludes
       # *.integration.test.ts) — real database coverage is the
-      # `db-integration` job below.
+      # `integration-tests` job below.
       - run: npm run test
-      - name: Build
-        run: npm run build
-        env:
-          # `next build` never queries the database (every DB-backed route
-          # is server-rendered on demand, not statically generated — see
-          # progress-tracker.md), so DATABASE_URL only needs to satisfy
-          # lib/env.ts's non-empty check, not actually be reachable. The
-          # Clerk/lesson-state values below are genuine secrets and must be
-          # configured for real (a development Clerk instance's keys are
-          # fine here — never the production instance).
-          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.CI_CLERK_PUBLISHABLE_KEY }}
-          CLERK_SECRET_KEY: ${{ secrets.CI_CLERK_SECRET_KEY }}
-          NEXT_PUBLIC_CLERK_SIGN_IN_URL: /sign-in
-          NEXT_PUBLIC_CLERK_SIGN_UP_URL: /sign-up
-          NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL: /dashboard
-          NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL: /dashboard
-          LESSON_STATE_SECRET: ${{ secrets.CI_LESSON_STATE_SECRET }}
-          APP_ENV: preview
-          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_placeholder
 
-  db-integration:
-    name: Database integration tests
+  integration-tests:
+    name: Integration Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -141,3 +160,38 @@ jobs:
           api_key: ${{ secrets.NEON_API_KEY }}
           project_id: ${{ vars.NEON_PROJECT_ID }}
           branch: ${{ steps.neon-branch.outputs.branch_id }}
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    # architecture.md's CI/CD Pipeline Stages: build runs after verify and
+    # test succeed, not concurrently with them — this also avoids spending a
+    # runner on a build whose typecheck/lint/format/tests are already known
+    # to fail.
+    needs: [typecheck, lint, format, unit-tests, integration-tests]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --legacy-peer-deps
+      - name: Build
+        run: npm run build
+        env:
+          # `next build` never queries the database (every DB-backed route
+          # is server-rendered on demand, not statically generated — see
+          # progress-tracker.md), so DATABASE_URL only needs to satisfy
+          # lib/env.ts's non-empty check, not actually be reachable. The
+          # Clerk/lesson-state values below are genuine secrets and must be
+          # configured for real (a development Clerk instance's keys are
+          # fine here — never the production instance).
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.CI_CLERK_PUBLISHABLE_KEY }}
+          CLERK_SECRET_KEY: ${{ secrets.CI_CLERK_SECRET_KEY }}
+          NEXT_PUBLIC_CLERK_SIGN_IN_URL: /sign-in
+          NEXT_PUBLIC_CLERK_SIGN_UP_URL: /sign-up
+          NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL: /dashboard
+          NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL: /dashboard
+          LESSON_STATE_SECRET: ${{ secrets.CI_LESSON_STATE_SECRET }}
+          APP_ENV: preview
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_placeholder

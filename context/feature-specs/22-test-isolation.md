@@ -13,16 +13,16 @@ This spec has two primary goals:
 
 When complete:
 
-* integration tests cannot mutate normal development data
-* E2E tests cannot mutate normal development or production data
-* integration and E2E tests do not share a database
-* tests start from known deterministic state
-* tests do not depend on execution order
-* all known integration-test failures are resolved
-* critical workflows are verified through a real browser
-* Playwright becomes a normal project dependency rather than ad hoc verification tooling
-* failures produce useful diagnostics
-* the suite is ready to be connected to Vercel preview deployments and GitHub required checks in the following CI/CD spec
+- integration tests cannot mutate normal development data
+- E2E tests cannot mutate normal development or production data
+- integration and E2E tests do not share a database
+- tests start from known deterministic state
+- tests do not depend on execution order
+- all known integration-test failures are resolved
+- critical workflows are verified through a real browser
+- Playwright becomes a normal project dependency rather than ad hoc verification tooling
+- failures produce useful diagnostics
+- the suite is ready to be connected to Vercel preview deployments and GitHub required checks in the following CI/CD spec
 
 This spec does not configure the final production deployment pipeline.
 
@@ -109,11 +109,11 @@ Before any integration migration, seed, cleanup, or test runs, validate the data
 
 The test harness must verify:
 
-* `TEST_DATABASE_URL` exists
-* `TEST_DATABASE_URL` differs from `DATABASE_URL`
-* the environment is not production
-* the target is explicitly intended for testing
-* no production database configuration is being used
+- `TEST_DATABASE_URL` exists
+- `TEST_DATABASE_URL` differs from `DATABASE_URL`
+- the environment is not production
+- the target is explicitly intended for testing
+- no production database configuration is being used
 
 If safety cannot be established:
 
@@ -143,10 +143,10 @@ Integration tests continue using real PostgreSQL/Neon semantics.
 
 Do not replace PostgreSQL with:
 
-* SQLite
-* mocked repositories
-* in-memory database substitutes
-* fake SQL implementations
+- SQLite
+- mocked repositories
+- in-memory database substitutes
+- fake SQL implementations
 
 ---
 
@@ -158,14 +158,14 @@ Each test must own the data it requires.
 
 Tests must not depend on:
 
-* another test running first
-* existing development users
-* existing development curriculum
-* current authored Level 1 size
-* leftover progress
-* accumulated audit records
-* accumulated idempotency keys
-* manually-created application data
+- another test running first
+- existing development users
+- existing development curriculum
+- current authored Level 1 size
+- leftover progress
+- accumulated audit records
+- accumulated idempotency keys
+- manually-created application data
 
 Shared mutable fixture state is prohibited.
 
@@ -175,17 +175,17 @@ Shared mutable fixture state is prohibited.
 
 Some tests legitimately require committed database state, including:
 
-* real concurrency tests
-* multi-connection behavior
-* idempotency lock behavior
-* functionality impossible to verify inside one rollback transaction
+- real concurrency tests
+- multi-connection behavior
+- idempotency lock behavior
+- functionality impossible to verify inside one rollback transaction
 
 These tests must:
 
-* create uniquely identifiable records
-* avoid existing application data
-* clean up committed data after themselves
-* remain repeatable
+- create uniquely identifiable records
+- avoid existing application data
+- clean up committed data after themselves
+- remain repeatable
 
 A failed test cleanup must not silently contaminate future tests.
 
@@ -203,11 +203,11 @@ Remove assumptions about real application state.
 
 Tests asking broad questions such as:
 
-* list all curriculum items
-* count curriculum statuses
-* paginate an entire language
-* query all audit events
-* count all idempotency rows
+- list all curriculum items
+- count curriculum statuses
+- paginate an entire language
+- query all audit events
+- count all idempotency rows
 
 must create isolated fixture data rather than asserting against whatever happens to exist in development.
 
@@ -221,11 +221,11 @@ Resolve all currently known integration-test failures.
 
 Do not:
 
-* declare existing failures acceptable
-* permanently skip failing tests
-* loosen correct assertions solely to make the suite green
-* add retries to deterministic integration tests
-* delete meaningful tests to reduce failures
+- declare existing failures acceptable
+- permanently skip failing tests
+- loosen correct assertions solely to make the suite green
+- add retries to deterministic integration tests
+- delete meaningful tests to reduce failures
 
 If a failing test exposes a real product bug:
 
@@ -246,27 +246,27 @@ Create or consolidate reusable factory helpers where appropriate.
 
 Factories may cover:
 
-* users
-* languages
-* levels
-* vocabulary groups
-* learning items
-* vocabulary items
-* grammar items
-* sentences
-* learner progress
-* level progress
-* review state
-* settings
-* admin curriculum state
-* audit state where necessary
+- users
+- languages
+- levels
+- vocabulary groups
+- learning items
+- vocabulary items
+- grammar items
+- sentences
+- learner progress
+- level progress
+- review state
+- settings
+- admin curriculum state
+- audit state where necessary
 
 Factories should:
 
-* expose sensible defaults
-* accept explicit overrides
-* generate unique identifiers where needed
-* avoid shared mutable objects
+- expose sensible defaults
+- accept explicit overrides
+- generate unique identifiers where needed
+- avoid shared mutable objects
 
 Do not create one enormous universal fixture.
 
@@ -282,14 +282,14 @@ Do not wait for actual SRS intervals.
 
 Use fixed or injected timestamps for:
 
-* review eligibility
-* next-review scheduling
-* streak calculations
-* vacation periods
-* review forecasts
-* deletion timing
-* start-of-day logic
-* other time-sensitive domain behavior
+- review eligibility
+- next-review scheduling
+- streak calculations
+- vacation periods
+- review forecasts
+- deletion timing
+- start-of-day logic
+- other time-sensitive domain behavior
 
 Browser time remains non-authoritative.
 
@@ -396,15 +396,15 @@ Language: es-MX
 
 Include enough content to exercise:
 
-* onboarding
-* lesson selection
-* vocabulary
-* grammar
-* lesson quiz
-* SRS enrollment
-* reviews
-* curriculum publication
-* dashboard counts
+- onboarding
+- lesson selection
+- vocabulary
+- grammar
+- lesson quiz
+- SRS enrollment
+- reviews
+- curriculum publication
+- dashboard counts
 
 Example structure:
 
@@ -459,11 +459,11 @@ solely for Playwright.
 
 Test setup should use:
 
-* setup scripts
-* factories
-* test database helpers
-* domain/application helpers where appropriate
-* Playwright global setup
+- setup scripts
+- factories
+- test database helpers
+- domain/application helpers where appropriate
+- Playwright global setup
 
 Do not introduce production backdoors for testing convenience.
 
@@ -561,11 +561,11 @@ These files must be gitignored.
 
 Never commit:
 
-* cookies
-* Clerk session tokens
-* passwords
-* auth-state JSON
-* Clerk secret keys
+- cookies
+- Clerk session tokens
+- passwords
+- auth-state JSON
+- Clerk secret keys
 
 ---
 
@@ -597,10 +597,10 @@ Using the stored learner authentication state:
 
 Verify the learner can access:
 
-* dashboard
-* lessons
-* reviews
-* settings
+- dashboard
+- lessons
+- reviews
+- settings
 
 according to their prepared state.
 
@@ -652,14 +652,14 @@ They do not duplicate every lower-level test.
 
 Do not use Playwright to exhaustively verify:
 
-* every SRS calculation
-* every normalization rule
-* every validation rule
-* every authorization permutation
-* every lesson ordering algorithm
-* every database constraint
-* every idempotency edge case
-* every rate-limit condition
+- every SRS calculation
+- every normalization rule
+- every validation rule
+- every authorization permutation
+- every lesson ordering algorithm
+- every database constraint
+- every idempotency edge case
+- every rate-limit condition
 
 These belong primarily to unit and integration tests.
 
@@ -671,10 +671,10 @@ Critical E2E coverage should stay small, valuable, and understandable.
 
 Prepare:
 
-* authenticated E2E learner
-* onboarding incomplete
-* no learner progress
-* deterministic E2E Spanish curriculum
+- authenticated E2E learner
+- onboarding incomplete
+- no learner progress
+- deterministic E2E Spanish curriculum
 
 Verify:
 
@@ -688,12 +688,12 @@ Authenticated learner
 
 Confirm:
 
-* onboarding completes
-* `es-MX` becomes active
-* curriculum preference saves
-* learner reaches dashboard
-* dashboard loads successfully
-* lessons are available according to the seeded test curriculum
+- onboarding completes
+- `es-MX` becomes active
+- curriculum preference saves
+- learner reaches dashboard
+- dashboard loads successfully
+- lessons are available according to the seeded test curriculum
 
 This test does not automate Clerk signup.
 
@@ -703,9 +703,9 @@ This test does not automate Clerk signup.
 
 Prepare:
 
-* onboarded learner
-* published eligible E2E curriculum
-* no progress for selected lesson items
+- onboarded learner
+- published eligible E2E curriculum
+- no progress for selected lesson items
 
 Flow:
 
@@ -723,14 +723,14 @@ Dashboard
 
 Verify:
 
-* lesson starts
-* study content renders
-* quiz loads
-* deliberately incorrect content returns according to lesson behavior
-* entire lesson completes successfully
-* lesson items enter SRS only after completion
-* learner returns successfully to dashboard
-* visible learner state reflects completed learning
+- lesson starts
+- study content renders
+- quiz loads
+- deliberately incorrect content returns according to lesson behavior
+- entire lesson completes successfully
+- lesson items enter SRS only after completion
+- learner returns successfully to dashboard
+- visible learner state reflects completed learning
 
 Also verify the important unfinished-session rule:
 
@@ -750,8 +750,8 @@ Do not use E2E to validate every lesson selection permutation.
 
 Prepare through E2E setup:
 
-* learner with SRS-enrolled items
-* at least one item already due
+- learner with SRS-enrolled items
+- at least one item already due
 
 Do not wait for real SRS time to pass.
 
@@ -768,12 +768,12 @@ Dashboard
 
 Verify:
 
-* dashboard shows reviews due
-* due item appears
-* review can be submitted
-* completed item no longer appears as due when appropriate
-* progress is persisted
-* dashboard data updates
+- dashboard shows reviews due
+- due item appears
+- review can be submitted
+- completed item no longer appears as due when appropriate
+- progress is persisted
+- dashboard data updates
 
 Use a correct review path for the principal E2E journey.
 
@@ -841,9 +841,9 @@ Once the Spec 20 Reset Entire Account functionality is complete:
 
 Prepare the E2E learner with:
 
-* lesson progress
-* review progress
-* representative settings/state
+- lesson progress
+- review progress
+- representative settings/state
 
 Flow:
 
@@ -880,9 +880,9 @@ Settings
 
 Verify:
 
-* pending state appears correctly
-* scheduled deletion can be cancelled
-* cancellation restores the account state defined by the Settings spec
+- pending state appears correctly
+- scheduled deletion can be cancelled
+- cancellation restores the account state defined by the Settings spec
 
 Do not wait seven days.
 
@@ -905,11 +905,11 @@ deletion requested
 
 Test:
 
-* not-yet-due deletion is ignored
-* due deletion is finalized
-* cancelled deletion is not finalized
-* repeated finalizer execution is safe/idempotent where required
-* partial failure does not leave invalid account state
+- not-yet-due deletion is ignored
+- due deletion is finalized
+- cancelled deletion is not finalized
+- repeated finalizer execution is safe/idempotent where required
+- partial failure does not leave invalid account state
 
 Provider-level Clerk identity destruction should be mocked/tested at the provider boundary or validated separately where appropriate, not by destroying the permanent E2E identity every test run.
 
@@ -919,9 +919,9 @@ Provider-level Clerk identity destruction should be mocked/tested at the provide
 
 Prepare:
 
-* E2E administrator
-* isolated pending curriculum item
-* normal E2E learner
+- E2E administrator
+- isolated pending curriculum item
+- normal E2E learner
 
 Admin flow:
 
@@ -978,12 +978,12 @@ It does not convert every previous manual browser verification into Playwright.
 
 In particular, exhaustive visual/browser sweeps for:
 
-* every Settings page
-* Decks
-* every Admin screen
-* every onboarding slide
-* every responsive breakpoint
-* every theme combination
+- every Settings page
+- Decks
+- every Admin screen
+- every onboarding slide
+- every responsive breakpoint
+- every theme combination
 
 belong to the later release-candidate verification spec unless directly required by a critical flow above.
 
@@ -1009,11 +1009,11 @@ Dashboard
 
 Verify:
 
-* page renders
-* navigation remains usable
-* primary controls are reachable
-* no horizontal page overflow
-* no blocking desktop-only layout defect
+- page renders
+- navigation remains usable
+- primary controls are reachable
+- no horizontal page overflow
+- no blocking desktop-only layout defect
 
 Do not duplicate the full E2E suite on mobile.
 
@@ -1033,11 +1033,11 @@ Use `data-testid` only when no stable semantic selector is appropriate.
 
 Do not select elements using:
 
-* generated CSS classes
-* Tailwind class strings
-* DOM child positions
-* fragile component hierarchy
-* arbitrary implementation details
+- generated CSS classes
+- Tailwind class strings
+- DOM child positions
+- fragile component hierarchy
+- arbitrary implementation details
 
 A harmless visual refactor should not destroy a critical workflow test.
 
@@ -1048,19 +1048,19 @@ A harmless visual refactor should not destroy a critical workflow test.
 Do not use arbitrary sleeps such as:
 
 ```ts
-await page.waitForTimeout(3000)
+await page.waitForTimeout(3000);
 ```
 
 to stabilize tests.
 
 Wait for observable application state:
 
-* route changes
-* expected heading
-* enabled button
-* loading indicator disappears
-* expected content appears
-* network-backed UI state updates
+- route changes
+- expected heading
+- enabled button
+- loading indicator disappears
+- expected content appears
+- network-backed UI state updates
 
 A test that requires arbitrary sleeps should be treated as incorrectly synchronized until proven otherwise.
 
@@ -1076,12 +1076,12 @@ Local E2E retries:
 
 Do not use retries to hide:
 
-* race conditions
-* test contamination
-* incorrect cleanup
-* missing waits
-* unstable selectors
-* application defects
+- race conditions
+- test contamination
+- incorrect cleanup
+- missing waits
+- unstable selectors
+- application defects
 
 The future CI pipeline may allow:
 
@@ -1093,10 +1093,10 @@ only for genuine browser/environment instability.
 
 A quarantined test must:
 
-* be recorded in `progress-tracker.md`
-* include the reason
-* include a follow-up requirement
-* not remain skipped indefinitely
+- be recorded in `progress-tracker.md`
+- include the reason
+- include a follow-up requirement
+- not remain skipped indefinitely
 
 ---
 
@@ -1134,9 +1134,9 @@ Configure Playwright to retain useful evidence on failure.
 
 Capture:
 
-* trace
-* screenshot
-* video where useful
+- trace
+- screenshot
+- video where useful
 
 Prefer:
 
@@ -1148,10 +1148,10 @@ rather than storing artifacts for every successful run.
 
 Artifacts must not expose:
 
-* authentication tokens
-* passwords
-* secrets
-* private production user information
+- authentication tokens
+- passwords
+- secrets
+- private production user information
 
 ---
 
@@ -1159,9 +1159,9 @@ Artifacts must not expose:
 
 Critical tests should detect unexpected:
 
-* uncaught page exceptions
-* application-level console errors
-* failed critical network requests
+- uncaught page exceptions
+- application-level console errors
+- failed critical network requests
 
 Known harmless third-party browser noise may be narrowly filtered if documented.
 
@@ -1173,12 +1173,12 @@ Do not globally ignore console errors.
 
 The critical test suite must not require:
 
-* production Neon
-* production Clerk
-* production R2
-* production AWS
-* production PostHog
-* production Sentry
+- production Neon
+- production Clerk
+- production R2
+- production AWS
+- production PostHog
+- production Sentry
 
 Do not include the entire asynchronous AWS curriculum-import infrastructure in the core E2E suite.
 
@@ -1228,11 +1228,11 @@ and whatever Clerk testing credentials/configuration are required by the existin
 
 Never include real values in:
 
-* `.env.example`
-* source files
-* workflow files
-* test fixtures
-* documentation
+- `.env.example`
+- source files
+- workflow files
+- test fixtures
+- documentation
 
 ---
 
@@ -1372,9 +1372,9 @@ Run 3 → PASS
 
 Between runs:
 
-* do not reset the development database
-* do not manually repair test state
-* do not reorder tests to make them pass
+- do not reset the development database
+- do not manually repair test state
+- do not reorder tests to make them pass
 
 Confirm normal development data was not modified.
 
@@ -1390,22 +1390,22 @@ polyglot-e2e
 
 Required flows:
 
-* signed-out protected-route handling
-* authenticated learner routing
-* learner denied from Admin
-* administrator allowed into Admin
-* onboarding
-* lesson → SRS enrollment
-* unfinished lesson does not enroll
-* due review → persisted progress
-* progress survives refresh
-* progress survives sign-out/sign-in
-* representative Settings persistence
-* Reset Entire Account
-* Delete Account request → pending → cancel
-* admin curriculum publication
-* published content becomes learner-visible
-* mobile Chromium smoke flow
+- signed-out protected-route handling
+- authenticated learner routing
+- learner denied from Admin
+- administrator allowed into Admin
+- onboarding
+- lesson → SRS enrollment
+- unfinished lesson does not enroll
+- due review → persisted progress
+- progress survives refresh
+- progress survives sign-out/sign-in
+- representative Settings persistence
+- Reset Entire Account
+- Delete Account request → pending → cancel
+- admin curriculum publication
+- published content becomes learner-visible
+- mobile Chromium smoke flow
 
 Run the full suite repeatedly.
 
@@ -1425,26 +1425,26 @@ No manual cleanup should be required between runs.
 
 This spec does not:
 
-* create production infrastructure
-* create the production Neon branch
-* configure production Clerk
-* configure production AWS
-* configure final Vercel production deployment
-* implement GitHub branch protection
-* finish `e2e.yml`
-* create the complete deployment pipeline
-* test Clerk signup through Turnstile
-* permanently delete the shared E2E Clerk user
-* use the real Level 1 curriculum as automated test fixtures
-* run the entire suite across Firefox
-* run the entire suite across WebKit
-* perform full visual regression testing
-* perform load testing
-* performance-test large user populations
-* automate every Settings control
-* automate every Admin screen
-* reproduce every SRS rule in the browser
-* create public test-only application APIs
+- create production infrastructure
+- create the production Neon branch
+- configure production Clerk
+- configure production AWS
+- configure final Vercel production deployment
+- implement GitHub branch protection
+- finish `e2e.yml`
+- create the complete deployment pipeline
+- test Clerk signup through Turnstile
+- permanently delete the shared E2E Clerk user
+- use the real Level 1 curriculum as automated test fixtures
+- run the entire suite across Firefox
+- run the entire suite across WebKit
+- perform full visual regression testing
+- perform load testing
+- performance-test large user populations
+- automate every Settings control
+- automate every Admin screen
+- reproduce every SRS rule in the browser
+- create public test-only application APIs
 
 Those belong to other test tiers or subsequent deployment/release specs.
 
@@ -1454,109 +1454,109 @@ Those belong to other test tiers or subsequent deployment/release specs.
 
 ## Integration Isolation
 
-* [ ] Dedicated `polyglot-test` Neon branch exists
-* [ ] `TEST_DATABASE_URL` points only to the test branch
-* [ ] `TEST_DATABASE_URL !== DATABASE_URL`
-* [ ] Integration database safety guard exists
-* [ ] Missing/unsafe test configuration fails closed
-* [ ] Integration tests never silently fall back to `DATABASE_URL`
-* [ ] Connection strings are never printed
-* [ ] Integration tests use real PostgreSQL
-* [ ] Normal integration tests use rollback isolation
-* [ ] Committed/concurrency tests clean up their own state
-* [ ] Tests no longer depend on development curriculum
-* [ ] Tests no longer depend on development users
-* [ ] Tests no longer depend on accumulated audit/idempotency state
-* [ ] Existing shared-database assumptions are removed
-* [ ] All known integration-test failures are resolved
-* [ ] Full integration suite passes three consecutive times
-* [ ] Running integration tests does not modify normal development data
+- [ ] Dedicated `polyglot-test` Neon branch exists
+- [ ] `TEST_DATABASE_URL` points only to the test branch
+- [ ] `TEST_DATABASE_URL !== DATABASE_URL`
+- [ ] Integration database safety guard exists
+- [ ] Missing/unsafe test configuration fails closed
+- [ ] Integration tests never silently fall back to `DATABASE_URL`
+- [ ] Connection strings are never printed
+- [ ] Integration tests use real PostgreSQL
+- [ ] Normal integration tests use rollback isolation
+- [ ] Committed/concurrency tests clean up their own state
+- [ ] Tests no longer depend on development curriculum
+- [ ] Tests no longer depend on development users
+- [ ] Tests no longer depend on accumulated audit/idempotency state
+- [ ] Existing shared-database assumptions are removed
+- [ ] All known integration-test failures are resolved
+- [ ] Full integration suite passes three consecutive times
+- [ ] Running integration tests does not modify normal development data
 
 ## E2E Isolation
 
-* [ ] Dedicated `polyglot-e2e` Neon branch exists
-* [ ] `E2E_DATABASE_URL` points only to the E2E branch
-* [ ] E2E database differs from development database
-* [ ] E2E database differs from integration-test database
-* [ ] E2E safety guard exists
-* [ ] E2E reset/setup fails closed against unsafe environments
-* [ ] deterministic `es-MX` E2E curriculum fixture exists
-* [ ] E2E does not depend on real launch Level 1 content
-* [ ] no public test-only application routes were added
+- [ ] Dedicated `polyglot-e2e` Neon branch exists
+- [ ] `E2E_DATABASE_URL` points only to the E2E branch
+- [ ] E2E database differs from development database
+- [ ] E2E database differs from integration-test database
+- [ ] E2E safety guard exists
+- [ ] E2E reset/setup fails closed against unsafe environments
+- [ ] deterministic `es-MX` E2E curriculum fixture exists
+- [ ] E2E does not depend on real launch Level 1 content
+- [ ] no public test-only application routes were added
 
 ## Playwright
 
-* [ ] Playwright is a committed project dependency
-* [ ] Playwright config exists
-* [ ] `tests/e2e/` or equivalent committed suite exists
-* [ ] `npm run test:e2e` exists
-* [ ] full critical suite uses Chromium
-* [ ] one mobile Chromium smoke path exists
-* [ ] initial worker count is 1
-* [ ] arbitrary sleeps are not used for synchronization
-* [ ] accessible selectors are preferred
-* [ ] failure trace capture is enabled
-* [ ] failure screenshot capture is enabled
-* [ ] unexpected page errors are surfaced
-* [ ] unexpected application console errors are surfaced
+- [ ] Playwright is a committed project dependency
+- [ ] Playwright config exists
+- [ ] `tests/e2e/` or equivalent committed suite exists
+- [ ] `npm run test:e2e` exists
+- [ ] full critical suite uses Chromium
+- [ ] one mobile Chromium smoke path exists
+- [ ] initial worker count is 1
+- [ ] arbitrary sleeps are not used for synchronization
+- [ ] accessible selectors are preferred
+- [ ] failure trace capture is enabled
+- [ ] failure screenshot capture is enabled
+- [ ] unexpected page errors are surfaced
+- [ ] unexpected application console errors are surfaced
 
 ## Authentication
 
-* [ ] dedicated Clerk development learner identity exists
-* [ ] dedicated Clerk development administrator identity exists
-* [ ] personal administrator account is not used
-* [ ] production Clerk is not used
-* [ ] learner auth state can be generated
-* [ ] admin auth state can be generated
-* [ ] auth state files are gitignored
-* [ ] auth tokens/passwords are never committed
-* [ ] normal Clerk signup UI is not automated
-* [ ] signed-out route protection passes
-* [ ] learner Admin denial passes
-* [ ] administrator Admin access passes
-* [ ] sign-out behavior passes
+- [ ] dedicated Clerk development learner identity exists
+- [ ] dedicated Clerk development administrator identity exists
+- [ ] personal administrator account is not used
+- [ ] production Clerk is not used
+- [ ] learner auth state can be generated
+- [ ] admin auth state can be generated
+- [ ] auth state files are gitignored
+- [ ] auth tokens/passwords are never committed
+- [ ] normal Clerk signup UI is not automated
+- [ ] signed-out route protection passes
+- [ ] learner Admin denial passes
+- [ ] administrator Admin access passes
+- [ ] sign-out behavior passes
 
 ## Critical Learner Flows
 
-* [ ] onboarding E2E passes
-* [ ] Spanish language selection persists
-* [ ] curriculum preference persists
-* [ ] dashboard loads for new learner
-* [ ] lesson E2E passes
-* [ ] deliberately missed lesson question returns correctly
-* [ ] completed lesson enrolls items in SRS
-* [ ] unfinished lesson does not enroll items
-* [ ] due-review E2E passes
-* [ ] review progress persists
-* [ ] dashboard state updates after learning/review activity
-* [ ] progress survives refresh
-* [ ] progress survives sign-out/sign-in
-* [ ] representative server-backed Settings persistence passes
+- [ ] onboarding E2E passes
+- [ ] Spanish language selection persists
+- [ ] curriculum preference persists
+- [ ] dashboard loads for new learner
+- [ ] lesson E2E passes
+- [ ] deliberately missed lesson question returns correctly
+- [ ] completed lesson enrolls items in SRS
+- [ ] unfinished lesson does not enroll items
+- [ ] due-review E2E passes
+- [ ] review progress persists
+- [ ] dashboard state updates after learning/review activity
+- [ ] progress survives refresh
+- [ ] progress survives sign-out/sign-in
+- [ ] representative server-backed Settings persistence passes
 
 ## Destructive / Administrative Flows
 
-* [ ] Reset Entire Account E2E passes
-* [ ] reset uses only disposable E2E state
-* [ ] Delete Account request E2E passes
-* [ ] pending-deletion state is verified
-* [ ] Delete Account cancellation E2E passes
-* [ ] normal E2E does not permanently destroy its Clerk identity
-* [ ] deletion finalization is integration-tested with controlled time
-* [ ] admin curriculum publication E2E passes
-* [ ] learner can observe newly published E2E curriculum where appropriate
-* [ ] automated tests never modify real launch curriculum
+- [ ] Reset Entire Account E2E passes
+- [ ] reset uses only disposable E2E state
+- [ ] Delete Account request E2E passes
+- [ ] pending-deletion state is verified
+- [ ] Delete Account cancellation E2E passes
+- [ ] normal E2E does not permanently destroy its Clerk identity
+- [ ] deletion finalization is integration-tested with controlled time
+- [ ] admin curriculum publication E2E passes
+- [ ] learner can observe newly published E2E curriculum where appropriate
+- [ ] automated tests never modify real launch curriculum
 
 ## Final Verification
 
-* [ ] fast verification passes
-* [ ] integration suite passes three consecutive times
-* [ ] E2E suite passes three consecutive times
-* [ ] no manual data repair is needed between runs
-* [ ] development data remains unchanged by tests
-* [ ] production resources are never accessed
-* [ ] `.env.example` documents testing variable names safely
-* [ ] generated auth/test artifacts are gitignored
-* [ ] `architecture.md` updated where implementation changes require it
-* [ ] `code-standards.md` updated where implementation changes require it
-* [ ] `progress-tracker.md` records completed work and verification
-* [ ] suite is ready for the following CI/CD spec to execute against preview deployments
+- [ ] fast verification passes
+- [ ] integration suite passes three consecutive times
+- [ ] E2E suite passes three consecutive times
+- [ ] no manual data repair is needed between runs
+- [ ] development data remains unchanged by tests
+- [ ] production resources are never accessed
+- [ ] `.env.example` documents testing variable names safely
+- [ ] generated auth/test artifacts are gitignored
+- [ ] `architecture.md` updated where implementation changes require it
+- [ ] `code-standards.md` updated where implementation changes require it
+- [ ] `progress-tracker.md` records completed work and verification
+- [ ] suite is ready for the following CI/CD spec to execute against preview deployments

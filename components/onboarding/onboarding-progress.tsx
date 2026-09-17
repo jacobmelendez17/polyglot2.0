@@ -16,7 +16,10 @@ type OnboardingProgressProps = {
  * announces "Step 2 of 5". Reading five unlabelled dots would tell a screen
  * reader user nothing.
  */
-export function OnboardingProgress({ currentIndex, total }: OnboardingProgressProps) {
+export function OnboardingProgress({
+  currentIndex,
+  total,
+}: OnboardingProgressProps) {
   return (
     <div className="flex flex-col items-center gap-1">
       <p aria-live="polite" className="sr-only">

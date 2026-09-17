@@ -4,10 +4,17 @@ import { useState } from "react";
 import { usePathname } from "next/navigation";
 
 import { LevelLink } from "@/components/shared/level-link";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { LEVEL_NUMBER_MAX, LEVEL_NUMBER_MIN } from "@/domains/curriculum";
 
-const LEVEL_NUMBERS = Array.from({ length: LEVEL_NUMBER_MAX - LEVEL_NUMBER_MIN + 1 }, (_, i) => i + LEVEL_NUMBER_MIN);
+const LEVEL_NUMBERS = Array.from(
+  { length: LEVEL_NUMBER_MAX - LEVEL_NUMBER_MIN + 1 },
+  (_, i) => i + LEVEL_NUMBER_MIN,
+);
 
 /**
  * Header Levels control (spec 10 §3/§4). A `Popover`, not shadcn's

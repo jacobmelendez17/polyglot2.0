@@ -27,10 +27,15 @@ export interface JsonlLine {
   parseError: string | null;
 }
 
-export function assertImportFileSize(filePath: string, maxBytes: number = DEFAULT_MAX_FILE_BYTES): number {
+export function assertImportFileSize(
+  filePath: string,
+  maxBytes: number = DEFAULT_MAX_FILE_BYTES,
+): number {
   const { size } = statSync(filePath);
   if (size > maxBytes) {
-    throw new Error(`Import file exceeds the maximum permitted size (${size} bytes > ${maxBytes} bytes): ${filePath}`);
+    throw new Error(
+      `Import file exceeds the maximum permitted size (${size} bytes > ${maxBytes} bytes): ${filePath}`,
+    );
   }
   return size;
 }
@@ -41,9 +46,13 @@ export function assertImportFileSize(filePath: string, maxBytes: number = DEFAUL
  * deliberately malformed row, and one bad record in a million-line dump must
  * be counted and skipped, never allowed to abort the import.
  */
-export async function* readJsonlFile(filePath: string): AsyncGenerator<JsonlLine> {
+export async function* readJsonlFile(
+  filePath: string,
+): AsyncGenerator<JsonlLine> {
   const fileStream = createReadStream(filePath);
-  const input = filePath.endsWith(".gz") ? fileStream.pipe(createGunzip()) : fileStream;
+  const input = filePath.endsWith(".gz")
+    ? fileStream.pipe(createGunzip())
+    : fileStream;
   const lines = createInterface({ input, crlfDelay: Infinity });
 
   let lineNumber = 0;
@@ -53,11 +62,19 @@ export async function* readJsonlFile(filePath: string): AsyncGenerator<JsonlLine
       const trimmed = line.trim();
       if (trimmed.length === 0) continue;
       if (Buffer.byteLength(trimmed, "utf8") > MAX_LINE_BYTES) {
-        yield { lineNumber, value: null, parseError: "line exceeds maximum permitted size" };
+        yield {
+          lineNumber,
+          value: null,
+          parseError: "line exceeds maximum permitted size",
+        };
         continue;
       }
       try {
-        yield { lineNumber, value: JSON.parse(trimmed) as unknown, parseError: null };
+        yield {
+          lineNumber,
+          value: JSON.parse(trimmed) as unknown,
+          parseError: null,
+        };
       } catch {
         yield { lineNumber, value: null, parseError: "invalid JSON" };
       }

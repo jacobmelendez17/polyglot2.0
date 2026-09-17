@@ -1098,11 +1098,11 @@ progress row whose `language_id` disagrees with its learning item impossible.
 
 This yields three unambiguous rules the rest of the system depends on:
 
-| Question | Answer |
-| --- | --- |
-| Is this level unlocked? | A `user_level_progress` row exists with `unlocked_at` set |
-| Is this item available to learn? | Its level is unlocked and no progress row exists |
-| Has this item been learned? | A progress row exists |
+| Question                         | Answer                                                    |
+| -------------------------------- | --------------------------------------------------------- |
+| Is this level unlocked?          | A `user_level_progress` row exists with `unlocked_at` set |
+| Is this item available to learn? | Its level is unlocked and no progress row exists          |
+| Has this item been learned?      | A progress row exists                                     |
 
 Lesson eligibility is therefore items in unlocked levels with no progress row.
 

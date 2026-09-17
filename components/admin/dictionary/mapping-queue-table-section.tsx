@@ -5,7 +5,10 @@ import { useState } from "react";
 import type { MappingQueueRow } from "@/domains/lexicon";
 
 import { BulkConfirmMappingsBar } from "./bulk-confirm-mappings-bar";
-import { isConfirmableMappingRow, MappingQueueTable } from "./mapping-queue-table";
+import {
+  isConfirmableMappingRow,
+  MappingQueueTable,
+} from "./mapping-queue-table";
 
 type MappingQueueTableSectionProps = {
   rows: MappingQueueRow[];
@@ -20,7 +23,10 @@ type MappingQueueTableSectionProps = {
  * change, not inside a `useEffect`, for the same hydration-timing reason
  * that file documents).
  */
-export function MappingQueueTableSection({ rows, regionCode }: MappingQueueTableSectionProps) {
+export function MappingQueueTableSection({
+  rows,
+  regionCode,
+}: MappingQueueTableSectionProps) {
   const [priorRows, setPriorRows] = useState(rows);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -42,14 +48,28 @@ export function MappingQueueTableSection({ rows, regionCode }: MappingQueueTable
 
   function toggleAll() {
     setSelectedIds((prev) =>
-      confirmableRows.length > 0 && confirmableRows.every((row) => prev.has(row.vocabularyItemId)) ? new Set() : new Set(confirmableRows.map((row) => row.vocabularyItemId)),
+      confirmableRows.length > 0 &&
+      confirmableRows.every((row) => prev.has(row.vocabularyItemId))
+        ? new Set()
+        : new Set(confirmableRows.map((row) => row.vocabularyItemId)),
     );
   }
 
   return (
     <div>
-      {selectedIds.size > 0 ? <BulkConfirmMappingsBar vocabularyItemIds={[...selectedIds]} onDone={() => setSelectedIds(new Set())} /> : null}
-      <MappingQueueTable rows={rows} regionCode={regionCode} selectedIds={selectedIds} onToggleItem={toggleItem} onToggleAll={toggleAll} />
+      {selectedIds.size > 0 ? (
+        <BulkConfirmMappingsBar
+          vocabularyItemIds={[...selectedIds]}
+          onDone={() => setSelectedIds(new Set())}
+        />
+      ) : null}
+      <MappingQueueTable
+        rows={rows}
+        regionCode={regionCode}
+        selectedIds={selectedIds}
+        onToggleItem={toggleItem}
+        onToggleAll={toggleAll}
+      />
     </div>
   );
 }

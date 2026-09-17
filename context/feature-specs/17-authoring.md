@@ -8,11 +8,11 @@ truth, not a record of what Claude intends.
 
 Make curriculum content genuinely authorable:
 
-* a teaching meaning that comes from the dictionary but can be edited
-* per-word usage contexts, so a learner sees examples grouped by how the
+- a teaching meaning that comes from the dictionary but can be edited
+- per-word usage contexts, so a learner sees examples grouped by how the
   word is actually used
-* re-importing a corrected CSV updates the words that already exist
-* a `writer` role that can author curriculum, with Admin verifying
+- re-importing a corrected CSV updates the words that already exist
+- a `writer` role that can author curriculum, with Admin verifying
   everything before a learner sees it
 
 ## Teaching Meaning
@@ -31,10 +31,10 @@ Editing a dictionary-supplied field marks that field **manually authored**.
 
 A manually authored field is never overwritten again by:
 
-* confirming or re-confirming a mapping
-* changing the selected sense or preferred pronunciation
-* a dictionary re-import
-* a curriculum re-import
+- confirming or re-confirming a mapping
+- changing the selected sense or preferred pronunciation
+- a dictionary re-import
+- a curriculum re-import
 
 Each overridable field carries its own mark. Editing the teaching meaning
 must not freeze the IPA.
@@ -72,13 +72,13 @@ como
 Seed them from the dictionary's imported inflected forms and their
 grammatical tags when the item has a confirmed mapping — `dictionary_forms`
 already stores `comer` → `como` / `comes` / `come` with tags such as
-*first-person singular present*.
+_first-person singular present_.
 
 Seeding is a starting point, never a constraint:
 
-* labels can be renamed
-* contexts can be reordered, added, and deleted
-* a word with no dictionary match can still have hand-authored contexts
+- labels can be renamed
+- contexts can be reordered, added, and deleted
+- a word with no dictionary match can still have hand-authored contexts
 
 A usage context is display grouping only. It is not a learning item, it has
 no SRS stage, and no progress is tracked per context.
@@ -113,9 +113,9 @@ identity (`architecture.md`, Permanent Identity).
 
 Publication status decides where the update lands:
 
-* `pending` or `draft` — applied directly
-* `published` — written into that item's draft, for Admin to publish
-* `archived` — reported, never silently revived
+- `pending` or `draft` — applied directly
+- `published` — written into that item's draft, for Admin to publish
+- `archived` — reported, never silently revived
 
 Manually authored fields are respected: a re-import does not overwrite them.
 
@@ -149,7 +149,7 @@ A level may hold **any number** of vocabulary items, vocabulary groups, and
 grammar items, in any proportion (user decision, 2026-09-09).
 
 There is no count a level must reach and no shape it must have. Publication
-is an Admin decision: an Admin publishing a level *is* the approval.
+is an Admin decision: an Admin publishing a level _is_ the approval.
 
 This replaces the original 48 vocabulary / 4 groups / 12 per group / 12
 grammar rule, which was enforced as a publish gate with optional per-level
@@ -166,9 +166,9 @@ A level's page is where its curriculum is arranged. It shows every vocabulary
 and grammar item the level holds, **in the order lessons will teach them**,
 and each item can be:
 
-* reordered, which sets that lesson order
-* moved to a different vocabulary group
-* moved to a different level
+- reordered, which sets that lesson order
+- moved to a different vocabulary group
+- moved to a different level
 
 Ordering is one sequence per item type across the level, not per group — the
 lesson queue is level-wide, so a per-group order would show an order that
@@ -180,18 +180,18 @@ Add a `writer` role.
 
 A writer may:
 
-* reach the Admin curriculum area
-* create curriculum items
-* edit items, including saving drafts of published ones
-* author usage contexts and examples
-* work with dictionary mappings
+- reach the Admin curriculum area
+- create curriculum items
+- edit items, including saving drafts of published ones
+- author usage contexts and examples
+- work with dictionary mappings
 
 A writer may **not**:
 
-* publish or bulk publish
-* archive or delete
-* manage levels or vocabulary groups
-* reach the Sandbox, Logs, or Imports
+- publish or bulk publish
+- archive or delete
+- manage levels or vocabulary groups
+- reach the Sandbox, Logs, or Imports
 
 Nothing a writer does reaches a learner on its own. New items land `pending`;
 edits to published items land in that item's draft. Both require an Admin
@@ -209,32 +209,32 @@ Every authoring action is already audited by actor; keep it that way.
 
 ## Scope Limits
 
-* no AI-generated examples or definitions
-* no per-usage-context SRS, progress, or unlocks
-* no audio on examples (the media domain does not exist yet)
-* no reviewer comments or send-back workflow — a writer's work is either
+- no AI-generated examples or definitions
+- no per-usage-context SRS, progress, or unlocks
+- no audio on examples (the media domain does not exist yet)
+- no reviewer comments or send-back workflow — a writer's work is either
   published by Admin or left waiting
-* no change to SRS, unlock thresholds, or lesson selection
-* usage contexts never become learning items
+- no change to SRS, unlock thresholds, or lesson selection
+- usage contexts never become learning items
 
 ## Check When Done
 
-* A dictionary-supplied teaching meaning can be edited in Admin.
-* An edited field survives re-confirmation, sense changes, and re-imports.
-* Reset to dictionary restores the dictionary value.
-* Each field's provenance is visible in the editor.
-* A word's usage contexts seed from its confirmed dictionary forms.
-* Usage contexts and examples can be added, edited, reordered, and deleted.
-* The learner's word page shows examples grouped in usage tabs.
-* Examples with no context appear under General.
-* Re-importing an existing word updates it and preserves its ID and progress.
-* Re-importing a published word produces a draft, not a live edit.
-* Re-import never overwrites a manually authored field.
-* The import preview classifies every row.
-* A writer can author curriculum but cannot publish, archive, or delete.
-* Admin has a queue of everything awaiting verification.
-* A level publishes whatever it contains, with no count to satisfy.
-* A level's page lists everything it teaches, in lesson order.
-* Items can be reordered, regrouped, and moved between levels from there.
-* Tests pass.
-* `npm run build` passes.
+- A dictionary-supplied teaching meaning can be edited in Admin.
+- An edited field survives re-confirmation, sense changes, and re-imports.
+- Reset to dictionary restores the dictionary value.
+- Each field's provenance is visible in the editor.
+- A word's usage contexts seed from its confirmed dictionary forms.
+- Usage contexts and examples can be added, edited, reordered, and deleted.
+- The learner's word page shows examples grouped in usage tabs.
+- Examples with no context appear under General.
+- Re-importing an existing word updates it and preserves its ID and progress.
+- Re-importing a published word produces a draft, not a live edit.
+- Re-import never overwrites a manually authored field.
+- The import preview classifies every row.
+- A writer can author curriculum but cannot publish, archive, or delete.
+- Admin has a queue of everything awaiting verification.
+- A level publishes whatever it contains, with no count to satisfy.
+- A level's page lists everything it teaches, in lesson order.
+- Items can be reordered, regrouped, and moved between levels from there.
+- Tests pass.
+- `npm run build` passes.

@@ -4,20 +4,20 @@
 
 Already implemented:
 
-* Admin/developer authorization
-* protected `/admin` route
-* Admin shell/sidebar/navigation
-* environment indicator
-* authoritative database-role checks
-* durable Admin audit schema/repository/service
-* structured audit actions
-* audit cursor pagination
-* curriculum Admin read model
-* curriculum search
-* filters
-* sorting
-* pagination
-* supporting indexes
+- Admin/developer authorization
+- protected `/admin` route
+- Admin shell/sidebar/navigation
+- environment indicator
+- authoritative database-role checks
+- durable Admin audit schema/repository/service
+- structured audit actions
+- audit cursor pagination
+- curriculum Admin read model
+- curriculum search
+- filters
+- sorting
+- pagination
+- supporting indexes
 
 Do **not** rebuild or replace these unless integration with the remaining Admin functionality requires a small extension.
 
@@ -31,33 +31,33 @@ Complete Polyglot's internal Admin experience for managing official curriculum a
 
 Admins must be able to:
 
-* create vocabulary and grammar items
-* edit existing curriculum
-* preserve published content while preparing edits
-* explicitly publish changes
-* manage Levels
-* manage vocabulary groups/themes
-* manage sentences/examples
-* manage accepted answers
-* manage grammar-specific configuration
-* move and reorder curriculum
-* detect and resolve duplicates
-* archive referenced curriculum safely
-* permanently delete only safe unreferenced records
-* inspect Audit logs
-* inspect selected System logs
-* use the isolated developer sandbox
+- create vocabulary and grammar items
+- edit existing curriculum
+- preserve published content while preparing edits
+- explicitly publish changes
+- manage Levels
+- manage vocabulary groups/themes
+- manage sentences/examples
+- manage accepted answers
+- manage grammar-specific configuration
+- move and reorder curriculum
+- detect and resolve duplicates
+- archive referenced curriculum safely
+- permanently delete only safe unreferenced records
+- inspect Audit logs
+- inspect selected System logs
+- use the isolated developer sandbox
 
 The Admin system must never bypass:
 
-* authoritative role checks
-* curriculum validation
-* stable curriculum identity
-* referential integrity
-* audit logging
-* sandbox isolation
-* cache invalidation
-* production-data safety
+- authoritative role checks
+- curriculum validation
+- stable curriculum identity
+- referential integrity
+- audit logging
+- sandbox isolation
+- cache invalidation
+- production-data safety
 
 ---
 
@@ -117,27 +117,27 @@ The Polyglot database is authoritative.
 
 May access:
 
-* curriculum editing
-* Levels
-* groups/themes
-* sentences/examples
-* accepted answers
-* grammar configuration
-* ordering
-* duplicate resolution
-* publication
-* archive/delete workflows
-* Audit logs
-* System logs
-* sandbox
+- curriculum editing
+- Levels
+- groups/themes
+- sentences/examples
+- accepted answers
+- grammar configuration
+- ordering
+- duplicate resolution
+- publication
+- archive/delete workflows
+- Audit logs
+- System logs
+- sandbox
 
 ## Developer
 
 May access:
 
-* sandbox
-* approved technical diagnostics
-* approved System logs
+- sandbox
+- approved technical diagnostics
+- approved System logs
 
 A developer cannot modify official curriculum unless the account also has the `admin` role.
 
@@ -1250,10 +1250,10 @@ Still support tablet/mobile.
 
 Smaller layouts may:
 
-* collapse sidebar navigation
-* place filters inside a sheet/dialog
-* switch table rows to cards
-* use single-column forms
+- collapse sidebar navigation
+- place filters inside a sheet/dialog
+- switch table rows to cards
+- use single-column forms
 
 Basic Admin functionality must not require horizontal scrolling where avoidable.
 
@@ -1263,15 +1263,15 @@ Basic Admin functionality must not require horizontal scrolling where avoidable.
 
 Required:
 
-* keyboard navigation
-* visible focus
-* labeled filters
-* accessible sortable table headers
-* modal focus trapping
-* non-color status indicators
-* accessible confirmation dialogs
-* keyboard ordering alternatives
-* readable validation summaries
+- keyboard navigation
+- visible focus
+- labeled filters
+- accessible sortable table headers
+- modal focus trapping
+- non-color status indicators
+- accessible confirmation dialogs
+- keyboard ordering alternatives
+- readable validation summaries
 
 Drag-and-drop must always have a non-drag alternative.
 
@@ -1283,14 +1283,14 @@ Keep Admin ordinary but efficient.
 
 Required:
 
-* cursor pagination
-* indexed filters/search
-* explicit selected DB columns
-* no N+1 query patterns
-* server components where practical
-* no loading the whole curriculum client-side
-* no loading entire Audit history
-* no learner request blocked on Admin observability
+- cursor pagination
+- indexed filters/search
+- explicit selected DB columns
+- no N+1 query patterns
+- server components where practical
+- no loading the whole curriculum client-side
+- no loading entire Audit history
+- no learner request blocked on Admin observability
 
 ---
 
@@ -1350,19 +1350,19 @@ Do not keep unused CSV/import modules in the Admin implementation.
 
 Do not implement:
 
-* CSV curriculum import
-* arbitrary real-user progress inspection
-* arbitrary real-user SRS editing
-* manually unlocking real learner Levels
-* user impersonation
-* Clerk Admin UI
-* billing administration
-* PostHog dashboard
-* Sentry replacement
-* AI curriculum publication
-* raw SQL Admin console
-* production database browser
-* unrestricted environment switching
+- CSV curriculum import
+- arbitrary real-user progress inspection
+- arbitrary real-user SRS editing
+- manually unlocking real learner Levels
+- user impersonation
+- Clerk Admin UI
+- billing administration
+- PostHog dashboard
+- Sentry replacement
+- AI curriculum publication
+- raw SQL Admin console
+- production database browser
+- unrestricted environment switching
 
 ---
 
@@ -1432,14 +1432,14 @@ publish
 
 Verify:
 
-* vocabulary fields
-* accepted answers
-* grammar configuration
-* sentences
-* examples
-* Levels
-* groups
-* ordering
+- vocabulary fields
+- accepted answers
+- grammar configuration
+- sentences
+- examples
+- Levels
+- groups
+- ordering
 
 ---
 
@@ -1654,13 +1654,13 @@ keyboard-only
 
 Verify:
 
-* sidebar
-* filters
-* editors
-* confirmations
-* reorder controls
-* focus behavior
-* status labels
+- sidebar
+- filters
+- editors
+- confirmations
+- reorder controls
+- focus behavior
+- status labels
 
 ---
 

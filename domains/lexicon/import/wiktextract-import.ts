@@ -1,6 +1,9 @@
 import type { DbClient } from "@/db/client";
 
-import { composeVocabularyDisplayWord, getLexicalLanguageProvider } from "../lexical-language-provider";
+import {
+  composeVocabularyDisplayWord,
+  getLexicalLanguageProvider,
+} from "../lexical-language-provider";
 import { normalizeLexicalForm } from "../lexical-normalization";
 import type { LexicalSourceDefinition } from "../lexical-source-registry";
 import { getMatchableVocabularyItems } from "../lexicon-repository";
@@ -20,7 +23,10 @@ import {
   upsertLexicalSource,
 } from "./lexicon-import-repository";
 import { hashFile } from "./source-hash";
-import { createEntryKeyDisambiguator, projectWiktextractRecord } from "./wiktextract-adapter";
+import {
+  createEntryKeyDisambiguator,
+  projectWiktextractRecord,
+} from "./wiktextract-adapter";
 import { wiktextractRecordSchema } from "./wiktextract-schema";
 
 /**
@@ -97,7 +103,9 @@ export async function buildCurriculumScopeForms(
   const items = await getMatchableVocabularyItems(db, input.languageId);
   const forms = new Set<string>();
   for (const item of items) {
-    for (const form of provider.deriveDictionaryLookups(composeVocabularyDisplayWord(item.term, item.article))) {
+    for (const form of provider.deriveDictionaryLookups(
+      composeVocabularyDisplayWord(item.term, item.article),
+    )) {
       forms.add(form);
     }
   }
@@ -114,7 +122,9 @@ export async function runDictionaryImport(
   const fileChecksum = await hashFile(input.filePath);
   const scopeKey = buildImportScopeKey(input.scope, input.terms ?? []);
 
-  const alreadyCompleted = input.force ? null : await findCompletedImport(db, { sourceId, fileChecksum, scopeKey });
+  const alreadyCompleted = input.force
+    ? null
+    : await findCompletedImport(db, { sourceId, fileChecksum, scopeKey });
   if (alreadyCompleted) {
     return {
       importId: alreadyCompleted.id,
@@ -135,12 +145,19 @@ export async function runDictionaryImport(
     input.scope === "full_language"
       ? null
       : input.scope === "terms"
-        // Normalized the same way stored lemmas and forms are — an operator
-        // typing "Buenos Días" must reach the same records as "buenos días",
-        // and comparing a raw term against a normalized lemma would silently
-        // retain nothing.
-        ? new Set((input.terms ?? []).map(normalizeLexicalForm).filter((term) => term.length > 0))
-        : await buildCurriculumScopeForms(db, { languageId: input.languageId, languageCode: input.languageCode });
+        ? // Normalized the same way stored lemmas and forms are — an operator
+          // typing "Buenos Días" must reach the same records as "buenos días",
+          // and comparing a raw term against a normalized lemma would silently
+          // retain nothing.
+          new Set(
+            (input.terms ?? [])
+              .map(normalizeLexicalForm)
+              .filter((term) => term.length > 0),
+          )
+        : await buildCurriculumScopeForms(db, {
+            languageId: input.languageId,
+            languageCode: input.languageCode,
+          });
 
   const lexicalImport = await createLexicalImport(db, {
     sourceId,
@@ -202,7 +219,8 @@ export async function runDictionaryImport(
         // `languages.code` (`es-MX`). Conflating the two would silently
         // retain nothing at all, since no Wiktextract record is tagged with
         // a regional code.
-        const rawLanguage = (line.value as { lang_code?: unknown } | null)?.lang_code;
+        const rawLanguage = (line.value as { lang_code?: unknown } | null)
+          ?.lang_code;
         if (rawLanguage !== input.sourceDefinition.sourceLanguage) continue;
 
         const parsed = wiktextractRecordSchema.safeParse(line.value);
@@ -217,13 +235,20 @@ export async function runDictionaryImport(
           continue;
         }
 
-        if (wantedForms && !reachableForms(projected).some((form) => wantedForms.has(form))) continue;
+        if (
+          wantedForms &&
+          !reachableForms(projected).some((form) => wantedForms.has(form))
+        )
+          continue;
 
         counters.recordsRetained += 1;
         // Applied only to retained records, and only once the record is
         // certain to be written — so a filtered-out record never consumes an
         // occurrence and shifts a later entry's key.
-        batch.push({ ...projected, sourceEntryKey: disambiguateEntryKey(projected.sourceEntryKey) });
+        batch.push({
+          ...projected,
+          sourceEntryKey: disambiguateEntryKey(projected.sourceEntryKey),
+        });
         if (batch.length >= RECORD_BATCH_SIZE) await flush();
       }
 
@@ -260,7 +285,10 @@ export async function runDictionaryImport(
     // stack trace (spec 12's security rules).
     await updateLexicalImport(db, lexicalImport.id, {
       status: "failed",
-      failureReason: error instanceof Error ? error.message.slice(0, 500) : "Unknown import failure",
+      failureReason:
+        error instanceof Error
+          ? error.message.slice(0, 500)
+          : "Unknown import failure",
       ...counters,
     });
     throw error;

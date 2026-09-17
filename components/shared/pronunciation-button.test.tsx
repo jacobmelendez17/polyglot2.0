@@ -38,7 +38,9 @@ describe("PronunciationButton", () => {
     const user = userEvent.setup();
     render(<PronunciationButton text="el gato" languageCode="es-MX" />);
 
-    await user.click(screen.getByRole("button", { name: "Play pronunciation of el gato" }));
+    await user.click(
+      screen.getByRole("button", { name: "Play pronunciation of el gato" }),
+    );
 
     expect(speak).toHaveBeenCalledTimes(1);
     const utterance = speak.mock.calls[0][0] as { text: string; lang: string };
@@ -48,22 +50,45 @@ describe("PronunciationButton", () => {
 
   it("names what it will pronounce, so several buttons on a page stay distinguishable", () => {
     stubSpeechSynthesis();
-    render(<PronunciationButton text="El gato duerme." languageCode="es-MX" label="El gato duerme." />);
+    render(
+      <PronunciationButton
+        text="El gato duerme."
+        languageCode="es-MX"
+        label="El gato duerme."
+      />,
+    );
 
-    expect(screen.getByRole("button", { name: "Play pronunciation of El gato duerme." })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: "Play pronunciation of El gato duerme.",
+      }),
+    ).toBeInTheDocument();
   });
 
   it("disables itself with a stated reason when the browser cannot pronounce anything", () => {
     render(<PronunciationButton text="el gato" languageCode="es-MX" />);
 
-    const button = screen.getByRole("button", { name: "Pronunciation of el gato is unavailable in this browser" });
+    const button = screen.getByRole("button", {
+      name: "Pronunciation of el gato is unavailable in this browser",
+    });
     expect(button).toBeDisabled();
-    expect(button).toHaveAttribute("title", "This browser cannot play pronunciation audio.");
+    expect(button).toHaveAttribute(
+      "title",
+      "This browser cannot play pronunciation audio.",
+    );
   });
 
   it("stays available on a synthesis-less browser when the item has a real recording", () => {
-    render(<PronunciationButton text="el gato" languageCode="es-MX" audioUrl="https://example.invalid/gato.ogg" />);
+    render(
+      <PronunciationButton
+        text="el gato"
+        languageCode="es-MX"
+        audioUrl="https://example.invalid/gato.ogg"
+      />,
+    );
 
-    expect(screen.getByRole("button", { name: "Play pronunciation of el gato" })).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "Play pronunciation of el gato" }),
+    ).toBeEnabled();
   });
 });

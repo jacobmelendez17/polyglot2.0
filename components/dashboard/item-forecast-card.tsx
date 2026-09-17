@@ -3,7 +3,13 @@
 import { useState } from "react";
 import { CalendarClock } from "lucide-react";
 
-import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { RangeToggle } from "@/components/dashboard/range-toggle";
 import { StackedBarChart } from "@/components/dashboard/stacked-bar-chart";
@@ -21,7 +27,9 @@ type ItemForecastCardProps = {
 export function ItemForecastCard({ forecast }: ItemForecastCardProps) {
   const [range, setRange] = useState<ForecastRange>("24h");
   const buckets = forecast[range];
-  const hasUpcomingItems = buckets.some((bucket) => bucket.vocabularyCount + bucket.grammarCount > 0);
+  const hasUpcomingItems = buckets.some(
+    (bucket) => bucket.vocabularyCount + bucket.grammarCount > 0,
+  );
 
   return (
     <Card>
@@ -43,11 +51,17 @@ export function ItemForecastCard({ forecast }: ItemForecastCardProps) {
             <StackedBarChart buckets={buckets} />
             <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
               <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-learning-vocabulary" aria-hidden="true" />
+                <span
+                  className="h-2 w-2 rounded-full bg-learning-vocabulary"
+                  aria-hidden="true"
+                />
                 Vocabulary
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-learning-grammar" aria-hidden="true" />
+                <span
+                  className="h-2 w-2 rounded-full bg-learning-grammar"
+                  aria-hidden="true"
+                />
                 Grammar
               </span>
             </div>

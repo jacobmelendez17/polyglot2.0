@@ -1,0 +1,19 @@
+# Spec 23 — repository ownership. The repository owner (@jacobmelendez17,
+# confirmed against this repo's own remote: github.com/jacobmelendez17/polyglot2.0)
+# owns everything, so every collaborator-authored pull request requires their
+# review before merge (enforced by the branch ruleset, not by convention).
+#
+# The most specific matching rule wins in a CODEOWNERS file, so the wildcard
+# below is the default and the entries after it exist only to make ownership
+# of the highest-risk paths explicit and easy to audit — they resolve to the
+# same owner either way.
+
+* @jacobmelendez17
+
+# Highest-risk paths — CI/CD trust boundary, schema history, and
+# infrastructure-as-code. Explicit here so a change to any of these can never
+# be mistaken for a routine review.
+/.github/            @jacobmelendez17
+/.github/CODEOWNERS  @jacobmelendez17
+/db/migrations/      @jacobmelendez17
+/infra/              @jacobmelendez17

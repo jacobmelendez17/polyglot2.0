@@ -20,7 +20,10 @@ const ADMIN_AUTH_FILE = "playwright/.auth/admin.json";
 
 function requiredEnv(name: string): string {
   const value = process.env[name];
-  if (!value) throw new Error(`${name} is required to generate E2E auth state. Set it in .env.local — see .env.example.`);
+  if (!value)
+    throw new Error(
+      `${name} is required to generate E2E auth state. Set it in .env.local — see .env.example.`,
+    );
   return value;
 }
 

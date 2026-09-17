@@ -1,8 +1,14 @@
 import type { DbClient } from "@/db/client";
-import { getLanguageById, getLearningItemsByIds } from "@/domains/curriculum/curriculum-repository";
+import {
+  getLanguageById,
+  getLearningItemsByIds,
+} from "@/domains/curriculum/curriculum-repository";
 import { getSynonyms } from "@/domains/learner-content/repository";
 import type { ReviewQuestionDirection } from "@/domains/srs";
-import { getCharacterHelpers, getReviewQuestionAnswerSpec } from "@/domains/srs";
+import {
+  getCharacterHelpers,
+  getReviewQuestionAnswerSpec,
+} from "@/domains/srs";
 import { checkAnswer } from "@/lib/answer-checking";
 import { DeckError } from "@/lib/errors/deck-errors";
 
@@ -35,7 +41,11 @@ import type { DeckPracticeFeedback, DeckPracticeQuestion } from "./deck-types";
  * visibility and item membership on every single submission.
  */
 
-export type StartDeckPracticeInput = { userId: string; languageId: string; deckId: string };
+export type StartDeckPracticeInput = {
+  userId: string;
+  languageId: string;
+  deckId: string;
+};
 
 export type DeckPracticeSession = {
   deckId: string;
@@ -47,7 +57,10 @@ export type DeckPracticeSession = {
   characterHelpers: readonly string[];
 };
 
-export async function startDeckPractice(db: DbClient, input: StartDeckPracticeInput): Promise<DeckPracticeSession> {
+export async function startDeckPractice(
+  db: DbClient,
+  input: StartDeckPracticeInput,
+): Promise<DeckPracticeSession> {
   const deck = await getDeckForLearner(db, input);
   if (!deck) throw new DeckError("DECK_NOT_FOUND");
   if (deck.items.length === 0) throw new DeckError("DECK_MUST_HAVE_ITEMS");

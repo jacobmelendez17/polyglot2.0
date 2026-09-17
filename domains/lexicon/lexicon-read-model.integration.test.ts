@@ -1,7 +1,12 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 
-import { ITEM_CASA_ID, ITEM_GATO_ID, LEARNER_ID, seedTestFixtures } from "@/db/seed/test-fixtures";
+import {
+  ITEM_CASA_ID,
+  ITEM_GATO_ID,
+  LEARNER_ID,
+  seedTestFixtures,
+} from "@/db/seed/test-fixtures";
 import { learningItems, vocabularyItems } from "@/db/schema";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
 
@@ -27,12 +32,20 @@ describe("getVocabularyDetail", () => {
     await withTestTransaction(async (tx) => {
       await seedTestFixtures(tx);
 
-      const detail = await getVocabularyDetail(tx, { vocabularyItemId: ITEM_GATO_ID });
+      const detail = await getVocabularyDetail(tx, {
+        vocabularyItemId: ITEM_GATO_ID,
+      });
 
       expect(detail).not.toBeNull();
       expect(detail?.curriculum.displayWord).toBe("el gato");
       expect(detail?.curriculum.translation).toBe("cat");
-      expect(detail?.curriculum.examples).toEqual([{ targetText: "El gato duerme.", translation: "The cat sleeps.", usageContext: null }]);
+      expect(detail?.curriculum.examples).toEqual([
+        {
+          targetText: "El gato duerme.",
+          translation: "The cat sleeps.",
+          usageContext: null,
+        },
+      ]);
       expect(detail?.progress).toBeNull();
     });
   });
@@ -43,13 +56,26 @@ describe("getVocabularyDetail", () => {
 
       const [item] = await tx
         .insert(learningItems)
-        .values({ languageId, levelId: level1Id, type: "vocabulary", status: "published", position: 99, lessonPriority: 99 })
+        .values({
+          languageId,
+          levelId: level1Id,
+          type: "vocabulary",
+          status: "published",
+          position: 99,
+          lessonPriority: 99,
+        })
         .returning();
-      await tx
-        .insert(vocabularyItems)
-        .values({ learningItemId: item.id, vocabularyGroupId: vocabGroupId, term: "xyzzy", primaryMeaning: "a nonsense test word", partOfSpeech: "noun" });
+      await tx.insert(vocabularyItems).values({
+        learningItemId: item.id,
+        vocabularyGroupId: vocabGroupId,
+        term: "xyzzy",
+        primaryMeaning: "a nonsense test word",
+        partOfSpeech: "noun",
+      });
 
-      const detail = await getVocabularyDetail(tx, { vocabularyItemId: item.id });
+      const detail = await getVocabularyDetail(tx, {
+        vocabularyItemId: item.id,
+      });
 
       expect(detail?.curriculum.translation).toBe("a nonsense test word");
       expect(detail?.dictionary).toBeNull();
@@ -59,7 +85,9 @@ describe("getVocabularyDetail", () => {
   it("returns null for an id that does not exist", async () => {
     await withTestTransaction(async (tx) => {
       await seedTestFixtures(tx);
-      const detail = await getVocabularyDetail(tx, { vocabularyItemId: "40000000-0000-0000-0000-00000000ffff" });
+      const detail = await getVocabularyDetail(tx, {
+        vocabularyItemId: "40000000-0000-0000-0000-00000000ffff",
+      });
       expect(detail).toBeNull();
     });
   });
@@ -67,7 +95,10 @@ describe("getVocabularyDetail", () => {
   it("includes the given user's own progress row when one exists", async () => {
     await withTestTransaction(async (tx) => {
       await seedTestFixtures(tx);
-      const detail = await getVocabularyDetail(tx, { vocabularyItemId: ITEM_GATO_ID, userId: LEARNER_ID });
+      const detail = await getVocabularyDetail(tx, {
+        vocabularyItemId: ITEM_GATO_ID,
+        userId: LEARNER_ID,
+      });
       expect(detail?.progress?.srsStage).toBe("beginner_2");
     });
   });
@@ -75,11 +106,19 @@ describe("getVocabularyDetail", () => {
   it("hides an archived item by default, and surfaces it when includeArchived is set (spec 13: still referenceable by direct link)", async () => {
     await withTestTransaction(async (tx) => {
       await seedTestFixtures(tx);
-      await tx.update(learningItems).set({ status: "archived" }).where(eq(learningItems.id, ITEM_CASA_ID));
+      await tx
+        .update(learningItems)
+        .set({ status: "archived" })
+        .where(eq(learningItems.id, ITEM_CASA_ID));
 
-      expect(await getVocabularyDetail(tx, { vocabularyItemId: ITEM_CASA_ID })).toBeNull();
+      expect(
+        await getVocabularyDetail(tx, { vocabularyItemId: ITEM_CASA_ID }),
+      ).toBeNull();
 
-      const archived = await getVocabularyDetail(tx, { vocabularyItemId: ITEM_CASA_ID, includeArchived: true });
+      const archived = await getVocabularyDetail(tx, {
+        vocabularyItemId: ITEM_CASA_ID,
+        includeArchived: true,
+      });
       expect(archived?.curriculum.learningItemId).toBe(ITEM_CASA_ID);
       expect(archived?.curriculum.displayWord).toBe("la casa");
     });
@@ -88,9 +127,15 @@ describe("getVocabularyDetail", () => {
   it("still hides a pending item even with includeArchived set — the option only widens to archived, never to draft/pending", async () => {
     await withTestTransaction(async (tx) => {
       await seedTestFixtures(tx);
-      await tx.update(learningItems).set({ status: "pending" }).where(eq(learningItems.id, ITEM_CASA_ID));
+      await tx
+        .update(learningItems)
+        .set({ status: "pending" })
+        .where(eq(learningItems.id, ITEM_CASA_ID));
 
-      const detail = await getVocabularyDetail(tx, { vocabularyItemId: ITEM_CASA_ID, includeArchived: true });
+      const detail = await getVocabularyDetail(tx, {
+        vocabularyItemId: ITEM_CASA_ID,
+        includeArchived: true,
+      });
       expect(detail).toBeNull();
     });
   });

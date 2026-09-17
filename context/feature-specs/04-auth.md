@@ -125,20 +125,20 @@ TanStack Start, React Router, Vue, React, and JavaScript/Vite. It can detect
 Expo, Express, and Fastify, but may direct you to docs for the remaining
 integration steps.
 
-| Dependency | Quickstart |
-|------------|-----------|
-| `next` | https://clerk.com/docs/nextjs/getting-started/quickstart |
-| `@remix-run/react` | https://clerk.com/docs/remix/getting-started/quickstart |
-| `astro` | https://clerk.com/docs/astro/getting-started/quickstart |
-| `nuxt` | https://clerk.com/docs/nuxt/getting-started/quickstart |
-| `react-router` | https://clerk.com/docs/react-router/getting-started/quickstart |
+| Dependency              | Quickstart                                                             |
+| ----------------------- | ---------------------------------------------------------------------- |
+| `next`                  | https://clerk.com/docs/nextjs/getting-started/quickstart               |
+| `@remix-run/react`      | https://clerk.com/docs/remix/getting-started/quickstart                |
+| `astro`                 | https://clerk.com/docs/astro/getting-started/quickstart                |
+| `nuxt`                  | https://clerk.com/docs/nuxt/getting-started/quickstart                 |
+| `react-router`          | https://clerk.com/docs/react-router/getting-started/quickstart         |
 | `@tanstack/react-start` | https://clerk.com/docs/tanstack-react-start/getting-started/quickstart |
-| `react` | https://clerk.com/docs/react/getting-started/quickstart |
-| `vue` | https://clerk.com/docs/vue/getting-started/quickstart |
-| `vite` or vanilla JS | https://clerk.com/docs/js-frontend/getting-started/quickstart |
-| `express` | https://clerk.com/docs/expressjs/getting-started/quickstart |
-| `fastify` | https://clerk.com/docs/fastify/getting-started/quickstart |
-| `expo` | https://clerk.com/docs/expo/getting-started/quickstart |
+| `react`                 | https://clerk.com/docs/react/getting-started/quickstart                |
+| `vue`                   | https://clerk.com/docs/vue/getting-started/quickstart                  |
+| `vite` or vanilla JS    | https://clerk.com/docs/js-frontend/getting-started/quickstart          |
+| `express`               | https://clerk.com/docs/expressjs/getting-started/quickstart            |
+| `fastify`               | https://clerk.com/docs/fastify/getting-started/quickstart              |
+| `expo`                  | https://clerk.com/docs/expo/getting-started/quickstart                 |
 
 Other platforms: Chrome Extension, Android, and iOS at
 https://clerk.com/docs/llms.txt
@@ -156,7 +156,7 @@ sign-in and sign-up actions when signed out, and a user button when signed
 in:
 
 ```tsx
-import { SignInButton, SignUpButton, Show, UserButton } from '@clerk/nextjs'
+import { SignInButton, SignUpButton, Show, UserButton } from "@clerk/nextjs";
 
 <>
   <Show when="signed-out">
@@ -166,7 +166,7 @@ import { SignInButton, SignUpButton, Show, UserButton } from '@clerk/nextjs'
   <Show when="signed-in">
     <UserButton />
   </Show>
-</>
+</>;
 ```
 
 For other frameworks, use the equivalent Clerk components or helpers. If
@@ -195,14 +195,16 @@ npm install @clerk/ui
 ```
 
 Apply the theme in your provider:
+
 ```tsx
-import { shadcn } from '@clerk/ui/themes'
-<ClerkProvider appearance={{ theme: shadcn }}>{children}</ClerkProvider>
+import { shadcn } from "@clerk/ui/themes";
+<ClerkProvider appearance={{ theme: shadcn }}>{children}</ClerkProvider>;
 ```
 
 Add to global CSS:
+
 ```css
-@import '@clerk/ui/themes/shadcn.css';
+@import "@clerk/ui/themes/shadcn.css";
 ```
 
 ## Critical rules

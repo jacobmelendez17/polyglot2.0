@@ -60,21 +60,40 @@ import {
  *   be pure scope creep this spec's own "storage only, no consumer yet"
  *   precedent (Notifications, Reset Dismissable Warnings) argues against.
  */
-export async function deleteAllLearnerApplicationData(db: DbClient, userId: string): Promise<void> {
+export async function deleteAllLearnerApplicationData(
+  db: DbClient,
+  userId: string,
+): Promise<void> {
   await db.delete(reviewEvents).where(eq(reviewEvents.userId, userId));
-  await db.delete(userSentenceGhostProgress).where(eq(userSentenceGhostProgress.userId, userId));
+  await db
+    .delete(userSentenceGhostProgress)
+    .where(eq(userSentenceGhostProgress.userId, userId));
   await db.delete(userItemProgress).where(eq(userItemProgress.userId, userId));
-  await db.delete(userLevelProgress).where(eq(userLevelProgress.userId, userId));
-  await db.delete(userLanguageSettings).where(eq(userLanguageSettings.userId, userId));
-  await db.delete(userReviewPreferences).where(eq(userReviewPreferences.userId, userId));
-  await db.delete(userNotificationPreferences).where(eq(userNotificationPreferences.userId, userId));
+  await db
+    .delete(userLevelProgress)
+    .where(eq(userLevelProgress.userId, userId));
+  await db
+    .delete(userLanguageSettings)
+    .where(eq(userLanguageSettings.userId, userId));
+  await db
+    .delete(userReviewPreferences)
+    .where(eq(userReviewPreferences.userId, userId));
+  await db
+    .delete(userNotificationPreferences)
+    .where(eq(userNotificationPreferences.userId, userId));
   await db.delete(userPreferences).where(eq(userPreferences.userId, userId));
   await db.delete(decks).where(eq(decks.ownerUserId, userId));
   await db.delete(userNotes).where(eq(userNotes.userId, userId));
   await db.delete(userSynonyms).where(eq(userSynonyms.userId, userId));
-  await db.delete(userVacationPeriods).where(eq(userVacationPeriods.userId, userId));
-  await db.delete(userStreakAdjustments).where(eq(userStreakAdjustments.userId, userId));
-  await db.delete(userDismissedNotices).where(eq(userDismissedNotices.userId, userId));
+  await db
+    .delete(userVacationPeriods)
+    .where(eq(userVacationPeriods.userId, userId));
+  await db
+    .delete(userStreakAdjustments)
+    .where(eq(userStreakAdjustments.userId, userId));
+  await db
+    .delete(userDismissedNotices)
+    .where(eq(userDismissedNotices.userId, userId));
 }
 
 /**

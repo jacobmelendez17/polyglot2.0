@@ -6,7 +6,8 @@ import { Switch } from "@/components/ui/switch";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 
-export type InlineToggleSettingFieldResult = { ok: true; value: boolean } | { ok: false; message: string };
+export type InlineToggleSettingFieldResult =
+  { ok: true; value: boolean } | { ok: false; message: string };
 
 export type InlineToggleSettingFieldProps = {
   label: string;
@@ -25,7 +26,12 @@ export type InlineToggleSettingFieldProps = {
  * toggle-shaped preferences), not built speculatively: the spec names more
  * than a dozen fields with this exact shape.
  */
-export function InlineToggleSettingField({ label, description, initialValue, onSave }: InlineToggleSettingFieldProps) {
+export function InlineToggleSettingField({
+  label,
+  description,
+  initialValue,
+  onSave,
+}: InlineToggleSettingFieldProps) {
   const switchId = useId();
   const [checked, setChecked] = useState(initialValue);
   const [state, setState] = useState<SaveState>("idle");
@@ -53,17 +59,35 @@ export function InlineToggleSettingField({ label, description, initialValue, onS
   return (
     <div className="flex items-center justify-between gap-4 border-b border-border py-4 first:pt-0 last:border-b-0">
       <div>
-        <label htmlFor={switchId} className="text-sm font-medium text-foreground">
+        <label
+          htmlFor={switchId}
+          className="text-sm font-medium text-foreground"
+        >
           {label}
         </label>
-        {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
+        {description && (
+          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+        )}
         <p className="mt-1 text-sm" aria-live="polite">
-          {state === "saving" && <span className="text-muted-foreground">Saving…</span>}
-          {state === "saved" && <span className="text-state-success">Saved</span>}
-          {state === "error" && <span className="text-destructive">{errorMessage ?? "Could not save setting."}</span>}
+          {state === "saving" && (
+            <span className="text-muted-foreground">Saving…</span>
+          )}
+          {state === "saved" && (
+            <span className="text-state-success">Saved</span>
+          )}
+          {state === "error" && (
+            <span className="text-destructive">
+              {errorMessage ?? "Could not save setting."}
+            </span>
+          )}
         </p>
       </div>
-      <Switch id={switchId} checked={checked} onCheckedChange={handleChange} disabled={state === "saving"} />
+      <Switch
+        id={switchId}
+        checked={checked}
+        onCheckedChange={handleChange}
+        disabled={state === "saving"}
+      />
     </div>
   );
 }

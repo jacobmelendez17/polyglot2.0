@@ -27,10 +27,12 @@ const DEFAULT_MESSAGES: Record<AppErrorCode, string> = {
   UNAUTHENTICATED: "You must be signed in to do that.",
   FORBIDDEN: "You don't have access to do that.",
   ITEM_NOT_FOUND: "That item could not be found.",
-  CURRICULUM_VALIDATION_FAILED: "That curriculum content couldn't be validated.",
+  CURRICULUM_VALIDATION_FAILED:
+    "That curriculum content couldn't be validated.",
   RATE_LIMITED: "Please slow down and try again shortly.",
   PROVISIONING_FAILED: "Your account could not be set up. Please try again.",
-  IDEMPOTENCY_KEY_PAYLOAD_MISMATCH: "This request has already been made with different data.",
+  IDEMPOTENCY_KEY_PAYLOAD_MISMATCH:
+    "This request has already been made with different data.",
   IDEMPOTENCY_OPERATION_IN_PROGRESS: "This request is already being processed.",
   USERNAME_TAKEN: "That username is already taken.",
   RESET_TARGET_INVALID: "That reset option isn't valid right now.",

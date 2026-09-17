@@ -14,12 +14,21 @@ describe("AuditLogFilters", () => {
   it("renders each filter with its current value", () => {
     render(
       <AuditLogFilters
-        value={{ actorUserId: "dev-1", action: "CURRICULUM_ITEM_PUBLISHED", resourceType: "level", resourceId: "level-1", from: "2026-01-01", to: "2026-01-31" }}
+        value={{
+          actorUserId: "dev-1",
+          action: "CURRICULUM_ITEM_PUBLISHED",
+          resourceType: "level",
+          resourceId: "level-1",
+          from: "2026-01-01",
+          to: "2026-01-31",
+        }}
       />,
     );
 
     expect(screen.getByPlaceholderText("Actor ID")).toHaveValue("dev-1");
-    expect(screen.getByRole("combobox", { name: "Action" })).toHaveTextContent("CURRICULUM_ITEM_PUBLISHED");
+    expect(screen.getByRole("combobox", { name: "Action" })).toHaveTextContent(
+      "CURRICULUM_ITEM_PUBLISHED",
+    );
     expect(screen.getByPlaceholderText("Resource type")).toHaveValue("level");
     expect(screen.getByPlaceholderText("Resource ID")).toHaveValue("level-1");
     expect(screen.getByLabelText("From date")).toHaveValue("2026-01-01");
@@ -28,7 +37,9 @@ describe("AuditLogFilters", () => {
 
   it("shows 'All actions' when no action filter is set", () => {
     render(<AuditLogFilters value={{}} />);
-    expect(screen.getByRole("combobox", { name: "Action" })).toHaveTextContent("All actions");
+    expect(screen.getByRole("combobox", { name: "Action" })).toHaveTextContent(
+      "All actions",
+    );
   });
 
   it("submitting the text filters navigates with all three params", async () => {
@@ -40,7 +51,9 @@ describe("AuditLogFilters", () => {
     await user.type(screen.getByPlaceholderText("Resource ID"), "level-1");
     await user.click(screen.getByRole("button", { name: "Apply" }));
 
-    expect(push).toHaveBeenCalledWith("/admin/logs?actor=dev-1&resourceType=level&resourceId=level-1");
+    expect(push).toHaveBeenCalledWith(
+      "/admin/logs?actor=dev-1&resourceType=level&resourceId=level-1",
+    );
   });
 
   it("selecting an Action option navigates immediately with the new action", async () => {
@@ -48,7 +61,9 @@ describe("AuditLogFilters", () => {
     render(<AuditLogFilters value={{}} />);
 
     await user.click(screen.getByRole("combobox", { name: "Action" }));
-    await user.click(await screen.findByRole("option", { name: "GROUP_ARCHIVED" }));
+    await user.click(
+      await screen.findByRole("option", { name: "GROUP_ARCHIVED" }),
+    );
 
     expect(push).toHaveBeenCalledWith("/admin/logs?action=GROUP_ARCHIVED");
   });

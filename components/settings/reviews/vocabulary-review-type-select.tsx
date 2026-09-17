@@ -10,7 +10,9 @@ type VocabularyReviewTypeSelectProps = {
 };
 
 /** Spec 20 Reviews — Vocabulary Review Type. */
-export function VocabularyReviewTypeSelect({ initialValue }: VocabularyReviewTypeSelectProps) {
+export function VocabularyReviewTypeSelect({
+  initialValue,
+}: VocabularyReviewTypeSelectProps) {
   return (
     <InlineSelectSettingField
       label="Vocabulary Review Type"

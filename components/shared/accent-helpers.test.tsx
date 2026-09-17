@@ -19,7 +19,11 @@ describe("AccentHelpers", () => {
     const button = screen.getByRole("button", { name: "á" });
     const restStateClasses = button.className
       .split(/\s+/)
-      .filter((className) => !className.startsWith("hover:") && !className.startsWith("focus-visible:"));
+      .filter(
+        (className) =>
+          !className.startsWith("hover:") &&
+          !className.startsWith("focus-visible:"),
+      );
     expect(restStateClasses.join(" ")).not.toMatch(/border|bg-|shadow/);
   });
 
@@ -31,7 +35,9 @@ describe("AccentHelpers", () => {
   });
 
   it("renders nothing when the language has no configured helpers", () => {
-    const { container } = render(<AccentHelpers characters={[]} onInsert={() => {}} />);
+    const { container } = render(
+      <AccentHelpers characters={[]} onInsert={() => {}} />,
+    );
     expect(container).toBeEmptyDOMElement();
   });
 });

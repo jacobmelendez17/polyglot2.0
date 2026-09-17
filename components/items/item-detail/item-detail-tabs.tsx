@@ -23,9 +23,21 @@ type ItemDetailTabsProps = {
  * reason: a tablist promises panels that show and hide, which would
  * misdescribe what these do to a screen reader.
  */
-export function ItemDetailTabs({ sections, activeSection, onSelect, variant, disabled = false }: ItemDetailTabsProps) {
+export function ItemDetailTabs({
+  sections,
+  activeSection,
+  onSelect,
+  variant,
+  disabled = false,
+}: ItemDetailTabsProps) {
   return (
-    <nav aria-label="Item sections" className={cn("flex items-center", variant === "full" ? "flex-wrap gap-1 sm:gap-2" : "gap-0.5 sm:gap-1")}>
+    <nav
+      aria-label="Item sections"
+      className={cn(
+        "flex items-center",
+        variant === "full" ? "flex-wrap gap-1 sm:gap-2" : "gap-0.5 sm:gap-1",
+      )}
+    >
       {sections.map((section) => {
         const isActive = section === activeSection;
         return (
@@ -39,8 +51,12 @@ export function ItemDetailTabs({ sections, activeSection, onSelect, variant, dis
             className={cn(
               "cursor-pointer rounded-full font-medium transition-colors",
               "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-              variant === "full" ? "px-4 py-1.5 text-base sm:text-lg" : "px-2.5 py-1 text-sm sm:px-3 sm:text-base",
-              isActive ? "bg-primary/15 text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+              variant === "full"
+                ? "px-4 py-1.5 text-base sm:text-lg"
+                : "px-2.5 py-1 text-sm sm:px-3 sm:text-base",
+              isActive
+                ? "bg-primary/15 text-foreground"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground",
             )}
           >
             {ITEM_DETAIL_SECTION_LABELS[section]}

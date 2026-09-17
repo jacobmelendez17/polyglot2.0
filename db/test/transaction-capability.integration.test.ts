@@ -23,11 +23,22 @@ describe("transaction capability (spec 08 §60)", () => {
       const { learnerId, casaId, aguaId } = await seedTestFixtures(tx);
 
       await tx.transaction(async (inner) => {
-        await createNote(inner, { userId: learnerId, learningItemId: casaId, body: "Note 1" });
-        await createNote(inner, { userId: learnerId, learningItemId: aguaId, body: "Note 2" });
+        await createNote(inner, {
+          userId: learnerId,
+          learningItemId: casaId,
+          body: "Note 1",
+        });
+        await createNote(inner, {
+          userId: learnerId,
+          learningItemId: aguaId,
+          body: "Note 2",
+        });
       });
 
-      const notes = await tx.select().from(userNotes).where(eq(userNotes.userId, learnerId));
+      const notes = await tx
+        .select()
+        .from(userNotes)
+        .where(eq(userNotes.userId, learnerId));
       const bodies = notes.map((note) => note.body);
       expect(bodies).toContain("Note 1");
       expect(bodies).toContain("Note 2");
@@ -43,12 +54,23 @@ describe("transaction capability (spec 08 §60)", () => {
       // first statement) would otherwise have succeeded.
       await expect(
         tx.transaction(async (inner) => {
-          await createNote(inner, { userId: learnerId, learningItemId: casaId, body: "Should not persist" });
-          await createNote(inner, { userId: learnerId, learningItemId: gatoId, body: "Forces failure" });
+          await createNote(inner, {
+            userId: learnerId,
+            learningItemId: casaId,
+            body: "Should not persist",
+          });
+          await createNote(inner, {
+            userId: learnerId,
+            learningItemId: gatoId,
+            body: "Forces failure",
+          });
         }),
       ).rejects.toThrow();
 
-      const casaNotes = await tx.select().from(userNotes).where(eq(userNotes.learningItemId, casaId));
+      const casaNotes = await tx
+        .select()
+        .from(userNotes)
+        .where(eq(userNotes.learningItemId, casaId));
       expect(casaNotes).toHaveLength(0);
     });
   });

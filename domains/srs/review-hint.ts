@@ -22,7 +22,12 @@ export type ReviewHintView =
   | { mode: "hide" }
   | { mode: "hint"; nuance: string | null }
   | { mode: "show"; translation: string }
-  | { mode: "more"; order: HintOrder; translation: string; nuance: string | null }
+  | {
+      mode: "more";
+      order: HintOrder;
+      translation: string;
+      nuance: string | null;
+    }
   | { mode: "always_show_nuance"; nuance: string | null };
 
 /**
@@ -40,11 +45,17 @@ function resolveNuance(item: CurriculumLearningItem): string | null {
 }
 
 function resolveTranslation(item: CurriculumLearningItem): string {
-  return item.type === "vocabulary" ? item.vocabulary.primaryMeaning : item.grammar.primaryMeaning;
+  return item.type === "vocabulary"
+    ? item.vocabulary.primaryMeaning
+    : item.grammar.primaryMeaning;
 }
 
 /** Resolves one question's available hint content from its item and the learner's Hint Mode/Order for that content type (spec 20 Review Hints). */
-export function resolveReviewHint(input: { hintMode: HintMode; hintOrder: HintOrder; item: CurriculumLearningItem }): ReviewHintView {
+export function resolveReviewHint(input: {
+  hintMode: HintMode;
+  hintOrder: HintOrder;
+  item: CurriculumLearningItem;
+}): ReviewHintView {
   const { hintMode, hintOrder, item } = input;
 
   switch (hintMode) {
@@ -55,7 +66,12 @@ export function resolveReviewHint(input: { hintMode: HintMode; hintOrder: HintOr
     case "show":
       return { mode: "show", translation: resolveTranslation(item) };
     case "more":
-      return { mode: "more", order: hintOrder, translation: resolveTranslation(item), nuance: resolveNuance(item) };
+      return {
+        mode: "more",
+        order: hintOrder,
+        translation: resolveTranslation(item),
+        nuance: resolveNuance(item),
+      };
     case "always_show_nuance":
       return { mode: "always_show_nuance", nuance: resolveNuance(item) };
   }

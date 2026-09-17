@@ -5,7 +5,13 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ADMIN_AUDIT_ACTIONS, type AdminAuditAction } from "@/domains/admin";
 
 const ALL_VALUE = "all";
@@ -32,8 +38,12 @@ export function AuditLogFilters({ value }: AuditLogFiltersProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [actorDraft, setActorDraft] = useState(value.actorUserId ?? "");
-  const [resourceTypeDraft, setResourceTypeDraft] = useState(value.resourceType ?? "");
-  const [resourceIdDraft, setResourceIdDraft] = useState(value.resourceId ?? "");
+  const [resourceTypeDraft, setResourceTypeDraft] = useState(
+    value.resourceType ?? "",
+  );
+  const [resourceIdDraft, setResourceIdDraft] = useState(
+    value.resourceId ?? "",
+  );
 
   function navigate(overrides: Record<string, string | undefined>) {
     const params = new URLSearchParams();
@@ -52,17 +62,30 @@ export function AuditLogFilters({ value }: AuditLogFiltersProps) {
       className="mb-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center"
       onSubmit={(e) => {
         e.preventDefault();
-        navigate({ actorUserId: actorDraft.trim() || undefined, resourceType: resourceTypeDraft.trim() || undefined, resourceId: resourceIdDraft.trim() || undefined });
+        navigate({
+          actorUserId: actorDraft.trim() || undefined,
+          resourceType: resourceTypeDraft.trim() || undefined,
+          resourceId: resourceIdDraft.trim() || undefined,
+        });
       }}
     >
       <label className="block text-sm sm:w-40">
         <span className="sr-only">Actor user ID</span>
-        <Input placeholder="Actor ID" value={actorDraft} onChange={(e) => setActorDraft(e.target.value)} />
+        <Input
+          placeholder="Actor ID"
+          value={actorDraft}
+          onChange={(e) => setActorDraft(e.target.value)}
+        />
       </label>
 
       <Select
         value={value.action ?? ALL_VALUE}
-        onValueChange={(action) => navigate({ action: action === ALL_VALUE ? undefined : (action as AdminAuditAction) })}
+        onValueChange={(action) =>
+          navigate({
+            action:
+              action === ALL_VALUE ? undefined : (action as AdminAuditAction),
+          })
+        }
       >
         <SelectTrigger aria-label="Action" className="sm:w-56">
           <SelectValue placeholder="Action" />
@@ -79,22 +102,40 @@ export function AuditLogFilters({ value }: AuditLogFiltersProps) {
 
       <label className="block text-sm sm:w-36">
         <span className="sr-only">Resource type</span>
-        <Input placeholder="Resource type" value={resourceTypeDraft} onChange={(e) => setResourceTypeDraft(e.target.value)} />
+        <Input
+          placeholder="Resource type"
+          value={resourceTypeDraft}
+          onChange={(e) => setResourceTypeDraft(e.target.value)}
+        />
       </label>
 
       <label className="block text-sm sm:w-44">
         <span className="sr-only">Resource ID</span>
-        <Input placeholder="Resource ID" value={resourceIdDraft} onChange={(e) => setResourceIdDraft(e.target.value)} />
+        <Input
+          placeholder="Resource ID"
+          value={resourceIdDraft}
+          onChange={(e) => setResourceIdDraft(e.target.value)}
+        />
       </label>
 
       <label className="block text-sm">
         <span className="sr-only">From date</span>
-        <Input type="date" aria-label="From date" value={value.from ?? ""} onChange={(e) => navigate({ from: e.target.value || undefined })} />
+        <Input
+          type="date"
+          aria-label="From date"
+          value={value.from ?? ""}
+          onChange={(e) => navigate({ from: e.target.value || undefined })}
+        />
       </label>
 
       <label className="block text-sm">
         <span className="sr-only">To date</span>
-        <Input type="date" aria-label="To date" value={value.to ?? ""} onChange={(e) => navigate({ to: e.target.value || undefined })} />
+        <Input
+          type="date"
+          aria-label="To date"
+          value={value.to ?? ""}
+          onChange={(e) => navigate({ to: e.target.value || undefined })}
+        />
       </label>
 
       <Button type="submit" variant="outline">

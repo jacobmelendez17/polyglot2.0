@@ -20,8 +20,12 @@ export function HideEnglishToggle({ initialValue }: HideEnglishToggleProps) {
       label="Hide English during Reviews"
       initialValue={initialValue}
       onSave={async (hideEnglishReviews) => {
-        const result = await updateContentPreferencesAction({ hideEnglishReviews });
-        return result.ok ? { ok: true, value: result.data.hideEnglishReviews } : { ok: false, message: result.error.message };
+        const result = await updateContentPreferencesAction({
+          hideEnglishReviews,
+        });
+        return result.ok
+          ? { ok: true, value: result.data.hideEnglishReviews }
+          : { ok: false, message: result.error.message };
       }}
     />
   );

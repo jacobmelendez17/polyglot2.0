@@ -23,8 +23,18 @@ export class SqsCurriculumImportQueue implements CurriculumImportQueue {
     this.client = new SQSClient({ region });
   }
 
-  async sendCommitJob({ importId, actorUserId }: SendCommitJobInput): Promise<void> {
-    const body = JSON.stringify({ version: 1, jobType: "COMMIT_IMPORT", importId, actorUserId });
-    await this.client.send(new SendMessageCommand({ QueueUrl: this.queueUrl, MessageBody: body }));
+  async sendCommitJob({
+    importId,
+    actorUserId,
+  }: SendCommitJobInput): Promise<void> {
+    const body = JSON.stringify({
+      version: 1,
+      jobType: "COMMIT_IMPORT",
+      importId,
+      actorUserId,
+    });
+    await this.client.send(
+      new SendMessageCommand({ QueueUrl: this.queueUrl, MessageBody: body }),
+    );
   }
 }

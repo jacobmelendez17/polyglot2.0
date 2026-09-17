@@ -19,7 +19,9 @@ describe("SrsSection", () => {
   it("renders all nine SRS stages as cards in documented order", () => {
     render(<SrsSection />);
 
-    const names = screen.getAllByTestId("srs-stage-name").map((el) => el.textContent);
+    const names = screen
+      .getAllByTestId("srs-stage-name")
+      .map((el) => el.textContent);
     expect(names).toEqual(EXPECTED_STAGE_ORDER);
   });
 });

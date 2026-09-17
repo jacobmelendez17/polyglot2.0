@@ -29,7 +29,11 @@ import { LexiconError } from "@/lib/errors/lexicon-errors";
 
 import { runRegionalImport } from "./import/rla-import";
 import { runDictionaryImport } from "./import/wiktextract-import";
-import { LEXICAL_SOURCE_DEFINITIONS, RLA_ES_MX_SOURCE_CODE, WIKTIONARY_ES_SOURCE_CODE } from "./lexical-source-registry";
+import {
+  LEXICAL_SOURCE_DEFINITIONS,
+  RLA_ES_MX_SOURCE_CODE,
+  WIKTIONARY_ES_SOURCE_CODE,
+} from "./lexical-source-registry";
 import {
   bulkConfirmVocabularyMappings,
   confirmVocabularyMapping,
@@ -39,7 +43,11 @@ import {
   selectDictionaryEntry,
   selectVocabularySenses,
 } from "./lexicon-mapping-service";
-import { flagMappingsNeedingReview, getMapping, getSelectedSenseIds } from "./lexicon-repository";
+import {
+  flagMappingsNeedingReview,
+  getMapping,
+  getSelectedSenseIds,
+} from "./lexicon-repository";
 import { refreshRegionalEvidence } from "./regional-evidence";
 
 /**
@@ -73,7 +81,11 @@ let fixtureCounter = 0;
 function writeDump(records: unknown[]): string {
   fixtureCounter += 1;
   const path = join(directory, `dump-${fixtureCounter}.jsonl`);
-  writeFileSync(path, records.map((record) => JSON.stringify(record)).join("\n") + "\n", "utf8");
+  writeFileSync(
+    path,
+    records.map((record) => JSON.stringify(record)).join("\n") + "\n",
+    "utf8",
+  );
   return path;
 }
 
@@ -89,19 +101,41 @@ async function seedIsolatedFixture(tx: TestTx) {
 
   const [language] = await tx
     .insert(languages)
-    .values({ code: `es-T${suffix}`, slug: `spanish-test-${suffix}`, name: `Spanish (test ${suffix})` })
+    .values({
+      code: `es-T${suffix}`,
+      slug: `spanish-test-${suffix}`,
+      name: `Spanish (test ${suffix})`,
+    })
     .returning();
   const [level] = await tx
     .insert(levels)
-    .values({ languageId: language.id, levelNumber: 1, name: "Level 1", status: "published" })
+    .values({
+      languageId: language.id,
+      levelNumber: 1,
+      name: "Level 1",
+      status: "published",
+    })
     .returning();
   const [group] = await tx
     .insert(vocabularyGroups)
-    .values({ levelId: level.id, languageId: language.id, name: "Animals", position: 1, status: "published" })
+    .values({
+      levelId: level.id,
+      languageId: language.id,
+      name: "Animals",
+      position: 1,
+      status: "published",
+    })
     .returning();
   const [item] = await tx
     .insert(learningItems)
-    .values({ languageId: language.id, levelId: level.id, type: "vocabulary", status: "published", position: 1, lessonPriority: 1 })
+    .values({
+      languageId: language.id,
+      levelId: level.id,
+      type: "vocabulary",
+      status: "published",
+      position: 1,
+      lessonPriority: 1,
+    })
     .returning();
   await tx.insert(vocabularyItems).values({
     learningItemId: item.id,
@@ -118,11 +152,19 @@ async function seedIsolatedFixture(tx: TestTx) {
   // by far the slowest thing in this file.
   const [admin] = await tx
     .insert(users)
-    .values({ clerkUserId: `lexicon-test-admin-${suffix}`, role: "admin", activeLanguageId: language.id })
+    .values({
+      clerkUserId: `lexicon-test-admin-${suffix}`,
+      role: "admin",
+      activeLanguageId: language.id,
+    })
     .returning();
   const [learner] = await tx
     .insert(users)
-    .values({ clerkUserId: `lexicon-test-learner-${suffix}`, role: "user", activeLanguageId: language.id })
+    .values({
+      clerkUserId: `lexicon-test-learner-${suffix}`,
+      role: "user",
+      activeLanguageId: language.id,
+    })
     .returning();
 
   return {
@@ -137,12 +179,34 @@ async function seedIsolatedFixture(tx: TestTx) {
 }
 
 /** A second vocabulary item in an already-`seedIsolatedFixture`'d language/level/group — for tests that need to prove batch functions act on exactly the given items, not every item nearby. */
-async function addVocabularyItem(tx: TestTx, { languageId, levelId, groupId }: { languageId: string; levelId: string; groupId: string }, term: string, primaryMeaning: string) {
+async function addVocabularyItem(
+  tx: TestTx,
+  {
+    languageId,
+    levelId,
+    groupId,
+  }: { languageId: string; levelId: string; groupId: string },
+  term: string,
+  primaryMeaning: string,
+) {
   const [item] = await tx
     .insert(learningItems)
-    .values({ languageId, levelId, type: "vocabulary", status: "published", position: 2, lessonPriority: 2 })
+    .values({
+      languageId,
+      levelId,
+      type: "vocabulary",
+      status: "published",
+      position: 2,
+      lessonPriority: 2,
+    })
     .returning();
-  await tx.insert(vocabularyItems).values({ learningItemId: item.id, vocabularyGroupId: groupId, term, primaryMeaning, partOfSpeech: "noun" });
+  await tx.insert(vocabularyItems).values({
+    learningItemId: item.id,
+    vocabularyGroupId: groupId,
+    term,
+    primaryMeaning,
+    partOfSpeech: "noun",
+  });
   return item.id;
 }
 
@@ -150,7 +214,11 @@ function writeWordList(words: string[]): string {
   fixtureCounter += 1;
   const stem = `words-${fixtureCounter}`;
   writeFileSync(join(directory, `${stem}.aff`), "SET UTF-8\n", "utf8");
-  writeFileSync(join(directory, `${stem}.dic`), `${words.length}\n${words.join("\n")}\n`, "utf8");
+  writeFileSync(
+    join(directory, `${stem}.dic`),
+    `${words.length}\n${words.join("\n")}\n`,
+    "utf8",
+  );
   return stem;
 }
 
@@ -167,7 +235,12 @@ const GATO_RECORD = {
   synonyms: [{ word: "minino" }],
 };
 
-async function importDictionary(tx: TestTx, languageId: string, records: unknown[], scope: "curriculum" | "full_language" = "full_language") {
+async function importDictionary(
+  tx: TestTx,
+  languageId: string,
+  records: unknown[],
+  scope: "curriculum" | "full_language" = "full_language",
+) {
   return runDictionaryImport(tx, {
     filePath: writeDump(records),
     languageId,
@@ -187,19 +260,39 @@ describe("dictionary import", () => {
       expect(result.alreadyImported).toBe(false);
       expect(result.entriesCreated).toBe(1);
 
-      const [entry] = await tx.select().from(dictionaryEntries).where(and(eq(dictionaryEntries.languageId, languageId), eq(dictionaryEntries.normalizedLemma, "gato")));
+      const [entry] = await tx
+        .select()
+        .from(dictionaryEntries)
+        .where(
+          and(
+            eq(dictionaryEntries.languageId, languageId),
+            eq(dictionaryEntries.normalizedLemma, "gato"),
+          ),
+        );
       expect(entry.lemma).toBe("gato");
       expect(entry.partOfSpeech).toBe("noun");
       expect(entry.sourceStatus).toBe("active");
 
-      const versions = await tx.select().from(dictionaryEntryVersions).where(eq(dictionaryEntryVersions.dictionaryEntryId, entry.id));
+      const versions = await tx
+        .select()
+        .from(dictionaryEntryVersions)
+        .where(eq(dictionaryEntryVersions.dictionaryEntryId, entry.id));
       expect(versions).toHaveLength(1);
       expect((versions[0].rawData as { word: string }).word).toBe("gato");
 
-      const senses = await tx.select().from(dictionarySenses).where(eq(dictionarySenses.dictionaryEntryId, entry.id));
-      expect(senses.map((sense) => sense.gloss).sort()).toEqual(["cat", "jack (lifting device)"]);
+      const senses = await tx
+        .select()
+        .from(dictionarySenses)
+        .where(eq(dictionarySenses.dictionaryEntryId, entry.id));
+      expect(senses.map((sense) => sense.gloss).sort()).toEqual([
+        "cat",
+        "jack (lifting device)",
+      ]);
 
-      const forms = await tx.select().from(dictionaryForms).where(eq(dictionaryForms.dictionaryEntryId, entry.id));
+      const forms = await tx
+        .select()
+        .from(dictionaryForms)
+        .where(eq(dictionaryForms.dictionaryEntryId, entry.id));
       expect(forms.map((form) => form.normalizedForm)).toEqual(["gatos"]);
 
       const pronunciations = await tx
@@ -208,8 +301,16 @@ describe("dictionary import", () => {
         .where(eq(dictionaryPronunciations.dictionaryEntryId, entry.id));
       expect(pronunciations[0].ipa).toBe("/ˈga.to/");
 
-      const relations = await tx.select().from(dictionaryRelations).where(eq(dictionaryRelations.dictionaryEntryId, entry.id));
-      expect(relations.map((relation) => [relation.relationType, relation.targetLemma])).toEqual([["synonym", "minino"]]);
+      const relations = await tx
+        .select()
+        .from(dictionaryRelations)
+        .where(eq(dictionaryRelations.dictionaryEntryId, entry.id));
+      expect(
+        relations.map((relation) => [
+          relation.relationType,
+          relation.targetLemma,
+        ]),
+      ).toEqual([["synonym", "minino"]]);
     });
   });
 
@@ -238,9 +339,20 @@ describe("dictionary import", () => {
       expect(second.alreadyImported).toBe(true);
       expect(second.importId).toBe(first.importId);
 
-      const entries = await tx.select().from(dictionaryEntries).where(and(eq(dictionaryEntries.languageId, languageId), eq(dictionaryEntries.normalizedLemma, "gato")));
+      const entries = await tx
+        .select()
+        .from(dictionaryEntries)
+        .where(
+          and(
+            eq(dictionaryEntries.languageId, languageId),
+            eq(dictionaryEntries.normalizedLemma, "gato"),
+          ),
+        );
       expect(entries).toHaveLength(1);
-      const versions = await tx.select().from(dictionaryEntryVersions).where(eq(dictionaryEntryVersions.dictionaryEntryId, entries[0].id));
+      const versions = await tx
+        .select()
+        .from(dictionaryEntryVersions)
+        .where(eq(dictionaryEntryVersions.dictionaryEntryId, entries[0].id));
       expect(versions).toHaveLength(1);
     });
   });
@@ -252,7 +364,16 @@ describe("dictionary import", () => {
       const path = join(directory, `mixed-${fixtureCounter}.jsonl`);
       writeFileSync(
         path,
-        [JSON.stringify(GATO_RECORD), '{"word": "roto", "senses": [', JSON.stringify({ word: "x", lang_code: "es", pos: "noun", senses: [] })].join("\n") + "\n",
+        [
+          JSON.stringify(GATO_RECORD),
+          '{"word": "roto", "senses": [',
+          JSON.stringify({
+            word: "x",
+            lang_code: "es",
+            pos: "noun",
+            senses: [],
+          }),
+        ].join("\n") + "\n",
         "utf8",
       );
 
@@ -273,7 +394,8 @@ describe("dictionary import", () => {
 
   it("never modifies curriculum, progress, or SRS state", async () => {
     await withTestTransaction(async (tx) => {
-      const { languageId, levelId, vocabularyItemId, learnerUserId } = await seedIsolatedFixture(tx);
+      const { languageId, levelId, vocabularyItemId, learnerUserId } =
+        await seedIsolatedFixture(tx);
 
       // Enrolled progress and an unlocked level, so the snapshot comparison
       // is about real rows an import could plausibly damage.
@@ -283,22 +405,48 @@ describe("dictionary import", () => {
         languageId,
         srsStage: "beginner_1",
       });
-      await tx.insert(userLevelProgress).values({ userId: learnerUserId, levelId, unlockedAt: new Date() });
+      await tx
+        .insert(userLevelProgress)
+        .values({ userId: learnerUserId, levelId, unlockedAt: new Date() });
 
       const before = {
-        items: await tx.select().from(learningItems).where(eq(learningItems.languageId, languageId)),
-        vocabulary: await tx.select().from(vocabularyItems).where(eq(vocabularyItems.learningItemId, vocabularyItemId)),
-        itemProgress: await tx.select().from(userItemProgress).where(eq(userItemProgress.userId, learnerUserId)),
-        levelProgress: await tx.select().from(userLevelProgress).where(eq(userLevelProgress.userId, learnerUserId)),
+        items: await tx
+          .select()
+          .from(learningItems)
+          .where(eq(learningItems.languageId, languageId)),
+        vocabulary: await tx
+          .select()
+          .from(vocabularyItems)
+          .where(eq(vocabularyItems.learningItemId, vocabularyItemId)),
+        itemProgress: await tx
+          .select()
+          .from(userItemProgress)
+          .where(eq(userItemProgress.userId, learnerUserId)),
+        levelProgress: await tx
+          .select()
+          .from(userLevelProgress)
+          .where(eq(userLevelProgress.userId, learnerUserId)),
       };
 
       await importDictionary(tx, languageId, [GATO_RECORD]);
 
       const after = {
-        items: await tx.select().from(learningItems).where(eq(learningItems.languageId, languageId)),
-        vocabulary: await tx.select().from(vocabularyItems).where(eq(vocabularyItems.learningItemId, vocabularyItemId)),
-        itemProgress: await tx.select().from(userItemProgress).where(eq(userItemProgress.userId, learnerUserId)),
-        levelProgress: await tx.select().from(userLevelProgress).where(eq(userLevelProgress.userId, learnerUserId)),
+        items: await tx
+          .select()
+          .from(learningItems)
+          .where(eq(learningItems.languageId, languageId)),
+        vocabulary: await tx
+          .select()
+          .from(vocabularyItems)
+          .where(eq(vocabularyItems.learningItemId, vocabularyItemId)),
+        itemProgress: await tx
+          .select()
+          .from(userItemProgress)
+          .where(eq(userItemProgress.userId, learnerUserId)),
+        levelProgress: await tx
+          .select()
+          .from(userLevelProgress)
+          .where(eq(userLevelProgress.userId, learnerUserId)),
       };
 
       // Spec 12's hardest boundary: a dictionary release cannot reorganize
@@ -313,19 +461,47 @@ describe("reimport", () => {
     await withTestTransaction(async (tx) => {
       const { languageId } = await seedIsolatedFixture(tx);
       await importDictionary(tx, languageId, [GATO_RECORD]);
-      const [before] = await tx.select().from(dictionaryEntries).where(and(eq(dictionaryEntries.languageId, languageId), eq(dictionaryEntries.normalizedLemma, "gato")));
+      const [before] = await tx
+        .select()
+        .from(dictionaryEntries)
+        .where(
+          and(
+            eq(dictionaryEntries.languageId, languageId),
+            eq(dictionaryEntries.normalizedLemma, "gato"),
+          ),
+        );
 
       await importDictionary(tx, languageId, [
-        { ...GATO_RECORD, senses: [{ glosses: ["cat (domestic feline)"], id: "gato-cat" }, { glosses: ["jack (lifting device)"], id: "gato-jack" }] },
+        {
+          ...GATO_RECORD,
+          senses: [
+            { glosses: ["cat (domestic feline)"], id: "gato-cat" },
+            { glosses: ["jack (lifting device)"], id: "gato-jack" },
+          ],
+        },
       ]);
 
-      const [after] = await tx.select().from(dictionaryEntries).where(and(eq(dictionaryEntries.languageId, languageId), eq(dictionaryEntries.normalizedLemma, "gato")));
+      const [after] = await tx
+        .select()
+        .from(dictionaryEntries)
+        .where(
+          and(
+            eq(dictionaryEntries.languageId, languageId),
+            eq(dictionaryEntries.normalizedLemma, "gato"),
+          ),
+        );
       expect(after.id).toBe(before.id);
 
-      const versions = await tx.select().from(dictionaryEntryVersions).where(eq(dictionaryEntryVersions.dictionaryEntryId, after.id));
+      const versions = await tx
+        .select()
+        .from(dictionaryEntryVersions)
+        .where(eq(dictionaryEntryVersions.dictionaryEntryId, after.id));
       expect(versions).toHaveLength(2);
 
-      const senses = await tx.select().from(dictionarySenses).where(eq(dictionarySenses.dictionaryEntryId, after.id));
+      const senses = await tx
+        .select()
+        .from(dictionarySenses)
+        .where(eq(dictionarySenses.dictionaryEntryId, after.id));
       const cat = senses.find((sense) => sense.sourceSenseKey === "gato-cat");
       expect(cat?.gloss).toBe("cat (domestic feline)");
     });
@@ -335,13 +511,32 @@ describe("reimport", () => {
     await withTestTransaction(async (tx) => {
       const { languageId } = await seedIsolatedFixture(tx);
       await importDictionary(tx, languageId, [GATO_RECORD]);
-      await importDictionary(tx, languageId, [{ ...GATO_RECORD, senses: [{ glosses: ["cat"], id: "gato-cat" }] }]);
+      await importDictionary(tx, languageId, [
+        { ...GATO_RECORD, senses: [{ glosses: ["cat"], id: "gato-cat" }] },
+      ]);
 
-      const [entry] = await tx.select().from(dictionaryEntries).where(and(eq(dictionaryEntries.languageId, languageId), eq(dictionaryEntries.normalizedLemma, "gato")));
-      const senses = await tx.select().from(dictionarySenses).where(eq(dictionarySenses.dictionaryEntryId, entry.id));
+      const [entry] = await tx
+        .select()
+        .from(dictionaryEntries)
+        .where(
+          and(
+            eq(dictionaryEntries.languageId, languageId),
+            eq(dictionaryEntries.normalizedLemma, "gato"),
+          ),
+        );
+      const senses = await tx
+        .select()
+        .from(dictionarySenses)
+        .where(eq(dictionarySenses.dictionaryEntryId, entry.id));
       expect(senses).toHaveLength(2);
-      expect(senses.find((sense) => sense.sourceSenseKey === "gato-jack")?.sourceStatus).toBe("missing_from_source");
-      expect(senses.find((sense) => sense.sourceSenseKey === "gato-cat")?.sourceStatus).toBe("active");
+      expect(
+        senses.find((sense) => sense.sourceSenseKey === "gato-jack")
+          ?.sourceStatus,
+      ).toBe("missing_from_source");
+      expect(
+        senses.find((sense) => sense.sourceSenseKey === "gato-cat")
+          ?.sourceStatus,
+      ).toBe("active");
     });
   });
 
@@ -349,9 +544,24 @@ describe("reimport", () => {
     await withTestTransaction(async (tx) => {
       const { languageId } = await seedIsolatedFixture(tx);
       await importDictionary(tx, languageId, [GATO_RECORD]);
-      await importDictionary(tx, languageId, [{ word: "casa", lang_code: "es", pos: "noun", senses: [{ glosses: ["house"] }] }]);
+      await importDictionary(tx, languageId, [
+        {
+          word: "casa",
+          lang_code: "es",
+          pos: "noun",
+          senses: [{ glosses: ["house"] }],
+        },
+      ]);
 
-      const [gato] = await tx.select().from(dictionaryEntries).where(and(eq(dictionaryEntries.languageId, languageId), eq(dictionaryEntries.normalizedLemma, "gato")));
+      const [gato] = await tx
+        .select()
+        .from(dictionaryEntries)
+        .where(
+          and(
+            eq(dictionaryEntries.languageId, languageId),
+            eq(dictionaryEntries.normalizedLemma, "gato"),
+          ),
+        );
       expect(gato.sourceStatus).toBe("missing_from_source");
     });
   });
@@ -377,7 +587,14 @@ describe("vocabulary mapping", () => {
       const { languageId, vocabularyItemId } = await seedIsolatedFixture(tx);
       // The source row must exist for the matcher to run at all; importing an
       // unrelated language's records registers it while leaving Spanish empty.
-      await importDictionary(tx, languageId, [{ word: "chien", lang_code: "fr", pos: "noun", senses: [{ glosses: ["dog"] }] }]);
+      await importDictionary(tx, languageId, [
+        {
+          word: "chien",
+          lang_code: "fr",
+          pos: "noun",
+          senses: [{ glosses: ["dog"] }],
+        },
+      ]);
 
       const result = await matchVocabularyItem(tx, vocabularyItemId);
       expect(result.mapping?.matchStatus).toBe("source_data_not_imported");
@@ -389,7 +606,11 @@ describe("vocabulary mapping", () => {
       const { languageId, vocabularyItemId } = await seedIsolatedFixture(tx);
       await importDictionary(tx, languageId, [
         { ...GATO_RECORD, etymology_number: 1 },
-        { ...GATO_RECORD, etymology_number: 2, senses: [{ glosses: ["jack"], id: "gato-2-jack" }] },
+        {
+          ...GATO_RECORD,
+          etymology_number: 2,
+          senses: [{ glosses: ["jack"], id: "gato-2-jack" }],
+        },
       ]);
 
       const result = await matchVocabularyItem(tx, vocabularyItemId);
@@ -401,16 +622,35 @@ describe("vocabulary mapping", () => {
 
   it("persists selected senses, and rejects a sense from a different entry", async () => {
     await withTestTransaction(async (tx) => {
-      const { languageId, vocabularyItemId, adminUserId } = await seedIsolatedFixture(tx);
+      const { languageId, vocabularyItemId, adminUserId } =
+        await seedIsolatedFixture(tx);
       await importDictionary(tx, languageId, [
         GATO_RECORD,
-        { word: "casa", lang_code: "es", pos: "noun", senses: [{ glosses: ["house"], id: "casa-house" }] },
+        {
+          word: "casa",
+          lang_code: "es",
+          pos: "noun",
+          senses: [{ glosses: ["house"], id: "casa-house" }],
+        },
       ]);
       await matchVocabularyItem(tx, vocabularyItemId);
 
-      const [gatoEntry] = await tx.select().from(dictionaryEntries).where(and(eq(dictionaryEntries.languageId, languageId), eq(dictionaryEntries.normalizedLemma, "gato")));
-      const gatoSenses = await tx.select().from(dictionarySenses).where(eq(dictionarySenses.dictionaryEntryId, gatoEntry.id));
-      const catSense = gatoSenses.find((sense) => sense.sourceSenseKey === "gato-cat")!;
+      const [gatoEntry] = await tx
+        .select()
+        .from(dictionaryEntries)
+        .where(
+          and(
+            eq(dictionaryEntries.languageId, languageId),
+            eq(dictionaryEntries.normalizedLemma, "gato"),
+          ),
+        );
+      const gatoSenses = await tx
+        .select()
+        .from(dictionarySenses)
+        .where(eq(dictionarySenses.dictionaryEntryId, gatoEntry.id));
+      const catSense = gatoSenses.find(
+        (sense) => sense.sourceSenseKey === "gato-cat",
+      )!;
 
       await selectVocabularySenses(tx, {
         vocabularyItemId: vocabularyItemId,
@@ -418,10 +658,23 @@ describe("vocabulary mapping", () => {
         actorUserId: adminUserId,
         idempotencyKey: crypto.randomUUID(),
       });
-      expect(await getSelectedSenseIds(tx, vocabularyItemId)).toEqual([catSense.id]);
+      expect(await getSelectedSenseIds(tx, vocabularyItemId)).toEqual([
+        catSense.id,
+      ]);
 
-      const [casaEntry] = await tx.select().from(dictionaryEntries).where(and(eq(dictionaryEntries.languageId, languageId), eq(dictionaryEntries.normalizedLemma, "casa")));
-      const [casaSense] = await tx.select().from(dictionarySenses).where(eq(dictionarySenses.dictionaryEntryId, casaEntry.id));
+      const [casaEntry] = await tx
+        .select()
+        .from(dictionaryEntries)
+        .where(
+          and(
+            eq(dictionaryEntries.languageId, languageId),
+            eq(dictionaryEntries.normalizedLemma, "casa"),
+          ),
+        );
+      const [casaSense] = await tx
+        .select()
+        .from(dictionarySenses)
+        .where(eq(dictionarySenses.dictionaryEntryId, casaEntry.id));
 
       // A client-supplied sense id is a request, never proof.
       await expect(
@@ -437,13 +690,27 @@ describe("vocabulary mapping", () => {
 
   it("locks a manually selected mapping against every later automatic pass", async () => {
     await withTestTransaction(async (tx) => {
-      const { languageId, vocabularyItemId, adminUserId } = await seedIsolatedFixture(tx);
+      const { languageId, vocabularyItemId, adminUserId } =
+        await seedIsolatedFixture(tx);
       await importDictionary(tx, languageId, [
         GATO_RECORD,
-        { word: "casa", lang_code: "es", pos: "noun", senses: [{ glosses: ["house"], id: "casa-house" }] },
+        {
+          word: "casa",
+          lang_code: "es",
+          pos: "noun",
+          senses: [{ glosses: ["house"], id: "casa-house" }],
+        },
       ]);
 
-      const [casaEntry] = await tx.select().from(dictionaryEntries).where(and(eq(dictionaryEntries.languageId, languageId), eq(dictionaryEntries.normalizedLemma, "casa")));
+      const [casaEntry] = await tx
+        .select()
+        .from(dictionaryEntries)
+        .where(
+          and(
+            eq(dictionaryEntries.languageId, languageId),
+            eq(dictionaryEntries.normalizedLemma, "casa"),
+          ),
+        );
 
       // A deliberately "wrong" choice: the point is that nothing automatic
       // may second-guess an admin's explicit decision.
@@ -470,13 +737,27 @@ describe("vocabulary mapping", () => {
 
   it("survives a reimport with its mapping and selected senses intact", async () => {
     await withTestTransaction(async (tx) => {
-      const { languageId, vocabularyItemId, adminUserId } = await seedIsolatedFixture(tx);
+      const { languageId, vocabularyItemId, adminUserId } =
+        await seedIsolatedFixture(tx);
       await importDictionary(tx, languageId, [GATO_RECORD]);
       await matchVocabularyItem(tx, vocabularyItemId);
 
-      const [entry] = await tx.select().from(dictionaryEntries).where(and(eq(dictionaryEntries.languageId, languageId), eq(dictionaryEntries.normalizedLemma, "gato")));
-      const senses = await tx.select().from(dictionarySenses).where(eq(dictionarySenses.dictionaryEntryId, entry.id));
-      const catSense = senses.find((sense) => sense.sourceSenseKey === "gato-cat")!;
+      const [entry] = await tx
+        .select()
+        .from(dictionaryEntries)
+        .where(
+          and(
+            eq(dictionaryEntries.languageId, languageId),
+            eq(dictionaryEntries.normalizedLemma, "gato"),
+          ),
+        );
+      const senses = await tx
+        .select()
+        .from(dictionarySenses)
+        .where(eq(dictionarySenses.dictionaryEntryId, entry.id));
+      const catSense = senses.find(
+        (sense) => sense.sourceSenseKey === "gato-cat",
+      )!;
       await selectVocabularySenses(tx, {
         vocabularyItemId: vocabularyItemId,
         senseIds: [catSense.id],
@@ -485,24 +766,46 @@ describe("vocabulary mapping", () => {
       });
 
       await importDictionary(tx, languageId, [
-        { ...GATO_RECORD, senses: [{ glosses: ["cat, a small domesticated feline"], id: "gato-cat" }, { glosses: ["jack"], id: "gato-jack" }] },
+        {
+          ...GATO_RECORD,
+          senses: [
+            { glosses: ["cat, a small domesticated feline"], id: "gato-cat" },
+            { glosses: ["jack"], id: "gato-jack" },
+          ],
+        },
       ]);
 
       const mapping = await getMapping(tx, vocabularyItemId);
       expect(mapping?.dictionaryEntryId).toBe(entry.id);
-      expect(await getSelectedSenseIds(tx, vocabularyItemId)).toEqual([catSense.id]);
+      expect(await getSelectedSenseIds(tx, vocabularyItemId)).toEqual([
+        catSense.id,
+      ]);
     });
   });
 
   it("escalates to review when a selected sense disappears upstream — never silently picks another", async () => {
     await withTestTransaction(async (tx) => {
-      const { languageId, vocabularyItemId, adminUserId } = await seedIsolatedFixture(tx);
+      const { languageId, vocabularyItemId, adminUserId } =
+        await seedIsolatedFixture(tx);
       await importDictionary(tx, languageId, [GATO_RECORD]);
       await matchVocabularyItem(tx, vocabularyItemId);
 
-      const [entry] = await tx.select().from(dictionaryEntries).where(and(eq(dictionaryEntries.languageId, languageId), eq(dictionaryEntries.normalizedLemma, "gato")));
-      const senses = await tx.select().from(dictionarySenses).where(eq(dictionarySenses.dictionaryEntryId, entry.id));
-      const jackSense = senses.find((sense) => sense.sourceSenseKey === "gato-jack")!;
+      const [entry] = await tx
+        .select()
+        .from(dictionaryEntries)
+        .where(
+          and(
+            eq(dictionaryEntries.languageId, languageId),
+            eq(dictionaryEntries.normalizedLemma, "gato"),
+          ),
+        );
+      const senses = await tx
+        .select()
+        .from(dictionarySenses)
+        .where(eq(dictionarySenses.dictionaryEntryId, entry.id));
+      const jackSense = senses.find(
+        (sense) => sense.sourceSenseKey === "gato-jack",
+      )!;
       await selectVocabularySenses(tx, {
         vocabularyItemId: vocabularyItemId,
         senseIds: [jackSense.id],
@@ -510,20 +813,25 @@ describe("vocabulary mapping", () => {
         idempotencyKey: crypto.randomUUID(),
       });
 
-      await importDictionary(tx, languageId, [{ ...GATO_RECORD, senses: [{ glosses: ["cat"], id: "gato-cat" }] }]);
+      await importDictionary(tx, languageId, [
+        { ...GATO_RECORD, senses: [{ glosses: ["cat"], id: "gato-cat" }] },
+      ]);
       await flagMappingsNeedingReview(tx);
 
       const mapping = await getMapping(tx, vocabularyItemId);
       expect(mapping?.matchStatus).toBe("review_required");
       expect(mapping?.reviewReason).toBe("selected_sense_missing");
       // The selection is retained, not quietly swapped for another meaning.
-      expect(await getSelectedSenseIds(tx, vocabularyItemId)).toEqual([jackSense.id]);
+      expect(await getSelectedSenseIds(tx, vocabularyItemId)).toEqual([
+        jackSense.id,
+      ]);
     });
   });
 
   it("keeps a manually locked mapping locked while flagging it for review", async () => {
     await withTestTransaction(async (tx) => {
-      const { languageId, vocabularyItemId, adminUserId } = await seedIsolatedFixture(tx);
+      const { languageId, vocabularyItemId, adminUserId } =
+        await seedIsolatedFixture(tx);
       await importDictionary(tx, languageId, [GATO_RECORD]);
       await matchVocabularyItem(tx, vocabularyItemId);
       await confirmVocabularyMapping(tx, {
@@ -532,7 +840,14 @@ describe("vocabulary mapping", () => {
         idempotencyKey: crypto.randomUUID(),
       });
 
-      await importDictionary(tx, languageId, [{ word: "casa", lang_code: "es", pos: "noun", senses: [{ glosses: ["house"] }] }]);
+      await importDictionary(tx, languageId, [
+        {
+          word: "casa",
+          lang_code: "es",
+          pos: "noun",
+          senses: [{ glosses: ["house"] }],
+        },
+      ]);
       await flagMappingsNeedingReview(tx);
 
       const mapping = await getMapping(tx, vocabularyItemId);
@@ -544,15 +859,26 @@ describe("vocabulary mapping", () => {
 
   it("does not reset learner progress when an admin remaps an item", async () => {
     await withTestTransaction(async (tx) => {
-      const { languageId, vocabularyItemId, adminUserId, learnerUserId } = await seedIsolatedFixture(tx);
+      const { languageId, vocabularyItemId, adminUserId, learnerUserId } =
+        await seedIsolatedFixture(tx);
       await importDictionary(tx, languageId, [
         GATO_RECORD,
-        { word: "casa", lang_code: "es", pos: "noun", senses: [{ glosses: ["house"], id: "casa-house" }] },
+        {
+          word: "casa",
+          lang_code: "es",
+          pos: "noun",
+          senses: [{ glosses: ["house"], id: "casa-house" }],
+        },
       ]);
       const [casaEntry] = await tx
         .select()
         .from(dictionaryEntries)
-        .where(and(eq(dictionaryEntries.languageId, languageId), eq(dictionaryEntries.normalizedLemma, "casa")));
+        .where(
+          and(
+            eq(dictionaryEntries.languageId, languageId),
+            eq(dictionaryEntries.normalizedLemma, "casa"),
+          ),
+        );
 
       // Real enrolled progress, so "unchanged" is a claim about actual rows
       // rather than about two empty result sets.
@@ -568,7 +894,12 @@ describe("vocabulary mapping", () => {
       const progressBefore = await tx
         .select()
         .from(userItemProgress)
-        .where(and(eq(userItemProgress.userId, learnerUserId), eq(userItemProgress.learningItemId, vocabularyItemId)));
+        .where(
+          and(
+            eq(userItemProgress.userId, learnerUserId),
+            eq(userItemProgress.learningItemId, vocabularyItemId),
+          ),
+        );
 
       await selectDictionaryEntry(tx, {
         vocabularyItemId: vocabularyItemId,
@@ -580,7 +911,12 @@ describe("vocabulary mapping", () => {
       const progressAfter = await tx
         .select()
         .from(userItemProgress)
-        .where(and(eq(userItemProgress.userId, learnerUserId), eq(userItemProgress.learningItemId, vocabularyItemId)));
+        .where(
+          and(
+            eq(userItemProgress.userId, learnerUserId),
+            eq(userItemProgress.learningItemId, vocabularyItemId),
+          ),
+        );
       expect(progressAfter).toEqual(progressBefore);
       expect(progressAfter[0].srsStage).toBe("familiar_1");
     });
@@ -594,7 +930,12 @@ describe("regional evidence", () => {
       const regionWithoutData = `${regionCode}-NONE`;
       await importDictionary(tx, languageId, [
         GATO_RECORD,
-        { word: "ordenador", lang_code: "es", pos: "noun", senses: [{ glosses: ["computer"] }] },
+        {
+          word: "ordenador",
+          lang_code: "es",
+          pos: "noun",
+          senses: [{ glosses: ["computer"] }],
+        },
       ]);
 
       await runRegionalImport(tx, {
@@ -608,11 +949,21 @@ describe("regional evidence", () => {
       const [gato] = await tx
         .select()
         .from(dictionaryEntries)
-        .where(and(eq(dictionaryEntries.languageId, languageId), eq(dictionaryEntries.normalizedLemma, "gato")));
+        .where(
+          and(
+            eq(dictionaryEntries.languageId, languageId),
+            eq(dictionaryEntries.normalizedLemma, "gato"),
+          ),
+        );
       const [ordenador] = await tx
         .select()
         .from(dictionaryEntries)
-        .where(and(eq(dictionaryEntries.languageId, languageId), eq(dictionaryEntries.normalizedLemma, "ordenador")));
+        .where(
+          and(
+            eq(dictionaryEntries.languageId, languageId),
+            eq(dictionaryEntries.normalizedLemma, "ordenador"),
+          ),
+        );
 
       await refreshRegionalEvidence(tx, {
         languageId,
@@ -627,9 +978,17 @@ describe("regional evidence", () => {
       const evidence = await tx
         .select()
         .from(dictionaryRegionalEvidence)
-        .where(inArray(dictionaryRegionalEvidence.dictionaryEntryId, [gato.id, ordenador.id]));
+        .where(
+          inArray(dictionaryRegionalEvidence.dictionaryEntryId, [
+            gato.id,
+            ordenador.id,
+          ]),
+        );
       const find = (entryId: string, region: string) =>
-        evidence.find((row) => row.dictionaryEntryId === entryId && row.regionCode === region);
+        evidence.find(
+          (row) =>
+            row.dictionaryEntryId === entryId && row.regionCode === region,
+        );
 
       expect(find(gato.id, regionCode)?.status).toBe("recognized");
       expect(find(gato.id, regionCode)?.matchedForm).toBe("gato");
@@ -654,7 +1013,12 @@ describe("regional evidence", () => {
       const [entry] = await tx
         .select()
         .from(dictionaryEntries)
-        .where(and(eq(dictionaryEntries.languageId, languageId), eq(dictionaryEntries.normalizedLemma, "gato")));
+        .where(
+          and(
+            eq(dictionaryEntries.languageId, languageId),
+            eq(dictionaryEntries.normalizedLemma, "gato"),
+          ),
+        );
       await refreshRegionalEvidence(tx, {
         languageId,
         dictionarySourceId: entry.sourceId,
@@ -675,8 +1039,18 @@ describe("regional evidence", () => {
     await withTestTransaction(async (tx) => {
       const { languageId, regionCode } = await seedIsolatedFixture(tx);
       await importDictionary(tx, languageId, [
-        { word: "si", lang_code: "es", pos: "conj", senses: [{ glosses: ["if"] }] },
-        { word: "sí", lang_code: "es", pos: "adv", senses: [{ glosses: ["yes"] }] },
+        {
+          word: "si",
+          lang_code: "es",
+          pos: "conj",
+          senses: [{ glosses: ["if"] }],
+        },
+        {
+          word: "sí",
+          lang_code: "es",
+          pos: "adv",
+          senses: [{ glosses: ["yes"] }],
+        },
       ]);
       await runRegionalImport(tx, {
         directory,
@@ -686,8 +1060,24 @@ describe("regional evidence", () => {
         now: new Date(),
       });
 
-      const [si] = await tx.select().from(dictionaryEntries).where(and(eq(dictionaryEntries.languageId, languageId), eq(dictionaryEntries.normalizedLemma, "si")));
-      const [siAccented] = await tx.select().from(dictionaryEntries).where(and(eq(dictionaryEntries.languageId, languageId), eq(dictionaryEntries.normalizedLemma, "sí")));
+      const [si] = await tx
+        .select()
+        .from(dictionaryEntries)
+        .where(
+          and(
+            eq(dictionaryEntries.languageId, languageId),
+            eq(dictionaryEntries.normalizedLemma, "si"),
+          ),
+        );
+      const [siAccented] = await tx
+        .select()
+        .from(dictionaryEntries)
+        .where(
+          and(
+            eq(dictionaryEntries.languageId, languageId),
+            eq(dictionaryEntries.normalizedLemma, "sí"),
+          ),
+        );
       expect(si.id).not.toBe(siAccented.id);
 
       await refreshRegionalEvidence(tx, {
@@ -700,9 +1090,18 @@ describe("regional evidence", () => {
       const evidence = await tx
         .select()
         .from(dictionaryRegionalEvidence)
-        .where(inArray(dictionaryRegionalEvidence.dictionaryEntryId, [si.id, siAccented.id]));
-      expect(evidence.find((row) => row.dictionaryEntryId === siAccented.id)?.status).toBe("recognized");
-      expect(evidence.find((row) => row.dictionaryEntryId === si.id)?.status).toBe("not_listed");
+        .where(
+          inArray(dictionaryRegionalEvidence.dictionaryEntryId, [
+            si.id,
+            siAccented.id,
+          ]),
+        );
+      expect(
+        evidence.find((row) => row.dictionaryEntryId === siAccented.id)?.status,
+      ).toBe("recognized");
+      expect(
+        evidence.find((row) => row.dictionaryEntryId === si.id)?.status,
+      ).toBe("not_listed");
     });
   });
 });
@@ -710,14 +1109,22 @@ describe("regional evidence", () => {
 describe("matchImportedVocabularyItems", () => {
   it("matches exactly the given items, leaving a real sibling item in the same language untouched", async () => {
     await withTestTransaction(async (tx) => {
-      const { languageId, levelId, groupId, vocabularyItemId } = await seedIsolatedFixture(tx);
-      const otherItemId = await addVocabularyItem(tx, { languageId, levelId, groupId }, "perro", "dog");
+      const { languageId, levelId, groupId, vocabularyItemId } =
+        await seedIsolatedFixture(tx);
+      const otherItemId = await addVocabularyItem(
+        tx,
+        { languageId, levelId, groupId },
+        "perro",
+        "dog",
+      );
       await importDictionary(tx, languageId, [GATO_RECORD]);
 
       const result = await matchImportedVocabularyItems(tx, [vocabularyItemId]);
 
       expect(result.processed).toBe(1);
-      expect((await getMapping(tx, vocabularyItemId))?.matchStatus).toBe("auto_matched");
+      expect((await getMapping(tx, vocabularyItemId))?.matchStatus).toBe(
+        "auto_matched",
+      );
       // Never touched: no mapping row exists for it at all, not even an "unmatched" one.
       expect(await getMapping(tx, otherItemId)).toBeNull();
     });
@@ -725,16 +1132,43 @@ describe("matchImportedVocabularyItems", () => {
 
   it("counts a locked mapping as skipped rather than as a status, across a batch of several items", async () => {
     await withTestTransaction(async (tx) => {
-      const { languageId, levelId, groupId, vocabularyItemId, adminUserId } = await seedIsolatedFixture(tx);
-      const otherItemId = await addVocabularyItem(tx, { languageId, levelId, groupId }, "casa", "house");
+      const { languageId, levelId, groupId, vocabularyItemId, adminUserId } =
+        await seedIsolatedFixture(tx);
+      const otherItemId = await addVocabularyItem(
+        tx,
+        { languageId, levelId, groupId },
+        "casa",
+        "house",
+      );
       await importDictionary(tx, languageId, [
         GATO_RECORD,
-        { word: "casa", lang_code: "es", pos: "noun", senses: [{ glosses: ["house"], id: "casa-house" }] },
+        {
+          word: "casa",
+          lang_code: "es",
+          pos: "noun",
+          senses: [{ glosses: ["house"], id: "casa-house" }],
+        },
       ]);
-      const [casaEntry] = await tx.select().from(dictionaryEntries).where(and(eq(dictionaryEntries.languageId, languageId), eq(dictionaryEntries.normalizedLemma, "casa")));
-      await selectDictionaryEntry(tx, { vocabularyItemId: otherItemId, dictionaryEntryId: casaEntry.id, actorUserId: adminUserId, idempotencyKey: crypto.randomUUID() });
+      const [casaEntry] = await tx
+        .select()
+        .from(dictionaryEntries)
+        .where(
+          and(
+            eq(dictionaryEntries.languageId, languageId),
+            eq(dictionaryEntries.normalizedLemma, "casa"),
+          ),
+        );
+      await selectDictionaryEntry(tx, {
+        vocabularyItemId: otherItemId,
+        dictionaryEntryId: casaEntry.id,
+        actorUserId: adminUserId,
+        idempotencyKey: crypto.randomUUID(),
+      });
 
-      const result = await matchImportedVocabularyItems(tx, [vocabularyItemId, otherItemId]);
+      const result = await matchImportedVocabularyItems(tx, [
+        vocabularyItemId,
+        otherItemId,
+      ]);
 
       expect(result.processed).toBe(2);
       expect(result.skippedLocked).toBe(1);
@@ -746,41 +1180,75 @@ describe("matchImportedVocabularyItems", () => {
 describe("bulkConfirmVocabularyMappings", () => {
   it("confirms every given mapping in one call, sharing a correlationId across the audit trail", async () => {
     await withTestTransaction(async (tx) => {
-      const { languageId, levelId, groupId, vocabularyItemId, adminUserId } = await seedIsolatedFixture(tx);
-      const otherItemId = await addVocabularyItem(tx, { languageId, levelId, groupId }, "casa", "house");
+      const { languageId, levelId, groupId, vocabularyItemId, adminUserId } =
+        await seedIsolatedFixture(tx);
+      const otherItemId = await addVocabularyItem(
+        tx,
+        { languageId, levelId, groupId },
+        "casa",
+        "house",
+      );
       await importDictionary(tx, languageId, [
         GATO_RECORD,
-        { word: "casa", lang_code: "es", pos: "noun", senses: [{ glosses: ["house"], id: "casa-house" }] },
+        {
+          word: "casa",
+          lang_code: "es",
+          pos: "noun",
+          senses: [{ glosses: ["house"], id: "casa-house" }],
+        },
       ]);
       await matchImportedVocabularyItems(tx, [vocabularyItemId, otherItemId]);
       const idempotencyKey = crypto.randomUUID();
 
-      const result = await bulkConfirmVocabularyMappings(tx, { vocabularyItemIds: [vocabularyItemId, otherItemId], actorUserId: adminUserId, idempotencyKey });
+      const result = await bulkConfirmVocabularyMappings(tx, {
+        vocabularyItemIds: [vocabularyItemId, otherItemId],
+        actorUserId: adminUserId,
+        idempotencyKey,
+      });
 
       expect(result.confirmed).toEqual([vocabularyItemId, otherItemId]);
-      expect((await getMapping(tx, vocabularyItemId))?.matchStatus).toBe("manual");
+      expect((await getMapping(tx, vocabularyItemId))?.matchStatus).toBe(
+        "manual",
+      );
       expect((await getMapping(tx, otherItemId))?.matchStatus).toBe("manual");
 
-      const audit = await getAuditEvents(tx, { action: "DICTIONARY_MAPPING_CONFIRMED", limit: 10 });
-      const forThisBatch = audit.items.filter((event) => event.correlationId === idempotencyKey);
+      const audit = await getAuditEvents(tx, {
+        action: "DICTIONARY_MAPPING_CONFIRMED",
+        limit: 10,
+      });
+      const forThisBatch = audit.items.filter(
+        (event) => event.correlationId === idempotencyKey,
+      );
       expect(forThisBatch).toHaveLength(2);
     });
   });
 
   it("rolls back the whole batch when one item has nothing matched to confirm", async () => {
     await withTestTransaction(async (tx) => {
-      const { languageId, levelId, groupId, vocabularyItemId, adminUserId } = await seedIsolatedFixture(tx);
+      const { languageId, levelId, groupId, vocabularyItemId, adminUserId } =
+        await seedIsolatedFixture(tx);
       // A second item that is never imported/matched, so it has no dictionaryEntryId to confirm.
-      const unmatchedItemId = await addVocabularyItem(tx, { languageId, levelId, groupId }, "perro", "dog");
+      const unmatchedItemId = await addVocabularyItem(
+        tx,
+        { languageId, levelId, groupId },
+        "perro",
+        "dog",
+      );
       await importDictionary(tx, languageId, [GATO_RECORD]);
       await matchImportedVocabularyItems(tx, [vocabularyItemId]);
 
       await expect(
-        bulkConfirmVocabularyMappings(tx, { vocabularyItemIds: [vocabularyItemId, unmatchedItemId], actorUserId: adminUserId, idempotencyKey: crypto.randomUUID() }),
+        bulkConfirmVocabularyMappings(tx, {
+          vocabularyItemIds: [vocabularyItemId, unmatchedItemId],
+          actorUserId: adminUserId,
+          idempotencyKey: crypto.randomUUID(),
+        }),
       ).rejects.toThrow(LexiconError);
 
       // The whole batch rolled back — even the item that would have succeeded on its own is still unconfirmed.
-      expect((await getMapping(tx, vocabularyItemId))?.matchStatus).toBe("auto_matched");
+      expect((await getMapping(tx, vocabularyItemId))?.matchStatus).toBe(
+        "auto_matched",
+      );
     });
   });
 });

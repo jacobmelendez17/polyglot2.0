@@ -8,16 +8,16 @@ Deck practice is completely separate from official curriculum progression and SR
 
 Support:
 
-* **Polyglot Decks** — created by Admins only
-* **Personal Decks** — created and managed by the current user
+- **Polyglot Decks** — created by Admins only
+- **Personal Decks** — created and managed by the current user
 
 Both deck types reference existing canonical curriculum items. Do not duplicate vocabulary or grammar records.
 
 Decks may contain:
 
-* vocabulary
-* grammar
-* both
+- vocabulary
+- grammar
+- both
 
 Users may only add curriculum items they have already unlocked.
 
@@ -31,22 +31,22 @@ Route:
 
 Show:
 
-* page title
-* `Create Deck` button
-* search
-* type filter with `Vocabulary`, `Grammar`, and `Both`
-* `Your Decks`
-* `Polyglot Decks`
+- page title
+- `Create Deck` button
+- search
+- type filter with `Vocabulary`, `Grammar`, and `Both`
+- `Your Decks`
+- `Polyglot Decks`
 
 Use a responsive card grid.
 
 Deck cards should show:
 
-* icon/color
-* deck name
-* short description
-* item count
-* deck type
+- icon/color
+- deck name
+- short description
+- item count
+- deck type
 
 Clicking a card opens `/decks/[deckId]`.
 
@@ -80,26 +80,26 @@ Route:
 
 Show:
 
-* deck name
-* description
-* item count
-* `Practice Deck` action
-* curriculum item list
+- deck name
+- description
+- item count
+- `Practice Deck` action
+- curriculum item list
 
 Each item row should show:
 
-* word / grammar point
-* translation
-* current SRS stage
+- word / grammar point
+- translation
+- current SRS stage
 
 For personal decks, also allow:
 
-* rename
-* edit description
-* add unlocked items
-* remove items
-* reorder items
-* delete deck
+- rename
+- edit description
+- add unlocked items
+- remove items
+- reorder items
+- delete deck
 
 A deck cannot exist with zero items.
 
@@ -107,9 +107,9 @@ A deck cannot exist with zero items.
 
 Users can create personal decks with:
 
-* name
-* optional description
-* one or more unlocked curriculum items
+- name
+- optional description
+- one or more unlocked curriculum items
 
 The same curriculum item may appear in multiple decks.
 
@@ -131,18 +131,18 @@ When disabled, run normal deck practice.
 
 When enabled, allow the learner to classify each practiced item as:
 
-* Know
-* Don't Know
+- Know
+- Don't Know
 
 Use existing mixed vocabulary practice types for vocabulary and existing configured grammar practice behavior for grammar.
 
 Deck practice must not change:
 
-* SRS stage
-* next review time
-* Level unlocks
-* curriculum progress
-* review statistics
+- SRS stage
+- next review time
+- Level unlocks
+- curriculum progress
+- review statistics
 
 `Know / Don't Know` results are session-only.
 
@@ -167,40 +167,40 @@ Official decks reference existing curriculum items.
 
 Normal users can view and practice them but cannot:
 
-* rename
-* delete
-* reorder
-* add items
-* remove items
+- rename
+- delete
+- reorder
+- add items
+- remove items
 
 ## Scope Limits
 
-* no deck sharing
-* no public/community decks
-* no deck marketplace
-* no collaborative decks
-* no CSV deck import
-* no AI-generated decks
-* no deck-specific SRS
-* no permanent Know / Don't Know history
-* no locked curriculum items in personal decks
+- no deck sharing
+- no public/community decks
+- no deck marketplace
+- no collaborative decks
+- no CSV deck import
+- no AI-generated decks
+- no deck-specific SRS
+- no permanent Know / Don't Know history
+- no locked curriculum items in personal decks
 
 ## Check When Done
 
-* `/decks` shows personal and Polyglot decks.
-* Search works.
-* Vocabulary / Grammar / Both filtering works.
-* Users can create, edit, reorder, and delete personal decks.
-* Empty decks cannot be created.
-* Only unlocked items can be added to personal decks.
-* Official decks cannot be modified by learners.
-* Level decks remain hidden until their Level is unlocked.
-* Theme decks dynamically expose unlocked matching items.
-* Deck detail shows item, translation, and SRS stage.
-* Vocabulary and grammar can coexist in a deck.
-* Practice reuses existing practice behavior.
-* Deck practice never changes official SRS or curriculum progress.
-* Know / Don't Know is optional and session-only.
-* Responsive and empty states work.
-* Tests pass.
-* `npm run build` passes.
+- `/decks` shows personal and Polyglot decks.
+- Search works.
+- Vocabulary / Grammar / Both filtering works.
+- Users can create, edit, reorder, and delete personal decks.
+- Empty decks cannot be created.
+- Only unlocked items can be added to personal decks.
+- Official decks cannot be modified by learners.
+- Level decks remain hidden until their Level is unlocked.
+- Theme decks dynamically expose unlocked matching items.
+- Deck detail shows item, translation, and SRS stage.
+- Vocabulary and grammar can coexist in a deck.
+- Practice reuses existing practice behavior.
+- Deck practice never changes official SRS or curriculum progress.
+- Know / Don't Know is optional and session-only.
+- Responsive and empty states work.
+- Tests pass.
+- `npm run build` passes.

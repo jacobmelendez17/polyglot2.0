@@ -1,4 +1,9 @@
-import { FLUENT_MAINTENANCE_INTERVAL_MONTHS, getConfiguredInterval, intervalToMs, SRS_STAGE_ORDER } from "./srs-config";
+import {
+  FLUENT_MAINTENANCE_INTERVAL_MONTHS,
+  getConfiguredInterval,
+  intervalToMs,
+  SRS_STAGE_ORDER,
+} from "./srs-config";
 import type { SrsIntervalMode } from "./review-preference";
 import type { SrsInterval, SrsStage } from "./srs-types";
 
@@ -83,7 +88,12 @@ export type CalculateNextReviewInput = {
  * moment a review is scheduled, never retroactively against a stored
  * `next_review_at`.
  */
-export function calculateNextReview({ stage, level, mode, now }: CalculateNextReviewInput): Date | null {
+export function calculateNextReview({
+  stage,
+  level,
+  mode,
+  now,
+}: CalculateNextReviewInput): Date | null {
   const interval = getConfiguredInterval(stage, level, mode);
   if (!interval) return null;
   return addInterval(now, interval);

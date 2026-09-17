@@ -4,7 +4,8 @@ import { z } from "zod";
 // distinguishable by NODE_ENV — architecture.md requires a single APP_ENV
 // value instead. Vercel sets VERCEL_ENV automatically on deployments; local
 // dev has neither set, and is APP_ENV=development by default.
-const resolvedAppEnv = process.env.APP_ENV ?? process.env.VERCEL_ENV ?? "development";
+const resolvedAppEnv =
+  process.env.APP_ENV ?? process.env.VERCEL_ENV ?? "development";
 
 const envSchema = z.object({
   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: z.string().min(1),
@@ -31,7 +32,8 @@ const envSchema = z.object({
 });
 
 export const env = envSchema.parse({
-  NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
+  NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:
+    process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
   CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY,
   NEXT_PUBLIC_CLERK_SIGN_IN_URL: process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL,
   NEXT_PUBLIC_CLERK_SIGN_UP_URL: process.env.NEXT_PUBLIC_CLERK_SIGN_UP_URL,

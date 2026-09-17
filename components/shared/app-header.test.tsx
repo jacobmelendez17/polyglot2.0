@@ -5,8 +5,20 @@ import userEvent from "@testing-library/user-event";
 import { AppHeader } from "@/components/shared/app-header";
 
 vi.mock("@clerk/nextjs", () => {
-  function UserButton({ userProfileUrl, userProfileMode }: { userProfileUrl?: string; userProfileMode?: string }) {
-    return <div data-testid="user-button" data-user-profile-url={userProfileUrl} data-user-profile-mode={userProfileMode} />;
+  function UserButton({
+    userProfileUrl,
+    userProfileMode,
+  }: {
+    userProfileUrl?: string;
+    userProfileMode?: string;
+  }) {
+    return (
+      <div
+        data-testid="user-button"
+        data-user-profile-url={userProfileUrl}
+        data-user-profile-mode={userProfileMode}
+      />
+    );
   }
   return { UserButton };
 });
@@ -19,12 +31,30 @@ describe("AppHeader", () => {
   it("renders the wordmark, primary nav links, the Levels control, and the account control", () => {
     render(<AppHeader />);
 
-    expect(screen.getByRole("link", { name: "Polyglot" })).toHaveAttribute("href", "/dashboard");
-    expect(screen.getByRole("link", { name: "Lessons" })).toHaveAttribute("href", "/lessons");
-    expect(screen.getByRole("link", { name: "Reviews" })).toHaveAttribute("href", "/reviews");
-    expect(screen.getByRole("link", { name: "Decks" })).toHaveAttribute("href", "/decks");
-    expect(screen.getByRole("link", { name: "Practice" })).toHaveAttribute("href", "/practice");
-    expect(screen.getByRole("link", { name: "Journey" })).toHaveAttribute("href", "/journey");
+    expect(screen.getByRole("link", { name: "Polyglot" })).toHaveAttribute(
+      "href",
+      "/dashboard",
+    );
+    expect(screen.getByRole("link", { name: "Lessons" })).toHaveAttribute(
+      "href",
+      "/lessons",
+    );
+    expect(screen.getByRole("link", { name: "Reviews" })).toHaveAttribute(
+      "href",
+      "/reviews",
+    );
+    expect(screen.getByRole("link", { name: "Decks" })).toHaveAttribute(
+      "href",
+      "/decks",
+    );
+    expect(screen.getByRole("link", { name: "Practice" })).toHaveAttribute(
+      "href",
+      "/practice",
+    );
+    expect(screen.getByRole("link", { name: "Journey" })).toHaveAttribute(
+      "href",
+      "/journey",
+    );
     expect(screen.getByTestId("user-button")).toBeInTheDocument();
   });
 
@@ -32,7 +62,10 @@ describe("AppHeader", () => {
     render(<AppHeader />);
 
     const userButton = screen.getByTestId("user-button");
-    expect(userButton).toHaveAttribute("data-user-profile-url", "/settings/account");
+    expect(userButton).toHaveAttribute(
+      "data-user-profile-url",
+      "/settings/account",
+    );
     expect(userButton).toHaveAttribute("data-user-profile-mode", "navigation");
   });
 
@@ -54,6 +87,9 @@ describe("AppHeader", () => {
     expect(levelsControl).toBeInTheDocument();
 
     await user.click(levelsControl);
-    expect(screen.getByRole("link", { name: "1" })).toHaveAttribute("href", "/levels/1");
+    expect(screen.getByRole("link", { name: "1" })).toHaveAttribute(
+      "href",
+      "/levels/1",
+    );
   });
 });

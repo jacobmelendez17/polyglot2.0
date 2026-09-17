@@ -11,7 +11,10 @@ import type { DictionaryMatchCandidate } from "./lexicon-matching";
  * requires be distinguishable from `unmatched`).
  */
 
-function candidate(overrides: Partial<DictionaryMatchCandidate> & Pick<DictionaryMatchCandidate, "entryId">): DictionaryMatchCandidate {
+function candidate(
+  overrides: Partial<DictionaryMatchCandidate> &
+    Pick<DictionaryMatchCandidate, "entryId">,
+): DictionaryMatchCandidate {
   return {
     partOfSpeech: "noun",
     sourceStatus: "active",
@@ -44,7 +47,9 @@ describe("resolveDictionaryMatch", () => {
     // say so, or an admin cannot tell what was searched.
     const result = resolveDictionaryMatch({
       lookupForms: ["el padre", "padre"],
-      candidates: [candidate({ entryId: "entry-padre", matchedLookupForm: "padre" })],
+      candidates: [
+        candidate({ entryId: "entry-padre", matchedLookupForm: "padre" }),
+      ],
       curriculumPartOfSpeech: "noun",
       isSourceDataImported: true,
     });
@@ -68,7 +73,13 @@ describe("resolveDictionaryMatch", () => {
   it("matches through an inflected form at medium confidence", () => {
     const result = resolveDictionaryMatch({
       lookupForms: ["padres"],
-      candidates: [candidate({ entryId: "entry-padre", matchedLookupForm: "padres", matchedVia: "form" })],
+      candidates: [
+        candidate({
+          entryId: "entry-padre",
+          matchedLookupForm: "padres",
+          matchedVia: "form",
+        }),
+      ],
       curriculumPartOfSpeech: "noun",
       isSourceDataImported: true,
     });
@@ -79,7 +90,13 @@ describe("resolveDictionaryMatch", () => {
   it("drops to low confidence for a form match with no usable curriculum POS", () => {
     const result = resolveDictionaryMatch({
       lookupForms: ["padres"],
-      candidates: [candidate({ entryId: "entry-padre", matchedLookupForm: "padres", matchedVia: "form" })],
+      candidates: [
+        candidate({
+          entryId: "entry-padre",
+          matchedLookupForm: "padres",
+          matchedVia: "form",
+        }),
+      ],
       curriculumPartOfSpeech: null,
       isSourceDataImported: true,
     });
@@ -91,8 +108,18 @@ describe("resolveDictionaryMatch", () => {
     const result = resolveDictionaryMatch({
       lookupForms: ["habla"],
       candidates: [
-        candidate({ entryId: "entry-hablar", matchedLookupForm: "habla", matchedVia: "form", partOfSpeech: "verb" }),
-        candidate({ entryId: "entry-habla-noun", matchedLookupForm: "habla", matchedVia: "lemma", partOfSpeech: "noun" }),
+        candidate({
+          entryId: "entry-hablar",
+          matchedLookupForm: "habla",
+          matchedVia: "form",
+          partOfSpeech: "verb",
+        }),
+        candidate({
+          entryId: "entry-habla-noun",
+          matchedLookupForm: "habla",
+          matchedVia: "lemma",
+          partOfSpeech: "noun",
+        }),
       ],
       curriculumPartOfSpeech: null,
       isSourceDataImported: true,
@@ -121,8 +148,16 @@ describe("resolveDictionaryMatch", () => {
     const result = resolveDictionaryMatch({
       lookupForms: ["rojo"],
       candidates: [
-        candidate({ entryId: "entry-rojo-adj", matchedLookupForm: "rojo", partOfSpeech: "adjective" }),
-        candidate({ entryId: "entry-rojo-noun", matchedLookupForm: "rojo", partOfSpeech: "noun" }),
+        candidate({
+          entryId: "entry-rojo-adj",
+          matchedLookupForm: "rojo",
+          partOfSpeech: "adjective",
+        }),
+        candidate({
+          entryId: "entry-rojo-noun",
+          matchedLookupForm: "rojo",
+          partOfSpeech: "noun",
+        }),
       ],
       curriculumPartOfSpeech: "adjective",
       isSourceDataImported: true,
@@ -148,7 +183,11 @@ describe("resolveDictionaryMatch", () => {
     const result = resolveDictionaryMatch({
       lookupForms: ["buenos días"],
       candidates: [
-        candidate({ entryId: "entry-buenos-dias", matchedLookupForm: "buenos días", partOfSpeech: "phrase" }),
+        candidate({
+          entryId: "entry-buenos-dias",
+          matchedLookupForm: "buenos días",
+          partOfSpeech: "phrase",
+        }),
       ],
       curriculumPartOfSpeech: "phrase",
       isSourceDataImported: true,
@@ -161,8 +200,16 @@ describe("resolveDictionaryMatch", () => {
     const result = resolveDictionaryMatch({
       lookupForms: ["buenos días"],
       candidates: [
-        candidate({ entryId: "a", matchedLookupForm: "buenos días", partOfSpeech: "phrase" }),
-        candidate({ entryId: "b", matchedLookupForm: "buenos días", partOfSpeech: "phrase" }),
+        candidate({
+          entryId: "a",
+          matchedLookupForm: "buenos días",
+          partOfSpeech: "phrase",
+        }),
+        candidate({
+          entryId: "b",
+          matchedLookupForm: "buenos días",
+          partOfSpeech: "phrase",
+        }),
       ],
       curriculumPartOfSpeech: "phrase",
       isSourceDataImported: true,
@@ -207,7 +254,12 @@ describe("resolveDictionaryMatch", () => {
   it("never auto-adopts an entry the source has stopped publishing", () => {
     const result = resolveDictionaryMatch({
       lookupForms: ["padre"],
-      candidates: [candidate({ entryId: "entry-padre", sourceStatus: "missing_from_source" })],
+      candidates: [
+        candidate({
+          entryId: "entry-padre",
+          sourceStatus: "missing_from_source",
+        }),
+      ],
       curriculumPartOfSpeech: "noun",
       isSourceDataImported: true,
     });
@@ -219,8 +271,16 @@ describe("resolveDictionaryMatch", () => {
     const result = resolveDictionaryMatch({
       lookupForms: ["coma"],
       candidates: [
-        candidate({ entryId: "entry-known", matchedLookupForm: "coma", primaryRegionEvidence: "recognized" }),
-        candidate({ entryId: "entry-other", matchedLookupForm: "coma", primaryRegionEvidence: "not_listed" }),
+        candidate({
+          entryId: "entry-known",
+          matchedLookupForm: "coma",
+          primaryRegionEvidence: "recognized",
+        }),
+        candidate({
+          entryId: "entry-other",
+          matchedLookupForm: "coma",
+          primaryRegionEvidence: "not_listed",
+        }),
       ],
       curriculumPartOfSpeech: "noun",
       isSourceDataImported: true,
@@ -234,7 +294,12 @@ describe("resolveDictionaryMatch", () => {
     // Spec 12: absence is not sufficient proof that a form is invalid.
     const result = resolveDictionaryMatch({
       lookupForms: ["padre"],
-      candidates: [candidate({ entryId: "entry-padre", primaryRegionEvidence: "not_listed" })],
+      candidates: [
+        candidate({
+          entryId: "entry-padre",
+          primaryRegionEvidence: "not_listed",
+        }),
+      ],
       curriculumPartOfSpeech: "noun",
       isSourceDataImported: true,
       primaryRegionCode: "es-MX",
@@ -247,8 +312,16 @@ describe("resolveDictionaryMatch", () => {
     const result = resolveDictionaryMatch({
       lookupForms: ["coma"],
       candidates: [
-        candidate({ entryId: "a", matchedLookupForm: "coma", primaryRegionEvidence: "recognized" }),
-        candidate({ entryId: "b", matchedLookupForm: "coma", primaryRegionEvidence: "recognized" }),
+        candidate({
+          entryId: "a",
+          matchedLookupForm: "coma",
+          primaryRegionEvidence: "recognized",
+        }),
+        candidate({
+          entryId: "b",
+          matchedLookupForm: "coma",
+          primaryRegionEvidence: "recognized",
+        }),
       ],
       curriculumPartOfSpeech: "noun",
       isSourceDataImported: true,
@@ -261,7 +334,13 @@ describe("resolveDictionaryMatch", () => {
   it("flags an entry the source explicitly restricts to another region", () => {
     const result = resolveDictionaryMatch({
       lookupForms: ["ordenador"],
-      candidates: [candidate({ entryId: "entry-ordenador", matchedLookupForm: "ordenador", restrictedRegionCodes: ["es-ES"] })],
+      candidates: [
+        candidate({
+          entryId: "entry-ordenador",
+          matchedLookupForm: "ordenador",
+          restrictedRegionCodes: ["es-ES"],
+        }),
+      ],
       curriculumPartOfSpeech: "noun",
       isSourceDataImported: true,
       primaryRegionCode: "es-MX",
@@ -273,7 +352,13 @@ describe("resolveDictionaryMatch", () => {
   it("does not flag a restriction that includes the region being taught", () => {
     const result = resolveDictionaryMatch({
       lookupForms: ["computadora"],
-      candidates: [candidate({ entryId: "entry-computadora", matchedLookupForm: "computadora", restrictedRegionCodes: ["es-MX"] })],
+      candidates: [
+        candidate({
+          entryId: "entry-computadora",
+          matchedLookupForm: "computadora",
+          restrictedRegionCodes: ["es-MX"],
+        }),
+      ],
       curriculumPartOfSpeech: "noun",
       isSourceDataImported: true,
       primaryRegionCode: "es-MX",
@@ -288,7 +373,13 @@ describe("resolveDictionaryMatch", () => {
       curriculumPartOfSpeech: "noun",
       isSourceDataImported: true,
     });
-    expect(Object.keys(result).sort()).toEqual(["confidence", "dictionaryEntryId", "lookupForm", "reviewReason", "status"]);
+    expect(Object.keys(result).sort()).toEqual([
+      "confidence",
+      "dictionaryEntryId",
+      "lookupForm",
+      "reviewReason",
+      "status",
+    ]);
   });
 });
 
@@ -298,8 +389,13 @@ describe("resolveDictionaryMatch", () => {
  * record against a chosen entry.
  */
 describe("lookup form recorded for a manual mapping", () => {
-  function chooseLookupForm(lookups: string[], entryNormalizedLemma: string): string {
-    return lookups.find((form) => form === entryNormalizedLemma) ?? lookups[0] ?? "";
+  function chooseLookupForm(
+    lookups: string[],
+    entryNormalizedLemma: string,
+  ): string {
+    return (
+      lookups.find((form) => form === entryNormalizedLemma) ?? lookups[0] ?? ""
+    );
   }
 
   it("records the lemma, not the article-composed display word", () => {
@@ -308,12 +404,16 @@ describe("lookup form recorded for a manual mapping", () => {
   });
 
   it("records the whole expression when the entry is the expression", () => {
-    expect(chooseLookupForm(["buenos días"], "buenos días")).toBe("buenos días");
+    expect(chooseLookupForm(["buenos días"], "buenos días")).toBe(
+      "buenos días",
+    );
   });
 
   it("falls back to the display word when no derived form is the entry's lemma", () => {
     // An admin mapping "el padre" onto the entry "progenitor" is legitimate;
     // there is simply no derived form that equals it.
-    expect(chooseLookupForm(["el padre", "padre"], "progenitor")).toBe("el padre");
+    expect(chooseLookupForm(["el padre", "padre"], "progenitor")).toBe(
+      "el padre",
+    );
   });
 });

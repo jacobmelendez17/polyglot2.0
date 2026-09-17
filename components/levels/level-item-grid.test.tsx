@@ -21,12 +21,16 @@ describe("LevelItemGrid", () => {
   });
 
   it("large mode changes the layout to fewer columns per row", () => {
-    const { container } = render(<LevelItemGrid items={ITEMS} density="large" />);
+    const { container } = render(
+      <LevelItemGrid items={ITEMS} density="large" />,
+    );
     expect(container.firstChild).toHaveClass("lg:grid-cols-6");
   });
 
   it("compact mode changes the layout to more columns per row", () => {
-    const { container } = render(<LevelItemGrid items={ITEMS} density="compact" />);
+    const { container } = render(
+      <LevelItemGrid items={ITEMS} density="compact" />,
+    );
     expect(container.firstChild).toHaveClass("lg:grid-cols-10");
   });
 });

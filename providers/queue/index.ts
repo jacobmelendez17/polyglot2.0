@@ -14,7 +14,9 @@ let cachedQueue: CurriculumImportQueue | null = null;
 function createCurriculumImportQueue(): CurriculumImportQueue {
   const queueUrl = process.env.IMPORT_QUEUE_URL;
   if (!queueUrl) {
-    throw new Error("IMPORT_QUEUE_URL is not configured. Set it in .env.local — see .env.example.");
+    throw new Error(
+      "IMPORT_QUEUE_URL is not configured. Set it in .env.local — see .env.example.",
+    );
   }
   const region = process.env.AWS_REGION ?? "us-west-2";
   return new SqsCurriculumImportQueue({ queueUrl, region });

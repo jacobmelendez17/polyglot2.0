@@ -39,9 +39,14 @@ export function FontFamilySelector() {
               onChange={() => updateSettings({ fontFamily })}
               className="h-4 w-4 accent-primary"
             />
-            <span className="text-sm font-medium text-foreground">{LABELS[fontFamily]}</span>
+            <span className="text-sm font-medium text-foreground">
+              {LABELS[fontFamily]}
+            </span>
           </span>
-          <span className="text-base text-foreground" style={PREVIEW_STYLE[fontFamily]}>
+          <span
+            className="text-base text-foreground"
+            style={PREVIEW_STYLE[fontFamily]}
+          >
             Aa Bb Cc
           </span>
         </label>

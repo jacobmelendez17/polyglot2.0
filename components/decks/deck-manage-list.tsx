@@ -5,7 +5,10 @@ import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { ArrowDown, ArrowUp, X } from "lucide-react";
 
-import { removeDeckItemAction, reorderDeckItemsAction } from "@/app/(app)/decks/actions";
+import {
+  removeDeckItemAction,
+  reorderDeckItemsAction,
+} from "@/app/(app)/decks/actions";
 import { SrsStageBadge } from "@/components/shared/srs-stage-badge";
 import { Button } from "@/components/ui/button";
 import type { DeckItemRow } from "@/domains/decks";
@@ -40,10 +43,17 @@ type DeckManageListProps = {
 export function DeckManageList({ deckId, items }: DeckManageListProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [order, setOrder] = useState(() => items.map((item) => item.learningItemId));
+  const [order, setOrder] = useState(() =>
+    items.map((item) => item.learningItemId),
+  );
   const [error, setError] = useState<string | null>(null);
-  const byId = useMemo(() => new Map(items.map((item) => [item.learningItemId, item])), [items]);
-  const isDirty = order.some((id, index) => id !== items[index]?.learningItemId);
+  const byId = useMemo(
+    () => new Map(items.map((item) => [item.learningItemId, item])),
+    [items],
+  );
+  const isDirty = order.some(
+    (id, index) => id !== items[index]?.learningItemId,
+  );
   const isLastItem = items.length === 1;
 
   function move(index: number, direction: -1 | 1) {
@@ -57,7 +67,10 @@ export function DeckManageList({ deckId, items }: DeckManageListProps) {
   function handleSaveOrder() {
     setError(null);
     startTransition(async () => {
-      const result = await reorderDeckItemsAction({ deckId, orderedLearningItemIds: order });
+      const result = await reorderDeckItemsAction({
+        deckId,
+        orderedLearningItemIds: order,
+      });
       if (!result.ok) {
         setError(result.error.message);
         return;
@@ -83,8 +96,14 @@ export function DeckManageList({ deckId, items }: DeckManageListProps) {
     <div className="space-y-3">
       {isDirty ? (
         <div className="flex flex-wrap items-center gap-2 rounded-lg bg-muted px-3 py-2">
-          <p className="flex-1 text-sm text-muted-foreground">You have unsaved order changes.</p>
-          <Button variant="ghost" onClick={() => setOrder(items.map((item) => item.learningItemId))} disabled={isPending}>
+          <p className="flex-1 text-sm text-muted-foreground">
+            You have unsaved order changes.
+          </p>
+          <Button
+            variant="ghost"
+            onClick={() => setOrder(items.map((item) => item.learningItemId))}
+            disabled={isPending}
+          >
             Reset
           </Button>
           <Button onClick={handleSaveOrder} disabled={isPending}>
@@ -104,12 +123,20 @@ export function DeckManageList({ deckId, items }: DeckManageListProps) {
           const item = byId.get(id);
           if (!item) return null;
           return (
-            <li key={id} className={cn("flex items-center gap-2 border-l-2 px-3 py-2", TYPE_ACCENT[item.itemType])}>
+            <li
+              key={id}
+              className={cn(
+                "flex items-center gap-2 border-l-2 px-3 py-2",
+                TYPE_ACCENT[item.itemType],
+              )}
+            >
               <Link
                 href={`/items/${item.learningItemId}`}
                 className="min-w-0 flex-1 rounded-md px-1 py-1 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               >
-                <span className="block truncate text-sm font-medium text-foreground">{item.primary}</span>
+                <span className="block truncate text-sm font-medium text-foreground">
+                  {item.primary}
+                </span>
                 <span className="block truncate text-xs text-muted-foreground">
                   {item.secondary} · {TYPE_LABEL[item.itemType]}
                 </span>
@@ -143,7 +170,9 @@ export function DeckManageList({ deckId, items }: DeckManageListProps) {
                   variant="ghost"
                   size="icon-sm"
                   aria-label={`Remove ${item.primary} from this deck`}
-                  title={isLastItem ? "A deck needs at least one item" : undefined}
+                  title={
+                    isLastItem ? "A deck needs at least one item" : undefined
+                  }
                   disabled={isLastItem || isPending}
                   onClick={() => handleRemove(item.learningItemId)}
                 >
@@ -157,7 +186,8 @@ export function DeckManageList({ deckId, items }: DeckManageListProps) {
 
       {isLastItem ? (
         <p className="text-xs text-muted-foreground">
-          A deck needs at least one item. Add another item before removing this one, or delete the deck.
+          A deck needs at least one item. Add another item before removing this
+          one, or delete the deck.
         </p>
       ) : null}
     </div>

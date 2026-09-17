@@ -6,8 +6,14 @@ import { SandboxControls } from "@/components/admin/sandbox/sandbox-controls";
 import { SandboxCurriculumPanel } from "@/components/admin/sandbox/sandbox-curriculum-panel";
 import { SandboxSnapshotView } from "@/components/admin/sandbox/sandbox-snapshot-view";
 import { canUseDeveloperTools } from "@/domains/admin";
-import { getAdminCurriculumItems, getLevelsByLanguage } from "@/domains/curriculum/server";
-import { getSandboxSnapshotForOwner, previewSandboxCurriculum } from "@/domains/sandbox/server";
+import {
+  getAdminCurriculumItems,
+  getLevelsByLanguage,
+} from "@/domains/curriculum/server";
+import {
+  getSandboxSnapshotForOwner,
+  previewSandboxCurriculum,
+} from "@/domains/sandbox/server";
 import { requireUser } from "@/domains/users/server";
 
 export const metadata: Metadata = {
@@ -49,13 +55,21 @@ export default async function AdminSandboxPage() {
         <SandboxControls
           languageId={languageId}
           levels={levels.map((l) => ({ id: l.id, levelNumber: l.levelNumber }))}
-          items={itemsPage.items.map((i) => ({ id: i.id, itemLabel: i.itemLabel, levelId: i.levelId, levelNumber: i.levelNumber }))}
+          items={itemsPage.items.map((i) => ({
+            id: i.id,
+            itemLabel: i.itemLabel,
+            levelId: i.levelId,
+            levelNumber: i.levelNumber,
+          }))}
           timeOffsetSeconds={snapshot.timeOffsetSeconds}
         />
         <SandboxSnapshotView snapshot={snapshot} now={new Date()} />
 
         <div className="lg:col-span-2">
-          <SandboxCurriculumPanel languageId={languageId} preview={curriculumPreview} />
+          <SandboxCurriculumPanel
+            languageId={languageId}
+            preview={curriculumPreview}
+          />
         </div>
       </div>
     </div>

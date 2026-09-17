@@ -19,7 +19,11 @@ export const metadata: Metadata = {
  * record is fetched server-side so the first render isn't a loading flash;
  * `AsyncImportStatus` takes over polling from there (spec 19 §38).
  */
-export default async function CurriculumImportStatusPage({ params }: { params: Promise<{ importId: string }> }) {
+export default async function CurriculumImportStatusPage({
+  params,
+}: {
+  params: Promise<{ importId: string }>;
+}) {
   const user = await requireUser();
   if (!canManageCurriculum(user)) {
     forbidden();
@@ -33,7 +37,10 @@ export default async function CurriculumImportStatusPage({ params }: { params: P
 
   return (
     <div>
-      <Link href="/admin/curriculum/imports" className="mb-2 inline-block text-sm text-primary underline-offset-4 hover:underline">
+      <Link
+        href="/admin/curriculum/imports"
+        className="mb-2 inline-block text-sm text-primary underline-offset-4 hover:underline"
+      >
         ← Back to Imports
       </Link>
       <AdminPageHeader title="Import" description={record.originalFilename} />

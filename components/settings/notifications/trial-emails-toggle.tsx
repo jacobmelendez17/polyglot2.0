@@ -20,8 +20,12 @@ export function TrialEmailsToggle({ initialValue }: TrialEmailsToggleProps) {
       description="Receive optional emails about trials and reminders before a trial ends."
       initialValue={initialValue}
       onSave={async (trialEmail) => {
-        const result = await updateNotificationPreferencesAction({ trialEmail });
-        return result.ok ? { ok: true, value: result.data.trialEmail } : { ok: false, message: result.error.message };
+        const result = await updateNotificationPreferencesAction({
+          trialEmail,
+        });
+        return result.ok
+          ? { ok: true, value: result.data.trialEmail }
+          : { ok: false, message: result.error.message };
       }}
     />
   );

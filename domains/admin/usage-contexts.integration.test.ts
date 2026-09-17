@@ -1,8 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { DEVELOPER_ID, ITEM_GATO_ID, ITEM_Y_ID, seedTestFixtures } from "@/db/seed/test-fixtures";
+import {
+  DEVELOPER_ID,
+  ITEM_GATO_ID,
+  ITEM_Y_ID,
+  seedTestFixtures,
+} from "@/db/seed/test-fixtures";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
-import { getItemExamples, getUsageContexts } from "@/domains/curriculum/curriculum-mutation-repository";
+import {
+  getItemExamples,
+  getUsageContexts,
+} from "@/domains/curriculum/curriculum-mutation-repository";
 
 import { mutateItemExample, mutateUsageContext } from "./publication-service";
 
@@ -23,7 +31,10 @@ describe("usage contexts", () => {
       }
 
       const contexts = await getUsageContexts(tx, ITEM_GATO_ID);
-      expect(contexts.map((context) => context.label)).toEqual(["como", "comes"]);
+      expect(contexts.map((context) => context.label)).toEqual([
+        "como",
+        "comes",
+      ]);
       expect(contexts.map((context) => context.position)).toEqual([1, 2]);
     });
   });
@@ -46,17 +57,29 @@ describe("usage contexts", () => {
         learningItemId: ITEM_GATO_ID,
         actorUserId: DEVELOPER_ID,
         idempotencyKey: key(),
-        mutation: { kind: "update", usageContextId: ids[0]!, label: "renamed", note: "a note" },
+        mutation: {
+          kind: "update",
+          usageContextId: ids[0]!,
+          label: "renamed",
+          note: "a note",
+        },
       });
       await mutateUsageContext(tx, {
         learningItemId: ITEM_GATO_ID,
         actorUserId: DEVELOPER_ID,
         idempotencyKey: key(),
-        mutation: { kind: "reorder", learningItemId: ITEM_GATO_ID, orderedIds: [ids[1]!, ids[0]!] },
+        mutation: {
+          kind: "reorder",
+          learningItemId: ITEM_GATO_ID,
+          orderedIds: [ids[1]!, ids[0]!],
+        },
       });
 
       const contexts = await getUsageContexts(tx, ITEM_GATO_ID);
-      expect(contexts.map((context) => context.label)).toEqual(["second", "renamed"]);
+      expect(contexts.map((context) => context.label)).toEqual([
+        "second",
+        "renamed",
+      ]);
       expect(contexts[1]!.note).toBe("a note");
     });
   });
@@ -68,13 +91,22 @@ describe("usage contexts", () => {
         learningItemId: ITEM_GATO_ID,
         actorUserId: DEVELOPER_ID,
         idempotencyKey: key(),
-        mutation: { kind: "create", learningItemId: ITEM_GATO_ID, label: "como" },
+        mutation: {
+          kind: "create",
+          learningItemId: ITEM_GATO_ID,
+          label: "como",
+        },
       });
       await mutateItemExample(tx, {
         learningItemId: ITEM_GATO_ID,
         actorUserId: DEVELOPER_ID,
         idempotencyKey: key(),
-        mutation: { kind: "create", targetText: "Yo como pan.", translation: "I eat bread.", usageContextId },
+        mutation: {
+          kind: "create",
+          targetText: "Yo como pan.",
+          translation: "I eat bread.",
+          usageContextId,
+        },
       });
 
       await mutateUsageContext(tx, {
@@ -86,7 +118,9 @@ describe("usage contexts", () => {
 
       // Losing a tab must not silently lose the sentences written in it.
       const examples = await getItemExamples(tx, ITEM_GATO_ID);
-      const written = examples.find((example) => example.targetText === "Yo como pan.");
+      const written = examples.find(
+        (example) => example.targetText === "Yo como pan.",
+      );
       expect(written).toBeDefined();
       expect(written!.usageContextId).toBeNull();
     });
@@ -99,11 +133,17 @@ describe("usage contexts", () => {
         learningItemId: ITEM_Y_ID,
         actorUserId: DEVELOPER_ID,
         idempotencyKey: key(),
-        mutation: { kind: "create", learningItemId: ITEM_Y_ID, label: "conjunctions" },
+        mutation: {
+          kind: "create",
+          learningItemId: ITEM_Y_ID,
+          label: "conjunctions",
+        },
       });
 
       const contexts = await getUsageContexts(tx, ITEM_Y_ID);
-      expect(contexts.map((context) => context.label)).toEqual(["conjunctions"]);
+      expect(contexts.map((context) => context.label)).toEqual([
+        "conjunctions",
+      ]);
       expect(usageContextId).toBeTruthy();
     });
   });
@@ -121,12 +161,20 @@ describe("item examples", () => {
         learningItemId: ITEM_GATO_ID,
         actorUserId: DEVELOPER_ID,
         idempotencyKey: key(),
-        mutation: { kind: "create", targetText: "El gato come.", translation: "The cat eats." },
+        mutation: {
+          kind: "create",
+          targetText: "El gato come.",
+          translation: "The cat eats.",
+        },
       });
 
       const after = await getItemExamples(tx, ITEM_GATO_ID);
       expect(after).toHaveLength(before.length + 1);
-      expect(after.at(-1)).toMatchObject({ targetText: "El gato come.", translation: "The cat eats.", usageContextId: null });
+      expect(after.at(-1)).toMatchObject({
+        targetText: "El gato come.",
+        translation: "The cat eats.",
+        usageContextId: null,
+      });
     });
   });
 
@@ -137,7 +185,11 @@ describe("item examples", () => {
         learningItemId: ITEM_GATO_ID,
         actorUserId: DEVELOPER_ID,
         idempotencyKey: key(),
-        mutation: { kind: "create", learningItemId: ITEM_GATO_ID, label: "como" },
+        mutation: {
+          kind: "create",
+          learningItemId: ITEM_GATO_ID,
+          label: "como",
+        },
       });
       const { exampleId } = await mutateItemExample(tx, {
         learningItemId: ITEM_GATO_ID,
@@ -150,11 +202,23 @@ describe("item examples", () => {
         learningItemId: ITEM_GATO_ID,
         actorUserId: DEVELOPER_ID,
         idempotencyKey: key(),
-        mutation: { kind: "update", exampleId: exampleId!, targetText: "Yo como pan.", translation: "I eat bread.", usageContextId },
+        mutation: {
+          kind: "update",
+          exampleId: exampleId!,
+          targetText: "Yo como pan.",
+          translation: "I eat bread.",
+          usageContextId,
+        },
       });
 
-      const example = (await getItemExamples(tx, ITEM_GATO_ID)).find((row) => row.id === exampleId);
-      expect(example).toMatchObject({ targetText: "Yo como pan.", translation: "I eat bread.", usageContextId });
+      const example = (await getItemExamples(tx, ITEM_GATO_ID)).find(
+        (row) => row.id === exampleId,
+      );
+      expect(example).toMatchObject({
+        targetText: "Yo como pan.",
+        translation: "I eat bread.",
+        usageContextId,
+      });
     });
   });
 
@@ -165,7 +229,11 @@ describe("item examples", () => {
         learningItemId: ITEM_GATO_ID,
         actorUserId: DEVELOPER_ID,
         idempotencyKey: key(),
-        mutation: { kind: "create", targetText: "Se borra.", translation: "It gets deleted." },
+        mutation: {
+          kind: "create",
+          targetText: "Se borra.",
+          translation: "It gets deleted.",
+        },
       });
 
       await mutateItemExample(tx, {
@@ -175,7 +243,11 @@ describe("item examples", () => {
         mutation: { kind: "delete", exampleId: exampleId! },
       });
 
-      expect((await getItemExamples(tx, ITEM_GATO_ID)).some((row) => row.id === exampleId)).toBe(false);
+      expect(
+        (await getItemExamples(tx, ITEM_GATO_ID)).some(
+          (row) => row.id === exampleId,
+        ),
+      ).toBe(false);
     });
   });
 
@@ -186,10 +258,18 @@ describe("item examples", () => {
         learningItemId: ITEM_Y_ID,
         actorUserId: DEVELOPER_ID,
         idempotencyKey: key(),
-        mutation: { kind: "create", targetText: "pan y agua", translation: "bread and water" },
+        mutation: {
+          kind: "create",
+          targetText: "pan y agua",
+          translation: "bread and water",
+        },
       });
 
-      expect((await getItemExamples(tx, ITEM_Y_ID)).some((row) => row.targetText === "pan y agua")).toBe(true);
+      expect(
+        (await getItemExamples(tx, ITEM_Y_ID)).some(
+          (row) => row.targetText === "pan y agua",
+        ),
+      ).toBe(true);
     });
   });
 });

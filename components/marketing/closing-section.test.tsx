@@ -9,8 +9,13 @@ const { mockAuthState } = vi.hoisted(() => ({
 }));
 
 vi.mock("@clerk/nextjs", () => ({
-  Show: ({ when, children }: { when: "signed-in" | "signed-out"; children: ReactNode }) =>
-    (when === "signed-in") === mockAuthState.signedIn ? children : null,
+  Show: ({
+    when,
+    children,
+  }: {
+    when: "signed-in" | "signed-out";
+    children: ReactNode;
+  }) => ((when === "signed-in") === mockAuthState.signedIn ? children : null),
 }));
 
 describe("ClosingSection", () => {
@@ -30,10 +35,9 @@ describe("ClosingSection", () => {
     render(<ClosingSection />);
 
     expect(screen.getByText(/Continue your curriculum/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Go to dashboard" })).toHaveAttribute(
-      "href",
-      "/dashboard"
-    );
+    expect(
+      screen.getByRole("link", { name: "Go to dashboard" }),
+    ).toHaveAttribute("href", "/dashboard");
     expect(screen.queryByText(/Create a free account/)).not.toBeInTheDocument();
   });
 });

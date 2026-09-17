@@ -6,6 +6,8 @@ import { LevelPageHeader } from "@/components/levels/level-page-header";
 describe("LevelPageHeader", () => {
   it("identifies the current level", () => {
     render(<LevelPageHeader levelNumber={8} />);
-    expect(screen.getByRole("heading", { name: "Level 8" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Level 8" }),
+    ).toBeInTheDocument();
   });
 });

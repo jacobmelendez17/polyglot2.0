@@ -25,28 +25,44 @@ export function ColorBlindToggle() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <label htmlFor={switchId} className="text-sm font-medium text-foreground">
+          <label
+            htmlFor={switchId}
+            className="text-sm font-medium text-foreground"
+          >
             Color-Blind Assistance
           </label>
-          <p className="mt-1 text-sm text-muted-foreground">Adds icons, labels, and stronger borders alongside color, never color alone.</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Adds icons, labels, and stronger borders alongside color, never
+            color alone.
+          </p>
         </div>
-        <Switch id={switchId} checked={settings.colorBlindAssistance} onCheckedChange={(value) => updateSettings({ colorBlindAssistance: value })} />
+        <Switch
+          id={switchId}
+          checked={settings.colorBlindAssistance}
+          onCheckedChange={(value) =>
+            updateSettings({ colorBlindAssistance: value })
+          }
+        />
       </div>
 
       <div className="rounded-xl border border-border bg-card p-4">
         <p className="text-xs font-medium text-muted-foreground">Preview</p>
         <div className="mt-2 flex flex-wrap gap-2 text-sm">
           <span className="inline-flex items-center gap-1 rounded-full bg-learning-vocabulary/20 px-2 py-1 text-learning-vocabulary">
-            {settings.colorBlindAssistance && <span aria-hidden="true">◆</span>} Vocabulary
+            {settings.colorBlindAssistance && <span aria-hidden="true">◆</span>}{" "}
+            Vocabulary
           </span>
           <span className="inline-flex items-center gap-1 rounded-full bg-learning-grammar/20 px-2 py-1 text-learning-grammar">
-            {settings.colorBlindAssistance && <span aria-hidden="true">■</span>} Grammar
+            {settings.colorBlindAssistance && <span aria-hidden="true">■</span>}{" "}
+            Grammar
           </span>
           <span className="inline-flex items-center gap-1 rounded-full bg-state-success/20 px-2 py-1 text-state-success">
-            {settings.colorBlindAssistance && <span aria-hidden="true">✓</span>} Correct
+            {settings.colorBlindAssistance && <span aria-hidden="true">✓</span>}{" "}
+            Correct
           </span>
           <span className="inline-flex items-center gap-1 rounded-full bg-destructive/20 px-2 py-1 text-destructive">
-            {settings.colorBlindAssistance && <span aria-hidden="true">×</span>} Incorrect
+            {settings.colorBlindAssistance && <span aria-hidden="true">×</span>}{" "}
+            Incorrect
           </span>
         </div>
       </div>

@@ -18,7 +18,9 @@ let cachedStorage: CurriculumImportStorage | null = null;
 function createCurriculumImportStorage(): CurriculumImportStorage {
   const bucket = process.env.IMPORT_BUCKET;
   if (!bucket) {
-    throw new Error("IMPORT_BUCKET is not configured. Set it in .env.local — see .env.example.");
+    throw new Error(
+      "IMPORT_BUCKET is not configured. Set it in .env.local — see .env.example.",
+    );
   }
   const region = process.env.AWS_REGION ?? "us-west-2";
   return new S3CurriculumImportStorage({ bucket, region });
@@ -30,5 +32,12 @@ export function getCurriculumImportStorage(): CurriculumImportStorage {
   return cachedStorage;
 }
 
-export { curriculumImportObjectKey, parseCurriculumImportObjectKey } from "./curriculum-import-object-key";
-export type { CreatePresignedUploadInput, CurriculumImportStorage, PresignedUpload } from "./types";
+export {
+  curriculumImportObjectKey,
+  parseCurriculumImportObjectKey,
+} from "./curriculum-import-object-key";
+export type {
+  CreatePresignedUploadInput,
+  CurriculumImportStorage,
+  PresignedUpload,
+} from "./types";

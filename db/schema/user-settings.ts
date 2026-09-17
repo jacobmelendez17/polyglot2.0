@@ -1,5 +1,18 @@
 import { sql } from "drizzle-orm";
-import { boolean, check, foreignKey, index, integer, pgEnum, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  check,
+  foreignKey,
+  index,
+  integer,
+  pgEnum,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 import { timestamps } from "./columns";
 import { vocabularyGroups } from "./curriculum";
@@ -57,7 +70,11 @@ export const curriculumModeEnum = pgEnum("curriculum_mode", [
  * `domains/lessons/lesson-batch.ts`, not by a database constraint, since
  * every mode still needs *some* stored value even when it ignores it.
  */
-export const grammarPlacementEnum = pgEnum("grammar_placement", ["first", "last", "no_preference"]);
+export const grammarPlacementEnum = pgEnum("grammar_placement", [
+  "first",
+  "last",
+  "no_preference",
+]);
 
 /**
  * Per-learner, per-language settings (spec 16: "Store the selected mode on
@@ -106,7 +123,9 @@ export const userLanguageSettings = pgTable(
      * though only `variety` reads it — there is no "row exists but this
      * field is undecided" state here, unlike `curriculum_mode` itself.
      */
-    grammarPlacement: grammarPlacementEnum("grammar_placement").notNull().default("no_preference"),
+    grammarPlacement: grammarPlacementEnum("grammar_placement")
+      .notNull()
+      .default("no_preference"),
     /**
      * Spec 20 Lessons — Lesson Batch Size: "the maximum preferred lesson
      * batch size." Range-checked below rather than with a narrower Postgres
@@ -121,7 +140,9 @@ export const userLanguageSettings = pgTable(
      * a learner can already trigger manually (see
      * `components/lessons/lesson-session-view.tsx`'s auto-pronounce effect).
      */
-    autoPronounceLessons: boolean("auto_pronounce_lessons").notNull().default(true),
+    autoPronounceLessons: boolean("auto_pronounce_lessons")
+      .notNull()
+      .default(true),
     ...timestamps(),
   },
   (t) => [
@@ -138,7 +159,10 @@ export const userLanguageSettings = pgTable(
       "user_language_settings_theme_selection_consistency",
       sql`${t.selectedVocabularyGroupId} IS NULL OR ${t.curriculumMode} IN ('theme', 'choose_group')`,
     ),
-    check("user_language_settings_batch_size_range", sql`${t.lessonBatchSize} BETWEEN 3 AND 15`),
+    check(
+      "user_language_settings_batch_size_range",
+      sql`${t.lessonBatchSize} BETWEEN 3 AND 15`,
+    ),
     // A selected group must belong to the same language as the settings row
     // it lives on — cross-language selection is made unrepresentable rather
     // than merely discouraged, the same technique `learning_items` uses.
@@ -147,7 +171,9 @@ export const userLanguageSettings = pgTable(
       columns: [t.selectedVocabularyGroupId, t.languageId],
       foreignColumns: [vocabularyGroups.id, vocabularyGroups.languageId],
     }).onDelete("restrict"),
-    index("user_language_settings_selected_group_idx").on(t.selectedVocabularyGroupId),
+    index("user_language_settings_selected_group_idx").on(
+      t.selectedVocabularyGroupId,
+    ),
   ],
 );
 
@@ -194,8 +220,13 @@ export const userVacationPeriods = pgTable(
     ...timestamps(),
   },
   (t) => [
-    uniqueIndex("user_vacation_periods_one_active_per_user").on(t.userId).where(sql`${t.endedAt} IS NULL`),
-    index("user_vacation_periods_user_id_started_at_idx").on(t.userId, t.startedAt.desc()),
+    uniqueIndex("user_vacation_periods_one_active_per_user")
+      .on(t.userId)
+      .where(sql`${t.endedAt} IS NULL`),
+    index("user_vacation_periods_user_id_started_at_idx").on(
+      t.userId,
+      t.startedAt.desc(),
+    ),
   ],
 );
 
@@ -222,7 +253,12 @@ export const userStreakAdjustments = pgTable(
     value: integer("value").notNull(),
     ...timestamps(),
   },
-  (t) => [index("user_streak_adjustments_user_id_created_at_idx").on(t.userId, t.createdAt.desc())],
+  (t) => [
+    index("user_streak_adjustments_user_id_created_at_idx").on(
+      t.userId,
+      t.createdAt.desc(),
+    ),
+  ],
 );
 
 /**
@@ -244,7 +280,9 @@ export const userDismissedNotices = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     noticeKey: text("notice_key").notNull(),
-    dismissedAt: timestamp("dismissed_at", { withTimezone: true }).notNull().defaultNow(),
+    dismissedAt: timestamp("dismissed_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.noticeKey] })],
 );
@@ -275,7 +313,9 @@ export const accountDeletionRequests = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    requestedAt: timestamp("requested_at", { withTimezone: true }).notNull().defaultNow(),
+    requestedAt: timestamp("requested_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
     confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
     deleteAfter: timestamp("delete_after", { withTimezone: true }),
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
@@ -295,7 +335,9 @@ export const accountDeletionRequests = pgTable(
     // cancelled/completed request whose delete_after has passed.
     index("account_deletion_requests_due_idx")
       .on(t.deleteAfter)
-      .where(sql`${t.confirmedAt} IS NOT NULL AND ${t.cancelledAt} IS NULL AND ${t.completedAt} IS NULL`),
+      .where(
+        sql`${t.confirmedAt} IS NOT NULL AND ${t.cancelledAt} IS NULL AND ${t.completedAt} IS NULL`,
+      ),
   ],
 );
 
@@ -304,7 +346,11 @@ export const accountDeletionRequests = pgTable(
  * (shown pre-selected in its mockup and listed first among the three
  * options) for both content types.
  */
-export const reviewTypeEnum = pgEnum("review_type", ["cloze_manual", "cloze_flashcard", "flashcard"]);
+export const reviewTypeEnum = pgEnum("review_type", [
+  "cloze_manual",
+  "cloze_flashcard",
+  "flashcard",
+]);
 
 /**
  * Spec 20 Reviews — Review Hints. `nuance_first` and `hint` are the spec's
@@ -312,11 +358,23 @@ export const reviewTypeEnum = pgEnum("review_type", ["cloze_manual", "cloze_flas
  * mode with two separate pieces of content to reveal) — see
  * `domains/srs/review-hint.ts`'s `resolveReviewHint`.
  */
-export const hintOrderEnum = pgEnum("hint_order", ["nuance_first", "translation_first"]);
-export const hintModeEnum = pgEnum("hint_mode", ["hide", "hint", "show", "more", "always_show_nuance"]);
+export const hintOrderEnum = pgEnum("hint_order", [
+  "nuance_first",
+  "translation_first",
+]);
+export const hintModeEnum = pgEnum("hint_mode", [
+  "hide",
+  "hint",
+  "show",
+  "more",
+  "always_show_nuance",
+]);
 
 /** Spec 20 Review UI — Undo Action. `clear_last_character` is the spec's own stated default. */
-export const undoActionEnum = pgEnum("undo_action", ["clear_last_character", "clear_all_characters"]);
+export const undoActionEnum = pgEnum("undo_action", [
+  "clear_last_character",
+  "clear_all_characters",
+]);
 
 /**
  * Spec 20 SRS Strictness. `one_stage` is the spec's own stated default —
@@ -326,7 +384,13 @@ export const undoActionEnum = pgEnum("undo_action", ["clear_last_character", "cl
  * default... do not leave the old 2-stage Familiar+ logic reachable through
  * another code path" — see `domains/srs/review-result.ts`).
  */
-export const srsStrictnessEnum = pgEnum("srs_strictness", ["one_stage", "two_stages", "three_stages", "half", "full"]);
+export const srsStrictnessEnum = pgEnum("srs_strictness", [
+  "one_stage",
+  "two_stages",
+  "three_stages",
+  "half",
+  "full",
+]);
 
 /**
  * Spec 20 SRS Interval. `default` is the spec's own stated default (shown
@@ -337,7 +401,13 @@ export const srsStrictnessEnum = pgEnum("srs_strictness", ["one_stage", "two_sta
  * setting (spec's own "Important Future-Only Rule") — see
  * `domains/srs/srs-config.ts`.
  */
-export const srsIntervalModeEnum = pgEnum("srs_interval_mode", ["shortest", "shorter", "default", "longer", "longest"]);
+export const srsIntervalModeEnum = pgEnum("srs_interval_mode", [
+  "shortest",
+  "shorter",
+  "default",
+  "longer",
+  "longest",
+]);
 
 /**
  * Spec 20 Review Queue Timing. `start_of_hour` is the spec's own stated
@@ -349,7 +419,10 @@ export const srsIntervalModeEnum = pgEnum("srs_interval_mode", ["shortest", "sho
  * time and regardless of whether that completion advanced or was penalized
  * — see `domains/srs/review-queue-timing.ts`.
  */
-export const reviewQueueTimingModeEnum = pgEnum("review_queue_timing_mode", ["start_of_hour", "start_of_day"]);
+export const reviewQueueTimingModeEnum = pgEnum("review_queue_timing_mode", [
+  "start_of_hour",
+  "start_of_day",
+]);
 
 /**
  * Spec 20 Ghost Reviews. `on` is the spec's own stated default (shown
@@ -384,12 +457,24 @@ export const userReviewPreferences = pgTable(
     languageId: uuid("language_id")
       .notNull()
       .references(() => languages.id, { onDelete: "restrict" }),
-    grammarReviewType: reviewTypeEnum("grammar_review_type").notNull().default("cloze_manual"),
-    vocabularyReviewType: reviewTypeEnum("vocabulary_review_type").notNull().default("cloze_manual"),
-    grammarHintOrder: hintOrderEnum("grammar_hint_order").notNull().default("nuance_first"),
-    vocabularyHintOrder: hintOrderEnum("vocabulary_hint_order").notNull().default("nuance_first"),
-    grammarHintMode: hintModeEnum("grammar_hint_mode").notNull().default("hint"),
-    vocabularyHintMode: hintModeEnum("vocabulary_hint_mode").notNull().default("hint"),
+    grammarReviewType: reviewTypeEnum("grammar_review_type")
+      .notNull()
+      .default("cloze_manual"),
+    vocabularyReviewType: reviewTypeEnum("vocabulary_review_type")
+      .notNull()
+      .default("cloze_manual"),
+    grammarHintOrder: hintOrderEnum("grammar_hint_order")
+      .notNull()
+      .default("nuance_first"),
+    vocabularyHintOrder: hintOrderEnum("vocabulary_hint_order")
+      .notNull()
+      .default("nuance_first"),
+    grammarHintMode: hintModeEnum("grammar_hint_mode")
+      .notNull()
+      .default("hint"),
+    vocabularyHintMode: hintModeEnum("vocabulary_hint_mode")
+      .notNull()
+      .default("hint"),
     /**
      * Spec 20 Review UI. No stated default for `autoplayAudio`,
      * `autoHighlightErrors`, or `showSrsStage` — chosen `true` as the
@@ -403,17 +488,37 @@ export const userReviewPreferences = pgTable(
     autoplayAudio: boolean("autoplay_audio").notNull().default(true),
     lightningMode: boolean("lightning_mode").notNull().default(false),
     focusMode: boolean("focus_mode").notNull().default(false),
-    autoHighlightErrors: boolean("auto_highlight_errors").notNull().default(true),
+    autoHighlightErrors: boolean("auto_highlight_errors")
+      .notNull()
+      .default(true),
     showSrsStage: boolean("show_srs_stage").notNull().default(true),
     autoExpandInfo: boolean("auto_expand_info").notNull().default(false),
-    undoAction: undoActionEnum("undo_action").notNull().default("clear_last_character"),
-    grammarGhostMode: ghostModeEnum("grammar_ghost_mode").notNull().default("on"),
-    vocabularyGhostMode: ghostModeEnum("vocabulary_ghost_mode").notNull().default("on"),
-    grammarSrsStrictness: srsStrictnessEnum("grammar_srs_strictness").notNull().default("one_stage"),
-    vocabularySrsStrictness: srsStrictnessEnum("vocabulary_srs_strictness").notNull().default("one_stage"),
-    grammarSrsIntervalMode: srsIntervalModeEnum("grammar_srs_interval_mode").notNull().default("default"),
-    vocabularySrsIntervalMode: srsIntervalModeEnum("vocabulary_srs_interval_mode").notNull().default("default"),
-    reviewQueueTiming: reviewQueueTimingModeEnum("review_queue_timing").notNull().default("start_of_hour"),
+    undoAction: undoActionEnum("undo_action")
+      .notNull()
+      .default("clear_last_character"),
+    grammarGhostMode: ghostModeEnum("grammar_ghost_mode")
+      .notNull()
+      .default("on"),
+    vocabularyGhostMode: ghostModeEnum("vocabulary_ghost_mode")
+      .notNull()
+      .default("on"),
+    grammarSrsStrictness: srsStrictnessEnum("grammar_srs_strictness")
+      .notNull()
+      .default("one_stage"),
+    vocabularySrsStrictness: srsStrictnessEnum("vocabulary_srs_strictness")
+      .notNull()
+      .default("one_stage"),
+    grammarSrsIntervalMode: srsIntervalModeEnum("grammar_srs_interval_mode")
+      .notNull()
+      .default("default"),
+    vocabularySrsIntervalMode: srsIntervalModeEnum(
+      "vocabulary_srs_interval_mode",
+    )
+      .notNull()
+      .default("default"),
+    reviewQueueTiming: reviewQueueTimingModeEnum("review_queue_timing")
+      .notNull()
+      .default("start_of_hour"),
     /**
      * Spec 20 Fluent Mode. `true` (ON) is the spec's own stated default for
      * both content types. When ON, an item reaching Fluent gets a 6-calendar
@@ -424,7 +529,9 @@ export const userReviewPreferences = pgTable(
      * Fluent Items" sections).
      */
     grammarFluentMode: boolean("grammar_fluent_mode").notNull().default(true),
-    vocabularyFluentMode: boolean("vocabulary_fluent_mode").notNull().default(true),
+    vocabularyFluentMode: boolean("vocabulary_fluent_mode")
+      .notNull()
+      .default(true),
     /**
      * Spec 20 Leeches — Minimum SRS for Leech. `familiar_1` is the spec's
      * own stated default. "The item cannot be classified as a Leech until
@@ -433,8 +540,12 @@ export const userReviewPreferences = pgTable(
      * item's current stage (spec's own example: an item that reached Master
      * and later fell to Beginner 4 still satisfies this).
      */
-    grammarMinimumLeechStage: srsStageEnum("grammar_minimum_leech_stage").notNull().default("familiar_1"),
-    vocabularyMinimumLeechStage: srsStageEnum("vocabulary_minimum_leech_stage").notNull().default("familiar_1"),
+    grammarMinimumLeechStage: srsStageEnum("grammar_minimum_leech_stage")
+      .notNull()
+      .default("familiar_1"),
+    vocabularyMinimumLeechStage: srsStageEnum("vocabulary_minimum_leech_stage")
+      .notNull()
+      .default("familiar_1"),
     ...timestamps(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.languageId] })],
@@ -455,13 +566,16 @@ export const userReviewPreferences = pgTable(
  * nonexistent emails simply because a toggle exists." No email-sending code
  * exists anywhere in this codebase as of spec 20 unit 19.
  */
-export const userNotificationPreferences = pgTable("user_notification_preferences", {
-  userId: uuid("user_id")
-    .primaryKey()
-    .references(() => users.id, { onDelete: "cascade" }),
-  newsUpdates: boolean("news_updates").notNull().default(true),
-  progressEmail: boolean("progress_email").notNull().default(true),
-  inactivityEmail: boolean("inactivity_email").notNull().default(true),
-  trialEmail: boolean("trial_email").notNull().default(true),
-  ...timestamps(),
-});
+export const userNotificationPreferences = pgTable(
+  "user_notification_preferences",
+  {
+    userId: uuid("user_id")
+      .primaryKey()
+      .references(() => users.id, { onDelete: "cascade" }),
+    newsUpdates: boolean("news_updates").notNull().default(true),
+    progressEmail: boolean("progress_email").notNull().default(true),
+    inactivityEmail: boolean("inactivity_email").notNull().default(true),
+    trialEmail: boolean("trial_email").notNull().default(true),
+    ...timestamps(),
+  },
+);

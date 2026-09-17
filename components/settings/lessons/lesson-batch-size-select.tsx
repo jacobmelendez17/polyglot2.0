@@ -24,7 +24,9 @@ type LessonBatchSizeSelectProps = {
  * size's string form and is parsed back to a number before it reaches the
  * server action.
  */
-export function LessonBatchSizeSelect({ initialValue }: LessonBatchSizeSelectProps) {
+export function LessonBatchSizeSelect({
+  initialValue,
+}: LessonBatchSizeSelectProps) {
   return (
     <InlineSelectSettingField
       label="Lesson Batch Size"
@@ -32,9 +34,14 @@ export function LessonBatchSizeSelect({ initialValue }: LessonBatchSizeSelectPro
       initialValue={String(initialValue) as BatchSizeOption}
       options={OPTIONS}
       onSave={async (value) => {
-        const result = await updateLessonBatchSizeAction({ lessonBatchSize: Number(value) });
+        const result = await updateLessonBatchSizeAction({
+          lessonBatchSize: Number(value),
+        });
         return result.ok
-          ? { ok: true, value: String(result.data.lessonBatchSize) as BatchSizeOption }
+          ? {
+              ok: true,
+              value: String(result.data.lessonBatchSize) as BatchSizeOption,
+            }
           : { ok: false, message: result.error.message };
       }}
     />

@@ -12,6 +12,9 @@ import type { DashboardData } from "./dashboard-types";
  * server-only files, never a `"use client"` component. `./index.ts` stays
  * safe for a client component to value-import (types only).
  */
-export async function getDashboardData(input: { userId: string; languageId: string }): Promise<DashboardData> {
+export async function getDashboardData(input: {
+  userId: string;
+  languageId: string;
+}): Promise<DashboardData> {
   return getDashboardDataInjectable(db, input);
 }

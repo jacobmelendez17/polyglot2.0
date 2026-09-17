@@ -22,7 +22,10 @@ type AdminSidebarNavProps = {
  * equivalent — desktop is the primary Admin target (spec 11 §74), but
  * mobile must stay navigable, not merely present.
  */
-export function AdminSidebarNav({ canManageCurriculum, canUseDeveloperTools }: AdminSidebarNavProps) {
+export function AdminSidebarNav({
+  canManageCurriculum,
+  canUseDeveloperTools,
+}: AdminSidebarNavProps) {
   const pathname = usePathname();
   const items = getAdminNavItems(canManageCurriculum, canUseDeveloperTools);
 
@@ -32,10 +35,13 @@ export function AdminSidebarNav({ canManageCurriculum, canUseDeveloperTools }: A
         <Link
           key={item.href}
           href={item.href}
-          aria-current={isAdminNavItemCurrent(item, pathname, items) ? "page" : undefined}
+          aria-current={
+            isAdminNavItemCurrent(item, pathname, items) ? "page" : undefined
+          }
           className={cn(
             "rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-            isAdminNavItemCurrent(item, pathname, items) && "bg-muted font-semibold text-foreground",
+            isAdminNavItemCurrent(item, pathname, items) &&
+              "bg-muted font-semibold text-foreground",
           )}
         >
           {item.label}

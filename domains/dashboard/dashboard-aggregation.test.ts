@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { buildForecastBuckets, buildReviewHistoryBuckets, buildStreak, calculateCurrentStreakLength } from "./dashboard-aggregation";
+import {
+  buildForecastBuckets,
+  buildReviewHistoryBuckets,
+  buildStreak,
+  calculateCurrentStreakLength,
+} from "./dashboard-aggregation";
 import type { ForecastSourceItem } from "./dashboard-aggregation";
 
 const NOW = new Date("2026-08-30T12:00:00.000Z"); // a Sunday
@@ -8,9 +13,18 @@ const NOW = new Date("2026-08-30T12:00:00.000Z"); // a Sunday
 describe("buildForecastBuckets", () => {
   it("sorts items into the correct 3-hour bucket, split by item type", () => {
     const items: ForecastSourceItem[] = [
-      { nextReviewAt: new Date("2026-08-30T13:00:00.000Z"), itemType: "vocabulary" }, // bucket 0 (12p-3p)
-      { nextReviewAt: new Date("2026-08-30T14:30:00.000Z"), itemType: "grammar" }, // bucket 0
-      { nextReviewAt: new Date("2026-08-30T16:00:00.000Z"), itemType: "vocabulary" }, // bucket 1 (3p-6p)
+      {
+        nextReviewAt: new Date("2026-08-30T13:00:00.000Z"),
+        itemType: "vocabulary",
+      }, // bucket 0 (12p-3p)
+      {
+        nextReviewAt: new Date("2026-08-30T14:30:00.000Z"),
+        itemType: "grammar",
+      }, // bucket 0
+      {
+        nextReviewAt: new Date("2026-08-30T16:00:00.000Z"),
+        itemType: "vocabulary",
+      }, // bucket 1 (3p-6p)
     ];
 
     const { "24h": buckets } = buildForecastBuckets(NOW, items);
@@ -18,27 +32,48 @@ describe("buildForecastBuckets", () => {
     expect(buckets).toHaveLength(8);
     expect(buckets[0]).toMatchObject({ vocabularyCount: 1, grammarCount: 1 });
     expect(buckets[1]).toMatchObject({ vocabularyCount: 1, grammarCount: 0 });
-    expect(buckets.slice(2).every((bucket) => bucket.vocabularyCount === 0 && bucket.grammarCount === 0)).toBe(true);
+    expect(
+      buckets
+        .slice(2)
+        .every(
+          (bucket) => bucket.vocabularyCount === 0 && bucket.grammarCount === 0,
+        ),
+    ).toBe(true);
   });
 
   it("excludes items outside the 7-day window and produces 7 daily buckets", () => {
     const items: ForecastSourceItem[] = [
-      { nextReviewAt: new Date("2026-08-31T12:00:00.000Z"), itemType: "vocabulary" }, // +1 day
-      { nextReviewAt: new Date("2026-09-10T12:00:00.000Z"), itemType: "grammar" }, // far outside 7d
+      {
+        nextReviewAt: new Date("2026-08-31T12:00:00.000Z"),
+        itemType: "vocabulary",
+      }, // +1 day
+      {
+        nextReviewAt: new Date("2026-09-10T12:00:00.000Z"),
+        itemType: "grammar",
+      }, // far outside 7d
     ];
 
     const { "7d": buckets } = buildForecastBuckets(NOW, items);
 
     expect(buckets).toHaveLength(7);
     expect(buckets[1].vocabularyCount).toBe(1);
-    expect(buckets.reduce((sum, bucket) => sum + bucket.grammarCount, 0)).toBe(0);
+    expect(buckets.reduce((sum, bucket) => sum + bucket.grammarCount, 0)).toBe(
+      0,
+    );
   });
 
   it("returns all-zero buckets for no upcoming items, never an empty array", () => {
-    const { "24h": buckets24h, "7d": buckets7d } = buildForecastBuckets(NOW, []);
+    const { "24h": buckets24h, "7d": buckets7d } = buildForecastBuckets(
+      NOW,
+      [],
+    );
     expect(buckets24h).toHaveLength(8);
     expect(buckets7d).toHaveLength(7);
-    expect(buckets24h.every((bucket) => bucket.vocabularyCount === 0 && bucket.grammarCount === 0)).toBe(true);
+    expect(
+      buckets24h.every(
+        (bucket) => bucket.vocabularyCount === 0 && bucket.grammarCount === 0,
+      ),
+    ).toBe(true);
   });
 });
 
@@ -50,7 +85,11 @@ describe("buildReviewHistoryBuckets", () => {
       new Date("2026-08-01T12:00:00.000Z"), // ~29 days ago -> within 30d window
     ];
 
-    const { "24h": h24, "7d": h7d, "30d": h30d } = buildReviewHistoryBuckets(NOW, timestamps);
+    const {
+      "24h": h24,
+      "7d": h7d,
+      "30d": h30d,
+    } = buildReviewHistoryBuckets(NOW, timestamps);
 
     expect(h24).toHaveLength(8);
     expect(h24.at(-1)?.completedCount).toBe(1);
@@ -76,7 +115,15 @@ describe("buildStreak", () => {
     const streak = buildStreak(NOW, timestamps);
 
     expect(streak).toHaveLength(7);
-    expect(streak.map((day) => day.label)).toEqual(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]);
+    expect(streak.map((day) => day.label)).toEqual([
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun",
+    ]);
     expect(streak[0]).toMatchObject({ date: "2026-08-24", isActive: true });
     expect(streak[1]).toMatchObject({ isActive: false });
     expect(streak[3]).toMatchObject({ date: "2026-08-27", isActive: true });
@@ -115,7 +162,12 @@ describe("calculateCurrentStreakLength", () => {
     const streak = calculateCurrentStreakLength({
       today: "2026-08-30",
       // 8-26 is a miss between 8-25 and 8-27/8-28/8-29 — only the unbroken run ending today counts.
-      qualifyingDates: new Set(["2026-08-25", "2026-08-27", "2026-08-28", "2026-08-29"]),
+      qualifyingDates: new Set([
+        "2026-08-25",
+        "2026-08-27",
+        "2026-08-28",
+        "2026-08-29",
+      ]),
       vacationNeutralDates: new Set(),
       manualAdjustment: null,
     });

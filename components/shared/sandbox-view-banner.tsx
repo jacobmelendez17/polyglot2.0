@@ -29,7 +29,9 @@ export function SandboxViewBanner() {
         <FlaskConical className="h-4 w-4" aria-hidden="true" />
         Viewing as your sandbox persona
       </span>
-      <span className="text-muted-foreground">Progress here is isolated and affects no real learner.</span>
+      <span className="text-muted-foreground">
+        Progress here is isolated and affects no real learner.
+      </span>
       <button
         type="button"
         disabled={isPending}

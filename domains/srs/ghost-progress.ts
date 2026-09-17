@@ -2,7 +2,12 @@ import type { GhostMode } from "./review-preference";
 
 const MS_PER_HOUR = 60 * 60 * 1000;
 
-export const GHOST_STAGES = ["ghost_1", "ghost_2", "ghost_3", "ghost_4"] as const;
+export const GHOST_STAGES = [
+  "ghost_1",
+  "ghost_2",
+  "ghost_3",
+  "ghost_4",
+] as const;
 export type GhostStage = (typeof GHOST_STAGES)[number];
 
 /**
@@ -30,8 +35,14 @@ function scheduleGhostStage(stage: GhostStage, now: Date): Date {
  * Ghost to Ghost 1... schedule the next Ghost review for 4 hours") — all
  * three are the identical Ghost-1 schedule, not three separate rules.
  */
-export function activateGhost(now: Date): { ghostStage: GhostStage; nextReviewAt: Date } {
-  return { ghostStage: "ghost_1", nextReviewAt: scheduleGhostStage("ghost_1", now) };
+export function activateGhost(now: Date): {
+  ghostStage: GhostStage;
+  nextReviewAt: Date;
+} {
+  return {
+    ghostStage: "ghost_1",
+    nextReviewAt: scheduleGhostStage("ghost_1", now),
+  };
 }
 
 export type GhostAnswerResult =
@@ -46,19 +57,32 @@ export type GhostAnswerResult =
  * completes the Ghost outright past Ghost 4 ("Ghost is gone"); incorrect
  * always resets to Ghost 1, regardless of which stage it was on.
  */
-export function calculateGhostAnswerResult(currentStage: GhostStage, isCorrect: boolean, now: Date): GhostAnswerResult {
+export function calculateGhostAnswerResult(
+  currentStage: GhostStage,
+  isCorrect: boolean,
+  now: Date,
+): GhostAnswerResult {
   if (!isCorrect) {
     return { kind: "reset", ...activateGhost(now) };
   }
   const nextStage = GHOST_STAGES[GHOST_STAGES.indexOf(currentStage) + 1];
   if (!nextStage) return { kind: "completed" };
-  return { kind: "advanced", ghostStage: nextStage, nextReviewAt: scheduleGhostStage(nextStage, now) };
+  return {
+    kind: "advanced",
+    ghostStage: nextStage,
+    nextReviewAt: scheduleGhostStage(nextStage, now),
+  };
 }
 
 export type GhostMissOutcome =
   | { kind: "no_op" }
   | { kind: "record_miss"; missCount: number }
-  | { kind: "activate"; missCount: number; ghostStage: GhostStage; nextReviewAt: Date };
+  | {
+      kind: "activate";
+      missCount: number;
+      ghostStage: GhostStage;
+      nextReviewAt: Date;
+    };
 
 /**
  * Spec 20 Ghost Reviews — what one incorrect *normal* review (of a

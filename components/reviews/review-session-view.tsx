@@ -44,7 +44,10 @@ type SessionAction =
   | { type: "ADVANCE_QUESTION" }
   | { type: "ERROR"; error: ActionError };
 
-function sessionReducer(state: SessionState, action: SessionAction): SessionState {
+function sessionReducer(
+  state: SessionState,
+  action: SessionAction,
+): SessionState {
   switch (action.type) {
     case "ANSWER_SUBMITTED": {
       if (action.result.feedback?.kind === "empty") {
@@ -98,7 +101,8 @@ export function ReviewSessionView({ initial }: ReviewSessionViewProps) {
   // mount needs it" precedent `domains/lessons`' `languageCode`/
   // `autoPronounceLessons` established (spec 20 Lessons unit 9).
   const languageCode = initial.languageCode ?? "";
-  const reviewUiPreferences: ReviewUiPreferences = initial.reviewUiPreferences ?? DEFAULT_REVIEW_PREFERENCES;
+  const reviewUiPreferences: ReviewUiPreferences =
+    initial.reviewUiPreferences ?? DEFAULT_REVIEW_PREFERENCES;
 
   const [state, dispatch] = useReducer(sessionReducer, {
     token: initial.token,
@@ -117,7 +121,11 @@ export function ReviewSessionView({ initial }: ReviewSessionViewProps) {
   const [isPending, startTransition] = useTransition();
   const [isExitDialogOpen, setExitDialogOpen] = useState(false);
 
-  function submit(submission: { kind: "typed"; answer: string } | { kind: "self_graded"; knowsAnswer: boolean }) {
+  function submit(
+    submission:
+      | { kind: "typed"; answer: string }
+      | { kind: "self_graded"; knowsAnswer: boolean },
+  ) {
     const questionId = state.currentQuestion?.questionId;
     if (!questionId) return;
     startTransition(async () => {
@@ -159,7 +167,10 @@ export function ReviewSessionView({ initial }: ReviewSessionViewProps) {
     if (!question || !reviewUiPreferences.autoplayAudio) return;
     if (lastPronouncedItemId.current === question.itemId) return;
     lastPronouncedItemId.current = question.itemId;
-    browserSpeechSynthesisProvider.speak({ text: question.pronunciationText, languageCode });
+    browserSpeechSynthesisProvider.speak({
+      text: question.pronunciationText,
+      languageCode,
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.currentQuestion?.itemId]);
 
@@ -173,7 +184,11 @@ export function ReviewSessionView({ initial }: ReviewSessionViewProps) {
   // advance, matching "incorrect answers still show enough feedback to
   // understand the mistake."
   useEffect(() => {
-    if (!reviewUiPreferences.lightningMode || state.feedback?.kind !== "correct") return;
+    if (
+      !reviewUiPreferences.lightningMode ||
+      state.feedback?.kind !== "correct"
+    )
+      return;
     const timer = setTimeout(() => dispatch({ type: "ADVANCE_QUESTION" }), 600);
     return () => clearTimeout(timer);
   }, [reviewUiPreferences.lightningMode, state.feedback]);
@@ -182,19 +197,29 @@ export function ReviewSessionView({ initial }: ReviewSessionViewProps) {
     return <ReviewErrorState error={state.error} />;
   }
 
-  const awaitingAdvance = state.pendingQuestion !== null || (state.feedback !== null && state.phase === "complete");
+  const awaitingAdvance =
+    state.pendingQuestion !== null ||
+    (state.feedback !== null && state.phase === "complete");
 
-  if (!state.currentQuestion && state.phase === "complete" && !awaitingAdvance) {
+  if (
+    !state.currentQuestion &&
+    state.phase === "complete" &&
+    !awaitingAdvance
+  ) {
     return <ReviewCompletionView stats={state.stats} />;
   }
 
   const remaining = state.stats.itemsTotal - state.stats.itemsCompleted;
   const progressPercent =
-    state.stats.itemsTotal === 0 ? 100 : Math.round((state.stats.itemsCompleted / state.stats.itemsTotal) * 100);
+    state.stats.itemsTotal === 0
+      ? 100
+      : Math.round((state.stats.itemsCompleted / state.stats.itemsTotal) * 100);
   const accuracyPercent =
     state.stats.questionsAttempted === 0
       ? null
-      : Math.round((state.stats.questionsCorrect / state.stats.questionsAttempted) * 100);
+      : Math.round(
+          (state.stats.questionsCorrect / state.stats.questionsAttempted) * 100,
+        );
 
   return (
     <>
@@ -227,13 +252,21 @@ export function ReviewSessionView({ initial }: ReviewSessionViewProps) {
         ) : null}
 
         {state.staleNotice ? (
-          <p role="status" className="pb-4 text-center text-xs text-muted-foreground">
-            This review was already updated elsewhere. No additional progress change was applied.
+          <p
+            role="status"
+            className="pb-4 text-center text-xs text-muted-foreground"
+          >
+            This review was already updated elsewhere. No additional progress
+            change was applied.
           </p>
         ) : null}
       </div>
 
-      <ReviewExitDialog open={isExitDialogOpen} onOpenChange={setExitDialogOpen} onConfirm={handleExitConfirm} />
+      <ReviewExitDialog
+        open={isExitDialogOpen}
+        onOpenChange={setExitDialogOpen}
+        onConfirm={handleExitConfirm}
+      />
     </>
   );
 }

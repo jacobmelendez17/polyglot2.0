@@ -17,10 +17,16 @@ import type { ResetEntireAccountInput } from "./account-reset-service";
 import * as noticesService from "./notices-service";
 import type { ResetDismissedWarningsInput } from "./notices-service";
 import * as resetService from "./reset-service";
-import type { ResetContentTypeReviewsInput, ResetToLevelInput } from "./reset-service";
+import type {
+  ResetContentTypeReviewsInput,
+  ResetToLevelInput,
+} from "./reset-service";
 import type { ContentTypeResetResult } from "./reset-types";
 import * as streakService from "./streak-service";
-import type { GetCurrentStreakInput, SetManualStreakInput } from "./streak-service";
+import type {
+  GetCurrentStreakInput,
+  SetManualStreakInput,
+} from "./streak-service";
 
 /**
  * Binds the real `db`/rate limiter to every `domains/danger-zone`
@@ -31,66 +37,97 @@ import type { GetCurrentStreakInput, SetManualStreakInput } from "./streak-servi
  * core service files directly, so a real Server Action always goes
  * through the rate limit.
  */
-async function checkDangerZoneRateLimit(userId: string, policy: RateLimitPolicyName = "danger-zone-reset"): Promise<void> {
+async function checkDangerZoneRateLimit(
+  userId: string,
+  policy: RateLimitPolicyName = "danger-zone-reset",
+): Promise<void> {
   const decision = await getRateLimiter().check({ policy, subject: userId });
   if (!decision.allowed) {
-    throw new AppError("RATE_LIMITED", `Please slow down and try again in ${decision.retryAfterSeconds}s.`);
+    throw new AppError(
+      "RATE_LIMITED",
+      `Please slow down and try again in ${decision.retryAfterSeconds}s.`,
+    );
   }
 }
 
-export async function resetContentTypeReviews(input: ResetContentTypeReviewsInput): Promise<ContentTypeResetResult> {
+export async function resetContentTypeReviews(
+  input: ResetContentTypeReviewsInput,
+): Promise<ContentTypeResetResult> {
   await checkDangerZoneRateLimit(input.userId);
   return resetService.resetContentTypeReviews(db, input);
 }
 
-export async function resetToLevel(input: ResetToLevelInput): Promise<ContentTypeResetResult> {
+export async function resetToLevel(
+  input: ResetToLevelInput,
+): Promise<ContentTypeResetResult> {
   await checkDangerZoneRateLimit(input.userId);
   return resetService.resetToLevel(db, input);
 }
 
-export async function setManualStreak(input: SetManualStreakInput): Promise<{ value: number }> {
+export async function setManualStreak(
+  input: SetManualStreakInput,
+): Promise<{ value: number }> {
   await checkDangerZoneRateLimit(input.userId);
   return streakService.setManualStreak(db, input);
 }
 
 /** Not rate-limited — a plain read, not a Danger Zone mutation. */
-export async function getCurrentStreak(input: GetCurrentStreakInput): Promise<number> {
+export async function getCurrentStreak(
+  input: GetCurrentStreakInput,
+): Promise<number> {
   return streakService.getCurrentStreak(db, input);
 }
 
-export async function resetDismissedWarnings(input: ResetDismissedWarningsInput): Promise<{ affectedItemCount: number }> {
+export async function resetDismissedWarnings(
+  input: ResetDismissedWarningsInput,
+): Promise<{ affectedItemCount: number }> {
   await checkDangerZoneRateLimit(input.userId);
   return noticesService.resetDismissedWarnings(db, input);
 }
 
-export async function resetEntireAccount(input: ResetEntireAccountInput): Promise<{ resetAt: string }> {
+export async function resetEntireAccount(
+  input: ResetEntireAccountInput,
+): Promise<{ resetAt: string }> {
   await checkDangerZoneRateLimit(input.userId, "danger-zone-account-reset");
   return accountResetService.resetEntireAccount(db, input);
 }
 
-export async function requestAccountDeletion(input: RequestAccountDeletionInput): Promise<{ requestedAt: Date }> {
+export async function requestAccountDeletion(
+  input: RequestAccountDeletionInput,
+): Promise<{ requestedAt: Date }> {
   await checkDangerZoneRateLimit(input.userId, "danger-zone-account-reset");
   return accountDeletionService.requestAccountDeletion(db, input);
 }
 
-export async function confirmAccountDeletion(input: ConfirmAccountDeletionInput): Promise<{ deleteAfter: Date }> {
+export async function confirmAccountDeletion(
+  input: ConfirmAccountDeletionInput,
+): Promise<{ deleteAfter: Date }> {
   await checkDangerZoneRateLimit(input.userId, "danger-zone-account-reset");
   return accountDeletionService.confirmAccountDeletion(db, input);
 }
 
-export async function cancelAccountDeletion(input: CancelAccountDeletionInput): Promise<{ cancelled: boolean }> {
+export async function cancelAccountDeletion(
+  input: CancelAccountDeletionInput,
+): Promise<{ cancelled: boolean }> {
   await checkDangerZoneRateLimit(input.userId, "danger-zone-account-reset");
   return accountDeletionService.cancelAccountDeletion(db, input);
 }
 
 /** Not rate-limited — a plain read, not a Danger Zone mutation. */
-export async function getAccountDeletionStatus(userId: string): Promise<AccountDeletionStatus> {
+export async function getAccountDeletionStatus(
+  userId: string,
+): Promise<AccountDeletionStatus> {
   return accountDeletionService.getAccountDeletionStatus(db, userId);
 }
 
 /** Duck-typed rather than importing Clerk's type guard: the backend SDK's error shape (`.status`) is stable across the client/server packages, and this avoids depending on an import path this codebase doesn't otherwise use. */
 function isClerkUserNotFoundError(error: unknown): boolean {
-  return typeof error === "object" && error !== null && "status" in error && (error as { status: unknown }).status === 404;
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "status" in error &&
+    (error as { status: unknown }).status === 404
+  );
 }
 
 /**
@@ -101,7 +138,9 @@ function isClerkUserNotFoundError(error: unknown): boolean {
  * the only caller, itself protected by `CRON_SECRET`, not this rate
  * limiter.
  */
-export async function finalizeDueAccountDeletions(now: Date): Promise<{ processedCount: number; failedCount: number }> {
+export async function finalizeDueAccountDeletions(
+  now: Date,
+): Promise<{ processedCount: number; failedCount: number }> {
   const client = await clerkClient();
   return accountDeletionService.finalizeDueAccountDeletions(db, {
     now,

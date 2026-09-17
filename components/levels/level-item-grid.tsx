@@ -20,7 +20,10 @@ type LevelItemGridProps = {
   density?: LevelGridDensity;
 };
 
-export function LevelItemGrid({ items, density = "normal" }: LevelItemGridProps) {
+export function LevelItemGrid({
+  items,
+  density = "normal",
+}: LevelItemGridProps) {
   return (
     <div className={cn("grid gap-3", DENSITY_GRID_CLASSES[density])}>
       {items.map((item) => (

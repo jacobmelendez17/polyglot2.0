@@ -24,7 +24,9 @@ export const userNotes = pgTable(
     body: text("body").notNull(),
     ...timestamps(),
   },
-  (t) => [unique("user_notes_user_learning_item_key").on(t.userId, t.learningItemId)],
+  (t) => [
+    unique("user_notes_user_learning_item_key").on(t.userId, t.learningItemId),
+  ],
 );
 
 /**

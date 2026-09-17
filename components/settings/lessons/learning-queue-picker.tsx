@@ -24,7 +24,11 @@ type LearningQueuePickerProps = {
  * Choose Group as You Go needs a group before there is anything valid to
  * save; every other mode saves the instant it's picked.
  */
-export function LearningQueuePicker({ initialMode, initialThemeId, themes }: LearningQueuePickerProps) {
+export function LearningQueuePicker({
+  initialMode,
+  initialThemeId,
+  themes,
+}: LearningQueuePickerProps) {
   const [mode, setMode] = useState<CurriculumMode>(initialMode);
   const [themeId, setThemeId] = useState<string | null>(initialThemeId);
   const [state, setState] = useState<SaveState>("idle");
@@ -35,7 +39,8 @@ export function LearningQueuePicker({ initialMode, initialThemeId, themes }: Lea
     setErrorMessage(null);
     const result = await updateCurriculumPreferenceAction({
       curriculumMode: nextMode,
-      selectedVocabularyGroupId: nextMode === "choose_group" ? nextThemeId : null,
+      selectedVocabularyGroupId:
+        nextMode === "choose_group" ? nextThemeId : null,
     });
 
     if (!result.ok) {
@@ -74,9 +79,15 @@ export function LearningQueuePicker({ initialMode, initialThemeId, themes }: Lea
         disabled={state === "saving"}
       />
       <p className="text-sm" aria-live="polite">
-        {state === "saving" && <span className="text-muted-foreground">Saving…</span>}
+        {state === "saving" && (
+          <span className="text-muted-foreground">Saving…</span>
+        )}
         {state === "saved" && <span className="text-state-success">Saved</span>}
-        {state === "error" && <span className="text-destructive">{errorMessage ?? "Could not save setting."}</span>}
+        {state === "error" && (
+          <span className="text-destructive">
+            {errorMessage ?? "Could not save setting."}
+          </span>
+        )}
       </p>
     </div>
   );

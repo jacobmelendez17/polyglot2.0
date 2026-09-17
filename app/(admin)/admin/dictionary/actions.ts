@@ -5,7 +5,10 @@ import { z } from "zod";
 import { canManageCurriculum } from "@/domains/admin";
 import { applyDictionaryFieldsToItem } from "@/domains/admin/server";
 import { resolveConfirmedDictionaryFields } from "@/domains/lexicon";
-import type { DictionaryEntrySummary, VocabularyDictionaryMapping } from "@/domains/lexicon";
+import type {
+  DictionaryEntrySummary,
+  VocabularyDictionaryMapping,
+} from "@/domains/lexicon";
 import {
   bulkConfirmVocabularyMappings,
   confirmVocabularyMapping,
@@ -30,13 +33,23 @@ import { LexiconError } from "@/lib/errors/lexicon-errors";
  * happens here, server-side, regardless of what the UI rendered.
  */
 
-export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: { code: string; message: string } };
+export type ActionResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: { code: string; message: string } };
 
-async function runDictionaryAction<T>(fn: (actorUserId: string) => Promise<T>): Promise<ActionResult<T>> {
+async function runDictionaryAction<T>(
+  fn: (actorUserId: string) => Promise<T>,
+): Promise<ActionResult<T>> {
   try {
     const user = await requireUser();
     if (!canManageCurriculum(user)) {
-      return { ok: false, error: { code: "FORBIDDEN", message: "You don't have access to do that." } };
+      return {
+        ok: false,
+        error: {
+          code: "FORBIDDEN",
+          message: "You don't have access to do that.",
+        },
+      };
     }
     return { ok: true, data: await fn(user.id) };
   } catch (error) {
@@ -44,13 +57,24 @@ async function runDictionaryAction<T>(fn: (actorUserId: string) => Promise<T>): 
       return { ok: false, error: { code: error.code, message: error.message } };
     }
     if (error instanceof z.ZodError) {
-      return { ok: false, error: { code: "VALIDATION_FAILED", message: "That request could not be understood." } };
+      return {
+        ok: false,
+        error: {
+          code: "VALIDATION_FAILED",
+          message: "That request could not be understood.",
+        },
+      };
     }
     console.error("Unexpected dictionary action error", error);
-    return { ok: false, error: { code: "UNKNOWN", message: "Something went wrong. Please try again." } };
+    return {
+      ok: false,
+      error: {
+        code: "UNKNOWN",
+        message: "Something went wrong. Please try again.",
+      },
+    };
   }
 }
-
 
 /**
  * Copies a confirmed match's values into the curriculum item (user decision,
@@ -81,34 +105,54 @@ async function applyConfirmedDictionaryFields(
       learningItemId: vocabularyItemId,
       actorUserId,
       idempotencyKey: crypto.randomUUID(),
-      fields: { partOfSpeech: resolved.partOfSpeech, definition: resolved.definition, ipa: resolved.ipa },
+      fields: {
+        partOfSpeech: resolved.partOfSpeech,
+        definition: resolved.definition,
+        ipa: resolved.ipa,
+      },
     });
   } catch (error) {
-    console.error("Confirmed mapping saved, but applying its fields to the curriculum item failed", error);
+    console.error(
+      "Confirmed mapping saved, but applying its fields to the curriculum item failed",
+      error,
+    );
     return { applied: false, savedAsDraft: false };
   }
 }
 
-const itemActionSchema = z.object({ vocabularyItemId: z.string().min(1), idempotencyKey: z.string().min(1) });
+const itemActionSchema = z.object({
+  vocabularyItemId: z.string().min(1),
+  idempotencyKey: z.string().min(1),
+});
 
 export async function rematchVocabularyItemAction(
   input: z.infer<typeof itemActionSchema>,
-): Promise<ActionResult<{ matchStatus: string | null; skippedBecauseLocked: boolean }>> {
+): Promise<
+  ActionResult<{ matchStatus: string | null; skippedBecauseLocked: boolean }>
+> {
   return runDictionaryAction(async (actorUserId) => {
     const parsed = itemActionSchema.parse(input);
     const result = await rematchVocabularyItem({ ...parsed, actorUserId });
-    return { matchStatus: result.mapping?.matchStatus ?? null, skippedBecauseLocked: result.skippedBecauseLocked };
+    return {
+      matchStatus: result.mapping?.matchStatus ?? null,
+      skippedBecauseLocked: result.skippedBecauseLocked,
+    };
   });
 }
 
-const setEntrySchema = itemActionSchema.extend({ dictionaryEntryId: z.string().min(1) });
+const setEntrySchema = itemActionSchema.extend({
+  dictionaryEntryId: z.string().min(1),
+});
 
 export async function setDictionaryEntryAction(
   input: z.infer<typeof setEntrySchema>,
 ): Promise<ActionResult<VocabularyDictionaryMapping>> {
   return runDictionaryAction(async (actorUserId) => {
     const parsed = setEntrySchema.parse(input);
-    const mapping = await setVocabularyDictionaryEntry({ ...parsed, actorUserId });
+    const mapping = await setVocabularyDictionaryEntry({
+      ...parsed,
+      actorUserId,
+    });
     await applyConfirmedDictionaryFields(parsed.vocabularyItemId, actorUserId);
     return mapping;
   });
@@ -125,7 +169,10 @@ export async function confirmMappingAction(
   });
 }
 
-const bulkConfirmSchema = z.object({ vocabularyItemIds: z.array(z.string().min(1)).min(1).max(200), idempotencyKey: z.string().min(1) });
+const bulkConfirmSchema = z.object({
+  vocabularyItemIds: z.array(z.string().min(1)).min(1).max(200),
+  idempotencyKey: z.string().min(1),
+});
 
 /** Spec 13's "batch confirmation of reviewed mappings" — confirms several already-matched, already-reviewed items in one call instead of once per item. Never decides *which* candidate is right; that judgment still only happens per item in the mapping panel (see `mapping-queue-table.tsx`'s own docstring). */
 export async function bulkConfirmVocabularyMappingsAction(
@@ -133,7 +180,10 @@ export async function bulkConfirmVocabularyMappingsAction(
 ): Promise<ActionResult<{ confirmed: string[] }>> {
   return runDictionaryAction(async (actorUserId) => {
     const parsed = bulkConfirmSchema.parse(input);
-    const result = await bulkConfirmVocabularyMappings({ ...parsed, actorUserId });
+    const result = await bulkConfirmVocabularyMappings({
+      ...parsed,
+      actorUserId,
+    });
     // Sequential, not parallel: each one is a rate-limited admin mutation
     // opening its own transaction, and a burst of them would trip the
     // limiter that protects exactly this kind of write.
@@ -144,9 +194,13 @@ export async function bulkConfirmVocabularyMappingsAction(
   });
 }
 
-const selectSensesSchema = itemActionSchema.extend({ senseIds: z.array(z.string().min(1)).max(50) });
+const selectSensesSchema = itemActionSchema.extend({
+  senseIds: z.array(z.string().min(1)).max(50),
+});
 
-export async function selectSensesAction(input: z.infer<typeof selectSensesSchema>): Promise<ActionResult<string[]>> {
+export async function selectSensesAction(
+  input: z.infer<typeof selectSensesSchema>,
+): Promise<ActionResult<string[]>> {
   return runDictionaryAction(async (actorUserId) => {
     const parsed = selectSensesSchema.parse(input);
     const senseIds = await selectVocabularySenses({ ...parsed, actorUserId });
@@ -157,20 +211,28 @@ export async function selectSensesAction(input: z.infer<typeof selectSensesSchem
   });
 }
 
-const selectPronunciationSchema = itemActionSchema.extend({ pronunciationId: z.string().min(1).nullable() });
+const selectPronunciationSchema = itemActionSchema.extend({
+  pronunciationId: z.string().min(1).nullable(),
+});
 
 export async function selectPronunciationAction(
   input: z.infer<typeof selectPronunciationSchema>,
 ): Promise<ActionResult<VocabularyDictionaryMapping>> {
   return runDictionaryAction(async (actorUserId) => {
     const parsed = selectPronunciationSchema.parse(input);
-    const mapping = await selectPreferredPronunciation({ ...parsed, actorUserId });
+    const mapping = await selectPreferredPronunciation({
+      ...parsed,
+      actorUserId,
+    });
     await applyConfirmedDictionaryFields(parsed.vocabularyItemId, actorUserId);
     return mapping;
   });
 }
 
-const searchSchema = z.object({ languageId: z.string().min(1), query: z.string().trim().min(1).max(120) });
+const searchSchema = z.object({
+  languageId: z.string().min(1),
+  query: z.string().trim().min(1).max(120),
+});
 
 /**
  * Dictionary search for the "Change mapping" dialog. Read-only, so it is not

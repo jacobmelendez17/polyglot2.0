@@ -1,10 +1,20 @@
 import { describe, expect, it } from "vitest";
 
-import { DEVELOPER_ID, FIXTURE_LEVEL_NUMBER, seedTestFixtures } from "@/db/seed/test-fixtures";
+import {
+  DEVELOPER_ID,
+  FIXTURE_LEVEL_NUMBER,
+  seedTestFixtures,
+} from "@/db/seed/test-fixtures";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
 import { createCurriculumImport } from "@/domains/admin/curriculum-import-service";
-import { getCurriculumImportById, listCurriculumImportRows } from "@/domains/admin/curriculum-import-repository";
-import type { CurriculumImportStorage, PresignedUpload } from "@/providers/storage/types";
+import {
+  getCurriculumImportById,
+  listCurriculumImportRows,
+} from "@/domains/admin/curriculum-import-repository";
+import type {
+  CurriculumImportStorage,
+  PresignedUpload,
+} from "@/providers/storage/types";
 
 import { curriculumImportObjectKey } from "@/providers/storage/curriculum-import-object-key";
 import { runPreviewJob } from "./preview-job";
@@ -33,7 +43,11 @@ const LEVEL_NUMBER = FIXTURE_LEVEL_NUMBER;
 const GROUP_NUMBER = 1;
 
 /** The real create-import flow generates the id first (so the S3 key is known before the row exists, spec 19 §6) — mirrored here rather than relying on a database default. */
-async function createTestImport(tx: Parameters<typeof createCurriculumImport>[0], languageId: string, originalFilename: string) {
+async function createTestImport(
+  tx: Parameters<typeof createCurriculumImport>[0],
+  languageId: string,
+  originalFilename: string,
+) {
   const id = crypto.randomUUID();
   const key = curriculumImportObjectKey(id, "csv");
   const record = await createCurriculumImport(tx, {
@@ -53,9 +67,18 @@ describe("runPreviewJob (spec 19 §7/§10)", () => {
   it("a clean CSV moves the import to ready_to_import with a create row recorded", async () => {
     await withTestTransaction(async (tx) => {
       const { languageId } = await seedTestFixtures(tx);
-      const { record, key } = await createTestImport(tx, languageId, "level-2.csv");
+      const { record, key } = await createTestImport(
+        tx,
+        languageId,
+        "level-2.csv",
+      );
 
-      const objects = new Map([[key, `word,translation,level,group\ncomer,to eat,${LEVEL_NUMBER},${GROUP_NUMBER}\n`]]);
+      const objects = new Map([
+        [
+          key,
+          `word,translation,level,group\ncomer,to eat,${LEVEL_NUMBER},${GROUP_NUMBER}\n`,
+        ],
+      ]);
       const storage = new FakeCurriculumImportStorage(objects);
 
       await runPreviewJob(tx, storage, { bucket: "fake-bucket", key });
@@ -69,18 +92,30 @@ describe("runPreviewJob (spec 19 §7/§10)", () => {
       // Computed once the file is actually read (spec 19 §21) — unknown at creation time.
       expect(after?.sourceSha256).toMatch(/^[0-9a-f]{64}$/);
 
-      const rows = await listCurriculumImportRows(tx, { importId: record.id, limit: 10 });
+      const rows = await listCurriculumImportRows(tx, {
+        importId: record.id,
+        limit: 10,
+      });
       expect(rows.items).toHaveLength(1);
-      expect(rows.items[0]).toMatchObject({ classification: "create", displayTerm: "comer" });
+      expect(rows.items[0]).toMatchObject({
+        classification: "create",
+        displayTerm: "comer",
+      });
     });
   });
 
   it("a row referencing a nonexistent group moves the import to needs_review", async () => {
     await withTestTransaction(async (tx) => {
       const { languageId } = await seedTestFixtures(tx);
-      const { record, key } = await createTestImport(tx, languageId, "level-2.csv");
+      const { record, key } = await createTestImport(
+        tx,
+        languageId,
+        "level-2.csv",
+      );
 
-      const objects = new Map([[key, `word,translation,level,group\nbanco,bank,${LEVEL_NUMBER},99\n`]]);
+      const objects = new Map([
+        [key, `word,translation,level,group\nbanco,bank,${LEVEL_NUMBER},99\n`],
+      ]);
       const storage = new FakeCurriculumImportStorage(objects);
 
       await runPreviewJob(tx, storage, { bucket: "fake-bucket", key });
@@ -89,20 +124,32 @@ describe("runPreviewJob (spec 19 §7/§10)", () => {
       expect(after?.status).toBe("needs_review");
       expect(after?.reviewCount).toBe(1);
 
-      const rows = await listCurriculumImportRows(tx, { importId: record.id, limit: 10 });
-      expect(rows.items[0]).toMatchObject({ classification: "blocked", reviewReasonCode: "INVALID_ROW" });
+      const rows = await listCurriculumImportRows(tx, {
+        importId: record.id,
+        limit: 10,
+      });
+      expect(rows.items[0]).toMatchObject({
+        classification: "blocked",
+        reviewReasonCode: "INVALID_ROW",
+      });
     });
   });
 
   it("a CSV missing required columns marks the import failed with IMPORT_PARSE_FAILED", async () => {
     await withTestTransaction(async (tx) => {
       const { languageId } = await seedTestFixtures(tx);
-      const { record, key } = await createTestImport(tx, languageId, "broken.csv");
+      const { record, key } = await createTestImport(
+        tx,
+        languageId,
+        "broken.csv",
+      );
 
       const objects = new Map([[key, "word,translation\ncomer,to eat\n"]]);
       const storage = new FakeCurriculumImportStorage(objects);
 
-      await expect(runPreviewJob(tx, storage, { bucket: "fake-bucket", key })).rejects.toBeInstanceOf(Error);
+      await expect(
+        runPreviewJob(tx, storage, { bucket: "fake-bucket", key }),
+      ).rejects.toBeInstanceOf(Error);
 
       const after = await getCurriculumImportById(tx, record.id);
       expect(after?.status).toBe("failed");
@@ -113,11 +160,17 @@ describe("runPreviewJob (spec 19 §7/§10)", () => {
   it("a missing S3 object marks the import failed and rethrows", async () => {
     await withTestTransaction(async (tx) => {
       const { languageId } = await seedTestFixtures(tx);
-      const { record, key } = await createTestImport(tx, languageId, "gone.csv");
+      const { record, key } = await createTestImport(
+        tx,
+        languageId,
+        "gone.csv",
+      );
 
       const storage = new FakeCurriculumImportStorage(new Map()); // no object uploaded
 
-      await expect(runPreviewJob(tx, storage, { bucket: "fake-bucket", key })).rejects.toThrow(/NoSuchKey/);
+      await expect(
+        runPreviewJob(tx, storage, { bucket: "fake-bucket", key }),
+      ).rejects.toThrow(/NoSuchKey/);
 
       const after = await getCurriculumImportById(tx, record.id);
       expect(after?.status).toBe("failed");
@@ -127,9 +180,18 @@ describe("runPreviewJob (spec 19 §7/§10)", () => {
   it("a duplicate delivery of the same preview job is harmless (spec 19 §7)", async () => {
     await withTestTransaction(async (tx) => {
       const { languageId } = await seedTestFixtures(tx);
-      const { record, key } = await createTestImport(tx, languageId, "level-2.csv");
+      const { record, key } = await createTestImport(
+        tx,
+        languageId,
+        "level-2.csv",
+      );
 
-      const objects = new Map([[key, `word,translation,level,group\ncomer,to eat,${LEVEL_NUMBER},${GROUP_NUMBER}\n`]]);
+      const objects = new Map([
+        [
+          key,
+          `word,translation,level,group\ncomer,to eat,${LEVEL_NUMBER},${GROUP_NUMBER}\n`,
+        ],
+      ]);
       const storage = new FakeCurriculumImportStorage(objects);
 
       await runPreviewJob(tx, storage, { bucket: "fake-bucket", key });
@@ -141,7 +203,10 @@ describe("runPreviewJob (spec 19 §7/§10)", () => {
       expect(after?.previewVersion).toBe(2); // re-ran, not a strict no-op — see preview-job.ts's docstring
       expect(after?.createCount).toBe(1);
 
-      const rows = await listCurriculumImportRows(tx, { importId: record.id, limit: 10 });
+      const rows = await listCurriculumImportRows(tx, {
+        importId: record.id,
+        limit: 10,
+      });
       expect(rows.items).toHaveLength(1); // replaced, not duplicated
     });
   });

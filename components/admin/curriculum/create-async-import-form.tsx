@@ -24,7 +24,9 @@ function extensionForFile(fileName: string): "csv" | "tsv" | null {
  * browser to S3 via the presigned URL — this component never reads the
  * file's contents and never sends them through a Server Action.
  */
-export function CreateAsyncImportForm({ languageId }: CreateAsyncImportFormProps) {
+export function CreateAsyncImportForm({
+  languageId,
+}: CreateAsyncImportFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -37,13 +39,19 @@ export function CreateAsyncImportForm({ languageId }: CreateAsyncImportFormProps
       return;
     }
     if (file.size > MAX_IMPORT_FILE_BYTES) {
-      setError(`That file is too large (max ${Math.round(MAX_IMPORT_FILE_BYTES / 1024 / 1024)}MB).`);
+      setError(
+        `That file is too large (max ${Math.round(MAX_IMPORT_FILE_BYTES / 1024 / 1024)}MB).`,
+      );
       return;
     }
 
     setError(null);
     startTransition(async () => {
-      const result = await createAsyncCurriculumImportAction({ languageId, originalFilename: file.name, fileExtension });
+      const result = await createAsyncCurriculumImportAction({
+        languageId,
+        originalFilename: file.name,
+        fileExtension,
+      });
       if (!result.ok) {
         setError(result.error.message);
         return;
@@ -53,7 +61,12 @@ export function CreateAsyncImportForm({ languageId }: CreateAsyncImportFormProps
       try {
         const uploadResponse = await fetch(result.data.uploadUrl, {
           method: "PUT",
-          headers: { "Content-Type": fileExtension === "csv" ? "text/csv" : "text/tab-separated-values" },
+          headers: {
+            "Content-Type":
+              fileExtension === "csv"
+                ? "text/csv"
+                : "text/tab-separated-values",
+          },
           body: file,
         });
         if (!uploadResponse.ok) {
@@ -62,7 +75,9 @@ export function CreateAsyncImportForm({ languageId }: CreateAsyncImportFormProps
           return;
         }
       } catch {
-        setError("The upload failed. Please check your connection and try again.");
+        setError(
+          "The upload failed. Please check your connection and try again.",
+        );
         setPhase("idle");
         return;
       }
@@ -85,7 +100,11 @@ export function CreateAsyncImportForm({ languageId }: CreateAsyncImportFormProps
         }}
         className="rounded-md border border-dashed border-border px-3 py-6 text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-sm disabled:opacity-50"
       />
-      {busy ? <p className="text-sm text-muted-foreground">{phase === "uploading" ? "Uploading…" : "Starting import…"}</p> : null}
+      {busy ? (
+        <p className="text-sm text-muted-foreground">
+          {phase === "uploading" ? "Uploading…" : "Starting import…"}
+        </p>
+      ) : null}
 
       {error ? (
         <p role="alert" className="text-sm text-state-error">

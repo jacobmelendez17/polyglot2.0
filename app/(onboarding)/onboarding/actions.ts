@@ -22,7 +22,9 @@ import { getRateLimiter } from "@/providers/rate-limit";
  * flow but must never persist, and that is enforced here rather than trusted
  * from a client-side flag.
  */
-export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: { code: string; message: string } };
+export type ActionResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: { code: string; message: string } };
 
 export async function completeOnboardingAction(): Promise<ActionResult<null>> {
   try {
@@ -31,13 +33,22 @@ export async function completeOnboardingAction(): Promise<ActionResult<null>> {
     if (user.isSandbox) {
       return {
         ok: false,
-        error: { code: "FORBIDDEN", message: "Sandbox previews don't change onboarding status." },
+        error: {
+          code: "FORBIDDEN",
+          message: "Sandbox previews don't change onboarding status.",
+        },
       };
     }
 
-    const decision = await getRateLimiter().check({ policy: "onboarding-complete", subject: user.id });
+    const decision = await getRateLimiter().check({
+      policy: "onboarding-complete",
+      subject: user.id,
+    });
     if (!decision.allowed) {
-      throw new AppError("RATE_LIMITED", `Please slow down and try again in ${decision.retryAfterSeconds}s.`);
+      throw new AppError(
+        "RATE_LIMITED",
+        `Please slow down and try again in ${decision.retryAfterSeconds}s.`,
+      );
     }
 
     await completeOnboarding(user.id);
@@ -48,6 +59,12 @@ export async function completeOnboardingAction(): Promise<ActionResult<null>> {
       return { ok: false, error: { code: error.code, message: error.message } };
     }
     console.error("Unexpected onboarding action error", error);
-    return { ok: false, error: { code: "UNKNOWN", message: "Something went wrong. Please try again." } };
+    return {
+      ok: false,
+      error: {
+        code: "UNKNOWN",
+        message: "Something went wrong. Please try again.",
+      },
+    };
   }
 }

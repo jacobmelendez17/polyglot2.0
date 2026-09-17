@@ -29,7 +29,10 @@ export function DeckFilters({ search, contentFilter }: DeckFiltersProps) {
   const pathname = usePathname();
   const [searchDraft, setSearchDraft] = useState(search);
 
-  function navigate(next: { search: string; contentFilter: DeckContentFilter }) {
+  function navigate(next: {
+    search: string;
+    contentFilter: DeckContentFilter;
+  }) {
     const params = new URLSearchParams();
     if (next.search.trim()) params.set("q", next.search.trim());
     if (next.contentFilter !== "all") params.set("type", next.contentFilter);
@@ -66,7 +69,11 @@ export function DeckFilters({ search, contentFilter }: DeckFiltersProps) {
         size="sm"
         value={contentFilter}
         onValueChange={(next) => {
-          if (next) navigate({ search: searchDraft, contentFilter: next as DeckContentFilter });
+          if (next)
+            navigate({
+              search: searchDraft,
+              contentFilter: next as DeckContentFilter,
+            });
         }}
         aria-label="Filter decks by content type"
       >

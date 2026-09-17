@@ -31,7 +31,9 @@ export function LevelItemList({ items }: LevelItemListProps) {
             )}
           >
             <span className="font-medium text-foreground">{item.primary}</span>
-            <span className="text-sm text-muted-foreground">{item.secondary}</span>
+            <span className="text-sm text-muted-foreground">
+              {item.secondary}
+            </span>
           </Link>
         </li>
       ))}

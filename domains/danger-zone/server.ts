@@ -17,8 +17,14 @@ export {
   resetToLevel,
   setManualStreak,
 } from "./binding";
-export type { ResetContentTypeReviewsInput, ResetToLevelInput } from "./reset-service";
-export type { GetCurrentStreakInput, SetManualStreakInput } from "./streak-service";
+export type {
+  ResetContentTypeReviewsInput,
+  ResetToLevelInput,
+} from "./reset-service";
+export type {
+  GetCurrentStreakInput,
+  SetManualStreakInput,
+} from "./streak-service";
 export type { ResetDismissedWarningsInput } from "./notices-service";
 export type { ResetEntireAccountInput } from "./account-reset-service";
 export type {

@@ -31,7 +31,9 @@ function canonicalize(value: unknown): unknown {
 }
 
 export function hashSourceValue(value: unknown): string {
-  return createHash("sha256").update(JSON.stringify(canonicalize(value)), "utf8").digest("hex");
+  return createHash("sha256")
+    .update(JSON.stringify(canonicalize(value)), "utf8")
+    .digest("hex");
 }
 
 /** SHA-256 of a file's bytes — `lexical_imports.file_checksum`, the idempotency key for "this exact snapshot". */

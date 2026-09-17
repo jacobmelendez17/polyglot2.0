@@ -1,6 +1,9 @@
 import type { CefrLevel, Register } from "@/db/schema";
 
-import type { CurriculumGrammarQuestionRequirement, CurriculumStatus } from "./curriculum-db-types";
+import type {
+  CurriculumGrammarQuestionRequirement,
+  CurriculumStatus,
+} from "./curriculum-db-types";
 
 /** One official accepted-answer value on either side (mirrors `user_synonyms`' `side` distinction). */
 export type AcceptedAnswerInput = { side: "term" | "meaning"; value: string };
@@ -40,13 +43,19 @@ export type CreateLearningItemInput = {
   actorUserId: string;
   /** Confirms an already-flagged duplicate candidate is a deliberate, distinct sense — recorded on the audit event (spec 11 rewrite's homonym approval). */
   approvedAsHomonymOf?: string | null;
-} & ({ type: "vocabulary"; fields: VocabularyFieldsInput } | { type: "grammar"; fields: GrammarFieldsInput });
+} & (
+  | { type: "vocabulary"; fields: VocabularyFieldsInput }
+  | { type: "grammar"; fields: GrammarFieldsInput }
+);
 
 export type UpdateLearningItemInput = {
   learningItemId: string;
   actorUserId: string;
   approvedAsHomonymOf?: string | null;
-} & ({ type: "vocabulary"; fields: VocabularyFieldsInput } | { type: "grammar"; fields: GrammarFieldsInput });
+} & (
+  | { type: "vocabulary"; fields: VocabularyFieldsInput }
+  | { type: "grammar"; fields: GrammarFieldsInput }
+);
 
 export type PublishLearningItemInput = {
   learningItemId: string;
@@ -55,11 +64,19 @@ export type PublishLearningItemInput = {
   expectedVersion: number;
 };
 
-export type ArchiveLearningItemInput = { learningItemId: string; actorUserId: string; reason?: string };
+export type ArchiveLearningItemInput = {
+  learningItemId: string;
+  actorUserId: string;
+  reason?: string;
+};
 
 /** Attempts a permanent delete; falls back to archive when referential integrity blocks it (spec 11 rewrite's Archive/Delete section) — the caller learns which happened via the result. */
-export type DeleteLearningItemInput = { learningItemId: string; actorUserId: string };
-export type DeleteLearningItemResult = { outcome: "deleted" } | { outcome: "archived"; reason: string };
+export type DeleteLearningItemInput = {
+  learningItemId: string;
+  actorUserId: string;
+};
+export type DeleteLearningItemResult =
+  { outcome: "deleted" } | { outcome: "archived"; reason: string };
 
 export type MoveLearningItemInput = {
   learningItemId: string;
@@ -130,7 +147,11 @@ export type ReorderVocabularyGroupsInput = {
 
 // --- Bulk actions on the curriculum table (spec 11 rewrite's "Bulk Actions" / "Bulk Publish") ---
 
-export type BulkArchiveLearningItemsInput = { learningItemIds: string[]; actorUserId: string; reason?: string };
+export type BulkArchiveLearningItemsInput = {
+  learningItemIds: string[];
+  actorUserId: string;
+  reason?: string;
+};
 
 /** A move affecting several items at once — a grammar item in the selection is silently unaffected by `vocabularyGroupId` (grammar items have no group), matching `moveLearningItem`'s existing single-item behavior. */
 export type BulkMoveLearningItemsInput = {
@@ -141,4 +162,7 @@ export type BulkMoveLearningItemsInput = {
 };
 
 /** Every selected item must actually be `pending` — spec's literal "Pending items may be selected and published together." Transactional: all publish, or none do. */
-export type BulkPublishPendingItemsInput = { learningItemIds: string[]; actorUserId: string };
+export type BulkPublishPendingItemsInput = {
+  learningItemIds: string[];
+  actorUserId: string;
+};

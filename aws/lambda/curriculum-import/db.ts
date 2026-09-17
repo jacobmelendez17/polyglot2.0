@@ -54,11 +54,15 @@ async function resolveDatabaseUrl(): Promise<string> {
 
   const parameterName = process.env.DATABASE_URL_PARAMETER_NAME;
   if (!parameterName) {
-    throw new Error("Neither DATABASE_URL nor DATABASE_URL_PARAMETER_NAME is configured for the curriculum-import Lambda.");
+    throw new Error(
+      "Neither DATABASE_URL nor DATABASE_URL_PARAMETER_NAME is configured for the curriculum-import Lambda.",
+    );
   }
 
   const ssm = new SSMClient({ region: process.env.AWS_REGION });
-  const result = await ssm.send(new GetParameterCommand({ Name: parameterName, WithDecryption: true }));
+  const result = await ssm.send(
+    new GetParameterCommand({ Name: parameterName, WithDecryption: true }),
+  );
   const value = result.Parameter?.Value;
   if (!value) {
     throw new Error(`SSM parameter "${parameterName}" has no value.`);

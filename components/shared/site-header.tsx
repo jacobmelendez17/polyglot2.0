@@ -17,12 +17,18 @@ export function SiteHeader() {
       <SkipLink />
       <SiteHeaderScroll>
         <div className="mx-auto flex h-full w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-          <Link href="/" className="font-heading text-lg font-semibold text-foreground">
+          <Link
+            href="/"
+            className="font-heading text-lg font-semibold text-foreground"
+          >
             Polyglot
           </Link>
 
           <div className="flex items-center gap-2 sm:gap-4">
-            <nav aria-label="Primary" className="hidden items-center gap-6 md:flex">
+            <nav
+              aria-label="Primary"
+              className="hidden items-center gap-6 md:flex"
+            >
               {NAV_LINKS.map((link) => (
                 <Link
                   key={link.href}

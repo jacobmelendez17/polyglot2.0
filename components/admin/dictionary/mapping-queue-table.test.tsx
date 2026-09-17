@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { MappingQueueTable, isConfirmableMappingRow } from "./mapping-queue-table";
+import {
+  MappingQueueTable,
+  isConfirmableMappingRow,
+} from "./mapping-queue-table";
 import type { MappingQueueRow } from "@/domains/lexicon";
 
 function row(overrides: Partial<MappingQueueRow> = {}): MappingQueueRow {
@@ -34,7 +37,9 @@ describe("isConfirmableMappingRow", () => {
   });
 
   it("is false with nothing matched", () => {
-    expect(isConfirmableMappingRow(row({ entryId: null, matchStatus: "unmatched" }))).toBe(false);
+    expect(
+      isConfirmableMappingRow(row({ entryId: null, matchStatus: "unmatched" })),
+    ).toBe(false);
   });
 
   it("is false once already confirmed (manual)", () => {
@@ -51,7 +56,15 @@ describe("MappingQueueTable", () => {
   it("renders a checkbox only for a confirmable row, not one with nothing matched", () => {
     render(
       <MappingQueueTable
-        rows={[row({ vocabularyItemId: "item-1", displayWord: "el gato" }), row({ vocabularyItemId: "item-2", displayWord: "la casa", entryId: null, matchStatus: "unmatched" })]}
+        rows={[
+          row({ vocabularyItemId: "item-1", displayWord: "el gato" }),
+          row({
+            vocabularyItemId: "item-2",
+            displayWord: "la casa",
+            entryId: null,
+            matchStatus: "unmatched",
+          }),
+        ]}
         regionCode={null}
         selectedIds={new Set()}
         onToggleItem={noop}
@@ -59,14 +72,21 @@ describe("MappingQueueTable", () => {
       />,
     );
 
-    expect(screen.getByRole("checkbox", { name: "Select el gato" })).toBeInTheDocument();
-    expect(screen.queryByRole("checkbox", { name: "Select la casa" })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("checkbox", { name: "Select el gato" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("checkbox", { name: "Select la casa" }),
+    ).not.toBeInTheDocument();
   });
 
   it("reflects selection state per row and in the header checkbox", () => {
     render(
       <MappingQueueTable
-        rows={[row({ vocabularyItemId: "item-1", displayWord: "el gato" }), row({ vocabularyItemId: "item-2", displayWord: "la casa" })]}
+        rows={[
+          row({ vocabularyItemId: "item-1", displayWord: "el gato" }),
+          row({ vocabularyItemId: "item-2", displayWord: "la casa" }),
+        ]}
         regionCode={null}
         selectedIds={new Set(["item-1"])}
         onToggleItem={noop}
@@ -74,15 +94,31 @@ describe("MappingQueueTable", () => {
       />,
     );
 
-    expect(screen.getByRole("checkbox", { name: "Select el gato" })).toBeChecked();
-    expect(screen.getByRole("checkbox", { name: "Select la casa" })).not.toBeChecked();
-    expect(screen.getByRole("checkbox", { name: "Select all confirmable rows on this page" })).not.toBeChecked();
+    expect(
+      screen.getByRole("checkbox", { name: "Select el gato" }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole("checkbox", { name: "Select la casa" }),
+    ).not.toBeChecked();
+    expect(
+      screen.getByRole("checkbox", {
+        name: "Select all confirmable rows on this page",
+      }),
+    ).not.toBeChecked();
   });
 
   it("calls onToggleItem with that row's vocabulary item id when clicked", async () => {
     const user = userEvent.setup();
     const onToggleItem = vi.fn();
-    render(<MappingQueueTable rows={[row()]} regionCode={null} selectedIds={new Set()} onToggleItem={onToggleItem} onToggleAll={noop} />);
+    render(
+      <MappingQueueTable
+        rows={[row()]}
+        regionCode={null}
+        selectedIds={new Set()}
+        onToggleItem={onToggleItem}
+        onToggleAll={noop}
+      />,
+    );
 
     await user.click(screen.getByRole("checkbox", { name: "Select el gato" }));
     expect(onToggleItem).toHaveBeenCalledWith("item-1");
@@ -91,9 +127,21 @@ describe("MappingQueueTable", () => {
   it("calls onToggleAll when the header checkbox is clicked", async () => {
     const user = userEvent.setup();
     const onToggleAll = vi.fn();
-    render(<MappingQueueTable rows={[row()]} regionCode={null} selectedIds={new Set()} onToggleItem={noop} onToggleAll={onToggleAll} />);
+    render(
+      <MappingQueueTable
+        rows={[row()]}
+        regionCode={null}
+        selectedIds={new Set()}
+        onToggleItem={noop}
+        onToggleAll={onToggleAll}
+      />,
+    );
 
-    await user.click(screen.getByRole("checkbox", { name: "Select all confirmable rows on this page" }));
+    await user.click(
+      screen.getByRole("checkbox", {
+        name: "Select all confirmable rows on this page",
+      }),
+    );
     expect(onToggleAll).toHaveBeenCalled();
   });
 });

@@ -4,10 +4,15 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import type { NotificationPreferences } from "@/domains/users";
-import { requireUser, updateNotificationPreferences } from "@/domains/users/server";
+import {
+  requireUser,
+  updateNotificationPreferences,
+} from "@/domains/users/server";
 import { AppError } from "@/lib/errors/app-error";
 
-export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: { code: string; message: string } };
+export type ActionResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: { code: string; message: string } };
 
 // At least one field, and at most the four real ones — the payload always
 // carries only the toggle that actually changed (spec 20's narrow-mutation
@@ -50,9 +55,24 @@ export async function updateNotificationPreferencesAction(
       return { ok: false, error: { code: error.code, message: error.message } };
     }
     if (error instanceof z.ZodError) {
-      return { ok: false, error: { code: "VALIDATION_FAILED", message: error.issues[0]?.message ?? "That request isn't valid." } };
+      return {
+        ok: false,
+        error: {
+          code: "VALIDATION_FAILED",
+          message: error.issues[0]?.message ?? "That request isn't valid.",
+        },
+      };
     }
-    console.error("Unexpected update notification preferences action error", error);
-    return { ok: false, error: { code: "UNKNOWN", message: "Could not save setting. Please try again." } };
+    console.error(
+      "Unexpected update notification preferences action error",
+      error,
+    );
+    return {
+      ok: false,
+      error: {
+        code: "UNKNOWN",
+        message: "Could not save setting. Please try again.",
+      },
+    };
   }
 }

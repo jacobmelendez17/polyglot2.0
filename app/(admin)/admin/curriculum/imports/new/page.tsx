@@ -21,7 +21,11 @@ type SearchParams = { language?: string };
  * `/admin/curriculum/imports/[importId]` to watch the async Lambda pipeline
  * do the rest.
  */
-export default async function NewCurriculumImportPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+export default async function NewCurriculumImportPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
   const user = await requireUser();
   if (!canManageCurriculum(user)) {
     forbidden();
@@ -33,13 +37,20 @@ export default async function NewCurriculumImportPage({ searchParams }: { search
   if (languages.length === 0) {
     return (
       <div>
-        <AdminPageHeader title="New Import" description="Upload a curriculum CSV or TSV file for asynchronous processing." />
-        <p className="text-sm text-muted-foreground">No languages are configured yet.</p>
+        <AdminPageHeader
+          title="New Import"
+          description="Upload a curriculum CSV or TSV file for asynchronous processing."
+        />
+        <p className="text-sm text-muted-foreground">
+          No languages are configured yet.
+        </p>
       </div>
     );
   }
 
-  const languageId = languages.some((l) => l.id === params.language) ? params.language! : languages[0]!.id;
+  const languageId = languages.some((l) => l.id === params.language)
+    ? params.language!
+    : languages[0]!.id;
 
   return (
     <div>

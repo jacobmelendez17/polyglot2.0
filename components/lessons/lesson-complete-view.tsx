@@ -21,31 +21,47 @@ export function LessonCompleteView({ completion }: LessonCompleteViewProps) {
       <PartyPopper className="h-10 w-10 text-primary" aria-hidden="true" />
 
       <div>
-        <h1 className="font-heading text-2xl font-semibold text-foreground">Lesson Complete!</h1>
+        <h1 className="font-heading text-2xl font-semibold text-foreground">
+          Lesson Complete!
+        </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {completion.items.length} new {completion.items.length === 1 ? "item" : "items"} learned
+          {completion.items.length} new{" "}
+          {completion.items.length === 1 ? "item" : "items"} learned
         </p>
       </div>
 
       <Card className="w-full">
         <CardContent className="flex flex-col gap-4">
           <div>
-            <p className="text-xs font-medium text-muted-foreground">New SRS stage</p>
-            <p className="mt-1 text-lg font-semibold text-foreground">{SRS_STAGE_LABELS[completion.newStage]}</p>
+            <p className="text-xs font-medium text-muted-foreground">
+              New SRS stage
+            </p>
+            <p className="mt-1 text-lg font-semibold text-foreground">
+              {SRS_STAGE_LABELS[completion.newStage]}
+            </p>
           </div>
 
           <ul className="flex flex-col gap-1 text-left">
             {completion.items.map((item) => (
-              <li key={item.id} className="flex items-baseline justify-between text-sm">
-                <span className="font-medium text-foreground">{item.label}</span>
+              <li
+                key={item.id}
+                className="flex items-baseline justify-between text-sm"
+              >
+                <span className="font-medium text-foreground">
+                  {item.label}
+                </span>
                 <span className="text-muted-foreground">{item.meaning}</span>
               </li>
             ))}
           </ul>
 
           <div>
-            <p className="text-xs font-medium text-muted-foreground">Accuracy</p>
-            <p className="mt-1 text-lg font-semibold text-foreground">{completion.accuracy}%</p>
+            <p className="text-xs font-medium text-muted-foreground">
+              Accuracy
+            </p>
+            <p className="mt-1 text-lg font-semibold text-foreground">
+              {completion.accuracy}%
+            </p>
           </div>
         </CardContent>
       </Card>

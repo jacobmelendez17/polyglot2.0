@@ -39,10 +39,14 @@ import {
 } from "@/domains/srs/server";
 import { AppError } from "@/lib/errors/app-error";
 
-export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: { code: string; message: string } };
+export type ActionResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: { code: string; message: string } };
 
 /** Every action below shares this try/catch shape — extracted once six new narrow mutations needed it alongside the two Review Type ones already using it by hand. */
-async function runSettingsAction<T>(fn: () => Promise<T>): Promise<ActionResult<T>> {
+async function runSettingsAction<T>(
+  fn: () => Promise<T>,
+): Promise<ActionResult<T>> {
   try {
     return { ok: true, data: await fn() };
   } catch (error) {
@@ -50,10 +54,22 @@ async function runSettingsAction<T>(fn: () => Promise<T>): Promise<ActionResult<
       return { ok: false, error: { code: error.code, message: error.message } };
     }
     if (error instanceof z.ZodError) {
-      return { ok: false, error: { code: "VALIDATION_FAILED", message: error.issues[0]?.message ?? "That request isn't valid." } };
+      return {
+        ok: false,
+        error: {
+          code: "VALIDATION_FAILED",
+          message: error.issues[0]?.message ?? "That request isn't valid.",
+        },
+      };
     }
     console.error("Unexpected review settings action error", error);
-    return { ok: false, error: { code: "UNKNOWN", message: "Could not save setting. Please try again." } };
+    return {
+      ok: false,
+      error: {
+        code: "UNKNOWN",
+        message: "Could not save setting. Please try again.",
+      },
+    };
   }
 }
 
@@ -66,7 +82,11 @@ export async function updateGrammarReviewTypeAction(
   return runSettingsAction(async () => {
     const { reviewType } = reviewTypeInputSchema.parse(input);
     const user = await requireUser();
-    const updated = await updateGrammarReviewType({ userId: user.id, languageId: user.activeLanguageId, reviewType });
+    const updated = await updateGrammarReviewType({
+      userId: user.id,
+      languageId: user.activeLanguageId,
+      reviewType,
+    });
     revalidatePath("/settings/reviews");
     return { grammarReviewType: updated.grammarReviewType };
   });
@@ -79,7 +99,11 @@ export async function updateVocabularyReviewTypeAction(
   return runSettingsAction(async () => {
     const { reviewType } = reviewTypeInputSchema.parse(input);
     const user = await requireUser();
-    const updated = await updateVocabularyReviewType({ userId: user.id, languageId: user.activeLanguageId, reviewType });
+    const updated = await updateVocabularyReviewType({
+      userId: user.id,
+      languageId: user.activeLanguageId,
+      reviewType,
+    });
     revalidatePath("/settings/reviews");
     return { vocabularyReviewType: updated.vocabularyReviewType };
   });
@@ -94,7 +118,11 @@ export async function updateGrammarHintOrderAction(
   return runSettingsAction(async () => {
     const { hintOrder } = hintOrderInputSchema.parse(input);
     const user = await requireUser();
-    const updated = await updateGrammarHintOrder({ userId: user.id, languageId: user.activeLanguageId, hintOrder });
+    const updated = await updateGrammarHintOrder({
+      userId: user.id,
+      languageId: user.activeLanguageId,
+      hintOrder,
+    });
     revalidatePath("/settings/reviews");
     return { hintOrder: updated.grammarHintOrder };
   });
@@ -107,7 +135,11 @@ export async function updateVocabularyHintOrderAction(
   return runSettingsAction(async () => {
     const { hintOrder } = hintOrderInputSchema.parse(input);
     const user = await requireUser();
-    const updated = await updateVocabularyHintOrder({ userId: user.id, languageId: user.activeLanguageId, hintOrder });
+    const updated = await updateVocabularyHintOrder({
+      userId: user.id,
+      languageId: user.activeLanguageId,
+      hintOrder,
+    });
     revalidatePath("/settings/reviews");
     return { hintOrder: updated.vocabularyHintOrder };
   });
@@ -122,7 +154,11 @@ export async function updateGrammarHintModeAction(
   return runSettingsAction(async () => {
     const { hintMode } = hintModeInputSchema.parse(input);
     const user = await requireUser();
-    const updated = await updateGrammarHintMode({ userId: user.id, languageId: user.activeLanguageId, hintMode });
+    const updated = await updateGrammarHintMode({
+      userId: user.id,
+      languageId: user.activeLanguageId,
+      hintMode,
+    });
     revalidatePath("/settings/reviews");
     return { hintMode: updated.grammarHintMode };
   });
@@ -135,7 +171,11 @@ export async function updateVocabularyHintModeAction(
   return runSettingsAction(async () => {
     const { hintMode } = hintModeInputSchema.parse(input);
     const user = await requireUser();
-    const updated = await updateVocabularyHintMode({ userId: user.id, languageId: user.activeLanguageId, hintMode });
+    const updated = await updateVocabularyHintMode({
+      userId: user.id,
+      languageId: user.activeLanguageId,
+      hintMode,
+    });
     revalidatePath("/settings/reviews");
     return { hintMode: updated.vocabularyHintMode };
   });
@@ -153,7 +193,12 @@ export async function updateReviewUiToggleAction(
   return runSettingsAction(async () => {
     const { field, value } = reviewUiToggleInputSchema.parse(input);
     const user = await requireUser();
-    const updated = await updateReviewUiToggle({ userId: user.id, languageId: user.activeLanguageId, field, value });
+    const updated = await updateReviewUiToggle({
+      userId: user.id,
+      languageId: user.activeLanguageId,
+      field,
+      value,
+    });
     revalidatePath("/settings/reviews");
     return { value: updated[field] };
   });
@@ -168,13 +213,19 @@ export async function updateUndoActionAction(
   return runSettingsAction(async () => {
     const { undoAction } = undoActionInputSchema.parse(input);
     const user = await requireUser();
-    const updated = await updateUndoAction({ userId: user.id, languageId: user.activeLanguageId, undoAction });
+    const updated = await updateUndoAction({
+      userId: user.id,
+      languageId: user.activeLanguageId,
+      undoAction,
+    });
     revalidatePath("/settings/reviews");
     return { undoAction: updated.undoAction };
   });
 }
 
-const srsStrictnessInputSchema = z.object({ srsStrictness: z.enum(SRS_STRICTNESSES) });
+const srsStrictnessInputSchema = z.object({
+  srsStrictness: z.enum(SRS_STRICTNESSES),
+});
 
 /** Spec 20 SRS Strictness — Grammar SRS Strictness. */
 export async function updateGrammarSrsStrictnessAction(
@@ -183,7 +234,11 @@ export async function updateGrammarSrsStrictnessAction(
   return runSettingsAction(async () => {
     const { srsStrictness } = srsStrictnessInputSchema.parse(input);
     const user = await requireUser();
-    const updated = await updateGrammarSrsStrictness({ userId: user.id, languageId: user.activeLanguageId, srsStrictness });
+    const updated = await updateGrammarSrsStrictness({
+      userId: user.id,
+      languageId: user.activeLanguageId,
+      srsStrictness,
+    });
     revalidatePath("/settings/reviews");
     return { srsStrictness: updated.grammarSrsStrictness };
   });
@@ -196,13 +251,19 @@ export async function updateVocabularySrsStrictnessAction(
   return runSettingsAction(async () => {
     const { srsStrictness } = srsStrictnessInputSchema.parse(input);
     const user = await requireUser();
-    const updated = await updateVocabularySrsStrictness({ userId: user.id, languageId: user.activeLanguageId, srsStrictness });
+    const updated = await updateVocabularySrsStrictness({
+      userId: user.id,
+      languageId: user.activeLanguageId,
+      srsStrictness,
+    });
     revalidatePath("/settings/reviews");
     return { srsStrictness: updated.vocabularySrsStrictness };
   });
 }
 
-const srsIntervalModeInputSchema = z.object({ srsIntervalMode: z.enum(SRS_INTERVAL_MODES) });
+const srsIntervalModeInputSchema = z.object({
+  srsIntervalMode: z.enum(SRS_INTERVAL_MODES),
+});
 
 /** Spec 20 SRS Interval — Grammar SRS Interval. */
 export async function updateGrammarSrsIntervalModeAction(
@@ -211,7 +272,11 @@ export async function updateGrammarSrsIntervalModeAction(
   return runSettingsAction(async () => {
     const { srsIntervalMode } = srsIntervalModeInputSchema.parse(input);
     const user = await requireUser();
-    const updated = await updateGrammarSrsIntervalMode({ userId: user.id, languageId: user.activeLanguageId, srsIntervalMode });
+    const updated = await updateGrammarSrsIntervalMode({
+      userId: user.id,
+      languageId: user.activeLanguageId,
+      srsIntervalMode,
+    });
     revalidatePath("/settings/reviews");
     return { srsIntervalMode: updated.grammarSrsIntervalMode };
   });
@@ -224,13 +289,19 @@ export async function updateVocabularySrsIntervalModeAction(
   return runSettingsAction(async () => {
     const { srsIntervalMode } = srsIntervalModeInputSchema.parse(input);
     const user = await requireUser();
-    const updated = await updateVocabularySrsIntervalMode({ userId: user.id, languageId: user.activeLanguageId, srsIntervalMode });
+    const updated = await updateVocabularySrsIntervalMode({
+      userId: user.id,
+      languageId: user.activeLanguageId,
+      srsIntervalMode,
+    });
     revalidatePath("/settings/reviews");
     return { srsIntervalMode: updated.vocabularySrsIntervalMode };
   });
 }
 
-const reviewQueueTimingInputSchema = z.object({ reviewQueueTiming: z.enum(REVIEW_QUEUE_TIMING_MODES) });
+const reviewQueueTimingInputSchema = z.object({
+  reviewQueueTiming: z.enum(REVIEW_QUEUE_TIMING_MODES),
+});
 
 /** Spec 20 Review Queue Timing — one value per language, not split grammar/vocabulary. */
 export async function updateReviewQueueTimingAction(
@@ -239,7 +310,11 @@ export async function updateReviewQueueTimingAction(
   return runSettingsAction(async () => {
     const { reviewQueueTiming } = reviewQueueTimingInputSchema.parse(input);
     const user = await requireUser();
-    const updated = await updateReviewQueueTiming({ userId: user.id, languageId: user.activeLanguageId, reviewQueueTiming });
+    const updated = await updateReviewQueueTiming({
+      userId: user.id,
+      languageId: user.activeLanguageId,
+      reviewQueueTiming,
+    });
     revalidatePath("/settings/reviews");
     return { reviewQueueTiming: updated.reviewQueueTiming };
   });
@@ -254,7 +329,11 @@ export async function updateGrammarFluentModeAction(
   return runSettingsAction(async () => {
     const { fluentMode } = fluentModeInputSchema.parse(input);
     const user = await requireUser();
-    const updated = await updateGrammarFluentMode({ userId: user.id, languageId: user.activeLanguageId, fluentMode });
+    const updated = await updateGrammarFluentMode({
+      userId: user.id,
+      languageId: user.activeLanguageId,
+      fluentMode,
+    });
     revalidatePath("/settings/reviews");
     return { fluentMode: updated.grammarFluentMode };
   });
@@ -267,7 +346,11 @@ export async function updateVocabularyFluentModeAction(
   return runSettingsAction(async () => {
     const { fluentMode } = fluentModeInputSchema.parse(input);
     const user = await requireUser();
-    const updated = await updateVocabularyFluentMode({ userId: user.id, languageId: user.activeLanguageId, fluentMode });
+    const updated = await updateVocabularyFluentMode({
+      userId: user.id,
+      languageId: user.activeLanguageId,
+      fluentMode,
+    });
     revalidatePath("/settings/reviews");
     return { fluentMode: updated.vocabularyFluentMode };
   });
@@ -282,7 +365,11 @@ export async function updateGrammarGhostModeAction(
   return runSettingsAction(async () => {
     const { ghostMode } = ghostModeInputSchema.parse(input);
     const user = await requireUser();
-    const updated = await updateGrammarGhostMode({ userId: user.id, languageId: user.activeLanguageId, ghostMode });
+    const updated = await updateGrammarGhostMode({
+      userId: user.id,
+      languageId: user.activeLanguageId,
+      ghostMode,
+    });
     revalidatePath("/settings/reviews");
     return { ghostMode: updated.grammarGhostMode };
   });
@@ -295,13 +382,19 @@ export async function updateVocabularyGhostModeAction(
   return runSettingsAction(async () => {
     const { ghostMode } = ghostModeInputSchema.parse(input);
     const user = await requireUser();
-    const updated = await updateVocabularyGhostMode({ userId: user.id, languageId: user.activeLanguageId, ghostMode });
+    const updated = await updateVocabularyGhostMode({
+      userId: user.id,
+      languageId: user.activeLanguageId,
+      ghostMode,
+    });
     revalidatePath("/settings/reviews");
     return { ghostMode: updated.vocabularyGhostMode };
   });
 }
 
-const minimumLeechStageInputSchema = z.object({ minimumLeechStage: srsStageSchema });
+const minimumLeechStageInputSchema = z.object({
+  minimumLeechStage: srsStageSchema,
+});
 
 /** Spec 20 Leeches — Minimum Grammar SRS for Leech. */
 export async function updateGrammarMinimumLeechStageAction(
@@ -310,7 +403,11 @@ export async function updateGrammarMinimumLeechStageAction(
   return runSettingsAction(async () => {
     const { minimumLeechStage } = minimumLeechStageInputSchema.parse(input);
     const user = await requireUser();
-    const updated = await updateGrammarMinimumLeechStage({ userId: user.id, languageId: user.activeLanguageId, minimumLeechStage });
+    const updated = await updateGrammarMinimumLeechStage({
+      userId: user.id,
+      languageId: user.activeLanguageId,
+      minimumLeechStage,
+    });
     revalidatePath("/settings/reviews");
     return { minimumLeechStage: updated.grammarMinimumLeechStage };
   });
@@ -323,7 +420,11 @@ export async function updateVocabularyMinimumLeechStageAction(
   return runSettingsAction(async () => {
     const { minimumLeechStage } = minimumLeechStageInputSchema.parse(input);
     const user = await requireUser();
-    const updated = await updateVocabularyMinimumLeechStage({ userId: user.id, languageId: user.activeLanguageId, minimumLeechStage });
+    const updated = await updateVocabularyMinimumLeechStage({
+      userId: user.id,
+      languageId: user.activeLanguageId,
+      minimumLeechStage,
+    });
     revalidatePath("/settings/reviews");
     return { minimumLeechStage: updated.vocabularyMinimumLeechStage };
   });

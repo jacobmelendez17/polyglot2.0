@@ -3,11 +3,20 @@ import { recordAuditEvent } from "@/domains/admin/audit-repository";
 import { getLevelByLanguageAndNumber } from "@/domains/curriculum/curriculum-repository";
 import { withIdempotency } from "@/domains/idempotency";
 import { getEligibleLessonItems } from "@/domains/curriculum/lesson-curriculum-repository";
-import { getAvailableThemes, selectLessonBatch } from "@/domains/lessons/lesson-batch";
+import {
+  getAvailableThemes,
+  selectLessonBatch,
+} from "@/domains/lessons/lesson-batch";
 import { CURRICULUM_MODES, DEFAULT_LESSON_BATCH_SIZE } from "@/domains/users";
 import type { CurriculumMode } from "@/domains/users";
-import { findLanguageSettings, saveCurriculumPreference } from "@/domains/users/user-repository";
-import { getSandboxTimeOffset, setSandboxTimeOffset } from "@/domains/users/user-clock";
+import {
+  findLanguageSettings,
+  saveCurriculumPreference,
+} from "@/domains/users/user-repository";
+import {
+  getSandboxTimeOffset,
+  setSandboxTimeOffset,
+} from "@/domains/users/user-clock";
 import type { SrsStage } from "@/domains/srs";
 import { AdminError } from "@/lib/errors/admin-errors";
 
@@ -20,7 +29,11 @@ import {
   setItemSrsStage,
   simulateLevel,
 } from "./sandbox-repository";
-import type { SandboxAccount, SandboxCurriculumPreview, SandboxSnapshot } from "./sandbox-types";
+import type {
+  SandboxAccount,
+  SandboxCurriculumPreview,
+  SandboxSnapshot,
+} from "./sandbox-types";
 
 /**
  * Sandbox orchestration (spec 11 rewrite) — the `domains/admin`-adjacent
@@ -38,12 +51,22 @@ async function findLevel1Id(db: DbClient, languageId: string): Promise<string> {
   // learner-visible content, so it must resolve even while Level 1 is still
   // unpublished — an admin needs the sandbox precisely to test curriculum
   // before releasing it.
-  const level1 = await getLevelByLanguageAndNumber(db, languageId, 1, { includeUnpublished: true });
-  if (!level1) throw new AdminError("SANDBOX_OPERATION_FORBIDDEN", "Level 1 is not configured for this language yet.");
+  const level1 = await getLevelByLanguageAndNumber(db, languageId, 1, {
+    includeUnpublished: true,
+  });
+  if (!level1)
+    throw new AdminError(
+      "SANDBOX_OPERATION_FORBIDDEN",
+      "Level 1 is not configured for this language yet.",
+    );
   return level1.id;
 }
 
-export async function getOrCreateSandbox(db: DbClient, ownerUserId: string, languageId: string): Promise<SandboxAccount> {
+export async function getOrCreateSandbox(
+  db: DbClient,
+  ownerUserId: string,
+  languageId: string,
+): Promise<SandboxAccount> {
   const existing = await findSandboxByOwner(db, ownerUserId);
   if (existing) return existing;
 
@@ -51,20 +74,45 @@ export async function getOrCreateSandbox(db: DbClient, ownerUserId: string, lang
   return createSandboxForOwner(db, { ownerUserId, languageId, level1Id });
 }
 
-export async function getSandboxSnapshotForOwner(db: DbClient, ownerUserId: string, languageId: string): Promise<SandboxSnapshot> {
+export async function getSandboxSnapshotForOwner(
+  db: DbClient,
+  ownerUserId: string,
+  languageId: string,
+): Promise<SandboxSnapshot> {
   const account = await getOrCreateSandbox(db, ownerUserId, languageId);
   return getSandboxSnapshot(db, account);
 }
 
-export type SimulateLevelServiceInput = { ownerUserId: string; languageId: string; levelId: string; actorUserId: string; idempotencyKey: string };
+export type SimulateLevelServiceInput = {
+  ownerUserId: string;
+  languageId: string;
+  levelId: string;
+  actorUserId: string;
+  idempotencyKey: string;
+};
 
-export async function simulateLevelForSandbox(db: DbClient, input: SimulateLevelServiceInput): Promise<void> {
+export async function simulateLevelForSandbox(
+  db: DbClient,
+  input: SimulateLevelServiceInput,
+): Promise<void> {
   return withIdempotency(
     db,
-    { userId: input.actorUserId, operation: "admin.sandbox.simulate-level", key: input.idempotencyKey, payload: { levelId: input.levelId } },
+    {
+      userId: input.actorUserId,
+      operation: "admin.sandbox.simulate-level",
+      key: input.idempotencyKey,
+      payload: { levelId: input.levelId },
+    },
     async (tx) => {
-      const account = await getOrCreateSandbox(tx, input.ownerUserId, input.languageId);
-      await simulateLevel(tx, { sandboxUserId: account.sandboxUserId, levelId: input.levelId });
+      const account = await getOrCreateSandbox(
+        tx,
+        input.ownerUserId,
+        input.languageId,
+      );
+      await simulateLevel(tx, {
+        sandboxUserId: account.sandboxUserId,
+        levelId: input.levelId,
+      });
       await recordAuditEvent(tx, {
         actorUserId: input.actorUserId,
         action: "SANDBOX_LEVEL_SIMULATED",
@@ -85,18 +133,33 @@ export type SetSandboxItemStageServiceInput = {
   idempotencyKey: string;
 };
 
-export async function setSandboxItemStage(db: DbClient, input: SetSandboxItemStageServiceInput): Promise<void> {
+export async function setSandboxItemStage(
+  db: DbClient,
+  input: SetSandboxItemStageServiceInput,
+): Promise<void> {
   return withIdempotency(
     db,
     {
       userId: input.actorUserId,
       operation: "admin.sandbox.set-item-stage",
       key: input.idempotencyKey,
-      payload: { learningItemId: input.learningItemId, srsStage: input.srsStage },
+      payload: {
+        learningItemId: input.learningItemId,
+        srsStage: input.srsStage,
+      },
     },
     async (tx) => {
-      const account = await getOrCreateSandbox(tx, input.ownerUserId, input.languageId);
-      await setItemSrsStage(tx, { sandboxUserId: account.sandboxUserId, learningItemId: input.learningItemId, languageId: input.languageId, srsStage: input.srsStage });
+      const account = await getOrCreateSandbox(
+        tx,
+        input.ownerUserId,
+        input.languageId,
+      );
+      await setItemSrsStage(tx, {
+        sandboxUserId: account.sandboxUserId,
+        learningItemId: input.learningItemId,
+        languageId: input.languageId,
+        srsStage: input.srsStage,
+      });
       await recordAuditEvent(tx, {
         actorUserId: input.actorUserId,
         action: "SANDBOX_STAGE_CHANGED",
@@ -108,14 +171,31 @@ export async function setSandboxItemStage(db: DbClient, input: SetSandboxItemSta
   );
 }
 
-export type MakeSandboxReviewsDueServiceInput = { ownerUserId: string; languageId: string; actorUserId: string; idempotencyKey: string };
+export type MakeSandboxReviewsDueServiceInput = {
+  ownerUserId: string;
+  languageId: string;
+  actorUserId: string;
+  idempotencyKey: string;
+};
 
-export async function makeSandboxReviewsDue(db: DbClient, input: MakeSandboxReviewsDueServiceInput): Promise<void> {
+export async function makeSandboxReviewsDue(
+  db: DbClient,
+  input: MakeSandboxReviewsDueServiceInput,
+): Promise<void> {
   return withIdempotency(
     db,
-    { userId: input.actorUserId, operation: "admin.sandbox.make-reviews-due", key: input.idempotencyKey, payload: {} },
+    {
+      userId: input.actorUserId,
+      operation: "admin.sandbox.make-reviews-due",
+      key: input.idempotencyKey,
+      payload: {},
+    },
     async (tx) => {
-      const account = await getOrCreateSandbox(tx, input.ownerUserId, input.languageId);
+      const account = await getOrCreateSandbox(
+        tx,
+        input.ownerUserId,
+        input.languageId,
+      );
       await makeAllReviewsDue(tx, account.sandboxUserId);
       await recordAuditEvent(tx, {
         actorUserId: input.actorUserId,
@@ -147,7 +227,10 @@ export type SetSandboxTimeOffsetServiceInput = {
  * into +14 days. That matters because this is an idempotent mutation whose
  * payload must fully determine its effect.
  */
-export async function setSandboxTimeOffsetForOwner(db: DbClient, input: SetSandboxTimeOffsetServiceInput): Promise<void> {
+export async function setSandboxTimeOffsetForOwner(
+  db: DbClient,
+  input: SetSandboxTimeOffsetServiceInput,
+): Promise<void> {
   return withIdempotency(
     db,
     {
@@ -157,9 +240,17 @@ export async function setSandboxTimeOffsetForOwner(db: DbClient, input: SetSandb
       payload: { offsetSeconds: input.offsetSeconds },
     },
     async (tx) => {
-      const account = await getOrCreateSandbox(tx, input.ownerUserId, input.languageId);
+      const account = await getOrCreateSandbox(
+        tx,
+        input.ownerUserId,
+        input.languageId,
+      );
       const previous = await getSandboxTimeOffset(tx, account.sandboxUserId);
-      await setSandboxTimeOffset(tx, account.sandboxUserId, input.offsetSeconds);
+      await setSandboxTimeOffset(
+        tx,
+        account.sandboxUserId,
+        input.offsetSeconds,
+      );
       await recordAuditEvent(tx, {
         actorUserId: input.actorUserId,
         action: "SANDBOX_TIME_CHANGED",
@@ -172,16 +263,36 @@ export async function setSandboxTimeOffsetForOwner(db: DbClient, input: SetSandb
   );
 }
 
-export type ResetSandboxServiceInput = { ownerUserId: string; languageId: string; actorUserId: string; idempotencyKey: string };
+export type ResetSandboxServiceInput = {
+  ownerUserId: string;
+  languageId: string;
+  actorUserId: string;
+  idempotencyKey: string;
+};
 
-export async function resetSandboxForOwner(db: DbClient, input: ResetSandboxServiceInput): Promise<void> {
+export async function resetSandboxForOwner(
+  db: DbClient,
+  input: ResetSandboxServiceInput,
+): Promise<void> {
   return withIdempotency(
     db,
-    { userId: input.actorUserId, operation: "admin.sandbox.reset", key: input.idempotencyKey, payload: {} },
+    {
+      userId: input.actorUserId,
+      operation: "admin.sandbox.reset",
+      key: input.idempotencyKey,
+      payload: {},
+    },
     async (tx) => {
-      const account = await getOrCreateSandbox(tx, input.ownerUserId, input.languageId);
+      const account = await getOrCreateSandbox(
+        tx,
+        input.ownerUserId,
+        input.languageId,
+      );
       const level1Id = await findLevel1Id(tx, input.languageId);
-      await resetSandbox(tx, { sandboxUserId: account.sandboxUserId, level1Id });
+      await resetSandbox(tx, {
+        sandboxUserId: account.sandboxUserId,
+        level1Id,
+      });
       // "Reset clears only the current owner's sandbox state" — the simulated
       // clock is part of that state, so it returns to the present too.
       await setSandboxTimeOffset(tx, account.sandboxUserId, 0);
@@ -213,18 +324,32 @@ export type SetSandboxCurriculumModeServiceInput = {
  * untouched by construction: the only user id written is the persona's,
  * resolved here from ownership rather than accepted from the caller.
  */
-export async function setSandboxCurriculumMode(db: DbClient, input: SetSandboxCurriculumModeServiceInput): Promise<void> {
+export async function setSandboxCurriculumMode(
+  db: DbClient,
+  input: SetSandboxCurriculumModeServiceInput,
+): Promise<void> {
   return withIdempotency(
     db,
     {
       userId: input.actorUserId,
       operation: "admin.sandbox.set-curriculum-mode",
       key: input.idempotencyKey,
-      payload: { curriculumMode: input.curriculumMode, selectedVocabularyGroupId: input.selectedVocabularyGroupId ?? null },
+      payload: {
+        curriculumMode: input.curriculumMode,
+        selectedVocabularyGroupId: input.selectedVocabularyGroupId ?? null,
+      },
     },
     async (tx) => {
-      const account = await getOrCreateSandbox(tx, input.ownerUserId, input.languageId);
-      const previous = await findLanguageSettings(tx, account.sandboxUserId, input.languageId);
+      const account = await getOrCreateSandbox(
+        tx,
+        input.ownerUserId,
+        input.languageId,
+      );
+      const previous = await findLanguageSettings(
+        tx,
+        account.sandboxUserId,
+        input.languageId,
+      );
       await saveCurriculumPreference(tx, {
         userId: account.sandboxUserId,
         languageId: input.languageId,
@@ -236,8 +361,16 @@ export async function setSandboxCurriculumMode(db: DbClient, input: SetSandboxCu
         action: "SANDBOX_CURRICULUM_MODE_CHANGED",
         resourceType: "sandbox",
         resourceId: account.sandboxUserId,
-        beforeData: previous ? { curriculumMode: previous.curriculumMode, selectedVocabularyGroupId: previous.selectedVocabularyGroupId } : null,
-        afterData: { curriculumMode: input.curriculumMode, selectedVocabularyGroupId: input.selectedVocabularyGroupId ?? null },
+        beforeData: previous
+          ? {
+              curriculumMode: previous.curriculumMode,
+              selectedVocabularyGroupId: previous.selectedVocabularyGroupId,
+            }
+          : null,
+        afterData: {
+          curriculumMode: input.curriculumMode,
+          selectedVocabularyGroupId: input.selectedVocabularyGroupId ?? null,
+        },
       });
     },
   );
@@ -256,7 +389,11 @@ export async function setSandboxCurriculumMode(db: DbClient, input: SetSandboxCu
  * the persona has not chosen one, the first available theme stands in for
  * the preview only.
  */
-export async function previewSandboxCurriculum(db: DbClient, ownerUserId: string, languageId: string): Promise<SandboxCurriculumPreview> {
+export async function previewSandboxCurriculum(
+  db: DbClient,
+  ownerUserId: string,
+  languageId: string,
+): Promise<SandboxCurriculumPreview> {
   const account = await getOrCreateSandbox(db, ownerUserId, languageId);
   const [settings, eligibleItems] = await Promise.all([
     findLanguageSettings(db, account.sandboxUserId, languageId),
@@ -267,23 +404,37 @@ export async function previewSandboxCurriculum(db: DbClient, ownerUserId: string
   const remainingByTheme = new Map<string, number>();
   for (const item of eligibleItems) {
     if (item.type !== "vocabulary" || !item.theme) continue;
-    remainingByTheme.set(item.theme.id, (remainingByTheme.get(item.theme.id) ?? 0) + 1);
+    remainingByTheme.set(
+      item.theme.id,
+      (remainingByTheme.get(item.theme.id) ?? 0) + 1,
+    );
   }
 
-  const previewThemeId = settings?.selectedVocabularyGroupId ?? availableThemes[0]?.id ?? null;
+  const previewThemeId =
+    settings?.selectedVocabularyGroupId ?? availableThemes[0]?.id ?? null;
   const batchSize = settings?.lessonBatchSize ?? DEFAULT_LESSON_BATCH_SIZE;
 
   return {
     currentMode: settings?.curriculumMode ?? null,
     selectedThemeId: settings?.selectedVocabularyGroupId ?? null,
-    themes: availableThemes.map((theme) => ({ id: theme.id, name: theme.name, remainingCount: remainingByTheme.get(theme.id) ?? 0 })),
+    themes: availableThemes.map((theme) => ({
+      id: theme.id,
+      name: theme.name,
+      remainingCount: remainingByTheme.get(theme.id) ?? 0,
+    })),
     batchesByMode: CURRICULUM_MODES.map((mode) => ({
       mode,
-      items: selectLessonBatch({ eligibleItems, batchSize, mode, selectedThemeId: previewThemeId }).map((item) => ({
+      items: selectLessonBatch({
+        eligibleItems,
+        batchSize,
+        mode,
+        selectedThemeId: previewThemeId,
+      }).map((item) => ({
         id: item.id,
         label: item.type === "vocabulary" ? item.word : item.structure,
         type: item.type,
-        themeName: item.type === "vocabulary" ? (item.theme?.name ?? null) : null,
+        themeName:
+          item.type === "vocabulary" ? (item.theme?.name ?? null) : null,
       })),
     })),
   };

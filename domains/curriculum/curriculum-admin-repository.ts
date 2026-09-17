@@ -1,7 +1,14 @@
 import { and, asc, eq, gt, ilike, isNotNull, or, sql } from "drizzle-orm";
 
 import type { DbClient } from "@/db/client";
-import { curriculumItemDrafts, grammarItems, learningItems, levels, vocabularyGroups, vocabularyItems } from "@/db/schema";
+import {
+  curriculumItemDrafts,
+  grammarItems,
+  learningItems,
+  levels,
+  vocabularyGroups,
+  vocabularyItems,
+} from "@/db/schema";
 
 import { getAdminCurriculumItemsInputSchema } from "./curriculum-admin-schemas";
 import type {
@@ -36,12 +43,17 @@ function computeItemLabel(row: {
   grammarStructure: string | null;
 }): string {
   if (row.vocabTerm !== null) {
-    return row.vocabArticle ? `${row.vocabArticle} ${row.vocabTerm}` : row.vocabTerm;
+    return row.vocabArticle
+      ? `${row.vocabArticle} ${row.vocabTerm}`
+      : row.vocabTerm;
   }
   return row.grammarStructure ?? "";
 }
 
-function computeMeaningLabel(row: { vocabMeaning: string | null; grammarMeaning: string | null }): string {
+function computeMeaningLabel(row: {
+  vocabMeaning: string | null;
+  grammarMeaning: string | null;
+}): string {
   return row.vocabMeaning ?? row.grammarMeaning ?? "";
 }
 
@@ -70,7 +82,10 @@ const SELECTION = {
   hasOpenDraft: curriculumItemDrafts.id,
 } as const;
 
-function computeDisplayStatus(status: CurriculumStatus, hasOpenDraft: string | null): CurriculumStatus {
+function computeDisplayStatus(
+  status: CurriculumStatus,
+  hasOpenDraft: string | null,
+): CurriculumStatus {
   return status === "published" && hasOpenDraft !== null ? "draft" : status;
 }
 
@@ -117,7 +132,11 @@ function encodeCursor(cursor: Cursor): string {
 
 function decodeCursor(value: string): Cursor {
   const parsed = JSON.parse(Buffer.from(value, "base64url").toString("utf8"));
-  if (typeof parsed?.levelNumber !== "number" || typeof parsed?.position !== "number" || typeof parsed?.id !== "string") {
+  if (
+    typeof parsed?.levelNumber !== "number" ||
+    typeof parsed?.position !== "number" ||
+    typeof parsed?.id !== "string"
+  ) {
     throw new Error("Invalid admin curriculum cursor");
   }
   return parsed;
@@ -138,7 +157,12 @@ export async function getAdminCurriculumItems(
     // column's own comment) — it's a published item with an open,
     // unpublished edit, so the filter maps to the same condition the
     // display-status computation above uses.
-    conditions.push(and(eq(learningItems.status, "published"), isNotNull(curriculumItemDrafts.id))!);
+    conditions.push(
+      and(
+        eq(learningItems.status, "published"),
+        isNotNull(curriculumItemDrafts.id),
+      )!,
+    );
   } else if (status) {
     conditions.push(eq(learningItems.status, status));
   }
@@ -150,7 +174,10 @@ export async function getAdminCurriculumItems(
       or(
         ilike(vocabularyItems.term, pattern),
         ilike(vocabularyItems.primaryMeaning, pattern),
-        ilike(sql`(${vocabularyItems.article} || ' ' || ${vocabularyItems.term})`, pattern),
+        ilike(
+          sql`(${vocabularyItems.article} || ' ' || ${vocabularyItems.term})`,
+          pattern,
+        ),
         ilike(grammarItems.structure, pattern),
         ilike(grammarItems.primaryMeaning, pattern),
         ilike(grammarItems.explanation, pattern),
@@ -163,7 +190,10 @@ export async function getAdminCurriculumItems(
     conditions.push(
       or(
         gt(levels.levelNumber, decoded.levelNumber),
-        and(eq(levels.levelNumber, decoded.levelNumber), gt(learningItems.position, decoded.position)),
+        and(
+          eq(levels.levelNumber, decoded.levelNumber),
+          gt(learningItems.position, decoded.position),
+        ),
         and(
           eq(levels.levelNumber, decoded.levelNumber),
           eq(learningItems.position, decoded.position),
@@ -177,12 +207,25 @@ export async function getAdminCurriculumItems(
     .select(SELECTION)
     .from(learningItems)
     .innerJoin(levels, eq(levels.id, learningItems.levelId))
-    .leftJoin(vocabularyItems, eq(vocabularyItems.learningItemId, learningItems.id))
-    .leftJoin(vocabularyGroups, eq(vocabularyGroups.id, vocabularyItems.vocabularyGroupId))
+    .leftJoin(
+      vocabularyItems,
+      eq(vocabularyItems.learningItemId, learningItems.id),
+    )
+    .leftJoin(
+      vocabularyGroups,
+      eq(vocabularyGroups.id, vocabularyItems.vocabularyGroupId),
+    )
     .leftJoin(grammarItems, eq(grammarItems.learningItemId, learningItems.id))
-    .leftJoin(curriculumItemDrafts, eq(curriculumItemDrafts.learningItemId, learningItems.id))
+    .leftJoin(
+      curriculumItemDrafts,
+      eq(curriculumItemDrafts.learningItemId, learningItems.id),
+    )
     .where(and(...conditions))
-    .orderBy(asc(levels.levelNumber), asc(learningItems.position), asc(learningItems.id))
+    .orderBy(
+      asc(levels.levelNumber),
+      asc(learningItems.position),
+      asc(learningItems.id),
+    )
     // Fetch one extra row to know whether a next page exists, without a separate count query.
     .limit(limit + 1);
 
@@ -194,20 +237,32 @@ export async function getAdminCurriculumItems(
     items: pageRows.map(toAdminCurriculumListItem),
     nextCursor:
       hasNextPage && last
-        ? encodeCursor({ levelNumber: last.levelNumber, position: last.position, id: last.id })
+        ? encodeCursor({
+            levelNumber: last.levelNumber,
+            position: last.position,
+            id: last.id,
+          })
         : null,
   };
 }
 
 /** Per-status counts for one language (Unit 1's Overview stat cards). */
-export async function getAdminCurriculumStatusCounts(db: DbClient, languageId: string): Promise<AdminCurriculumStatusCounts> {
+export async function getAdminCurriculumStatusCounts(
+  db: DbClient,
+  languageId: string,
+): Promise<AdminCurriculumStatusCounts> {
   const rows = await db
     .select({ status: learningItems.status, count: sql<number>`count(*)::int` })
     .from(learningItems)
     .where(eq(learningItems.languageId, languageId))
     .groupBy(learningItems.status);
 
-  const counts: AdminCurriculumStatusCounts = { draft: 0, pending: 0, published: 0, archived: 0 };
+  const counts: AdminCurriculumStatusCounts = {
+    draft: 0,
+    pending: 0,
+    published: 0,
+    archived: 0,
+  };
   for (const row of rows) {
     counts[row.status] = row.count;
   }
@@ -236,7 +291,10 @@ export type ReviewQueueEntry = {
   version: number;
 };
 
-export async function getReviewQueue(db: DbClient, languageId: string): Promise<ReviewQueueEntry[]> {
+export async function getReviewQueue(
+  db: DbClient,
+  languageId: string,
+): Promise<ReviewQueueEntry[]> {
   const base = db
     .select({
       learningItemId: learningItems.id,
@@ -256,15 +314,27 @@ export async function getReviewQueue(db: DbClient, languageId: string): Promise<
     })
     .from(learningItems)
     .innerJoin(levels, eq(levels.id, learningItems.levelId))
-    .leftJoin(vocabularyItems, eq(vocabularyItems.learningItemId, learningItems.id))
-    .leftJoin(vocabularyGroups, eq(vocabularyGroups.id, vocabularyItems.vocabularyGroupId))
+    .leftJoin(
+      vocabularyItems,
+      eq(vocabularyItems.learningItemId, learningItems.id),
+    )
+    .leftJoin(
+      vocabularyGroups,
+      eq(vocabularyGroups.id, vocabularyItems.vocabularyGroupId),
+    )
     .leftJoin(grammarItems, eq(grammarItems.learningItemId, learningItems.id))
-    .leftJoin(curriculumItemDrafts, eq(curriculumItemDrafts.learningItemId, learningItems.id));
+    .leftJoin(
+      curriculumItemDrafts,
+      eq(curriculumItemDrafts.learningItemId, learningItems.id),
+    );
 
   const rows = await base.where(
     and(
       eq(learningItems.languageId, languageId),
-      or(eq(learningItems.status, "pending"), isNotNull(curriculumItemDrafts.id)),
+      or(
+        eq(learningItems.status, "pending"),
+        isNotNull(curriculumItemDrafts.id),
+      ),
     ),
   );
 
@@ -274,13 +344,24 @@ export async function getReviewQueue(db: DbClient, languageId: string): Promise<
       learningItemId: row.learningItemId,
       kind: row.draftCreatedBy ? ("edit" as const) : ("new" as const),
       type: row.type,
-      itemLabel: row.type === "vocabulary" ? (row.article ? `${row.article} ${row.term}` : (row.term ?? "")) : (row.structure ?? ""),
-      meaningLabel: (row.type === "vocabulary" ? row.vocabularyMeaning : row.grammarMeaning) ?? "",
+      itemLabel:
+        row.type === "vocabulary"
+          ? row.article
+            ? `${row.article} ${row.term}`
+            : (row.term ?? "")
+          : (row.structure ?? ""),
+      meaningLabel:
+        (row.type === "vocabulary"
+          ? row.vocabularyMeaning
+          : row.grammarMeaning) ?? "",
       levelNumber: row.levelNumber,
       groupName: row.groupName,
       authorUserId: row.draftCreatedBy,
       updatedAt: row.draftUpdatedAt ?? row.updatedAt,
       version: row.version,
     }))
-    .sort((a, b) => a.levelNumber - b.levelNumber || a.itemLabel.localeCompare(b.itemLabel));
+    .sort(
+      (a, b) =>
+        a.levelNumber - b.levelNumber || a.itemLabel.localeCompare(b.itemLabel),
+    );
 }

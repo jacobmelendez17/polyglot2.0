@@ -31,17 +31,25 @@ describe("DeckCard", () => {
 
   it("names the type in text, never by color alone", () => {
     render(<DeckCard deck={deck({ contentType: "both", itemCount: 1 })} />);
-    expect(screen.getByText("1 item · Vocabulary & Grammar")).toBeInTheDocument();
+    expect(
+      screen.getByText("1 item · Vocabulary & Grammar"),
+    ).toBeInTheDocument();
   });
 
   it("renders a deck with no description without an empty paragraph", () => {
     render(<DeckCard deck={deck({ description: null })} />);
-    expect(screen.queryByText("Everyday cooking vocabulary")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Everyday cooking vocabulary"),
+    ).not.toBeInTheDocument();
     expect(screen.getByText("Kitchen words")).toBeInTheDocument();
   });
 
   it("handles a theme deck the learner has not reached any of yet", () => {
-    render(<DeckCard deck={deck({ kind: "polyglot", itemCount: 0, contentType: "grammar" })} />);
+    render(
+      <DeckCard
+        deck={deck({ kind: "polyglot", itemCount: 0, contentType: "grammar" })}
+      />,
+    );
     expect(screen.getByText("0 items · Grammar")).toBeInTheDocument();
   });
 });

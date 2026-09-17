@@ -31,7 +31,9 @@ export function FontSizeSelector() {
             onClick={() => updateSettings({ fontScale })}
             aria-pressed={settings.fontScale === fontScale}
             className={`rounded-lg border px-3 py-2 text-sm font-medium ${
-              settings.fontScale === fontScale ? "border-primary bg-accent/40" : "border-border"
+              settings.fontScale === fontScale
+                ? "border-primary bg-accent/40"
+                : "border-border"
             }`}
           >
             {LABELS[fontScale]}
@@ -40,8 +42,13 @@ export function FontSizeSelector() {
       </div>
 
       <div className="rounded-xl border border-border bg-card p-4">
-        <p className="font-heading text-2xl font-semibold text-foreground">Example Header</p>
-        <p className="mt-1 text-base text-foreground">This is normal Polyglot body text. It changes as the selected text size changes.</p>
+        <p className="font-heading text-2xl font-semibold text-foreground">
+          Example Header
+        </p>
+        <p className="mt-1 text-base text-foreground">
+          This is normal Polyglot body text. It changes as the selected text
+          size changes.
+        </p>
       </div>
     </div>
   );

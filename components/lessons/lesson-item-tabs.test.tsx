@@ -6,7 +6,9 @@ import { LessonItemTabs } from "@/components/lessons/lesson-item-tabs";
 import { FIXTURE_LEARNING_ITEMS } from "@/domains/curriculum";
 import type { VocabularyItem } from "@/domains/curriculum";
 
-const gato = FIXTURE_LEARNING_ITEMS.find((item) => item.id === "vocab-gato")! as VocabularyItem;
+const gato = FIXTURE_LEARNING_ITEMS.find(
+  (item) => item.id === "vocab-gato",
+)! as VocabularyItem;
 
 describe("LessonItemTabs", () => {
   it("switches between Details, Examples, and Resources", async () => {
@@ -19,7 +21,9 @@ describe("LessonItemTabs", () => {
     expect(screen.getByText("El gato duerme.")).toBeVisible();
 
     await user.click(screen.getByRole("tab", { name: "Resources" }));
-    expect(screen.getByText("No additional resources for this item.")).toBeVisible();
+    expect(
+      screen.getByText("No additional resources for this item."),
+    ).toBeVisible();
   });
 
   it("renders a real, honestly-disabled pronunciation control rather than a dead button when neither a recording nor synthesis is available", () => {
@@ -27,7 +31,9 @@ describe("LessonItemTabs", () => {
     // jsdom implements no speech synthesis and the fixture has no `audioUrl`
     // — the same "browser cannot pronounce this" case `PronunciationButton`
     // is built to handle (see `components/shared/pronunciation-button.test.tsx`).
-    const button = screen.getByRole("button", { name: "Pronunciation of gato is unavailable in this browser" });
+    const button = screen.getByRole("button", {
+      name: "Pronunciation of gato is unavailable in this browser",
+    });
     expect(button).toBeDisabled();
   });
 
@@ -39,7 +45,9 @@ describe("LessonItemTabs", () => {
         synonyms: ["minino"],
         variants: ["gatos"],
         usageLabels: ["colloquial"],
-        regionalEvidence: [{ regionCode: "es-MX", status: "recognized", matchedForm: "gato" }],
+        regionalEvidence: [
+          { regionCode: "es-MX", status: "recognized", matchedForm: "gato" },
+        ],
         attributionText: "From Wiktionary, CC BY-SA 4.0",
       },
     };
@@ -55,6 +63,8 @@ describe("LessonItemTabs", () => {
 
   it("omits the dictionary section entirely when the item has no confirmed mapping", () => {
     render(<LessonItemTabs item={gato} languageCode="es-MX" />);
-    expect(screen.queryByText("Dictionary information")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Dictionary information"),
+    ).not.toBeInTheDocument();
   });
 });

@@ -5,9 +5,22 @@ import { useState, useTransition } from "react";
 import { Check } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import { updateVocabularyGroupAction } from "@/app/(admin)/admin/curriculum/actions";
 import type { CurriculumStatus } from "@/domains/curriculum";
@@ -18,10 +31,19 @@ type GroupEditFormProps = {
   status: CurriculumStatus;
 };
 
-const STATUS_OPTIONS: CurriculumStatus[] = ["draft", "pending", "published", "archived"];
+const STATUS_OPTIONS: CurriculumStatus[] = [
+  "draft",
+  "pending",
+  "published",
+  "archived",
+];
 
 /** Spec 11 rewrite's "Vocabulary Groups / Themes" edit surface. Archiving specifically gets a confirmation step (an existing themed group leaving active rotation is a meaningful change); every other name/status edit saves directly. */
-export function GroupEditForm({ groupId, name: initialName, status: initialStatus }: GroupEditFormProps) {
+export function GroupEditForm({
+  groupId,
+  name: initialName,
+  status: initialStatus,
+}: GroupEditFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [name, setName] = useState(initialName);
@@ -34,7 +56,12 @@ export function GroupEditForm({ groupId, name: initialName, status: initialStatu
     setError(null);
     setJustSaved(false);
     startTransition(async () => {
-      const result = await updateVocabularyGroupAction({ groupId, name, status: finalStatus, idempotencyKey: crypto.randomUUID() });
+      const result = await updateVocabularyGroupAction({
+        groupId,
+        name,
+        status: finalStatus,
+        idempotencyKey: crypto.randomUUID(),
+      });
       if (!result.ok) {
         setError(result.error.message);
         return;
@@ -125,7 +152,8 @@ export function GroupEditForm({ groupId, name: initialName, status: initialStatu
           <DialogHeader>
             <DialogTitle>Archive &ldquo;{initialName}&rdquo;?</DialogTitle>
             <DialogDescription>
-              Archived groups stay on record but are no longer active for new curriculum. Existing vocabulary items keep their group assignment.
+              Archived groups stay on record but are no longer active for new
+              curriculum. Existing vocabulary items keep their group assignment.
             </DialogDescription>
           </DialogHeader>
           {error ? (
@@ -134,10 +162,17 @@ export function GroupEditForm({ groupId, name: initialName, status: initialStatu
             </p>
           ) : null}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmingArchive(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmingArchive(false)}
+            >
               Cancel
             </Button>
-            <Button variant="destructive" onClick={() => save("archived")} disabled={isPending}>
+            <Button
+              variant="destructive"
+              onClick={() => save("archived")}
+              disabled={isPending}
+            >
               Archive
             </Button>
           </DialogFooter>

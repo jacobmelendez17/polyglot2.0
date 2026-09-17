@@ -8,8 +8,14 @@ describe("LevelSelector", () => {
     render(<LevelSelector currentLevel={8} />);
     const links = screen.getAllByRole("link");
     expect(links).toHaveLength(50);
-    expect(screen.getByRole("link", { name: "1" })).toHaveAttribute("href", "/levels/1");
-    expect(screen.getByRole("link", { name: "50" })).toHaveAttribute("href", "/levels/50");
+    expect(screen.getByRole("link", { name: "1" })).toHaveAttribute(
+      "href",
+      "/levels/1",
+    );
+    expect(screen.getByRole("link", { name: "50" })).toHaveAttribute(
+      "href",
+      "/levels/50",
+    );
   });
 
   it("indicates the current level without relying on color alone", () => {
@@ -25,6 +31,9 @@ describe("LevelSelector", () => {
 
   it("navigating to another level is a real link to that level's route", () => {
     render(<LevelSelector currentLevel={5} />);
-    expect(screen.getByRole("link", { name: "12" })).toHaveAttribute("href", "/levels/12");
+    expect(screen.getByRole("link", { name: "12" })).toHaveAttribute(
+      "href",
+      "/levels/12",
+    );
   });
 });

@@ -20,7 +20,11 @@
  * migration's backfill). `default_order` is new, not a rename.
  */
 
-export const CURRICULUM_MODES = ["default_order", "choose_group", "variety"] as const;
+export const CURRICULUM_MODES = [
+  "default_order",
+  "choose_group",
+  "variety",
+] as const;
 export type CurriculumMode = (typeof CURRICULUM_MODES)[number];
 
 /**
@@ -34,7 +38,10 @@ export const GRAMMAR_PLACEMENTS = ["first", "last", "no_preference"] as const;
 export type GrammarPlacement = (typeof GRAMMAR_PLACEMENTS)[number];
 
 export function isGrammarPlacement(value: unknown): value is GrammarPlacement {
-  return typeof value === "string" && (GRAMMAR_PLACEMENTS as readonly string[]).includes(value);
+  return (
+    typeof value === "string" &&
+    (GRAMMAR_PLACEMENTS as readonly string[]).includes(value)
+  );
 }
 
 /**
@@ -47,7 +54,12 @@ export const MAX_LESSON_BATCH_SIZE = 15;
 export const DEFAULT_LESSON_BATCH_SIZE = 6;
 
 export function isValidLessonBatchSize(value: unknown): value is number {
-  return typeof value === "number" && Number.isInteger(value) && value >= MIN_LESSON_BATCH_SIZE && value <= MAX_LESSON_BATCH_SIZE;
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= MIN_LESSON_BATCH_SIZE &&
+    value <= MAX_LESSON_BATCH_SIZE
+  );
 }
 
 /** Spec 20 Lessons — Auto Pronunciation. No stated spec default, unlike every other toggle; see `db/schema/user-settings.ts`'s `autoPronounceLessons` docstring for why `true` was chosen. */
@@ -75,7 +87,10 @@ export type LanguageSettings = {
 
 /** Narrows an untrusted value (a form field, a URL parameter) to a real mode. Validation still belongs at the boundary; this is what the boundary checks against. */
 export function isCurriculumMode(value: unknown): value is CurriculumMode {
-  return typeof value === "string" && (CURRICULUM_MODES as readonly string[]).includes(value);
+  return (
+    typeof value === "string" &&
+    (CURRICULUM_MODES as readonly string[]).includes(value)
+  );
 }
 
 /**

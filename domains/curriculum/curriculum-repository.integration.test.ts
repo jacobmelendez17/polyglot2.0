@@ -12,7 +12,13 @@ import {
   vocabularyGroups,
   vocabularyItems,
 } from "@/db/schema";
-import { FIXTURE_LEVEL_NUMBER, FIXTURE_NEXT_LEVEL_NUMBER, SENTENCE_GATO_ID, SENTENCE_Y_ID, seedTestFixtures } from "@/db/seed/test-fixtures";
+import {
+  FIXTURE_LEVEL_NUMBER,
+  FIXTURE_NEXT_LEVEL_NUMBER,
+  SENTENCE_GATO_ID,
+  SENTENCE_Y_ID,
+  seedTestFixtures,
+} from "@/db/seed/test-fixtures";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
 import { getDefaultLanguageCode } from "@/domains/users";
 
@@ -52,9 +58,15 @@ describe("curriculum repository", () => {
 
   it("enforces language code uniqueness", async () => {
     await withTestTransaction(async (tx) => {
-      await tx.insert(languages).values({ code: "dup-lang", slug: "dup-lang-a", name: "Duplicate A" });
+      await tx
+        .insert(languages)
+        .values({ code: "dup-lang", slug: "dup-lang-a", name: "Duplicate A" });
       await expect(
-        tx.insert(languages).values({ code: "dup-lang", slug: "dup-lang-b", name: "Duplicate B" }),
+        tx.insert(languages).values({
+          code: "dup-lang",
+          slug: "dup-lang-b",
+          name: "Duplicate B",
+        }),
       ).rejects.toThrow();
     });
   });
@@ -68,7 +80,11 @@ describe("curriculum repository", () => {
       // shared-database assumptions").
       const { languageId } = await seedTestFixtures(tx);
       await expect(
-        tx.insert(levels).values({ languageId, levelNumber: FIXTURE_LEVEL_NUMBER, name: "Duplicate Fixture Level" }),
+        tx.insert(levels).values({
+          languageId,
+          levelNumber: FIXTURE_LEVEL_NUMBER,
+          name: "Duplicate Fixture Level",
+        }),
       ).rejects.toThrow();
     });
   });
@@ -93,7 +109,11 @@ describe("curriculum repository", () => {
   it("getLevelByLanguageAndNumber resolves a level by its learner-facing number, scoped to the given language", async () => {
     await withTestTransaction(async (tx) => {
       const { level2Id, languageId } = await seedTestFixtures(tx);
-      const level = await getLevelByLanguageAndNumber(tx, languageId, FIXTURE_NEXT_LEVEL_NUMBER);
+      const level = await getLevelByLanguageAndNumber(
+        tx,
+        languageId,
+        FIXTURE_NEXT_LEVEL_NUMBER,
+      );
       expect(level?.id).toBe(level2Id);
     });
   });
@@ -111,16 +131,31 @@ describe("curriculum repository", () => {
       const { level2Id, languageId } = await seedTestFixtures(tx);
       const [otherLanguage] = await tx
         .insert(languages)
-        .values({ code: "fr-FR", slug: "french-level-number-test", name: "French" })
+        .values({
+          code: "fr-FR",
+          slug: "french-level-number-test",
+          name: "French",
+        })
         .returning();
-      await tx
-        .insert(levels)
-        .values({ languageId: otherLanguage!.id, levelNumber: FIXTURE_NEXT_LEVEL_NUMBER, name: "Level 2", status: "published" });
+      await tx.insert(levels).values({
+        languageId: otherLanguage!.id,
+        levelNumber: FIXTURE_NEXT_LEVEL_NUMBER,
+        name: "Level 2",
+        status: "published",
+      });
 
-      const found = await getLevelByLanguageAndNumber(tx, languageId, FIXTURE_NEXT_LEVEL_NUMBER);
+      const found = await getLevelByLanguageAndNumber(
+        tx,
+        languageId,
+        FIXTURE_NEXT_LEVEL_NUMBER,
+      );
       expect(found?.id).toBe(level2Id);
 
-      const foundOther = await getLevelByLanguageAndNumber(tx, otherLanguage!.id, FIXTURE_NEXT_LEVEL_NUMBER);
+      const foundOther = await getLevelByLanguageAndNumber(
+        tx,
+        otherLanguage!.id,
+        FIXTURE_NEXT_LEVEL_NUMBER,
+      );
       expect(foundOther?.id).not.toBe(level2Id);
       expect(foundOther?.languageId).toBe(otherLanguage!.id);
     });
@@ -141,7 +176,12 @@ describe("curriculum repository", () => {
     await withTestTransaction(async (tx) => {
       const { level1Id, languageId } = await seedTestFixtures(tx);
       await expect(
-        tx.insert(vocabularyGroups).values({ levelId: level1Id, languageId, name: "Another Group", position: 1 }),
+        tx.insert(vocabularyGroups).values({
+          levelId: level1Id,
+          languageId,
+          name: "Another Group",
+          position: 1,
+        }),
       ).rejects.toThrow();
     });
   });
@@ -169,7 +209,9 @@ describe("curriculum repository", () => {
       if (item?.type === "grammar") {
         expect(item.grammar.structure).toBe("y");
         expect(item.grammar.primaryMeaning).toBe("and");
-        expect(item.grammar.requiredQuestions).toEqual([{ format: "translation", direction: "targetToEnglish" }]);
+        expect(item.grammar.requiredQuestions).toEqual([
+          { format: "translation", direction: "targetToEnglish" },
+        ]);
       }
     });
   });
@@ -179,7 +221,14 @@ describe("curriculum repository", () => {
       const { level1Id, languageId } = await seedTestFixtures(tx);
       const [rawItem] = await tx
         .insert(learningItems)
-        .values({ languageId, levelId: level1Id, type: "grammar", status: "published", position: 99, lessonPriority: 99 })
+        .values({
+          languageId,
+          levelId: level1Id,
+          type: "grammar",
+          status: "published",
+          position: 99,
+          lessonPriority: 99,
+        })
         .returning();
       await tx.insert(grammarItems).values({
         learningItemId: rawItem!.id,
@@ -190,9 +239,9 @@ describe("curriculum repository", () => {
       });
 
       const item = await getLearningItem(tx, rawItem!.id);
-      expect(item?.type === "grammar" && item.grammar.requiredQuestions).toEqual([
-        { format: "translation", direction: "targetToEnglish" },
-      ]);
+      expect(
+        item?.type === "grammar" && item.grammar.requiredQuestions,
+      ).toEqual([{ format: "translation", direction: "targetToEnglish" }]);
     });
   });
 
@@ -230,10 +279,21 @@ describe("curriculum repository", () => {
       const { gatoId, grammarYId, casaId } = await seedTestFixtures(tx);
       const unknownId = "00000000-0000-0000-0000-000000000000";
 
-      const items = await getLearningItemsByIds(tx, [casaId, unknownId, grammarYId, gatoId]);
+      const items = await getLearningItemsByIds(tx, [
+        casaId,
+        unknownId,
+        grammarYId,
+        gatoId,
+      ]);
 
-      expect(items.map((item) => item.id)).toEqual([casaId, grammarYId, gatoId]);
-      expect(items.find((item) => item.id === grammarYId)?.type).toBe("grammar");
+      expect(items.map((item) => item.id)).toEqual([
+        casaId,
+        grammarYId,
+        gatoId,
+      ]);
+      expect(items.find((item) => item.id === grammarYId)?.type).toBe(
+        "grammar",
+      );
       expect(items.find((item) => item.id === gatoId)?.type).toBe("vocabulary");
     });
   });
@@ -247,7 +307,8 @@ describe("curriculum repository", () => {
 
   it("returns every item in a level via getLevelItems, ordered by position", async () => {
     await withTestTransaction(async (tx) => {
-      const { level1Id, gatoId, casaId, aguaId, grammarYId } = await seedTestFixtures(tx);
+      const { level1Id, gatoId, casaId, aguaId, grammarYId } =
+        await seedTestFixtures(tx);
       const items = await getLevelItems(tx, level1Id);
       const ids = items.map((item) => item.id);
 
@@ -256,8 +317,12 @@ describe("curriculum repository", () => {
       // shares this level and any of it that is published legitimately
       // appears here too. What this test is about is that the fixtures come
       // back in position order.
-      expect(ids).toEqual(expect.arrayContaining([gatoId, casaId, aguaId, grammarYId]));
-      const fixtureOrder = ids.filter((id) => [gatoId, casaId, aguaId, grammarYId].includes(id));
+      expect(ids).toEqual(
+        expect.arrayContaining([gatoId, casaId, aguaId, grammarYId]),
+      );
+      const fixtureOrder = ids.filter((id) =>
+        [gatoId, casaId, aguaId, grammarYId].includes(id),
+      );
       expect(fixtureOrder).toEqual([gatoId, casaId, aguaId, grammarYId]);
     });
   });
@@ -265,7 +330,10 @@ describe("curriculum repository", () => {
   it("excludes an NSFW item from getLevelItems unless includeNsfw is true (spec 20 General)", async () => {
     await withTestTransaction(async (tx) => {
       const { level1Id, gatoId } = await seedTestFixtures(tx);
-      await tx.update(learningItems).set({ contentClassification: "nsfw" }).where(eq(learningItems.id, gatoId));
+      await tx
+        .update(learningItems)
+        .set({ contentClassification: "nsfw" })
+        .where(eq(learningItems.id, gatoId));
 
       const safeOnly = await getLevelItems(tx, level1Id);
       expect(safeOnly.map((item) => item.id)).not.toContain(gatoId);
@@ -281,7 +349,10 @@ describe("curriculum repository", () => {
       const rows = await tx
         .select({ targetText: sentences.targetText })
         .from(learningItemSentences)
-        .innerJoin(sentences, eq(sentences.id, learningItemSentences.sentenceId))
+        .innerJoin(
+          sentences,
+          eq(sentences.id, learningItemSentences.sentenceId),
+        )
         .where(eq(learningItemSentences.learningItemId, gatoId));
 
       expect(rows).toEqual([{ targetText: "El gato duerme." }]);
@@ -318,7 +389,10 @@ describe("curriculum repository", () => {
   it("keeps a learning item's identity (id) stable across an ordinary content update", async () => {
     await withTestTransaction(async (tx) => {
       const { gatoId } = await seedTestFixtures(tx);
-      await tx.update(vocabularyItems).set({ definition: "Updated definition" }).where(eq(vocabularyItems.learningItemId, gatoId));
+      await tx
+        .update(vocabularyItems)
+        .set({ definition: "Updated definition" })
+        .where(eq(vocabularyItems.learningItemId, gatoId));
 
       const item = await getLearningItem(tx, gatoId);
       expect(item?.id).toBe(gatoId);
@@ -361,10 +435,17 @@ describe("curriculum repository", () => {
       const existing = await tx
         .select()
         .from(userItemProgress)
-        .where(and(eq(userItemProgress.userId, learnerId), eq(userItemProgress.learningItemId, gatoId)));
+        .where(
+          and(
+            eq(userItemProgress.userId, learnerId),
+            eq(userItemProgress.learningItemId, gatoId),
+          ),
+        );
       expect(existing).toHaveLength(1);
 
-      await expect(tx.delete(learningItems).where(eq(learningItems.id, gatoId))).rejects.toThrow();
+      await expect(
+        tx.delete(learningItems).where(eq(learningItems.id, gatoId)),
+      ).rejects.toThrow();
     });
   });
 
@@ -375,8 +456,20 @@ describe("curriculum repository", () => {
       // Confirms `learning_item_sentences` is genuinely generic (not
       // vocabulary-specific): a grammar item gets its own example the same
       // way, matching `lesson-curriculum-repository.ts`'s existing usage.
-      expect(await getLearningItemExamples(tx, gatoId)).toEqual([{ id: SENTENCE_GATO_ID, targetText: "El gato duerme.", translation: "The cat sleeps." }]);
-      expect(await getLearningItemExamples(tx, grammarYId)).toEqual([{ id: SENTENCE_Y_ID, targetText: "gato y perro", translation: "cat and dog" }]);
+      expect(await getLearningItemExamples(tx, gatoId)).toEqual([
+        {
+          id: SENTENCE_GATO_ID,
+          targetText: "El gato duerme.",
+          translation: "The cat sleeps.",
+        },
+      ]);
+      expect(await getLearningItemExamples(tx, grammarYId)).toEqual([
+        {
+          id: SENTENCE_Y_ID,
+          targetText: "gato y perro",
+          translation: "cat and dog",
+        },
+      ]);
     });
   });
 
@@ -386,12 +479,27 @@ describe("curriculum repository", () => {
 
       const [draftSentence] = await tx
         .insert(sentences)
-        .values({ languageId, targetText: "El gato corre.", translation: "The cat runs.", status: "draft" })
+        .values({
+          languageId,
+          targetText: "El gato corre.",
+          translation: "The cat runs.",
+          status: "draft",
+        })
         .returning();
-      await tx.insert(learningItemSentences).values({ learningItemId: gatoId, sentenceId: draftSentence.id, position: 2 });
+      await tx.insert(learningItemSentences).values({
+        learningItemId: gatoId,
+        sentenceId: draftSentence.id,
+        position: 2,
+      });
 
       const examples = await getLearningItemExamples(tx, gatoId);
-      expect(examples).toEqual([{ id: SENTENCE_GATO_ID, targetText: "El gato duerme.", translation: "The cat sleeps." }]);
+      expect(examples).toEqual([
+        {
+          id: SENTENCE_GATO_ID,
+          targetText: "El gato duerme.",
+          translation: "The cat sleeps.",
+        },
+      ]);
     });
   });
 

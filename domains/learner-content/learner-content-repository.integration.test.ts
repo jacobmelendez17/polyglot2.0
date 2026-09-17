@@ -20,7 +20,13 @@ describe("learner-content repository", () => {
   it("rejects a second note for the same user/item pair", async () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, gatoId } = await seedTestFixtures(tx);
-      await expect(createNote(tx, { userId: learnerId, learningItemId: gatoId, body: "A second note" })).rejects.toThrow();
+      await expect(
+        createNote(tx, {
+          userId: learnerId,
+          learningItemId: gatoId,
+          body: "A second note",
+        }),
+      ).rejects.toThrow();
     });
   });
 
@@ -30,7 +36,12 @@ describe("learner-content repository", () => {
       // seedTestFixtures already created a "meaning"-side synonym "kitty" for
       // (learnerId, gatoId) — a second identical one must be rejected.
       await expect(
-        createSynonym(tx, { userId: learnerId, learningItemId: gatoId, side: "meaning", value: "Kitty" }),
+        createSynonym(tx, {
+          userId: learnerId,
+          learningItemId: gatoId,
+          side: "meaning",
+          value: "Kitty",
+        }),
       ).rejects.toThrow();
     });
   });
@@ -38,7 +49,12 @@ describe("learner-content repository", () => {
   it("allows the same normalized synonym on opposite sides to coexist", async () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, gatoId } = await seedTestFixtures(tx);
-      const termSynonym = await createSynonym(tx, { userId: learnerId, learningItemId: gatoId, side: "term", value: "kitty" });
+      const termSynonym = await createSynonym(tx, {
+        userId: learnerId,
+        learningItemId: gatoId,
+        side: "term",
+        value: "kitty",
+      });
       expect(termSynonym.side).toBe("term");
       expect(termSynonym.normalizedValue).toBe(normalizeForComparison("kitty"));
 
@@ -52,8 +68,14 @@ describe("learner-content repository", () => {
       const { learnerId } = await seedTestFixtures(tx);
       await tx.delete(users).where(eq(users.id, learnerId));
 
-      const [noteRow] = await tx.select().from(userNotes).where(eq(userNotes.userId, learnerId));
-      const [synonymRow] = await tx.select().from(userSynonyms).where(eq(userSynonyms.userId, learnerId));
+      const [noteRow] = await tx
+        .select()
+        .from(userNotes)
+        .where(eq(userNotes.userId, learnerId));
+      const [synonymRow] = await tx
+        .select()
+        .from(userSynonyms)
+        .where(eq(userSynonyms.userId, learnerId));
       expect(noteRow).toBeUndefined();
       expect(synonymRow).toBeUndefined();
     });
@@ -62,7 +84,9 @@ describe("learner-content repository", () => {
   it("rejects deleting a learning item that has notes or synonyms", async () => {
     await withTestTransaction(async (tx) => {
       const { gatoId } = await seedTestFixtures(tx);
-      await expect(tx.delete(learningItems).where(eq(learningItems.id, gatoId))).rejects.toThrow();
+      await expect(
+        tx.delete(learningItems).where(eq(learningItems.id, gatoId)),
+      ).rejects.toThrow();
     });
   });
 
@@ -80,7 +104,12 @@ describe("learner-content repository", () => {
   it("normalization is deterministic — the same input always produces the same normalized_value", async () => {
     await withTestTransaction(async (tx) => {
       const { learnerId, casaId } = await seedTestFixtures(tx);
-      const first = await createSynonym(tx, { userId: learnerId, learningItemId: casaId, side: "meaning", value: "  Home  " });
+      const first = await createSynonym(tx, {
+        userId: learnerId,
+        learningItemId: casaId,
+        side: "meaning",
+        value: "  Home  ",
+      });
       expect(first.normalizedValue).toBe(normalizeForComparison("  Home  "));
       expect(first.normalizedValue).toBe(normalizeForComparison("home"));
     });

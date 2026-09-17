@@ -15,7 +15,12 @@ import { MAPPING_REVIEW_REASONS } from "./lexicon-types";
  * seeded fixture ids are valid Postgres `uuid` values but not RFC 4122
  * version/variant compliant, and `z.uuid()` rejects them.
  */
-const uuidLike = z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, "Invalid UUID");
+const uuidLike = z
+  .string()
+  .regex(
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    "Invalid UUID",
+  );
 
 export const matchStatusSchema = z.enum([
   "unmatched",
@@ -25,7 +30,11 @@ export const matchStatusSchema = z.enum([
   "manual",
 ]);
 
-export const regionalEvidenceStatusSchema = z.enum(["recognized", "not_listed", "unknown"]);
+export const regionalEvidenceStatusSchema = z.enum([
+  "recognized",
+  "not_listed",
+  "unknown",
+]);
 
 export const mappingReviewReasonSchema = z.enum(MAPPING_REVIEW_REASONS);
 
@@ -97,12 +106,20 @@ export const mappingQueueInputSchema = z.object({
   offset: z.number().int().min(0),
 });
 
-export type RematchVocabularyItemInput = z.infer<typeof rematchVocabularyItemInputSchema>;
-export type MatchImportedVocabularyItemsInput = z.infer<typeof matchImportedVocabularyItemsInputSchema>;
-export type BulkConfirmVocabularyMappingsInput = z.infer<typeof bulkConfirmVocabularyMappingsInputSchema>;
+export type RematchVocabularyItemInput = z.infer<
+  typeof rematchVocabularyItemInputSchema
+>;
+export type MatchImportedVocabularyItemsInput = z.infer<
+  typeof matchImportedVocabularyItemsInputSchema
+>;
+export type BulkConfirmVocabularyMappingsInput = z.infer<
+  typeof bulkConfirmVocabularyMappingsInputSchema
+>;
 export type SetManualMappingInput = z.infer<typeof setManualMappingInputSchema>;
 export type ConfirmMappingInput = z.infer<typeof confirmMappingInputSchema>;
 export type SelectSensesInput = z.infer<typeof selectSensesInputSchema>;
-export type SelectPronunciationInput = z.infer<typeof selectPronunciationInputSchema>;
+export type SelectPronunciationInput = z.infer<
+  typeof selectPronunciationInputSchema
+>;
 export type SearchDictionaryInput = z.infer<typeof searchDictionaryInputSchema>;
 export type MappingQueueInput = z.infer<typeof mappingQueueInputSchema>;

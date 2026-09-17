@@ -17,7 +17,15 @@ import { requireUser } from "@/domains/users/server";
  */
 
 export type RawSourceResult =
-  | { ok: true; data: { id: string; sourceHash: string; createdAt: string; json: string }[] }
+  | {
+      ok: true;
+      data: {
+        id: string;
+        sourceHash: string;
+        createdAt: string;
+        json: string;
+      }[];
+    }
   | { ok: false; error: { code: string; message: string } };
 
 const inputSchema = z.object({ entryId: z.string().min(1) });
@@ -25,11 +33,19 @@ const inputSchema = z.object({ entryId: z.string().min(1) });
 /** Bounded deliberately: an entry's full version history could be dozens of large objects, and the dialog shows the most recent few. */
 const VERSION_LIMIT = 3;
 
-export async function getEntryRawVersionsAction(input: z.infer<typeof inputSchema>): Promise<RawSourceResult> {
+export async function getEntryRawVersionsAction(
+  input: z.infer<typeof inputSchema>,
+): Promise<RawSourceResult> {
   try {
     const user = await requireUser();
     if (!canManageCurriculum(user)) {
-      return { ok: false, error: { code: "FORBIDDEN", message: "You don't have access to do that." } };
+      return {
+        ok: false,
+        error: {
+          code: "FORBIDDEN",
+          message: "You don't have access to do that.",
+        },
+      };
     }
     const parsed = inputSchema.parse(input);
     const versions = await getEntryRawVersions(parsed.entryId, VERSION_LIMIT);
@@ -44,9 +60,21 @@ export async function getEntryRawVersionsAction(input: z.infer<typeof inputSchem
     };
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return { ok: false, error: { code: "VALIDATION_FAILED", message: "That request could not be understood." } };
+      return {
+        ok: false,
+        error: {
+          code: "VALIDATION_FAILED",
+          message: "That request could not be understood.",
+        },
+      };
     }
     console.error("Unexpected raw-source action error", error);
-    return { ok: false, error: { code: "UNKNOWN", message: "Something went wrong. Please try again." } };
+    return {
+      ok: false,
+      error: {
+        code: "UNKNOWN",
+        message: "Something went wrong. Please try again.",
+      },
+    };
   }
 }

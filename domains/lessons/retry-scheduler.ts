@@ -20,5 +20,9 @@ export function rescheduleAfterIncorrect(
   }
 
   const insertAt = Math.min(spacingMinimum, remainingQueue.length);
-  return [...remainingQueue.slice(0, insertAt), failedQuestionId, ...remainingQueue.slice(insertAt)];
+  return [
+    ...remainingQueue.slice(0, insertAt),
+    failedQuestionId,
+    ...remainingQueue.slice(insertAt),
+  ];
 }

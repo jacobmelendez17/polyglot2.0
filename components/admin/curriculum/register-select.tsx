@@ -1,6 +1,12 @@
 "use client";
 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { REGISTER_LABELS } from "@/domains/curriculum";
 import type { Register } from "@/db/schema";
 
@@ -27,7 +33,10 @@ export function RegisterSelect({ value, onChange }: RegisterSelectProps) {
   return (
     <label className="block text-sm">
       <span className="font-medium text-foreground">Register</span>
-      <Select value={value} onValueChange={(next) => onChange(next as RegisterEditorValue)}>
+      <Select
+        value={value}
+        onValueChange={(next) => onChange(next as RegisterEditorValue)}
+      >
         <SelectTrigger className="mt-1 w-full" aria-label="Register">
           <SelectValue />
         </SelectTrigger>

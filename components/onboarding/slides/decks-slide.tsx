@@ -13,14 +13,19 @@
  */
 export function DecksSlide() {
   return (
-    <div aria-hidden="true" className="flex h-56 w-full flex-col items-center justify-center gap-4 sm:h-72">
+    <div
+      aria-hidden="true"
+      className="flex h-56 w-full flex-col items-center justify-center gap-4 sm:h-72"
+    >
       <div className="relative h-28 w-52 sm:h-32 sm:w-60">
         {/* Two static cards behind give the stack depth; only the top one cycles. */}
         <span className="absolute inset-x-4 top-3 h-full rounded-xl bg-card/70 ring-1 ring-foreground/10" />
         <span className="absolute inset-x-2 top-1.5 h-full rounded-xl bg-card/85 ring-1 ring-foreground/10" />
 
         <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 rounded-xl border-t-2 border-t-learning-vocabulary bg-card ring-1 ring-foreground/10 animate-ob-card">
-          <span className="font-heading text-xl font-semibold text-foreground sm:text-2xl">el agua</span>
+          <span className="font-heading text-xl font-semibold text-foreground sm:text-2xl">
+            el agua
+          </span>
           <span className="text-sm text-muted-foreground">water</span>
           <span className="mt-1 rounded-md bg-learning-vocabulary/15 px-2 py-0.5 text-[0.65rem] font-medium text-foreground">
             Vocabulary

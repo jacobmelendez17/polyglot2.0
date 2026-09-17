@@ -48,12 +48,19 @@ describe("OnboardingFlow replay", () => {
   it("shows a preview banner during replay without Sandbox-specific wording, since Settings can trigger it too", () => {
     render(<OnboardingFlow isReplay returnTo="/settings/account" />);
 
-    expect(screen.getByText(/finishing here will not change your onboarding status/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /finishing here will not change your onboarding status/i,
+      ),
+    ).toBeInTheDocument();
     expect(screen.queryByText(/sandbox/i)).not.toBeInTheDocument();
   });
 
   it("a normal (non-replay) run does write completion when finished", async () => {
-    mockCompleteOnboardingAction.mockResolvedValueOnce({ ok: true, data: null });
+    mockCompleteOnboardingAction.mockResolvedValueOnce({
+      ok: true,
+      data: null,
+    });
     const user = userEvent.setup();
     render(<OnboardingFlow isReplay={false} />);
 

@@ -1,4 +1,7 @@
-import type { GrammarFieldsInput, VocabularyFieldsInput } from "./curriculum-mutation-types";
+import type {
+  GrammarFieldsInput,
+  VocabularyFieldsInput,
+} from "./curriculum-mutation-types";
 
 /**
  * Column contract and per-row shape validation for a bulk curriculum
@@ -31,9 +34,25 @@ import type { GrammarFieldsInput, VocabularyFieldsInput } from "./curriculum-mut
  * `CURRICULUM_VALIDATION_CONFIG`'s own default of 4 groups per level.
  */
 
-export const REQUIRED_IMPORT_COLUMNS = ["word", "translation", "level", "group"] as const;
-const OPTIONAL_IMPORT_COLUMNS = ["part_of_speech", "article", "definition", "pronunciation", "ipa", "context", "creator_notes"] as const;
-export const IMPORT_COLUMNS = [...REQUIRED_IMPORT_COLUMNS, ...OPTIONAL_IMPORT_COLUMNS] as const;
+export const REQUIRED_IMPORT_COLUMNS = [
+  "word",
+  "translation",
+  "level",
+  "group",
+] as const;
+const OPTIONAL_IMPORT_COLUMNS = [
+  "part_of_speech",
+  "article",
+  "definition",
+  "pronunciation",
+  "ipa",
+  "context",
+  "creator_notes",
+] as const;
+export const IMPORT_COLUMNS = [
+  ...REQUIRED_IMPORT_COLUMNS,
+  ...OPTIONAL_IMPORT_COLUMNS,
+] as const;
 type ImportColumn = (typeof IMPORT_COLUMNS)[number];
 
 /**
@@ -81,8 +100,13 @@ export const MAX_IMPORT_ROWS = 5000;
 
 export type ImportDelimiter = "," | "\t";
 export type RawVocabularyImportRow = Record<string, string>;
-export type ImportFileParseError = { type: "unparseable"; message: string } | { type: "missing_columns"; columns: string[] } | { type: "too_many_rows"; count: number };
-export type ImportFileParseResult = { ok: true; rows: RawVocabularyImportRow[] } | { ok: false; error: ImportFileParseError };
+export type ImportFileParseError =
+  | { type: "unparseable"; message: string }
+  | { type: "missing_columns"; columns: string[] }
+  | { type: "too_many_rows"; count: number };
+export type ImportFileParseResult =
+  | { ok: true; rows: RawVocabularyImportRow[] }
+  | { ok: false; error: ImportFileParseError };
 
 export type ImportRowFieldIssue = { field: ImportColumn; message: string };
 
@@ -93,7 +117,10 @@ export type ImportRowFieldIssue = { field: ImportColumn; message: string };
  * `domains/admin/bulk-import-service.ts` resolves them into a real
  * `vocabularyGroupId` once it knows the target language.
  */
-export type ParsedVocabularyFields = Omit<VocabularyFieldsInput, "vocabularyGroupId"> & {
+export type ParsedVocabularyFields = Omit<
+  VocabularyFieldsInput,
+  "vocabularyGroupId"
+> & {
   itemType: "vocabulary";
   levelNumber: number;
   groupNumber: number;
@@ -125,7 +152,10 @@ function emptyToUndefined(value: string | undefined): string | undefined {
  * `rowNumber` matches what a spreadsheet editor would call it — the number
  * an admin actually sees when they go fix row 14 in their own file.
  */
-export function validateVocabularyImportRow(raw: RawVocabularyImportRow, index: number): ValidatedImportRow {
+export function validateVocabularyImportRow(
+  raw: RawVocabularyImportRow,
+  index: number,
+): ValidatedImportRow {
   const rowNumber = index + 2;
   const fieldIssues: ImportRowFieldIssue[] = [];
 
@@ -135,7 +165,8 @@ export function validateVocabularyImportRow(raw: RawVocabularyImportRow, index: 
   const groupRaw = emptyToUndefined(raw.group);
 
   if (!word) fieldIssues.push({ field: "word", message: "Missing word." });
-  if (!translation) fieldIssues.push({ field: "translation", message: "Missing translation." });
+  if (!translation)
+    fieldIssues.push({ field: "translation", message: "Missing translation." });
 
   let levelNumber = NaN;
   if (!levelRaw) {
@@ -143,7 +174,10 @@ export function validateVocabularyImportRow(raw: RawVocabularyImportRow, index: 
   } else {
     levelNumber = Number(levelRaw);
     if (!Number.isInteger(levelNumber) || levelNumber < 1) {
-      fieldIssues.push({ field: "level", message: `"${levelRaw}" isn't a valid level number.` });
+      fieldIssues.push({
+        field: "level",
+        message: `"${levelRaw}" isn't a valid level number.`,
+      });
     }
   }
 
@@ -152,8 +186,15 @@ export function validateVocabularyImportRow(raw: RawVocabularyImportRow, index: 
     fieldIssues.push({ field: "group", message: "Missing group." });
   } else {
     groupNumber = Number(groupRaw);
-    if (!Number.isInteger(groupNumber) || groupNumber < 1 || groupNumber > GRAMMAR_GROUP_NUMBER) {
-      fieldIssues.push({ field: "group", message: `Group must be 1-${MAX_VOCABULARY_GROUP_NUMBER} (vocabulary) or ${GRAMMAR_GROUP_NUMBER} (grammar).` });
+    if (
+      !Number.isInteger(groupNumber) ||
+      groupNumber < 1 ||
+      groupNumber > GRAMMAR_GROUP_NUMBER
+    ) {
+      fieldIssues.push({
+        field: "group",
+        message: `Group must be 1-${MAX_VOCABULARY_GROUP_NUMBER} (vocabulary) or ${GRAMMAR_GROUP_NUMBER} (grammar).`,
+      });
     }
   }
 
@@ -178,7 +219,9 @@ export function validateVocabularyImportRow(raw: RawVocabularyImportRow, index: 
       explanation: "",
       category: null,
       creatorNotes: emptyToUndefined(raw.creator_notes) ?? null,
-      requiredQuestions: [{ format: "translation", direction: "targetToEnglish" }],
+      requiredQuestions: [
+        { format: "translation", direction: "targetToEnglish" },
+      ],
       acceptedAnswers: [],
     };
     return { rowNumber, raw, fields, fieldIssues: [] };

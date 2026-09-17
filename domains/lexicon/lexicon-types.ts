@@ -15,7 +15,8 @@ export type LexicalSourceType = "dictionary" | "regional_wordlist";
 
 export type LexicalImportScope = "curriculum" | "terms" | "full_language";
 
-export type LexicalImportStatus = "staged" | "validating" | "completed" | "failed" | "rolled_back";
+export type LexicalImportStatus =
+  "staged" | "validating" | "completed" | "failed" | "rolled_back";
 
 export type DictionarySourceStatus = "active" | "missing_from_source";
 

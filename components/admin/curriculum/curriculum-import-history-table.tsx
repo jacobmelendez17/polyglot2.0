@@ -10,9 +10,19 @@ import {
   unarchiveCurriculumImportAction,
 } from "@/app/(admin)/admin/curriculum/async-import-actions";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import type { CurriculumImportRecord, CurriculumImportStatus } from "@/domains/admin/server";
+import type {
+  CurriculumImportRecord,
+  CurriculumImportStatus,
+} from "@/domains/admin/server";
 
 type CurriculumImportHistoryTableProps = {
   imports: CurriculumImportRecord[];
@@ -22,7 +32,10 @@ type CurriculumImportHistoryTableProps = {
   archived?: boolean;
 };
 
-function statusLabel(status: CurriculumImportStatus): { text: string; className: string } {
+function statusLabel(status: CurriculumImportStatus): {
+  text: string;
+  className: string;
+} {
   switch (status) {
     case "completed":
       return { text: "Completed", className: "text-state-success" };
@@ -46,11 +59,16 @@ function summarize(record: CurriculumImportRecord): string {
 }
 
 /** Spec 19 §19/§25 — the same history table serves both /admin/curriculum/imports and its /archived sibling, differing only in which row action is offered. */
-export function CurriculumImportHistoryTable({ imports, showArchiveAction, archived }: CurriculumImportHistoryTableProps) {
+export function CurriculumImportHistoryTable({
+  imports,
+  showArchiveAction,
+  archived,
+}: CurriculumImportHistoryTableProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [pendingId, setPendingId] = useState<string | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<CurriculumImportRecord | null>(null);
+  const [deleteTarget, setDeleteTarget] =
+    useState<CurriculumImportRecord | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -85,7 +103,10 @@ export function CurriculumImportHistoryTable({ imports, showArchiveAction, archi
   function handlePermanentDelete() {
     if (!deleteTarget) return;
     startTransition(async () => {
-      const result = await permanentlyDeleteCurriculumImportAction({ importId: deleteTarget.id, confirmation: deleteConfirmation as "DELETE" });
+      const result = await permanentlyDeleteCurriculumImportAction({
+        importId: deleteTarget.id,
+        confirmation: deleteConfirmation as "DELETE",
+      });
       if (!result.ok) {
         setError(result.error.message);
         return;
@@ -108,36 +129,68 @@ export function CurriculumImportHistoryTable({ imports, showArchiveAction, archi
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/50 text-left text-xs font-medium text-muted-foreground">
-              <th scope="col" className="px-3 py-2">File</th>
-              <th scope="col" className="px-3 py-2">Status</th>
-              <th scope="col" className="px-3 py-2">Summary</th>
-              <th scope="col" className="px-3 py-2">Created</th>
-              <th scope="col" className="px-3 py-2">Actions</th>
+              <th scope="col" className="px-3 py-2">
+                File
+              </th>
+              <th scope="col" className="px-3 py-2">
+                Status
+              </th>
+              <th scope="col" className="px-3 py-2">
+                Summary
+              </th>
+              <th scope="col" className="px-3 py-2">
+                Created
+              </th>
+              <th scope="col" className="px-3 py-2">
+                Actions
+              </th>
             </tr>
           </thead>
           <tbody>
             {imports.map((record) => {
               const status = statusLabel(record.status);
               return (
-                <tr key={record.id} className="border-b border-border last:border-0">
+                <tr
+                  key={record.id}
+                  className="border-b border-border last:border-0"
+                >
                   <td className="px-3 py-2">
-                    <Link href={`/admin/curriculum/imports/${record.id}`} className="font-medium text-primary underline-offset-4 hover:underline">
+                    <Link
+                      href={`/admin/curriculum/imports/${record.id}`}
+                      className="font-medium text-primary underline-offset-4 hover:underline"
+                    >
                       {record.originalFilename}
                     </Link>
                   </td>
-                  <td className={`px-3 py-2 ${status.className}`}>{status.text}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{summarize(record)}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{new Date(record.createdAt).toLocaleDateString()}</td>
+                  <td className={`px-3 py-2 ${status.className}`}>
+                    {status.text}
+                  </td>
+                  <td className="px-3 py-2 text-muted-foreground">
+                    {summarize(record)}
+                  </td>
+                  <td className="px-3 py-2 text-muted-foreground">
+                    {new Date(record.createdAt).toLocaleDateString()}
+                  </td>
                   <td className="px-3 py-2">
                     <div className="flex flex-wrap gap-2">
                       {showArchiveAction ? (
-                        <Button size="sm" variant="outline" disabled={isPending && pendingId === record.id} onClick={() => handleArchive(record.id)}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={isPending && pendingId === record.id}
+                          onClick={() => handleArchive(record.id)}
+                        >
                           Archive
                         </Button>
                       ) : null}
                       {archived ? (
                         <>
-                          <Button size="sm" variant="outline" disabled={isPending && pendingId === record.id} onClick={() => handleRestore(record.id)}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={isPending && pendingId === record.id}
+                            onClick={() => handleRestore(record.id)}
+                          >
                             Restore
                           </Button>
                           <Button
@@ -163,26 +216,42 @@ export function CurriculumImportHistoryTable({ imports, showArchiveAction, archi
         </table>
       </div>
 
-      <Dialog open={deleteTarget !== null} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+      <Dialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Permanently delete import?</DialogTitle>
             <DialogDescription>
-              This removes the import record, stored row results, and remaining source file. This does not undo curriculum changes made by the
+              This removes the import record, stored row results, and remaining
+              source file. This does not undo curriculum changes made by the
               import.
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-2">
-            <label htmlFor="delete-confirmation" className="text-sm text-muted-foreground">
+            <label
+              htmlFor="delete-confirmation"
+              className="text-sm text-muted-foreground"
+            >
               Type DELETE to continue:
             </label>
-            <Input id="delete-confirmation" value={deleteConfirmation} onChange={(event) => setDeleteConfirmation(event.target.value)} autoComplete="off" />
+            <Input
+              id="delete-confirmation"
+              value={deleteConfirmation}
+              onChange={(event) => setDeleteConfirmation(event.target.value)}
+              autoComplete="off"
+            />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteTarget(null)}>
               Cancel
             </Button>
-            <Button variant="destructive" disabled={deleteConfirmation !== "DELETE" || isPending} onClick={handlePermanentDelete}>
+            <Button
+              variant="destructive"
+              disabled={deleteConfirmation !== "DELETE" || isPending}
+              onClick={handlePermanentDelete}
+            >
               Permanently Delete
             </Button>
           </DialogFooter>

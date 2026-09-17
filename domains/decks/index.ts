@@ -33,7 +33,10 @@ export {
 } from "./deck-view";
 
 export { deckItemLabel, summarizeDeckPractice } from "./deck-practice";
-export type { DeckPracticeClassification, DeckPracticeSummary } from "./deck-practice";
+export type {
+  DeckPracticeClassification,
+  DeckPracticeSummary,
+} from "./deck-practice";
 
 export {
   DECK_DESCRIPTION_MAX_LENGTH,

@@ -9,19 +9,19 @@ describe("PracticeGrid", () => {
 
     expect(screen.getByRole("link", { name: "Speaking" })).toHaveAttribute(
       "href",
-      "/practice/speaking"
+      "/practice/speaking",
     );
     expect(screen.getByRole("link", { name: "Listening" })).toHaveAttribute(
       "href",
-      "/practice/listening"
+      "/practice/listening",
     );
     expect(screen.getByRole("link", { name: "Reading" })).toHaveAttribute(
       "href",
-      "/practice/reading"
+      "/practice/reading",
     );
     expect(screen.getByRole("link", { name: "Writing" })).toHaveAttribute(
       "href",
-      "/practice/writing"
+      "/practice/writing",
     );
   });
 });

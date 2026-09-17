@@ -1,11 +1,17 @@
 import { describe, expect, it } from "vitest";
 
-import { parseHunspellDictionary, parseHunspellEncoding, toBufferEncoding } from "./hunspell-adapter";
+import {
+  parseHunspellDictionary,
+  parseHunspellEncoding,
+  toBufferEncoding,
+} from "./hunspell-adapter";
 
 describe("parseHunspellEncoding", () => {
   it("reads the SET declaration", () => {
     expect(parseHunspellEncoding("SET UTF-8\nTRY esiaonr\n")).toBe("UTF-8");
-    expect(parseHunspellEncoding("# comment\nSET ISO8859-1\n")).toBe("ISO8859-1");
+    expect(parseHunspellEncoding("# comment\nSET ISO8859-1\n")).toBe(
+      "ISO8859-1",
+    );
   });
 
   it("defaults to UTF-8 when no encoding is declared", () => {
@@ -25,7 +31,11 @@ describe("parseHunspellEncoding", () => {
 describe("parseHunspellDictionary", () => {
   it("skips the leading entry count", () => {
     const entries = parseHunspellDictionary("3\npadre\nmadre\ngato\n");
-    expect(entries.map((entry) => entry.word)).toEqual(["padre", "madre", "gato"]);
+    expect(entries.map((entry) => entry.word)).toEqual([
+      "padre",
+      "madre",
+      "gato",
+    ]);
   });
 
   it("splits affix flags from the headword", () => {
@@ -52,8 +62,16 @@ describe("parseHunspellDictionary", () => {
 
   it("normalizes each word for lookup while keeping the original spelling", () => {
     const entries = parseHunspellDictionary("2\ndías\nDía\n");
-    expect(entries[0]).toEqual({ word: "días", normalizedWord: "días", affixFlags: null });
-    expect(entries[1]).toEqual({ word: "Día", normalizedWord: "día", affixFlags: null });
+    expect(entries[0]).toEqual({
+      word: "días",
+      normalizedWord: "días",
+      affixFlags: null,
+    });
+    expect(entries[1]).toEqual({
+      word: "Día",
+      normalizedWord: "día",
+      affixFlags: null,
+    });
   });
 
   it("preserves accents, so an accented and unaccented pair stay distinct entries", () => {

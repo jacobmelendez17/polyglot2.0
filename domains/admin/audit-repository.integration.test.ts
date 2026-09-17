@@ -7,7 +7,8 @@ import { getAuditEvents, recordAuditEvent } from "./audit-repository";
 import type { RecordAuditEventInput } from "./audit-types";
 
 function eventInput(
-  overrides: Partial<RecordAuditEventInput> & Pick<RecordAuditEventInput, "actorUserId">,
+  overrides: Partial<RecordAuditEventInput> &
+    Pick<RecordAuditEventInput, "actorUserId">,
 ): RecordAuditEventInput {
   return {
     action: "CURRICULUM_ITEM_CREATED",
@@ -52,7 +53,10 @@ describe("admin audit event persistence", () => {
       await recordAuditEvent(tx, eventInput({ actorUserId: developerId }));
       await recordAuditEvent(tx, eventInput({ actorUserId: learnerId }));
 
-      const page = await getAuditEvents(tx, { actorUserId: developerId, limit: 10 });
+      const page = await getAuditEvents(tx, {
+        actorUserId: developerId,
+        limit: 10,
+      });
       expect(page.items).toHaveLength(1);
       expect(page.items[0]?.actorUserId).toBe(developerId);
     });
@@ -61,10 +65,25 @@ describe("admin audit event persistence", () => {
   it("filters by action type", async () => {
     await withTestTransaction(async (tx) => {
       const { developerId } = await seedTestFixtures(tx);
-      await recordAuditEvent(tx, eventInput({ actorUserId: developerId, action: "CURRICULUM_ITEM_CREATED" }));
-      await recordAuditEvent(tx, eventInput({ actorUserId: developerId, action: "CURRICULUM_ITEM_ARCHIVED" }));
+      await recordAuditEvent(
+        tx,
+        eventInput({
+          actorUserId: developerId,
+          action: "CURRICULUM_ITEM_CREATED",
+        }),
+      );
+      await recordAuditEvent(
+        tx,
+        eventInput({
+          actorUserId: developerId,
+          action: "CURRICULUM_ITEM_ARCHIVED",
+        }),
+      );
 
-      const page = await getAuditEvents(tx, { action: "CURRICULUM_ITEM_ARCHIVED", limit: 10 });
+      const page = await getAuditEvents(tx, {
+        action: "CURRICULUM_ITEM_ARCHIVED",
+        limit: 10,
+      });
       expect(page.items).toHaveLength(1);
       expect(page.items[0]?.action).toBe("CURRICULUM_ITEM_ARCHIVED");
     });
@@ -73,11 +92,36 @@ describe("admin audit event persistence", () => {
   it("filters by resource type and resource id together", async () => {
     await withTestTransaction(async (tx) => {
       const { developerId } = await seedTestFixtures(tx);
-      await recordAuditEvent(tx, eventInput({ actorUserId: developerId, resourceType: "learning_item", resourceId: "gato" }));
-      await recordAuditEvent(tx, eventInput({ actorUserId: developerId, resourceType: "learning_item", resourceId: "perro" }));
-      await recordAuditEvent(tx, eventInput({ actorUserId: developerId, resourceType: "level", resourceId: "gato" }));
+      await recordAuditEvent(
+        tx,
+        eventInput({
+          actorUserId: developerId,
+          resourceType: "learning_item",
+          resourceId: "gato",
+        }),
+      );
+      await recordAuditEvent(
+        tx,
+        eventInput({
+          actorUserId: developerId,
+          resourceType: "learning_item",
+          resourceId: "perro",
+        }),
+      );
+      await recordAuditEvent(
+        tx,
+        eventInput({
+          actorUserId: developerId,
+          resourceType: "level",
+          resourceId: "gato",
+        }),
+      );
 
-      const page = await getAuditEvents(tx, { resourceType: "learning_item", resourceId: "gato", limit: 10 });
+      const page = await getAuditEvents(tx, {
+        resourceType: "learning_item",
+        resourceId: "gato",
+        limit: 10,
+      });
       expect(page.items).toHaveLength(1);
       expect(page.items[0]?.resourceType).toBe("learning_item");
       expect(page.items[0]?.resourceId).toBe("gato");
@@ -87,7 +131,10 @@ describe("admin audit event persistence", () => {
   it("filters by a date range", async () => {
     await withTestTransaction(async (tx) => {
       const { developerId } = await seedTestFixtures(tx);
-      const inRange = await recordAuditEvent(tx, eventInput({ actorUserId: developerId }));
+      const inRange = await recordAuditEvent(
+        tx,
+        eventInput({ actorUserId: developerId }),
+      );
 
       const page = await getAuditEvents(tx, {
         from: new Date(Date.now() - 60_000),
@@ -130,14 +177,26 @@ describe("admin audit event persistence", () => {
       const expectedNewestFirstIds = [...inserted].reverse().map((e) => e.id);
 
       const firstPage = await getAuditEvents(tx, { limit: 2 });
-      expect(firstPage.items.map((e) => e.id)).toEqual(expectedNewestFirstIds.slice(0, 2));
+      expect(firstPage.items.map((e) => e.id)).toEqual(
+        expectedNewestFirstIds.slice(0, 2),
+      );
       expect(firstPage.nextCursor).not.toBeNull();
 
-      const secondPage = await getAuditEvents(tx, { limit: 2, cursor: firstPage.nextCursor });
-      expect(secondPage.items.map((e) => e.id)).toEqual(expectedNewestFirstIds.slice(2, 4));
+      const secondPage = await getAuditEvents(tx, {
+        limit: 2,
+        cursor: firstPage.nextCursor,
+      });
+      expect(secondPage.items.map((e) => e.id)).toEqual(
+        expectedNewestFirstIds.slice(2, 4),
+      );
 
-      const thirdPage = await getAuditEvents(tx, { limit: 2, cursor: secondPage.nextCursor });
-      expect(thirdPage.items.map((e) => e.id)).toEqual(expectedNewestFirstIds.slice(4, 5));
+      const thirdPage = await getAuditEvents(tx, {
+        limit: 2,
+        cursor: secondPage.nextCursor,
+      });
+      expect(thirdPage.items.map((e) => e.id)).toEqual(
+        expectedNewestFirstIds.slice(4, 5),
+      );
       expect(thirdPage.nextCursor).toBeNull();
     });
   });

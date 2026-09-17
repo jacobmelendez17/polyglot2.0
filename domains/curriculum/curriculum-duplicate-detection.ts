@@ -14,11 +14,19 @@ import type { DuplicateCandidate } from "./curriculum-mutation-types";
  */
 export function findDuplicateCandidates(
   newDisplayForm: string,
-  candidates: { learningItemId: string; displayForm: string; displayLabel: string; status: DuplicateCandidate["status"] }[],
+  candidates: {
+    learningItemId: string;
+    displayForm: string;
+    displayLabel: string;
+    status: DuplicateCandidate["status"];
+  }[],
 ): DuplicateCandidate[] {
   const normalizedNew = normalizeForComparison(newDisplayForm);
   return candidates
-    .filter((candidate) => normalizeForComparison(candidate.displayForm) === normalizedNew)
+    .filter(
+      (candidate) =>
+        normalizeForComparison(candidate.displayForm) === normalizedNew,
+    )
     .map((candidate) => ({
       learningItemId: candidate.learningItemId,
       displayLabel: candidate.displayLabel,

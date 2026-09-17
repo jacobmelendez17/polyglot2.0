@@ -19,7 +19,12 @@ function hasSqlState(error: unknown, sqlState: string): boolean {
   // error under `.cause` instead — confirmed empirically against the real
   // Neon driver (drizzle-orm@this-repo's pinned version) while wiring up
   // this domain's concurrency test.
-  return code === sqlState || (typeof cause === "object" && cause !== null && (cause as { code?: unknown }).code === sqlState);
+  return (
+    code === sqlState ||
+    (typeof cause === "object" &&
+      cause !== null &&
+      (cause as { code?: unknown }).code === sqlState)
+  );
 }
 
 function isLockTimeout(error: unknown): boolean {
@@ -80,7 +85,11 @@ export async function withIdempotency<T>(
           expiresAt: new Date(Date.now() + getIdempotencyRetentionMs()),
         })
         .onConflictDoNothing({
-          target: [idempotencyKeys.userId, idempotencyKeys.operation, idempotencyKeys.key],
+          target: [
+            idempotencyKeys.userId,
+            idempotencyKeys.operation,
+            idempotencyKeys.key,
+          ],
         })
         .returning();
     } catch (error) {
@@ -94,7 +103,10 @@ export async function withIdempotency<T>(
       const result = await fn(tx);
       await tx
         .update(idempotencyKeys)
-        .set({ status: "succeeded", responseSnapshot: result as Record<string, unknown> })
+        .set({
+          status: "succeeded",
+          responseSnapshot: result as Record<string, unknown>,
+        })
         .where(eq(idempotencyKeys.id, inserted.id));
       return result;
     }
@@ -114,7 +126,9 @@ export async function withIdempotency<T>(
       )
       .limit(1);
     if (!existing) {
-      throw new Error("Idempotency key insert conflicted, but no existing row was found — this should never happen.");
+      throw new Error(
+        "Idempotency key insert conflicted, but no existing row was found — this should never happen.",
+      );
     }
 
     if (existing.requestHash !== requestHash) {

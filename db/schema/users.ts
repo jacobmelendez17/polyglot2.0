@@ -26,7 +26,13 @@ import { languages } from "./languages";
  * the only safe place — Postgres orders an enum by declaration, and existing
  * values must keep their positions.
  */
-export const userRoleEnum = pgEnum("user_role", ["user", "admin", "beta-tester", "developer", "writer"]);
+export const userRoleEnum = pgEnum("user_role", [
+  "user",
+  "admin",
+  "beta-tester",
+  "developer",
+  "writer",
+]);
 
 /**
  * Internal Polyglot user record (spec 08 §9). `clerk_user_id` is nullable —
@@ -72,9 +78,12 @@ export const users = pgTable(
      * sandbox state must not sprawl into other tables.
      */
     sandboxTimeOffsetSeconds: integer("sandbox_time_offset_seconds"),
-    sandboxOwnerUserId: uuid("sandbox_owner_user_id").references((): AnyPgColumn => users.id, {
-      onDelete: "cascade",
-    }),
+    sandboxOwnerUserId: uuid("sandbox_owner_user_id").references(
+      (): AnyPgColumn => users.id,
+      {
+        onDelete: "cascade",
+      },
+    ),
     /**
      * Spec 15 — when this user finished the onboarding slideshow. `NULL`
      * means "has not completed onboarding", which is what routes onto
@@ -90,11 +99,15 @@ export const users = pgTable(
      * Server-side routing is authoritative for this — never localStorage, a
      * cookie, or a client-only redirect (spec 15's explicit instruction).
      */
-    onboardingCompletedAt: timestamp("onboarding_completed_at", { withTimezone: true }),
+    onboardingCompletedAt: timestamp("onboarding_completed_at", {
+      withTimezone: true,
+    }),
     ...timestamps(),
   },
   (t) => [
-    uniqueIndex("users_clerk_user_id_key").on(t.clerkUserId).where(sql`${t.clerkUserId} IS NOT NULL`),
+    uniqueIndex("users_clerk_user_id_key")
+      .on(t.clerkUserId)
+      .where(sql`${t.clerkUserId} IS NOT NULL`),
     uniqueIndex("users_username_lower_key")
       .on(sql`lower(${t.username})`)
       .where(sql`${t.username} IS NOT NULL`),
@@ -102,7 +115,10 @@ export const users = pgTable(
     // Recommended shape from spec 20: 3-30 characters, letters, numbers,
     // underscore. Backstops the same Zod schema at the database level
     // (code-standards.md) rather than trusting the application layer alone.
-    check("users_username_format", sql`${t.username} IS NULL OR ${t.username} ~ '^[A-Za-z0-9_]{3,30}$'`),
+    check(
+      "users_username_format",
+      sql`${t.username} IS NULL OR ${t.username} ~ '^[A-Za-z0-9_]{3,30}$'`,
+    ),
     check(
       "users_sandbox_time_offset_consistency",
       sql`${t.sandboxTimeOffsetSeconds} IS NULL OR ${t.isSandbox} = true`,

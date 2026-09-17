@@ -13,34 +13,52 @@ import { S3CurriculumImportStorage } from "./s3-curriculum-import-storage";
  * locally with real AWS credentials configured (`aws configure`) to verify
  * the provider against the real bucket.
  */
-describe.skipIf(!process.env.IMPORT_BUCKET)("S3CurriculumImportStorage (real AWS)", () => {
-  const bucket = process.env.IMPORT_BUCKET!;
-  const region = process.env.AWS_REGION ?? "us-west-2";
+describe.skipIf(!process.env.IMPORT_BUCKET)(
+  "S3CurriculumImportStorage (real AWS)",
+  () => {
+    const bucket = process.env.IMPORT_BUCKET!;
+    const region = process.env.AWS_REGION ?? "us-west-2";
 
-  it("creates a presigned upload URL, accepts a real PUT, and the object is deletable", async () => {
-    const storage = new S3CurriculumImportStorage({ bucket, region });
-    const key = `imports/test-${crypto.randomUUID()}/source.csv`;
-    const content = "word,translation,level,group\ncomer,to eat,1,1\n";
+    it("creates a presigned upload URL, accepts a real PUT, and the object is deletable", async () => {
+      const storage = new S3CurriculumImportStorage({ bucket, region });
+      const key = `imports/test-${crypto.randomUUID()}/source.csv`;
+      const content = "word,translation,level,group\ncomer,to eat,1,1\n";
 
-    const presigned = await storage.createPresignedUploadUrl({ key, contentType: "text/csv" });
-    expect(presigned.bucket).toBe(bucket);
-    expect(presigned.key).toBe(key);
+      const presigned = await storage.createPresignedUploadUrl({
+        key,
+        contentType: "text/csv",
+      });
+      expect(presigned.bucket).toBe(bucket);
+      expect(presigned.key).toBe(key);
 
-    const putResponse = await fetch(presigned.url, { method: "PUT", headers: { "Content-Type": "text/csv" }, body: content });
-    expect(putResponse.ok).toBe(true);
+      const putResponse = await fetch(presigned.url, {
+        method: "PUT",
+        headers: { "Content-Type": "text/csv" },
+        body: content,
+      });
+      expect(putResponse.ok).toBe(true);
 
-    const rawClient = new S3Client({ region });
-    const getResult = await rawClient.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
-    const body = await getResult.Body?.transformToString();
-    expect(body).toBe(content);
+      const rawClient = new S3Client({ region });
+      const getResult = await rawClient.send(
+        new GetObjectCommand({ Bucket: bucket, Key: key }),
+      );
+      const body = await getResult.Body?.transformToString();
+      expect(body).toBe(content);
 
-    await storage.deleteObject(key);
+      await storage.deleteObject(key);
 
-    await expect(rawClient.send(new GetObjectCommand({ Bucket: bucket, Key: key }))).rejects.toBeInstanceOf(NoSuchKey);
-  });
+      await expect(
+        rawClient.send(new GetObjectCommand({ Bucket: bucket, Key: key })),
+      ).rejects.toBeInstanceOf(NoSuchKey);
+    });
 
-  it("deleteObject on a key that never existed is a harmless no-op", async () => {
-    const storage = new S3CurriculumImportStorage({ bucket, region });
-    await expect(storage.deleteObject(`imports/never-existed-${crypto.randomUUID()}/source.csv`)).resolves.toBeUndefined();
-  });
-});
+    it("deleteObject on a key that never existed is a harmless no-op", async () => {
+      const storage = new S3CurriculumImportStorage({ bucket, region });
+      await expect(
+        storage.deleteObject(
+          `imports/never-existed-${crypto.randomUUID()}/source.csv`,
+        ),
+      ).resolves.toBeUndefined();
+    });
+  },
+);

@@ -10,7 +10,9 @@ type GrammarReviewTypeSelectProps = {
 };
 
 /** Spec 20 Reviews — Grammar Review Type. */
-export function GrammarReviewTypeSelect({ initialValue }: GrammarReviewTypeSelectProps) {
+export function GrammarReviewTypeSelect({
+  initialValue,
+}: GrammarReviewTypeSelectProps) {
   return (
     <InlineSelectSettingField
       label="Grammar Review Type"

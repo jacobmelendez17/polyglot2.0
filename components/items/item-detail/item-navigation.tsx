@@ -25,8 +25,17 @@ type ItemNavigationProps = {
  * to a learner; the distinction exists so a lesson can never produce a URL
  * that would take the learner out of the session.
  */
-export function ItemNavigation({ navigation, direction, hrefForItem, onNavigate, className }: ItemNavigationProps) {
-  const targetId = direction === "previous" ? navigation.previousItemId : navigation.nextItemId;
+export function ItemNavigation({
+  navigation,
+  direction,
+  hrefForItem,
+  onNavigate,
+  className,
+}: ItemNavigationProps) {
+  const targetId =
+    direction === "previous"
+      ? navigation.previousItemId
+      : navigation.nextItemId;
   const label = `${direction === "previous" ? "Previous" : "Next"} item in ${navigation.scopeLabel}`;
 
   const classes = cn(
@@ -51,7 +60,12 @@ export function ItemNavigation({ navigation, direction, hrefForItem, onNavigate,
   }
 
   return (
-    <button type="button" onClick={() => onNavigate?.(targetId)} aria-label={label} className={classes}>
+    <button
+      type="button"
+      onClick={() => onNavigate?.(targetId)}
+      aria-label={label}
+      className={classes}
+    >
       {icon}
     </button>
   );

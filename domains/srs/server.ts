@@ -34,5 +34,9 @@ export {
   updateVocabularySrsIntervalMode,
   updateVocabularySrsStrictness,
 } from "./review-service";
-export type { ReviewAnswerSubmission, StartReviewSessionInput, SubmitReviewAnswerInput } from "./review-orchestration";
+export type {
+  ReviewAnswerSubmission,
+  StartReviewSessionInput,
+  SubmitReviewAnswerInput,
+} from "./review-orchestration";
 export type { SubmitGhostAnswerInput } from "./ghost-orchestration";

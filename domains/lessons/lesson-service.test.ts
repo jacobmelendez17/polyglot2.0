@@ -3,7 +3,12 @@ import { describe, expect, it } from "vitest";
 import { FIXTURE_LANGUAGE_ID } from "@/domains/curriculum";
 import { fixtureCurriculumReader } from "@/domains/curriculum/curriculum-service";
 
-import { openLessonItem, startLesson, startQuiz, submitQuizAnswer } from "./lesson-service";
+import {
+  openLessonItem,
+  startLesson,
+  startQuiz,
+  submitQuizAnswer,
+} from "./lesson-service";
 import { verifyLessonState } from "./lesson-token";
 import type { LessonSessionResult, LessonStartResult } from "./lesson-types";
 
@@ -11,10 +16,13 @@ const USER_ID = "user-1";
 const NOW = Date.parse("2026-01-01T00:00:00Z");
 
 async function startAndViewAllItems(): Promise<LessonSessionResult> {
-  const result = (await startLesson({ curriculum: fixtureCurriculumReader, userId: USER_ID, languageId: FIXTURE_LANGUAGE_ID, languageCode: "es-MX", now: NOW })) as Extract<
-    LessonStartResult,
-    { kind: "session" }
-  >;
+  const result = (await startLesson({
+    curriculum: fixtureCurriculumReader,
+    userId: USER_ID,
+    languageId: FIXTURE_LANGUAGE_ID,
+    languageCode: "es-MX",
+    now: NOW,
+  })) as Extract<LessonStartResult, { kind: "session" }>;
   expect(result.kind).toBe("session");
 
   let token = result.token;
@@ -34,8 +42,11 @@ async function startAndViewAllItems(): Promise<LessonSessionResult> {
 
 describe("startLesson", () => {
   it("creates a signed ephemeral state containing only server-selected items", async () => {
-    const result = (await startLesson({ curriculum: fixtureCurriculumReader, userId: USER_ID,
-      languageId: FIXTURE_LANGUAGE_ID, languageCode: "es-MX",
+    const result = (await startLesson({
+      curriculum: fixtureCurriculumReader,
+      userId: USER_ID,
+      languageId: FIXTURE_LANGUAGE_ID,
+      languageCode: "es-MX",
       now: NOW,
     })) as Extract<LessonStartResult, { kind: "session" }>;
 
@@ -54,15 +65,24 @@ describe("startLesson", () => {
   });
 
   it("produces no lesson for a user with no eligible items", async () => {
-    const result = await startLesson({ curriculum: fixtureCurriculumReader, userId: USER_ID, languageId: "nonexistent-language", languageCode: "es-MX", now: NOW });
+    const result = await startLesson({
+      curriculum: fixtureCurriculumReader,
+      userId: USER_ID,
+      languageId: "nonexistent-language",
+      languageCode: "es-MX",
+      now: NOW,
+    });
     expect(result.kind).toBe("empty");
   });
 });
 
 describe("openLessonItem", () => {
   it("marks a valid batch item as viewed", async () => {
-    const start = (await startLesson({ curriculum: fixtureCurriculumReader, userId: USER_ID,
-      languageId: FIXTURE_LANGUAGE_ID, languageCode: "es-MX",
+    const start = (await startLesson({
+      curriculum: fixtureCurriculumReader,
+      userId: USER_ID,
+      languageId: FIXTURE_LANGUAGE_ID,
+      languageCode: "es-MX",
       now: NOW,
     })) as Extract<LessonStartResult, { kind: "session" }>;
     const itemId = start.batch[0].itemId;
@@ -79,8 +99,11 @@ describe("openLessonItem", () => {
   });
 
   it("rejects opening an item outside the batch", async () => {
-    const start = (await startLesson({ curriculum: fixtureCurriculumReader, userId: USER_ID,
-      languageId: FIXTURE_LANGUAGE_ID, languageCode: "es-MX",
+    const start = (await startLesson({
+      curriculum: fixtureCurriculumReader,
+      userId: USER_ID,
+      languageId: FIXTURE_LANGUAGE_ID,
+      languageCode: "es-MX",
       now: NOW,
     })) as Extract<LessonStartResult, { kind: "session" }>;
 
@@ -96,8 +119,11 @@ describe("openLessonItem", () => {
   });
 
   it("creates no SRS progress signal — the resulting state has no quiz field", async () => {
-    const start = (await startLesson({ curriculum: fixtureCurriculumReader, userId: USER_ID,
-      languageId: FIXTURE_LANGUAGE_ID, languageCode: "es-MX",
+    const start = (await startLesson({
+      curriculum: fixtureCurriculumReader,
+      userId: USER_ID,
+      languageId: FIXTURE_LANGUAGE_ID,
+      languageCode: "es-MX",
       now: NOW,
     })) as Extract<LessonStartResult, { kind: "session" }>;
     const opened = await openLessonItem({
@@ -119,19 +145,34 @@ describe("openLessonItem", () => {
 
 describe("startQuiz", () => {
   it("stays locked until every lesson item has been viewed", async () => {
-    const start = (await startLesson({ curriculum: fixtureCurriculumReader, userId: USER_ID,
-      languageId: FIXTURE_LANGUAGE_ID, languageCode: "es-MX",
+    const start = (await startLesson({
+      curriculum: fixtureCurriculumReader,
+      userId: USER_ID,
+      languageId: FIXTURE_LANGUAGE_ID,
+      languageCode: "es-MX",
       now: NOW,
     })) as Extract<LessonStartResult, { kind: "session" }>;
 
     await expect(
-      startQuiz({ curriculum: fixtureCurriculumReader, token: start.token, userId: USER_ID, languageId: FIXTURE_LANGUAGE_ID, now: NOW }),
+      startQuiz({
+        curriculum: fixtureCurriculumReader,
+        token: start.token,
+        userId: USER_ID,
+        languageId: FIXTURE_LANGUAGE_ID,
+        now: NOW,
+      }),
     ).rejects.toMatchObject({ code: "LESSON_QUIZ_NOT_READY" });
   });
 
   it("builds a quiz once every item is viewed", async () => {
     const viewed = await startAndViewAllItems();
-    const quiz = await startQuiz({ curriculum: fixtureCurriculumReader, token: viewed.token, userId: USER_ID, languageId: FIXTURE_LANGUAGE_ID, now: NOW });
+    const quiz = await startQuiz({
+      curriculum: fixtureCurriculumReader,
+      token: viewed.token,
+      userId: USER_ID,
+      languageId: FIXTURE_LANGUAGE_ID,
+      now: NOW,
+    });
 
     expect(quiz.phase).toBe("quiz");
     expect(quiz.currentQuestion).toBeDefined();
@@ -142,9 +183,17 @@ describe("startQuiz", () => {
 describe("submitQuizAnswer", () => {
   it("does not let the client submit a trusted correctness claim — grading always comes from the server", async () => {
     const viewed = await startAndViewAllItems();
-    const quiz = await startQuiz({ curriculum: fixtureCurriculumReader, token: viewed.token, userId: USER_ID, languageId: FIXTURE_LANGUAGE_ID, now: NOW });
+    const quiz = await startQuiz({
+      curriculum: fixtureCurriculumReader,
+      token: viewed.token,
+      userId: USER_ID,
+      languageId: FIXTURE_LANGUAGE_ID,
+      now: NOW,
+    });
 
-    const result = await submitQuizAnswer({ curriculum: fixtureCurriculumReader, token: quiz.token,
+    const result = await submitQuizAnswer({
+      curriculum: fixtureCurriculumReader,
+      token: quiz.token,
       userId: USER_ID,
       languageId: FIXTURE_LANGUAGE_ID,
       questionId: quiz.currentQuestion!.questionId,
@@ -157,9 +206,17 @@ describe("submitQuizAnswer", () => {
 
   it("does not record an empty submission as an attempt", async () => {
     const viewed = await startAndViewAllItems();
-    const quiz = await startQuiz({ curriculum: fixtureCurriculumReader, token: viewed.token, userId: USER_ID, languageId: FIXTURE_LANGUAGE_ID, now: NOW });
+    const quiz = await startQuiz({
+      curriculum: fixtureCurriculumReader,
+      token: viewed.token,
+      userId: USER_ID,
+      languageId: FIXTURE_LANGUAGE_ID,
+      now: NOW,
+    });
 
-    const result = await submitQuizAnswer({ curriculum: fixtureCurriculumReader, token: quiz.token,
+    const result = await submitQuizAnswer({
+      curriculum: fixtureCurriculumReader,
+      token: quiz.token,
       userId: USER_ID,
       languageId: FIXTURE_LANGUAGE_ID,
       questionId: quiz.currentQuestion!.questionId,
@@ -173,10 +230,18 @@ describe("submitQuizAnswer", () => {
 
   it("keeps a pending retry from letting the lesson complete, and eventually resolves it", async () => {
     const viewed = await startAndViewAllItems();
-    let session = await startQuiz({ curriculum: fixtureCurriculumReader, token: viewed.token, userId: USER_ID, languageId: FIXTURE_LANGUAGE_ID, now: NOW });
+    let session = await startQuiz({
+      curriculum: fixtureCurriculumReader,
+      token: viewed.token,
+      userId: USER_ID,
+      languageId: FIXTURE_LANGUAGE_ID,
+      now: NOW,
+    });
 
     // Answer the first question incorrectly on purpose.
-    session = await submitQuizAnswer({ curriculum: fixtureCurriculumReader, token: session.token,
+    session = await submitQuizAnswer({
+      curriculum: fixtureCurriculumReader,
+      token: session.token,
       userId: USER_ID,
       languageId: FIXTURE_LANGUAGE_ID,
       questionId: session.currentQuestion!.questionId,
@@ -195,8 +260,13 @@ describe("submitQuizAnswer", () => {
       // Look up the correct answer via a deliberately-wrong probe first is not possible
       // (server never reveals accepted answers ahead of grading), so resolve using the
       // canonical fixture facts for this question's item/direction.
-      const answer = await resolveFixtureAnswer(question.itemId, question.direction);
-      session = await submitQuizAnswer({ curriculum: fixtureCurriculumReader, token: session.token,
+      const answer = await resolveFixtureAnswer(
+        question.itemId,
+        question.direction,
+      );
+      session = await submitQuizAnswer({
+        curriculum: fixtureCurriculumReader,
+        token: session.token,
         userId: USER_ID,
         languageId: FIXTURE_LANGUAGE_ID,
         questionId: question.questionId,
@@ -206,7 +276,9 @@ describe("submitQuizAnswer", () => {
     }
 
     expect(session.phase).toBe("complete");
-    expect(session.quizStats?.satisfiedCount).toBe(session.quizStats?.requiredCount);
+    expect(session.quizStats?.satisfiedCount).toBe(
+      session.quizStats?.requiredCount,
+    );
   });
 });
 

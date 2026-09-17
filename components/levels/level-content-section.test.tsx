@@ -12,7 +12,10 @@ describe("LevelContentSection", () => {
       </LevelContentSection>,
     );
 
-    expect(screen.getByRole("button", { name: "Grammar" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: "Grammar" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
     expect(screen.getByText("content")).toBeInTheDocument();
   });
 

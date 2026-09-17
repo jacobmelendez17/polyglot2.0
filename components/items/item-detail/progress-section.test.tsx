@@ -29,9 +29,24 @@ function progress(overrides: Partial<ItemProgress> = {}): ItemProgress {
 
 describe("ProgressSection", () => {
   it("shows every metric spec 18 requires", () => {
-    render(<ProgressSection progress={progress()} levelUnlockedAt={UNLOCKED} timeZone="UTC" now={NOW} />);
+    render(
+      <ProgressSection
+        progress={progress()}
+        levelUnlockedAt={UNLOCKED}
+        timeZone="UTC"
+        now={NOW}
+      />,
+    );
 
-    for (const label of ["Current Stage", "Next Review", "Unlock Date", "Accuracy", "Times Studied", "Retired Date", "Leech"]) {
+    for (const label of [
+      "Current Stage",
+      "Next Review",
+      "Unlock Date",
+      "Accuracy",
+      "Times Studied",
+      "Retired Date",
+      "Leech",
+    ]) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
     expect(screen.getByText("Familiar 1")).toBeInTheDocument();
@@ -41,28 +56,57 @@ describe("ProgressSection", () => {
   });
 
   it("never shows First Studied (spec 18)", () => {
-    render(<ProgressSection progress={progress()} levelUnlockedAt={UNLOCKED} timeZone="UTC" now={NOW} />);
+    render(
+      <ProgressSection
+        progress={progress()}
+        levelUnlockedAt={UNLOCKED}
+        timeZone="UTC"
+        now={NOW}
+      />,
+    );
     expect(screen.queryByText("First Studied")).not.toBeInTheDocument();
   });
 
   it("shows the plain date once a review is a day or more out", () => {
-    render(<ProgressSection progress={progress()} levelUnlockedAt={UNLOCKED} timeZone="UTC" now={NOW} />);
+    render(
+      <ProgressSection
+        progress={progress()}
+        levelUnlockedAt={UNLOCKED}
+        timeZone="UTC"
+        now={NOW}
+      />,
+    );
     expect(screen.getByText("Sep 10, 2026")).toBeInTheDocument();
   });
 
   it("counts down in hours, then minutes, as a review gets closer", () => {
     const { rerender } = render(
-      <ProgressSection progress={progress({ nextReviewAt: new Date("2026-09-09T18:00:00Z") })} levelUnlockedAt={UNLOCKED} timeZone="UTC" now={NOW} />,
+      <ProgressSection
+        progress={progress({ nextReviewAt: new Date("2026-09-09T18:00:00Z") })}
+        levelUnlockedAt={UNLOCKED}
+        timeZone="UTC"
+        now={NOW}
+      />,
     );
     expect(screen.getByText("6 hours")).toBeInTheDocument();
 
     rerender(
-      <ProgressSection progress={progress({ nextReviewAt: new Date("2026-09-09T12:20:00Z") })} levelUnlockedAt={UNLOCKED} timeZone="UTC" now={NOW} />,
+      <ProgressSection
+        progress={progress({ nextReviewAt: new Date("2026-09-09T12:20:00Z") })}
+        levelUnlockedAt={UNLOCKED}
+        timeZone="UTC"
+        now={NOW}
+      />,
     );
     expect(screen.getByText("20 minutes")).toBeInTheDocument();
 
     rerender(
-      <ProgressSection progress={progress({ nextReviewAt: new Date("2026-09-09T12:00:30Z") })} levelUnlockedAt={UNLOCKED} timeZone="UTC" now={NOW} />,
+      <ProgressSection
+        progress={progress({ nextReviewAt: new Date("2026-09-09T12:00:30Z") })}
+        levelUnlockedAt={UNLOCKED}
+        timeZone="UTC"
+        now={NOW}
+      />,
     );
     expect(screen.getByText("~ Less than a minute")).toBeInTheDocument();
   });
@@ -70,7 +114,11 @@ describe("ProgressSection", () => {
   it("reports a completed cycle rather than a missing next review at Fluent", () => {
     render(
       <ProgressSection
-        progress={progress({ srsStage: "fluent", nextReviewAt: null, fluentAt: new Date("2026-09-07T00:00:00Z") })}
+        progress={progress({
+          srsStage: "fluent",
+          nextReviewAt: null,
+          fluentAt: new Date("2026-09-07T00:00:00Z"),
+        })}
         levelUnlockedAt={UNLOCKED}
         timeZone="UTC"
         now={NOW}
@@ -82,14 +130,28 @@ describe("ProgressSection", () => {
   });
 
   it("shows an em dash for Retired Date when the item has not retired", () => {
-    render(<ProgressSection progress={progress()} levelUnlockedAt={UNLOCKED} timeZone="UTC" now={NOW} />);
+    render(
+      <ProgressSection
+        progress={progress()}
+        levelUnlockedAt={UNLOCKED}
+        timeZone="UTC"
+        now={NOW}
+      />,
+    );
 
     const retired = screen.getByText("Retired Date").parentElement;
     expect(retired).toHaveTextContent("—");
   });
 
   it("shows an em dash for Leech, because no leech rule exists to compute one", () => {
-    render(<ProgressSection progress={progress()} levelUnlockedAt={UNLOCKED} timeZone="UTC" now={NOW} />);
+    render(
+      <ProgressSection
+        progress={progress()}
+        levelUnlockedAt={UNLOCKED}
+        timeZone="UTC"
+        now={NOW}
+      />,
+    );
 
     const leech = screen.getByText("Leech").parentElement;
     // Deliberately not "No" — see the component's own comment and
@@ -99,7 +161,14 @@ describe("ProgressSection", () => {
   });
 
   it("treats an unstudied item as a real state, not an error, and still shows its unlock date", () => {
-    render(<ProgressSection progress={null} levelUnlockedAt={UNLOCKED} timeZone="UTC" now={NOW} />);
+    render(
+      <ProgressSection
+        progress={null}
+        levelUnlockedAt={UNLOCKED}
+        timeZone="UTC"
+        now={NOW}
+      />,
+    );
 
     expect(screen.getByText(/Not yet studied/)).toBeInTheDocument();
     expect(screen.getByText("Not started")).toBeInTheDocument();
@@ -108,12 +177,28 @@ describe("ProgressSection", () => {
 
   it("renders dates in the learner's timezone, not the runtime's", () => {
     // 2026-09-01T09:00Z is still Aug 31 in Los Angeles.
-    render(<ProgressSection progress={null} levelUnlockedAt={new Date("2026-09-01T03:00:00Z")} timeZone="America/Los_Angeles" now={NOW} />);
+    render(
+      <ProgressSection
+        progress={null}
+        levelUnlockedAt={new Date("2026-09-01T03:00:00Z")}
+        timeZone="America/Los_Angeles"
+        now={NOW}
+      />,
+    );
     expect(screen.getByText("Aug 31, 2026")).toBeInTheDocument();
   });
 
   it("reserves a replaceable area for the future SRS-stage visualization", () => {
-    render(<ProgressSection progress={progress()} levelUnlockedAt={UNLOCKED} timeZone="UTC" now={NOW} />);
-    expect(screen.getByText("Stage visualization coming soon")).toBeInTheDocument();
+    render(
+      <ProgressSection
+        progress={progress()}
+        levelUnlockedAt={UNLOCKED}
+        timeZone="UTC"
+        now={NOW}
+      />,
+    );
+    expect(
+      screen.getByText("Stage visualization coming soon"),
+    ).toBeInTheDocument();
   });
 });

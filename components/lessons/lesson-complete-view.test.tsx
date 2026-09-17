@@ -27,6 +27,8 @@ describe("LessonCompleteView", () => {
 
   it("provides a primary return-to-dashboard action", () => {
     render(<LessonCompleteView completion={COMPLETION} />);
-    expect(screen.getByRole("link", { name: "Return to Dashboard" })).toHaveAttribute("href", "/dashboard");
+    expect(
+      screen.getByRole("link", { name: "Return to Dashboard" }),
+    ).toHaveAttribute("href", "/dashboard");
   });
 });

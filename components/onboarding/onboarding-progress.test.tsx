@@ -9,7 +9,9 @@ function dots(container: HTMLElement): HTMLElement[] {
 
 describe("OnboardingProgress (spec 15)", () => {
   it("renders one dot per slide, however far through the learner is", () => {
-    const { container } = render(<OnboardingProgress currentIndex={2} total={5} />);
+    const { container } = render(
+      <OnboardingProgress currentIndex={2} total={5} />,
+    );
     expect(dots(container)).toHaveLength(5);
   });
 
@@ -19,7 +21,9 @@ describe("OnboardingProgress (spec 15)", () => {
   });
 
   it("distinguishes completed, current, and remaining slides", () => {
-    const { container } = render(<OnboardingProgress currentIndex={2} total={5} />);
+    const { container } = render(
+      <OnboardingProgress currentIndex={2} total={5} />,
+    );
     const [first, second, third, fourth, fifth] = dots(container);
 
     expect(first.className).toContain("bg-foreground/50");
@@ -32,15 +36,25 @@ describe("OnboardingProgress (spec 15)", () => {
 
   it("keeps the indicator from shifting: exactly one dot is ever the wide one", () => {
     for (const currentIndex of [0, 1, 2, 3, 4]) {
-      const { container, unmount } = render(<OnboardingProgress currentIndex={currentIndex} total={5} />);
-      const wide = dots(container).filter((dot) => dot.className.includes("w-6"));
+      const { container, unmount } = render(
+        <OnboardingProgress currentIndex={currentIndex} total={5} />,
+      );
+      const wide = dots(container).filter((dot) =>
+        dot.className.includes("w-6"),
+      );
       expect(wide).toHaveLength(1);
       unmount();
     }
   });
 
   it("marks nothing complete on the first slide", () => {
-    const { container } = render(<OnboardingProgress currentIndex={0} total={5} />);
-    expect(dots(container).filter((dot) => dot.className.includes("bg-foreground/50"))).toHaveLength(0);
+    const { container } = render(
+      <OnboardingProgress currentIndex={0} total={5} />,
+    );
+    expect(
+      dots(container).filter((dot) =>
+        dot.className.includes("bg-foreground/50"),
+      ),
+    ).toHaveLength(0);
   });
 });

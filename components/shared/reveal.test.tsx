@@ -14,7 +14,7 @@ describe("Reveal", () => {
     render(
       <Reveal>
         <p>Revealed content</p>
-      </Reveal>
+      </Reveal>,
     );
 
     const content = screen.getByText("Revealed content");
@@ -23,15 +23,12 @@ describe("Reveal", () => {
   });
 
   it("renders children visible when prefers-reduced-motion matches", () => {
-    vi.stubGlobal(
-      "matchMedia",
-      vi.fn().mockReturnValue({ matches: true })
-    );
+    vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: true }));
 
     render(
       <Reveal>
         <p>Reduced motion content</p>
-      </Reveal>
+      </Reveal>,
     );
 
     const content = screen.getByText("Reduced motion content");

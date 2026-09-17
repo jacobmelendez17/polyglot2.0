@@ -86,14 +86,16 @@ export function CurriculumChoiceView({
         </p>
       ) : null}
 
-      <div className={cn("flex w-full flex-col gap-8", ONBOARDING_CONTENT_WIDTH)}>
+      <div
+        className={cn("flex w-full flex-col gap-8", ONBOARDING_CONTENT_WIDTH)}
+      >
         <div className="flex flex-col gap-2 text-center">
           <h1 className="font-heading text-3xl font-semibold text-balance text-foreground sm:text-4xl">
             How would you like to learn?
           </h1>
           <p className="text-base text-pretty text-muted-foreground sm:text-lg">
-            This only changes how new words are chosen for your lessons — nothing you have already learned is
-            affected.
+            This only changes how new words are chosen for your lessons —
+            nothing you have already learned is affected.
           </p>
         </div>
 

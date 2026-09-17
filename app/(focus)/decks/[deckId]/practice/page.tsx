@@ -15,7 +15,8 @@ type DeckPracticePageProps = {
 };
 
 // Same permissive UUID-shape check as the other deck routes.
-const UUID_LIKE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_LIKE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * Spec 14's deck practice session, in the focused learning layout lessons
@@ -28,7 +29,9 @@ const UUID_LIKE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
  * archived (or which the learner cannot see at all) 404s rather than opening
  * an empty session.
  */
-export default async function DeckPracticePage({ params }: DeckPracticePageProps) {
+export default async function DeckPracticePage({
+  params,
+}: DeckPracticePageProps) {
   const { deckId } = await params;
   if (!UUID_LIKE.test(deckId)) {
     notFound();
@@ -41,11 +44,18 @@ export default async function DeckPracticePage({ params }: DeckPracticePageProps
 
   let session;
   try {
-    session = await startDeckPractice({ userId: user.id, languageId: user.activeLanguageId, deckId });
+    session = await startDeckPractice({
+      userId: user.id,
+      languageId: user.activeLanguageId,
+      deckId,
+    });
   } catch (error) {
     // A deck the learner cannot see, and one with nothing left to practice,
     // both resolve to "there is no session here" rather than an error page.
-    if (error instanceof DeckError && (error.code === "DECK_NOT_FOUND" || error.code === "DECK_MUST_HAVE_ITEMS")) {
+    if (
+      error instanceof DeckError &&
+      (error.code === "DECK_NOT_FOUND" || error.code === "DECK_MUST_HAVE_ITEMS")
+    ) {
       notFound();
     }
     throw error;

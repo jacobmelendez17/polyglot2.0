@@ -15,10 +15,15 @@
 export type HighlightSegment = { text: string; correct: boolean };
 
 /** Longest Common Subsequence table, case-insensitive (matching this app's general typo/case tolerance in `check-answer.ts`), diacritics preserved (never conflate "si"/"sí" — architecture.md's rule). */
-function longestCommonSubsequenceLengths(userAnswer: string, expectedAnswer: string): number[][] {
+function longestCommonSubsequenceLengths(
+  userAnswer: string,
+  expectedAnswer: string,
+): number[][] {
   const rows = userAnswer.length;
   const cols = expectedAnswer.length;
-  const lengths: number[][] = Array.from({ length: rows + 1 }, () => new Array<number>(cols + 1).fill(0));
+  const lengths: number[][] = Array.from({ length: rows + 1 }, () =>
+    new Array<number>(cols + 1).fill(0),
+  );
 
   for (let i = rows - 1; i >= 0; i--) {
     for (let j = cols - 1; j >= 0; j--) {
@@ -41,7 +46,10 @@ function longestCommonSubsequenceLengths(userAnswer: string, expectedAnswer: str
  * unrelated, and a char-level diff would mislead more than a plain
  * "Expected: ___" would.
  */
-export function highlightAnswerDiff(userAnswer: string, expectedAnswer: string): HighlightSegment[] | null {
+export function highlightAnswerDiff(
+  userAnswer: string,
+  expectedAnswer: string,
+): HighlightSegment[] | null {
   if (userAnswer.length === 0) return null;
 
   const lengths = longestCommonSubsequenceLengths(userAnswer, expectedAnswer);

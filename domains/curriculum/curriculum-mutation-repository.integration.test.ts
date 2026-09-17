@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 
 import { userItemProgress, vocabularyGroups } from "@/db/schema";
-import { DEVELOPER_ID, ITEM_CASA_ID, ITEM_GATO_ID, ITEM_ROJO_ID, ITEM_Y_ID, VOCAB_GROUP_ID, seedTestFixtures } from "@/db/seed/test-fixtures";
+import {
+  DEVELOPER_ID,
+  ITEM_CASA_ID,
+  ITEM_GATO_ID,
+  ITEM_ROJO_ID,
+  ITEM_Y_ID,
+  VOCAB_GROUP_ID,
+  seedTestFixtures,
+} from "@/db/seed/test-fixtures";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
 
 import {
@@ -74,7 +82,9 @@ describe("createLearningItem / updateLearningItemDirect", () => {
           structure: "pero",
           primaryMeaning: "but",
           explanation: "Contrasts two clauses.",
-          requiredQuestions: [{ format: "translation", direction: "targetToEnglish" }],
+          requiredQuestions: [
+            { format: "translation", direction: "targetToEnglish" },
+          ],
           acceptedAnswers: [],
         },
       });
@@ -88,7 +98,13 @@ describe("createLearningItem / updateLearningItemDirect", () => {
   it("updates a pending item's fields and replaces its accepted answers", async () => {
     await withTestTransaction(async (tx) => {
       const { languageId, level1Id } = await seedTestFixtures(tx);
-      const id = await createLearningItem(tx, { languageId, levelId: level1Id, position: 52, lessonPriority: 52, ...vocabFields() });
+      const id = await createLearningItem(tx, {
+        languageId,
+        levelId: level1Id,
+        position: 52,
+        lessonPriority: 52,
+        ...vocabFields(),
+      });
 
       await updateLearningItemDirect(tx, id, {
         type: "vocabulary",
@@ -112,7 +128,13 @@ describe("publish flows", () => {
   it("publishing a pending item just flips status and bumps version", async () => {
     await withTestTransaction(async (tx) => {
       const { languageId, level1Id } = await seedTestFixtures(tx);
-      const id = await createLearningItem(tx, { languageId, levelId: level1Id, position: 53, lessonPriority: 53, ...vocabFields() });
+      const id = await createLearningItem(tx, {
+        languageId,
+        levelId: level1Id,
+        position: 53,
+        lessonPriority: 53,
+        ...vocabFields(),
+      });
 
       await publishPendingItem(tx, id);
 
@@ -183,7 +205,9 @@ describe("publish flows", () => {
       expect(after?.version).toBe(before!.version + 1);
       expect(after?.status).toBe("published"); // status never left "published" throughout
       expect(await getDraft(tx, ITEM_GATO_ID)).toBeNull();
-      expect(await getAcceptedAnswers(tx, ITEM_GATO_ID)).toEqual([{ side: "meaning", value: "kitty" }]);
+      expect(await getAcceptedAnswers(tx, ITEM_GATO_ID)).toEqual([
+        { side: "meaning", value: "kitty" },
+      ]);
     });
   });
 });
@@ -197,7 +221,16 @@ describe("archive and delete", () => {
         learningItemId: ITEM_CASA_ID,
         baseVersion: before!.version,
         createdBy: DEVELOPER_ID,
-        data: { type: "vocabulary", fields: { vocabularyGroupId: VOCAB_GROUP_ID, term: "casa", primaryMeaning: "house", partOfSpeech: "noun", acceptedAnswers: [] } },
+        data: {
+          type: "vocabulary",
+          fields: {
+            vocabularyGroupId: VOCAB_GROUP_ID,
+            term: "casa",
+            primaryMeaning: "house",
+            partOfSpeech: "noun",
+            acceptedAnswers: [],
+          },
+        },
       });
 
       await archiveLearningItem(tx, ITEM_CASA_ID);
@@ -211,7 +244,13 @@ describe("archive and delete", () => {
   it("permanently deletes an unreferenced item", async () => {
     await withTestTransaction(async (tx) => {
       const { languageId, level1Id } = await seedTestFixtures(tx);
-      const id = await createLearningItem(tx, { languageId, levelId: level1Id, position: 54, lessonPriority: 54, ...vocabFields() });
+      const id = await createLearningItem(tx, {
+        languageId,
+        levelId: level1Id,
+        position: 54,
+        lessonPriority: 54,
+        ...vocabFields(),
+      });
 
       const outcome = await attemptPermanentDelete(tx, id);
       expect(outcome).toBe("deleted");
@@ -229,7 +268,10 @@ describe("archive and delete", () => {
       // Confirmed nothing was actually removed — the item, its vocabulary
       // detail, and the learner progress referencing it all still exist.
       expect(await lockLearningItemForEdit(tx, ITEM_GATO_ID)).not.toBeNull();
-      const [progress] = await tx.select().from(userItemProgress).where(eq(userItemProgress.learningItemId, ITEM_GATO_ID));
+      const [progress] = await tx
+        .select()
+        .from(userItemProgress)
+        .where(eq(userItemProgress.learningItemId, ITEM_GATO_ID));
       expect(progress).toBeDefined();
     });
   });
@@ -237,7 +279,13 @@ describe("archive and delete", () => {
   it("hasBlockingReferences reports true/false without mutating anything", async () => {
     await withTestTransaction(async (tx) => {
       const { languageId, level1Id } = await seedTestFixtures(tx);
-      const unreferencedId = await createLearningItem(tx, { languageId, levelId: level1Id, position: 55, lessonPriority: 55, ...vocabFields() });
+      const unreferencedId = await createLearningItem(tx, {
+        languageId,
+        levelId: level1Id,
+        position: 55,
+        lessonPriority: 55,
+        ...vocabFields(),
+      });
 
       expect(await hasBlockingReferences(tx, ITEM_GATO_ID)).toBe(true);
       expect(await hasBlockingReferences(tx, unreferencedId)).toBe(false);
@@ -252,7 +300,11 @@ describe("move and reorder", () => {
     await withTestTransaction(async (tx) => {
       const { level1Id } = await seedTestFixtures(tx);
 
-      await moveLearningItem(tx, { learningItemId: ITEM_Y_ID, type: "grammar", levelId: level1Id });
+      await moveLearningItem(tx, {
+        learningItemId: ITEM_Y_ID,
+        type: "grammar",
+        levelId: level1Id,
+      });
       const locked = await lockLearningItemForEdit(tx, ITEM_Y_ID);
       expect(locked?.levelId).toBe(level1Id);
     });
@@ -263,10 +315,19 @@ describe("move and reorder", () => {
       const { languageId, level1Id } = await seedTestFixtures(tx);
       const [newGroup] = await tx
         .insert(vocabularyGroups)
-        .values({ levelId: level1Id, languageId, name: "New Group", position: 99 })
+        .values({
+          levelId: level1Id,
+          languageId,
+          name: "New Group",
+          position: 99,
+        })
         .returning();
 
-      await moveLearningItem(tx, { learningItemId: ITEM_CASA_ID, type: "vocabulary", vocabularyGroupId: newGroup!.id });
+      await moveLearningItem(tx, {
+        learningItemId: ITEM_CASA_ID,
+        type: "vocabulary",
+        vocabularyGroupId: newGroup!.id,
+      });
 
       const answers = await getAcceptedAnswers(tx, ITEM_CASA_ID); // sanity: item still resolvable
       expect(answers).toEqual([]);
@@ -282,7 +343,11 @@ describe("move and reorder", () => {
       // Level 1 holds the real curriculum too, not just the three fixture
       // words (`TEST_DATABASE_URL` and `DATABASE_URL` are the same database).
       const nextPosition = await getNextPosition(tx, level1Id, "vocabulary");
-      await moveLearningItem(tx, { learningItemId: ITEM_ROJO_ID, type: "vocabulary", levelId: level1Id });
+      await moveLearningItem(tx, {
+        learningItemId: ITEM_ROJO_ID,
+        type: "vocabulary",
+        levelId: level1Id,
+      });
       const moved = await lockLearningItemForEdit(tx, ITEM_ROJO_ID);
       expect(moved?.levelId).toBe(level1Id);
       expect(moved?.position).toBe(nextPosition);
@@ -297,12 +362,38 @@ describe("move and reorder", () => {
       // which also holds the real curriculum's 45 vocabulary items at
       // positions 1..48 — would collide on the level+type+position unique
       // constraint rather than test anything.
-      const levelId = await createLevel(tx, { languageId, levelNumber: 63, name: "Reorder fixture" });
-      const first = await createLearningItem(tx, { languageId, levelId, position: 1, lessonPriority: 1, ...vocabFields({ term: "primero" }) });
-      const second = await createLearningItem(tx, { languageId, levelId, position: 2, lessonPriority: 2, ...vocabFields({ term: "segundo" }) });
-      const third = await createLearningItem(tx, { languageId, levelId, position: 56, lessonPriority: 56, ...vocabFields({ term: "tercero" }) });
+      const levelId = await createLevel(tx, {
+        languageId,
+        levelNumber: 63,
+        name: "Reorder fixture",
+      });
+      const first = await createLearningItem(tx, {
+        languageId,
+        levelId,
+        position: 1,
+        lessonPriority: 1,
+        ...vocabFields({ term: "primero" }),
+      });
+      const second = await createLearningItem(tx, {
+        languageId,
+        levelId,
+        position: 2,
+        lessonPriority: 2,
+        ...vocabFields({ term: "segundo" }),
+      });
+      const third = await createLearningItem(tx, {
+        languageId,
+        levelId,
+        position: 56,
+        lessonPriority: 56,
+        ...vocabFields({ term: "tercero" }),
+      });
 
-      await reorderLearningItems(tx, levelId, "vocabulary", [second, third, first]);
+      await reorderLearningItems(tx, levelId, "vocabulary", [
+        second,
+        third,
+        first,
+      ]);
 
       expect((await lockLearningItemForEdit(tx, second))?.position).toBe(1);
       expect((await lockLearningItemForEdit(tx, third))?.position).toBe(2);
@@ -315,7 +406,12 @@ describe("getDuplicateCandidateRows", () => {
   it("returns every vocabulary item in the language, excluding the given id", async () => {
     await withTestTransaction(async (tx) => {
       const { languageId } = await seedTestFixtures(tx);
-      const rows = await getDuplicateCandidateRows(tx, languageId, "vocabulary", ITEM_GATO_ID);
+      const rows = await getDuplicateCandidateRows(
+        tx,
+        languageId,
+        "vocabulary",
+        ITEM_GATO_ID,
+      );
       expect(rows.some((r) => r.learningItemId === ITEM_GATO_ID)).toBe(false);
       expect(rows.some((r) => r.displayForm === "casa")).toBe(true);
     });

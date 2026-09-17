@@ -10,7 +10,12 @@ import { ResourcesSection } from "./resources-section";
 import type { ReactNode } from "react";
 
 import { itemDetailSections } from "@/domains/curriculum";
-import type { CurriculumStatus, ItemDetailMode, ItemDetailView, ItemNavigationView } from "@/domains/curriculum";
+import type {
+  CurriculumStatus,
+  ItemDetailMode,
+  ItemDetailView,
+  ItemNavigationView,
+} from "@/domains/curriculum";
 import type { ItemProgress } from "@/domains/progress";
 
 type ItemDetailLayoutProps = {
@@ -110,7 +115,12 @@ export function ItemDetailLayout({
             whether or not the card does.
           */}
           <div>
-            {view.patterns.length > 0 ? <ContextSection patterns={view.patterns} languageCode={languageCode} /> : null}
+            {view.patterns.length > 0 ? (
+              <ContextSection
+                patterns={view.patterns}
+                languageCode={languageCode}
+              />
+            ) : null}
             {adminSlots?.context}
           </div>
         </div>
@@ -123,7 +133,12 @@ export function ItemDetailLayout({
 
       {mode === "page" ? (
         <ItemDetailSection id="progress" title="Your Progress">
-          <ProgressSection progress={progress} levelUnlockedAt={levelUnlockedAt} timeZone={timeZone} now={now ?? new Date()} />
+          <ProgressSection
+            progress={progress}
+            levelUnlockedAt={levelUnlockedAt}
+            timeZone={timeZone}
+            now={now ?? new Date()}
+          />
         </ItemDetailSection>
       ) : null}
 
