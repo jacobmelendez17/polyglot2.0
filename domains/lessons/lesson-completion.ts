@@ -8,6 +8,8 @@ import {
   MINIMUM_REVIEW_STAGE,
 } from "@/domains/srs";
 import { LessonError } from "@/lib/errors/lesson-errors";
+import { logger } from "@/lib/logging/logger";
+import { withTrace } from "@/lib/logging/operation-tracer";
 
 import type { LessonCurriculumReader } from "./lesson-curriculum-reader";
 import { verifyLessonState } from "./lesson-token";
@@ -96,83 +98,113 @@ export async function completeLesson(
 
   const batchItemIds = state.batch.map((batchItem) => batchItem.itemId);
 
-  return withIdempotency(
-    db,
+  // Spec 24 — lesson completion is the spec's other flagship traced
+  // operation. `withTrace` produces the generic
+  // `lesson.transaction.started`/`.succeeded`/`.failed` triplet; the
+  // domain-specific milestones below are logged explicitly, correlated
+  // under the same trace id. Never logs item labels/meanings/content —
+  // only safe identifiers and counts (spec's "Never log complete lesson
+  // content").
+  return withTrace(
+    "lesson.transaction",
+    () =>
+      withIdempotency(
+        db,
+        {
+          userId: input.userId,
+          operation: "lesson.complete",
+          key: input.idempotencyKey,
+          // The batch identity is the payload. A replay with the same key and the
+          // same batch returns the original result; a reused key with a different
+          // batch is rejected by `withIdempotency` rather than enrolling anything.
+          payload: {
+            languageId: input.languageId,
+            itemIds: [...batchItemIds].sort(),
+          },
+        },
+        async (tx) => {
+          // §44 — revalidate against authoritative state, not the token.
+          const items =
+            await input.curriculum.getLearningItemsByIds(batchItemIds);
+          if (items.length !== batchItemIds.length) {
+            // An item was unpublished, archived, or deleted between study and
+            // completion. Enrolling a partial batch would violate §45.
+            throw new LessonError("CURRICULUM_VALIDATION_FAILED");
+          }
+          if (items.some((item) => item.languageId !== input.languageId)) {
+            throw new LessonError("CURRICULUM_VALIDATION_FAILED");
+          }
+
+          // §44's "Already-Enrolled Batches": reject the whole completion rather
+          // than enrolling the remainder or silently skipping duplicates.
+          const alreadyEnrolled = await getEnrolledItemIds(
+            tx,
+            input.userId,
+            batchItemIds,
+          );
+          if (alreadyEnrolled.length > 0) {
+            throw new LessonError("LESSON_ALREADY_ENROLLED");
+          }
+          logger.debug({
+            event: "lesson.items_validated",
+            userId: input.userId,
+            itemCount: batchItemIds.length,
+          });
+
+          const orderedItems = batchItemIds.map((itemId) =>
+            items.find((item) => item.id === itemId)!,
+          );
+
+          await enrollLearningItems(
+            tx,
+            input.userId,
+            orderedItems.map((item) => ({
+              learningItemId: item.id,
+              languageId: item.languageId,
+              srsStage: MINIMUM_REVIEW_STAGE,
+              learnedAt: now,
+              // §47/§48 — the SRS domain decides the first review time from the
+              // stage, the curriculum level, and authoritative server time.
+              // `mode` is spec 20 SRS Interval's per-learner preference, but
+              // Beginner 1's interval is fixed (4 hours) under every mode — a
+              // freshly enrolled item has no review-session context to resolve
+              // a real preference from anyway, so this is never a live choice.
+              nextReviewAt: calculateNextReview({
+                stage: MINIMUM_REVIEW_STAGE,
+                level: item.levelNumber,
+                mode: DEFAULT_SRS_INTERVAL_MODE,
+                now,
+              }),
+            })),
+          );
+
+          logger.info({
+            event: "lesson.completed",
+            userId: input.userId,
+            languageId: input.languageId,
+            itemCount: orderedItems.length,
+            newStage: MINIMUM_REVIEW_STAGE,
+            accuracy: accuracyFrom(state),
+          });
+
+          return {
+            items: orderedItems.map((item) => ({
+              id: item.id,
+              label: item.type === "vocabulary" ? item.word : item.structure,
+              meaning:
+                item.type === "vocabulary"
+                  ? (item.meanings[0] ?? "")
+                  : item.meaning,
+            })),
+            newStage: MINIMUM_REVIEW_STAGE,
+            accuracy: accuracyFrom(state),
+            enrolledItemIds: orderedItems.map((item) => item.id),
+          };
+        },
+      ),
     {
-      userId: input.userId,
-      operation: "lesson.complete",
-      key: input.idempotencyKey,
-      // The batch identity is the payload. A replay with the same key and the
-      // same batch returns the original result; a reused key with a different
-      // batch is rejected by `withIdempotency` rather than enrolling anything.
-      payload: {
-        languageId: input.languageId,
-        itemIds: [...batchItemIds].sort(),
-      },
-    },
-    async (tx) => {
-      // §44 — revalidate against authoritative state, not the token.
-      const items = await input.curriculum.getLearningItemsByIds(batchItemIds);
-      if (items.length !== batchItemIds.length) {
-        // An item was unpublished, archived, or deleted between study and
-        // completion. Enrolling a partial batch would violate §45.
-        throw new LessonError("CURRICULUM_VALIDATION_FAILED");
-      }
-      if (items.some((item) => item.languageId !== input.languageId)) {
-        throw new LessonError("CURRICULUM_VALIDATION_FAILED");
-      }
-
-      // §44's "Already-Enrolled Batches": reject the whole completion rather
-      // than enrolling the remainder or silently skipping duplicates.
-      const alreadyEnrolled = await getEnrolledItemIds(
-        tx,
-        input.userId,
-        batchItemIds,
-      );
-      if (alreadyEnrolled.length > 0) {
-        throw new LessonError("LESSON_ALREADY_ENROLLED");
-      }
-
-      const orderedItems = batchItemIds.map((itemId) =>
-        items.find((item) => item.id === itemId)!,
-      );
-
-      await enrollLearningItems(
-        tx,
-        input.userId,
-        orderedItems.map((item) => ({
-          learningItemId: item.id,
-          languageId: item.languageId,
-          srsStage: MINIMUM_REVIEW_STAGE,
-          learnedAt: now,
-          // §47/§48 — the SRS domain decides the first review time from the
-          // stage, the curriculum level, and authoritative server time.
-          // `mode` is spec 20 SRS Interval's per-learner preference, but
-          // Beginner 1's interval is fixed (4 hours) under every mode — a
-          // freshly enrolled item has no review-session context to resolve
-          // a real preference from anyway, so this is never a live choice.
-          nextReviewAt: calculateNextReview({
-            stage: MINIMUM_REVIEW_STAGE,
-            level: item.levelNumber,
-            mode: DEFAULT_SRS_INTERVAL_MODE,
-            now,
-          }),
-        })),
-      );
-
-      return {
-        items: orderedItems.map((item) => ({
-          id: item.id,
-          label: item.type === "vocabulary" ? item.word : item.structure,
-          meaning:
-            item.type === "vocabulary"
-              ? (item.meanings[0] ?? "")
-              : item.meaning,
-        })),
-        newStage: MINIMUM_REVIEW_STAGE,
-        accuracy: accuracyFrom(state),
-        enrolledItemIds: orderedItems.map((item) => item.id),
-      };
+      level: "info",
+      fields: { userId: input.userId, languageId: input.languageId },
     },
   );
 }

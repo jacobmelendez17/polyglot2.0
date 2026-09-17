@@ -7,6 +7,13 @@ import { z } from "zod";
 const resolvedAppEnv =
   process.env.APP_ENV ?? process.env.VERCEL_ENV ?? "development";
 
+// Spec 24 (Structured Logging & Request Tracing) — "Production logs should
+// identify the deployed application version... prefer git commit SHA."
+// Vercel sets VERCEL_GIT_COMMIT_SHA automatically on every deployment; local
+// dev and any environment without it falls back to "local" rather than
+// failing the whole app over a non-authoritative diagnostic field.
+const resolvedRelease = process.env.VERCEL_GIT_COMMIT_SHA ?? "local";
+
 const envSchema = z.object({
   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: z.string().min(1),
   CLERK_SECRET_KEY: z.string().min(1),
@@ -29,6 +36,14 @@ const envSchema = z.object({
    * pattern) before the cron schedule in `vercel.json` goes live.
    */
   CRON_SECRET: z.string().min(32).optional(),
+  /** Spec 24 — git commit SHA of the running deployment, attached to every structured log line. Never required: defaults to "local" outside Vercel. */
+  RELEASE: z.string().min(1),
+  /**
+   * Spec 24 — overrides the logger's minimum level (default: "debug" in
+   * development, "info" everywhere else). Optional; only worth setting to
+   * temporarily raise verbosity in a deployed environment.
+   */
+  LOG_LEVEL: z.enum(["debug", "info", "warn", "error", "fatal"]).optional(),
 });
 
 export const env = envSchema.parse({
@@ -46,4 +61,6 @@ export const env = envSchema.parse({
   APP_ENV: resolvedAppEnv,
   DATABASE_URL: process.env.DATABASE_URL,
   CRON_SECRET: process.env.CRON_SECRET,
+  RELEASE: resolvedRelease,
+  LOG_LEVEL: process.env.LOG_LEVEL,
 });

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { finalizeDueAccountDeletions } from "@/domains/danger-zone/server";
 import { env } from "@/lib/env";
+import { withRouteTrace } from "@/lib/logging/route-trace";
 
 /**
  * Spec 20 Permanent Account Deletion — "a server-side scheduled process
@@ -19,21 +20,23 @@ import { env } from "@/lib/env";
  * be — this checks its own header directly.
  */
 export async function GET(request: Request): Promise<Response> {
-  if (!env.CRON_SECRET) {
-    // Not configured for this environment (local/test, or a deployment
-    // that hasn't set it yet) — nothing to authenticate against, so refuse
-    // rather than silently running an unauthenticated finalize job.
-    return NextResponse.json(
-      { error: "CRON_SECRET is not configured" },
-      { status: 501 },
-    );
-  }
+  return withRouteTrace("finalizeAccountDeletions", request, async () => {
+    if (!env.CRON_SECRET) {
+      // Not configured for this environment (local/test, or a deployment
+      // that hasn't set it yet) — nothing to authenticate against, so refuse
+      // rather than silently running an unauthenticated finalize job.
+      return NextResponse.json(
+        { error: "CRON_SECRET is not configured" },
+        { status: 501 },
+      );
+    }
 
-  const authorizationHeader = request.headers.get("authorization");
-  if (authorizationHeader !== `Bearer ${env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+    const authorizationHeader = request.headers.get("authorization");
+    if (authorizationHeader !== `Bearer ${env.CRON_SECRET}`) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-  const result = await finalizeDueAccountDeletions(new Date());
-  return NextResponse.json(result);
+    const result = await finalizeDueAccountDeletions(new Date());
+    return NextResponse.json(result);
+  });
 }

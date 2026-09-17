@@ -8,6 +8,7 @@ import {
   verifySandboxGrant,
 } from "@/domains/sandbox/sandbox-session-token";
 import { AppError } from "@/lib/errors/app-error";
+import { logger } from "@/lib/logging/logger";
 
 import type { ContentPreferences } from "./content-preferences";
 import type {
@@ -59,8 +60,18 @@ export async function resolveCurrentUser(): Promise<PolyglotUser | null> {
 
   const existing = await findUserByClerkUserId(db, clerkUserId);
   const actor = existing ?? (await provisionUser(db, clerkUserId));
+  const resolved = (await resolveSandboxView(actor)) ?? actor;
 
-  return (await resolveSandboxView(actor)) ?? actor;
+  // Spec 24 Authentication — DEBUG, not INFO: this resolves on essentially
+  // every authenticated request, so it would otherwise violate "do not
+  // generate INFO logs every time" (the same reasoning as the Dashboard
+  // section). Never logs email/name — only the internal, non-Clerk user id.
+  logger.debug({
+    event: "auth.user_resolved",
+    userId: resolved.id,
+    role: resolved.role,
+  });
+  return resolved;
 }
 
 /**
@@ -97,6 +108,11 @@ async function resolveSandboxView(
 export async function requireUser(): Promise<PolyglotUser> {
   const user = await resolveCurrentUser();
   if (!user) {
+    // Spec 24 Authentication — a real, useful signal: an authoritative
+    // action was attempted with no resolvable identity. No Clerk id or
+    // other identifying detail is available to log at this point (that's
+    // exactly why it's rejected).
+    logger.warn({ event: "auth.denied", reason: "unauthenticated" });
     throw new AppError("UNAUTHENTICATED");
   }
   return user;

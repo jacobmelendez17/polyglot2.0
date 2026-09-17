@@ -3,6 +3,7 @@ import { and, eq, sql } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { idempotencyKeys } from "@/db/schema";
 import { AppError } from "@/lib/errors/app-error";
+import { logger } from "@/lib/logging/logger";
 
 import { computeRequestHash } from "./hash";
 import { getIdempotencyRetentionMs } from "./retention-config";
@@ -94,12 +95,22 @@ export async function withIdempotency<T>(
         .returning();
     } catch (error) {
       if (isLockTimeout(error)) {
+        logger.warn({
+          event: "idempotency.in_progress",
+          idempotencyOperation: input.operation,
+          userId: input.userId,
+        });
         throw new AppError("IDEMPOTENCY_OPERATION_IN_PROGRESS");
       }
       throw error;
     }
 
     if (inserted) {
+      logger.debug({
+        event: "idempotency.new",
+        idempotencyOperation: input.operation,
+        userId: input.userId,
+      });
       const result = await fn(tx);
       await tx
         .update(idempotencyKeys)
@@ -132,14 +143,30 @@ export async function withIdempotency<T>(
     }
 
     if (existing.requestHash !== requestHash) {
+      logger.warn({
+        event: "idempotency.failed",
+        reason: "payload_mismatch",
+        idempotencyOperation: input.operation,
+        userId: input.userId,
+      });
       throw new AppError("IDEMPOTENCY_KEY_PAYLOAD_MISMATCH");
     }
     if (existing.status === "in_progress") {
       // Defensive: not reachable via the lock-blocking path above, but kept
       // as a direct, honest response to spec §53 step 7 if a row is ever
       // observed in this state by some other path.
+      logger.warn({
+        event: "idempotency.in_progress",
+        idempotencyOperation: input.operation,
+        userId: input.userId,
+      });
       throw new AppError("IDEMPOTENCY_OPERATION_IN_PROGRESS");
     }
+    logger.debug({
+      event: "idempotency.replayed",
+      idempotencyOperation: input.operation,
+      userId: input.userId,
+    });
     return existing.responseSnapshot as T;
   });
 }

@@ -7,6 +7,7 @@ import { submitReviewAnswer } from "@/domains/srs/server";
 import type { ReviewSessionResult } from "@/domains/srs";
 import { AppError } from "@/lib/errors/app-error";
 import { ReviewError } from "@/lib/errors/review-errors";
+import { withTrace } from "@/lib/logging/operation-tracer";
 
 /**
  * Thin Server Action entry point (spec 09 §4, §7). Every payload is
@@ -27,11 +28,22 @@ export type ActionResult<T> =
   | { ok: true; data: T }
   | { ok: false; error: { code: string; message: string } };
 
+/**
+ * Spec 24 — every Server Action gets a fresh trace and its outcome logged
+ * (`<actionName>.started`/`.succeeded`/`.failed`, via `withTrace`). Never
+ * logs the token, its decoded contents, or the learner's answer (spec 09
+ * §20 Privacy and Logging) — `withTrace`'s own unexpected-error path only
+ * ever serializes the thrown `Error` object, never `fn`'s arguments.
+ */
 async function runReviewAction<T>(
+  actionName: string,
   fn: () => Promise<T>,
 ): Promise<ActionResult<T>> {
   try {
-    return { ok: true, data: await fn() };
+    return {
+      ok: true,
+      data: await withTrace(actionName, fn, { level: "info", newTrace: true }),
+    };
   } catch (error) {
     if (error instanceof ReviewError) {
       return { ok: false, error: { code: error.code, message: error.message } };
@@ -48,8 +60,8 @@ async function runReviewAction<T>(
         },
       };
     }
-    // Never log the token, its decoded contents, or the learner's answer (spec 09 §20 Privacy and Logging).
-    console.error("Unexpected review action error", error);
+    // withTrace already logged this at ERROR with the trace id and stack —
+    // nothing more to record here.
     return {
       ok: false,
       error: {
@@ -73,7 +85,7 @@ const submitAnswerInputSchema = z.object({
 export async function submitReviewAnswerAction(
   input: z.infer<typeof submitAnswerInputSchema>,
 ): Promise<ActionResult<ReviewSessionResult>> {
-  return runReviewAction(async () => {
+  return runReviewAction("reviews.submitAnswer", async () => {
     const { token, questionId, idempotencyKey, submission } =
       submitAnswerInputSchema.parse(input);
     const user = await requireUser();

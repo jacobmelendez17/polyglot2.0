@@ -5,6 +5,7 @@ import Link from "next/link";
 import { AlertCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { reportClientError } from "@/lib/logging/client-error";
 
 /**
  * Spec 13's "loading/error states" requirement. Browsing an item never
@@ -19,7 +20,7 @@ export default function ItemDetailError({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error(error);
+    reportClientError(error, { route: "/items/[itemId]" });
   }, [error]);
 
   return (

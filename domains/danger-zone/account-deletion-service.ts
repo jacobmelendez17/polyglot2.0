@@ -3,6 +3,8 @@ import { eq } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { users } from "@/db/schema";
 import { AppError } from "@/lib/errors/app-error";
+import { logger } from "@/lib/logging/logger";
+import { withTrace } from "@/lib/logging/operation-tracer";
 
 import {
   cancelDeletionRequest,
@@ -149,36 +151,52 @@ export async function finalizeDueAccountDeletions(
   db: DbClient,
   input: FinalizeDueAccountDeletionsInput,
 ): Promise<{ processedCount: number; failedCount: number }> {
-  const due = await getDueDeletionRequests(db, input.now);
-  let processedCount = 0;
-  let failedCount = 0;
+  // Spec 24 Danger Zone — "especially clear logs." The outer `withTrace`
+  // covers the whole daily batch's lifecycle/duration; each request's own
+  // completed/failed outcome is logged individually below (one failure must
+  // never be mistaken for the whole job failing — the loop below already
+  // isolates that at the data level, and the logs mirror it).
+  return withTrace(
+    "account.delete.finalize",
+    async () => {
+      const due = await getDueDeletionRequests(db, input.now);
+      let processedCount = 0;
+      let failedCount = 0;
 
-  for (const request of due) {
-    try {
-      await db.transaction(async (tx) => {
-        const [user] = await tx
-          .select()
-          .from(users)
-          .where(eq(users.id, request.userId))
-          .limit(1);
-        if (user) {
-          await input.deleteClerkUser(user.clerkUserId);
-          await tx.delete(users).where(eq(users.id, request.userId));
+      for (const request of due) {
+        try {
+          await db.transaction(async (tx) => {
+            const [user] = await tx
+              .select()
+              .from(users)
+              .where(eq(users.id, request.userId))
+              .limit(1);
+            if (user) {
+              await input.deleteClerkUser(user.clerkUserId);
+              await tx.delete(users).where(eq(users.id, request.userId));
+            }
+            await markDeletionRequestCompleted(tx, {
+              requestId: request.id,
+              now: input.now,
+            });
+          });
+          processedCount += 1;
+          logger.info({
+            event: "account.delete.finalize.completed",
+            userId: request.userId,
+          });
+        } catch (error) {
+          logger.error({
+            event: "account.delete.finalize.failed",
+            userId: request.userId,
+            error,
+          });
+          failedCount += 1;
         }
-        await markDeletionRequestCompleted(tx, {
-          requestId: request.id,
-          now: input.now,
-        });
-      });
-      processedCount += 1;
-    } catch (error) {
-      console.error(
-        `Failed to finalize account deletion request ${request.id}`,
-        error,
-      );
-      failedCount += 1;
-    }
-  }
+      }
 
-  return { processedCount, failedCount };
+      return { processedCount, failedCount };
+    },
+    { level: "info" },
+  );
 }

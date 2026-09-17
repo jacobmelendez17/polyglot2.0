@@ -3,6 +3,8 @@ import "server-only";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 
+import { logger } from "@/lib/logging/logger";
+
 import { RATE_LIMIT_POLICIES } from "./policies";
 import type {
   RateLimitCheckInput,
@@ -73,9 +75,13 @@ export class UpstashRateLimiter implements RateLimiter {
       return { allowed: false, retryAfterSeconds };
     } catch (error) {
       // Store unreachable — fail closed unless the policy explicitly opts into failing open (spec 08 §54).
-      console.error("rate_limit_store_unreachable", {
+      logger.warn({
+        event: "rate_limit.provider_failed",
+        provider: "upstash",
+        operation: "rate_limit.check",
         policy,
-        message: error instanceof Error ? error.message : String(error),
+        failOpen: config.failOpen,
+        error,
       });
       if (config.failOpen) return { allowed: true };
       return { allowed: false, retryAfterSeconds: config.windowSeconds };
