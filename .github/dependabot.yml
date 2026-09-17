@@ -1,0 +1,19 @@
+version: 2
+updates:
+  # architecture.md: "Automated dependency update pull requests run on a
+  # weekly schedule, reviewed rather than auto-merged." Dependabot opens the
+  # pull requests; `security.yml`'s dependency-audit job and normal review
+  # (CODEOWNERS requires the owner's approval) are the gate — nothing here
+  # auto-merges.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday

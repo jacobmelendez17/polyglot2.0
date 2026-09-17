@@ -585,7 +585,7 @@ test:e2e      playwright test
 build         next build
 db:generate   generate a migration from schema changes
 db:migrate    apply pending migrations
-db:check      detect drift between schema and migration history
+db:verify     detect drift between schema and migration history
 db:seed       load fixture data
 ```
 

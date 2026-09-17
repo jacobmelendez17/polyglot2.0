@@ -1,0 +1,151 @@
+name: Deploy Production
+
+# Spec 23 — the single authoritative production promotion path. Vercel's own
+# Git integration must NOT auto-deploy `main` to production (see the runbook
+# in progress-tracker.md's spec 23 entry for the exact Vercel project
+# setting) — this workflow is what guarantees "production migration BEFORE
+# new application deployment" (architecture.md's Deployment section), a
+# guarantee a race with Vercel's own git-triggered build could break.
+#
+# Runs only on a push to `main` — which, because `main` is protected
+# (required status checks, required review, no direct pushes except the
+# owner's pull-request-only bypass), only ever happens after CI/E2E/security
+# already passed and a pull request was merged. There is no separate
+# "verify trusted commit" step beyond checking out `github.sha` explicitly
+# (never a floating branch ref) — branch protection is the trust boundary.
+#
+# UNVERIFIED: written and reviewable, but never run for real. Needs the
+# `production` GitHub Environment and its secrets (PRODUCTION_MIGRATION_DATABASE_URL,
+# VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID, CRON_SECRET) that only the
+# project owner can add. The application's own runtime secrets
+# (DATABASE_URL, CLERK_SECRET_KEY, etc.) are Vercel Production environment
+# variables, not GitHub secrets — `vercel pull` below fetches them directly
+# from Vercel. See progress-tracker.md's spec 23 entry for the full list and
+# the exact Vercel project configuration this depends on.
+
+on:
+  push:
+    branches: [main]
+
+# Deliberately NOT cancel-in-progress — a second push landing mid-deploy
+# should queue behind this one, never interrupt an in-flight production
+# migration or deployment.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "22"
+  VERCEL_CLI_VERSION: "59.20.0"
+
+jobs:
+  migrate:
+    name: Production Migration
+    runs-on: ubuntu-latest
+    environment: production
+    outputs:
+      commit-sha: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --legacy-peer-deps
+
+      # Migration preflight (architecture.md's CI/CD Pipeline stage 4,
+      # applied to production rather than an ephemeral branch): fail fast on
+      # an unreachable database or a connection-string mistake, before
+      # `db:migrate` runs for real against production.
+      - name: Preflight — confirm the production database is reachable
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_MIGRATION_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DATABASE_URL}" ]; then
+            echo "::error::PRODUCTION_MIGRATION_DATABASE_URL is not configured in the production GitHub Environment."
+            exit 1
+          fi
+          psql "${DATABASE_URL}" -c 'select 1;' > /dev/null
+
+      # Forward-only (architecture.md's Database Migration Strategy) — this
+      # is the ONLY place production migrations are ever applied.
+      # scripts/vercel-build.mjs deliberately never migrates when
+      # VERCEL_ENV=production, precisely so this step is the single source
+      # of truth for migration timing.
+      - name: Apply production migrations
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_MIGRATION_DATABASE_URL }}
+        run: npm run db:migrate
+
+      - name: Verify no schema drift
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_MIGRATION_DATABASE_URL }}
+        run: npm run db:verify
+
+  deploy:
+    name: Production Deploy
+    runs-on: ubuntu-latest
+    needs: migrate
+    environment: production
+    outputs:
+      deployment-url: ${{ steps.deploy.outputs.deployment-url }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.migrate.outputs.commit-sha }}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm install --global vercel@${{ env.VERCEL_CLI_VERSION }}
+
+      # Standard Vercel-from-custom-CI pattern (vercel.com/docs/deployments):
+      # pull the project's real production config/env vars, build the exact
+      # checked-out commit, then deploy that prebuilt artifact — never let
+      # Vercel rebuild a possibly-moved branch itself.
+      - name: Pull Vercel production configuration
+        run: vercel pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Build
+        run: vercel build --prod --token="${{ secrets.VERCEL_TOKEN }}"
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Deploy the prebuilt artifact to production
+        id: deploy
+        run: |
+          set -euo pipefail
+          url=$(vercel deploy --prebuilt --prod --token="${{ secrets.VERCEL_TOKEN }}")
+          echo "Deployed commit ${{ needs.migrate.outputs.commit-sha }} to: ${url}"
+          echo "deployment-url=${url}" >> "$GITHUB_OUTPUT"
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+  smoke-test:
+    name: Production Smoke Test
+    runs-on: ubuntu-latest
+    needs: deploy
+    environment: production
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Run the non-destructive production smoke test
+        env:
+          SMOKE_TEST_URL: ${{ needs.deploy.outputs.deployment-url }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: node scripts/smoke-test.mjs

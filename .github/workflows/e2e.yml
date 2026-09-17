@@ -1,0 +1,124 @@
+name: E2E
+
+# Spec 23's "Critical E2E" required check — runs the committed Playwright
+# suite (spec 22) against the real Vercel Preview deployment for this pull
+# request, never against localhost in CI.
+#
+# Same-repository pull requests only (spec 23's "Public fork pull requests
+# are not part of the current collaboration model") — a fork PR's preview
+# would have no legitimate way to receive even preview-scoped secrets.
+#
+# UNVERIFIED, more so than this repo's other workflows: it depends on the
+# real Neon "Vercel-Managed" or "Neon-Managed" integration actually being
+# connected (architecture.md's Preview Database section — a Neon branch
+# named `preview/<git-branch>` is created automatically per preview
+# deployment, and `scripts/vercel-build.mjs` migrates/seeds it during
+# Vercel's own build step; see that file's own comment). Two things here can
+# only be confirmed once that integration is live, during spec 23's "First
+# Real Pipeline Verification":
+#   1. `preview/<git-branch>` is Neon's own documented naming pattern as of
+#      this writing — reconfirm it hasn't changed before trusting the lookup
+#      step below.
+#   2. `NEON_DATABASE_NAME` / `NEON_DATABASE_ROLE` (repo variables, not
+#      secrets — see the Configuration section this introduces) must match
+#      the real database/role Neon provisions for this project.
+# See progress-tracker.md's spec 23 entry for the full reasoning.
+
+on:
+  pull_request:
+
+concurrency:
+  group: e2e-${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  deployments: read
+  statuses: read
+
+jobs:
+  wait-for-preview:
+    name: Wait for Vercel Preview
+    # Guards the whole job, not just a step — a fork PR has no preview this
+    # workflow is allowed to touch (spec 23's "Public fork pull requests are
+    # not part of the current collaboration model").
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    outputs:
+      preview-url: ${{ steps.deployment.outputs.deployment-url }}
+    steps:
+      - name: Wait for the Vercel preview deployment to be ready
+        id: deployment
+        # No tagged release exists yet for this Vercel-maintained action (as
+        # of this writing) — pinned to the current `main` HEAD commit
+        # instead of a version tag. Re-check for a tagged release before
+        # trusting this indefinitely; re-pin if the action's behavior changes.
+        uses: vercel/wait-for-deployment-action@0e2b0c5c5cce31f1648108aeec56467187aca037
+        with:
+          environment: preview
+
+  e2e:
+    name: Critical E2E
+    needs: wait-for-preview
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --legacy-peer-deps
+      - run: npx playwright install --with-deps chromium
+
+      # `tests/e2e/support/e2e-db.ts` (spec 22) writes directly to
+      # E2E_DATABASE_URL for preconditions the product has no UI path to
+      # create quickly (e.g. making a review due). Against a real preview it
+      # must point at that exact PR's Neon branch — the same one
+      # `scripts/vercel-build.mjs` already migrated/seeded during the Vercel
+      # build above — never a different branch, and never DATABASE_URL/
+      # TEST_DATABASE_URL (both unset in this job, so db/test/db-safety-guard.ts's
+      # inequality checks pass trivially).
+      - name: Resolve this pull request's Neon preview branch
+        id: neon-branch
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+          NEON_DATABASE_NAME: ${{ vars.NEON_DATABASE_NAME }}
+          NEON_DATABASE_ROLE: ${{ vars.NEON_DATABASE_ROLE }}
+          BRANCH_NAME: preview/${{ github.head_ref }}
+        run: |
+          set -euo pipefail
+          branch_id=$(curl -sf "https://console.neon.tech/api/v2/projects/${NEON_PROJECT_ID}/branches" \
+            -H "Authorization: Bearer ${NEON_API_KEY}" \
+            | jq -r --arg name "${BRANCH_NAME}" '.branches[] | select(.name == $name) | .id')
+          if [ -z "$branch_id" ]; then
+            echo "::error::No Neon branch named '${BRANCH_NAME}' was found. Is the Neon-Vercel preview integration connected? See architecture.md's Preview Database section."
+            exit 1
+          fi
+          connection_uri=$(curl -sf "https://console.neon.tech/api/v2/projects/${NEON_PROJECT_ID}/connection_uri?branch_id=${branch_id}&database_name=${NEON_DATABASE_NAME}&role_name=${NEON_DATABASE_ROLE}&pooled=true" \
+            -H "Authorization: Bearer ${NEON_API_KEY}" \
+            | jq -r '.uri')
+          echo "::add-mask::${connection_uri}"
+          echo "e2e-database-url=${connection_uri}" >> "$GITHUB_OUTPUT"
+
+      - name: Run the critical E2E suite against the preview deployment
+        run: npm run test:e2e
+        env:
+          PLAYWRIGHT_SKIP_WEB_SERVER: "1"
+          E2E_BASE_URL: ${{ needs.wait-for-preview.outputs.preview-url }}
+          E2E_DATABASE_URL: ${{ steps.neon-branch.outputs.e2e-database-url }}
+          APP_ENV: preview
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.CI_CLERK_PUBLISHABLE_KEY }}
+          CLERK_SECRET_KEY: ${{ secrets.CI_CLERK_SECRET_KEY }}
+          E2E_LEARNER_EMAIL: ${{ vars.E2E_LEARNER_EMAIL }}
+          E2E_ADMIN_EMAIL: ${{ vars.E2E_ADMIN_EMAIL }}
+          E2E_LEARNER_CLERK_USER_ID: ${{ vars.E2E_LEARNER_CLERK_USER_ID }}
+          E2E_ADMIN_CLERK_USER_ID: ${{ vars.E2E_ADMIN_CLERK_USER_ID }}
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

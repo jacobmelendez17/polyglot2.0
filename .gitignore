@@ -40,12 +40,19 @@ yarn-error.log*
 # Terraform (infra/terraform) — .terraform/ is a regenerated local cache of
 # downloaded provider binaries (hundreds of MB, architecture-specific);
 # never commit it. .terraform.lock.hcl (the version pin) is committed
-# deliberately, unlike the directory above. terraform.tfstate is committed
-# deliberately too (see infra/terraform/environments/dev/main.tf) — this is
-# a single-operator sandbox account with no remote state backend yet — but
-# its noisy .backup copy and crash logs never need to be.
+# deliberately, unlike the directory above. environments/dev/terraform.tfstate
+# is committed deliberately (see that file's own main.tf) — a single-operator
+# sandbox account with no remote state backend. Spec 23: production and the
+# bootstrap config that creates production's remote-state backend are the
+# opposite — their state must never be committed (production's normally
+# lives only in the S3 backend and never touches disk; the bootstrap
+# config's local state is the one exception this repo still uses locally,
+# and the owner is responsible for backing it up outside git — see
+# progress-tracker.md's spec 23 entry).
 **/.terraform/
 *.tfstate.backup
+infra/terraform/environments/production/terraform.tfstate
+infra/terraform/bootstrap/terraform.tfstate
 crash.log
 crash.*.log
 override.tf

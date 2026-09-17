@@ -1683,11 +1683,13 @@ Every visual effect is a CSS rule keyed off `document.documentElement`'s state �
 
 Polyglot runs in three environments. Each is fully isolated: no environment may read or write another environment's data, and production credentials are never present outside production.
 
-| Environment   | Purpose                 | App               | Database                                     | Auth                       | Media                 |
-| ------------- | ----------------------- | ----------------- | -------------------------------------------- | -------------------------- | --------------------- |
-| `development` | Local machine           | `next dev`        | Neon development branch, or local PostgreSQL | Clerk development instance | R2 development bucket |
-| `preview`     | Per-pull-request deploy | Vercel preview    | Ephemeral Neon branch per pull request       | Clerk development instance | R2 preview bucket     |
-| `production`  | Live users              | Vercel production | Neon production branch                       | Clerk production instance  | R2 production bucket  |
+| Environment   | Purpose                 | App               | Database                                     | Auth                                | Media                 |
+| ------------- | ----------------------- | ----------------- | -------------------------------------------- | ----------------------------------- | --------------------- |
+| `development` | Local machine           | `next dev`        | Neon development branch, or local PostgreSQL | Clerk development instance          | R2 development bucket |
+| `preview`     | Per-pull-request deploy | Vercel preview    | Ephemeral Neon branch per pull request       | Clerk development instance          | R2 preview bucket     |
+| `production`  | Live users              | Vercel production | Neon production branch                       | Clerk development instance (Beta)\* | R2 production bucket  |
+
+\* **Temporary Public Beta exception (spec 23):** Clerk Production requires an owned custom domain, which does not exist yet — the first public Beta runs on the generated `*.vercel.app` production URL. Until a custom domain is acquired, production authentication deliberately uses the Clerk _development_ instance, not Clerk Production. This is a real, tracked gap, not an oversight — do not describe production authentication as fully production-grade while it stands. Resolving it is a fixed, ordered sequence (spec 23's Clerk section): acquire a custom domain → attach it to Vercel → activate Clerk Production → set production Clerk keys → smoke-test signup/signin/signout/account settings → update this table and `progress-tracker.md`. Development test users are never copied into Clerk Production when this happens.
 
 Rules:
 
@@ -1712,7 +1714,7 @@ Local automated testing uses two further Neon branches, both distinct from `deve
 
 # CI/CD Pipeline
 
-Continuous integration runs on GitHub Actions. Continuous deployment runs through Vercel's Git integration, gated on required GitHub status checks.
+Continuous integration runs on GitHub Actions. Preview deployment runs through Vercel's Git integration. Production deployment also runs through GitHub Actions, not Vercel's Git integration — see ADR-021 for why.
 
 ## Pipeline Stages
 
@@ -1723,31 +1725,42 @@ Every pull request runs the following stages. Later stages do not run if an earl
 2. verify       typecheck, lint, format check          (parallel)
 3. test         unit and integration tests             (parallel with verify)
 4. migrate      apply migrations to an ephemeral database, check for schema drift
-5. build        next build
-6. e2e          Playwright against the preview deployment
-7. deploy       Vercel promotes only when every required check is green
+5. build        next build                              (after verify/test succeed)
+6. preview      Vercel builds the pull request's own preview deployment (Git integration)
+7. e2e          Playwright against that preview deployment
+8. security     dependency audit, secret scanning, static analysis
+9. review       owner approval (CODEOWNERS)
+10. merge       squash merge, only once every required check above is green
 ```
+
+Merging to `main` then runs a separate, one-directional sequence — see Deployment below.
 
 ## Workflows
 
-| Workflow              | Trigger                                                                | Responsibility                                                       |
-| --------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `ci.yml`              | pull request, push to `main`                                           | typecheck, lint, unit and integration tests, build                   |
-| `migrate.yml`         | pull request touching `db/migrations/**`, and pre-production promotion | migration application, drift detection, destructive-change detection |
-| `e2e.yml`             | preview deployment ready                                               | Playwright critical-path suite                                       |
-| `security.yml`        | pull request, weekly schedule                                          | dependency audit, secret scanning, static analysis                   |
-| `preview-cleanup.yml` | pull request closed                                                    | delete the pull request's Neon branch and preview resources          |
+| Workflow                 | Trigger                                                                 | Responsibility                                                                                       |
+| ------------------------ | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `ci.yml`                 | pull request, push to `main`                                            | one job per required check: TypeScript, Lint, Formatting, Unit Tests, Integration Tests, Build       |
+| `migrate.yml`            | pull request touching `db/migrations/**`, and manual pre-promotion runs | migration application, drift detection, destructive-change detection                                 |
+| `e2e.yml`                | pull request                                                            | waits for the pull request's Vercel Preview, then runs the Playwright critical-path suite against it |
+| `security.yml`           | pull request, weekly schedule                                           | dependency audit, secret scanning, static analysis, behind one aggregator required check             |
+| `deploy-production.yml`  | push to `main`                                                          | production migration → build → Vercel production deploy → smoke test, in that order                  |
+| `.github/dependabot.yml` | weekly schedule                                                         | opens dependency-update pull requests (reviewed, never auto-merged) — not a CI workflow itself       |
+
+No `preview-cleanup.yml`: Neon's native Vercel preview-branching integration and Vercel's own preview-deployment lifecycle already delete a pull request's branch/deployment when it closes (spec 23) — custom cleanup automation would duplicate a provider-native guarantee.
 
 ## Required Checks
 
-`main` is protected. Merging requires:
+`main` is protected. Merging requires, each as its own stable, independently-required status check:
 
-- typecheck, lint, and format check passing
-- unit and integration tests passing
-- build passing
-- migration check passing
-- no high or critical severity dependency advisories
-- at least one approving review once the project has more than one contributor
+- TypeScript, Lint, Formatting (`ci.yml`)
+- Unit Tests, Integration Tests (`ci.yml`)
+- Build (`ci.yml`)
+- Migration Verification (`migrate.yml`, when it runs)
+- Critical E2E (`e2e.yml`)
+- Dependency / Security Gate (`security.yml`'s aggregator job)
+- at least one code-owner approving review once the project has more than one contributor
+
+A required check is only turned on in branch protection after that workflow has run successfully at least once and GitHub recognizes its status name (spec 23) — a newly-added workflow is not required from the moment its YAML is written.
 
 Deployment to production is impossible while any required check is failing. This is enforced by branch protection, not by convention.
 
@@ -1755,18 +1768,30 @@ Deployment to production is impossible while any required check is failing. This
 
 - Use `npm ci`, never `npm install`, in CI. The lockfile is authoritative.
 - Cache the npm cache directory, the Next.js build cache, and Playwright browser binaries. Cache keys include the lockfile hash.
-- Use concurrency groups keyed by branch, cancelling superseded in-progress runs.
+- Use concurrency groups keyed by branch, cancelling superseded in-progress runs. `deploy-production.yml` is the deliberate exception — a second push queues behind an in-flight production deploy rather than cancelling it.
 - Upload Playwright traces, screenshots, and videos as artifacts on failure only.
 - Pull request feedback should complete in under ten minutes. If the suite grows past that, shard it rather than removing coverage.
-- CI must never require production credentials. Any job needing a database uses an ephemeral one.
+- CI must never require production credentials. Any job needing a database uses an ephemeral one, except `deploy-production.yml`, which runs only from `main` inside the `production` GitHub Environment.
 - Workflows use minimum-scope permissions and pin third-party actions to a commit SHA.
 
 ## Deployment
 
 - Trunk-based development. `main` is always deployable.
-- Vercel builds every pull request as a preview deployment.
-- Merging to `main` deploys to production once checks pass.
+- Vercel's Git integration builds every pull request as a preview deployment (unchanged) — but is configured to never auto-deploy `main` to production (spec 23's Vercel Deployment Ownership).
+- Merging to `main` triggers `deploy-production.yml`, the single authoritative production promotion path: apply production migrations → build the exact merged commit → deploy it to Vercel production → run a non-destructive smoke test. A failed migration stops before any new code deploys; a failed build leaves the previous deployment serving. Neither step ever runs through Vercel's own git-triggered build, which is what guarantees migration-before-deploy ordering can't race.
 - Rollback is a Vercel instant rollback to the previous deployment. Database changes are never rolled back this way; see the migration strategy below.
+
+## Preview Database
+
+Each pull request's Neon branch (the ADR-012 table entry above) is created and deleted by Neon's native Vercel preview-branching integration, not custom GitHub Actions automation — the integration names the branch `preview/<git-branch>` and injects its connection string as that specific deployment's own `DATABASE_URL`. `vercel.json`'s `buildCommand` (`scripts/vercel-build.mjs`) checks `VERCEL_ENV`: on `preview` it applies migrations and seeds safe curriculum/test fixtures (`db/seed/preview.ts`, reusing spec 22's E2E fixture set) before `next build`; on `production` it builds only, since `deploy-production.yml` already migrated production before calling into this build. The integration's own parent-branch setting should point at a schema-bearing, non-production branch — the same role `NEON_TEST_PARENT_BRANCH` plays for CI's ephemeral integration-test branches.
+
+## GitHub Environments and Secrets
+
+Two GitHub Environments exist: `preview` and `production`. Production secrets (migration credentials, `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `CRON_SECRET`) belong only to the `production` Environment, which only `deploy-production.yml` — triggered solely by a push to `main` — can request. A pull-request-triggered workflow can never resolve a `production`-scoped secret, regardless of who authored the branch, because GitHub Environment protection rules (not the workflow YAML) enforce that boundary.
+
+## Production Terraform State
+
+`infra/terraform/environments/production` (the curriculum-import AWS pipeline promoted to production, spec 19 → spec 23) uses a remote S3 backend with DynamoDB state locking, both created once by `infra/terraform/bootstrap` — a small, deliberately separate, locally-stated configuration whose only job is to create that backend before anything can point at it. Production `.tfstate` is never committed; `infra/terraform/environments/dev` remains local/committed state, a single-operator sandbox exception unrelated to production. A GitHub Actions OIDC role (`infra/terraform/bootstrap`) exists for future CI-driven applies, scoped to exactly the production resources this module creates — nothing in the current workflow set assumes it yet.
 
 ---
 
@@ -2182,6 +2207,8 @@ The codebase must never violate the following rules:
 
 **Why:** Keeps the gate that decides whether code is safe in the same place as the code and its review, while leaving build and deploy to the platform already hosting the application.
 
+**Refined by ADR-021:** this still holds for preview deployments; production deployment moved to a GitHub Actions workflow so migration ordering could be guaranteed, not left to Vercel's build timing.
+
 ## ADR-012 — Ephemeral Preview Databases
 
 **Decision:** Each pull request gets its own database branch, created on open and deleted on close, seeded from curriculum fixtures.
@@ -2306,6 +2333,34 @@ foreign-key/constraint machinery the same way ADR-019 does. Normal learner
 queries, aggregates, and dashboard data must still explicitly exclude users
 where `is_sandbox` is true — this decision makes that the only place
 isolation needs enforcing, not a guarantee that no code will ever forget to.
+
+---
+
+## ADR-021 — GitHub Actions, Not Vercel Git Integration, Owns Production Deployment
+
+**Decision:** Vercel's Git integration continues to build every pull request
+as a preview deployment, but is configured to never auto-deploy `main` to
+production. Production deployment instead runs through
+`deploy-production.yml`, which applies production migrations, builds the
+exact merged commit, deploys it to Vercel production via the Vercel CLI, and
+runs a smoke test — in that fixed order.
+
+**Why:** ADR-011 originally left continuous deployment to "Vercel's Git
+integration, gated on required GitHub status checks." That gate stops a bad
+commit from reaching `main`, but does nothing to order what happens _after_
+a good commit lands: Vercel's own git-triggered build has no way to know a
+production migration needs to run first, so it could race one — exactly the
+case ADR-013's forward-only migrations and the Expand/Migrate/Contract
+sequence assume never happens. Spec 23 makes this ordering an explicit,
+code-owned pipeline step instead of an implicit assumption about deployment
+timing.
+
+**Relationship to existing decisions:** Refines ADR-011 rather than
+replacing it — CI ownership by GitHub Actions is unchanged, and preview
+deployment still uses Vercel's Git integration exactly as before. Composes
+with ADR-012 (preview databases) and ADR-013 (forward-only migrations): this
+ADR is what makes ADR-013's ordering assumption actually true in production,
+not just documented.
 
 ---
 
