@@ -15,7 +15,7 @@ export function PracticeCard({ icon: Icon, label, href }: PracticeCardProps) {
       href={href}
       className="group rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
     >
-      <Card className="items-center gap-2 py-6 text-center transition-colors group-hover:border-primary/40">
+      <Card className="items-center gap-2 py-6 text-center transition-colors group-hover:border-muted-foreground">
         <Icon className="h-6 w-6 text-primary" aria-hidden="true" />
         <CardContent className="px-0">
           <span className="font-heading text-sm font-medium text-foreground">

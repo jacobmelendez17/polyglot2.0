@@ -94,6 +94,23 @@ describe("validateVocabularyImportRow", () => {
     expect(result.fields).toMatchObject({ article: null });
   });
 
+  it.each(["N/A", "n/a", " N/a "])(
+    "treats %j in an optional field as absent, not a literal value",
+    (naValue) => {
+      const result = validateVocabularyImportRow(
+        {
+          word: "cero",
+          translation: "zero",
+          level: "1",
+          group: "1",
+          article: naValue,
+        },
+        0,
+      );
+      expect(result.fields).toMatchObject({ article: null });
+    },
+  );
+
   it(`treats group ${GRAMMAR_GROUP_NUMBER} as a grammar row — word/translation become structure/primaryMeaning, explanation is left blank`, () => {
     const result = validateVocabularyImportRow(
       {

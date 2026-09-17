@@ -38,8 +38,18 @@ export function CurriculumTable({
   const allSelected =
     items.length > 0 && items.every((item) => selectedIds.has(item.id));
 
+  /*
+   * `[contain:paint]` is load-bearing, not cosmetic — see
+   * `components/admin/dictionary/mapping-queue-table.tsx`, which documents
+   * the same pre-existing problem on this exact table (measured at a 390px
+   * viewport: `documentElement.scrollWidth` 513, `window.scrollX` reaching
+   * 123 after a scroll attempt) and the live-tested candidates that did not
+   * work (`width:100%`, `max-width:100%`, `overflow-x:clip`,
+   * `display:grid`). Safe here for the same reason: nothing inside is
+   * absolutely or fixed positioned.
+   */
   return (
-    <div className="overflow-x-auto rounded-xl border border-border">
+    <div className="overflow-x-auto rounded-xl border border-border [contain:paint]">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border bg-muted/50 text-left text-xs font-medium text-muted-foreground">

@@ -1,16 +1,28 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 
 import { cn } from "@/lib/utils";
 
-// Reduced-motion preference and IntersectionObserver support are static browser
-// capabilities, not values that change over the component's lifetime — reading them
-// during the initial-state computation (rather than via a post-mount effect + setState)
-// avoids an unnecessary extra render.
-function resolveInitialVisibility(): boolean {
-  if (typeof window === "undefined") return false;
+// Reduced-motion preference and IntersectionObserver support are static
+// browser capabilities the server can't know, and neither ever changes over
+// the component's lifetime — there is nothing to subscribe to. `useSyncExternalStore`
+// is still the right tool for reading them: its server snapshot (`false`)
+// is what both the server and the client's first hydration pass render, so
+// hydration never mismatches, and React re-renders with the real client
+// snapshot immediately afterward — before paint, so a real reduced-motion
+// user still never sees a flash of invisible content.
+function subscribe(): () => void {
+  return () => {};
+}
 
+function getSnapshot(): boolean {
   const prefersReducedMotion =
     typeof window.matchMedia === "function" &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -18,6 +30,10 @@ function resolveInitialVisibility(): boolean {
   return (
     prefersReducedMotion || typeof window.IntersectionObserver === "undefined"
   );
+}
+
+function getServerSnapshot(): boolean {
+  return false;
 }
 
 export function Reveal({
@@ -30,7 +46,13 @@ export function Reveal({
   delayMs?: number;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [isVisible, setIsVisible] = useState(resolveInitialVisibility);
+  const immediatelyVisible = useSyncExternalStore(
+    subscribe,
+    getSnapshot,
+    getServerSnapshot,
+  );
+  const [observedVisible, setObservedVisible] = useState(false);
+  const isVisible = immediatelyVisible || observedVisible;
 
   useEffect(() => {
     if (isVisible) return;
@@ -41,7 +63,7 @@ export function Reveal({
     const observer = new window.IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          setIsVisible(true);
+          setObservedVisible(true);
           observer.unobserve(node);
         }
       },

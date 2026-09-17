@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { and, eq } from "drizzle-orm";
+import { and, count, eq, lt } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 
 import type { DbClient } from "@/db/client";
@@ -275,6 +275,19 @@ describe("withIdempotency", () => {
       const expiredKey = randomUUID();
       const freshKey = randomUUID();
 
+      // `cleanupExpiredIdempotencyKeys` is intentionally global — it deletes
+      // every expired row in the table, not just this test's own. On the
+      // shared `polyglot-test` branch that can include rows accumulated from
+      // ordinary use between sessions (see progress-tracker.md Next Up #32),
+      // so asserting an absolute `deletedCount` is not this test's data to
+      // own. Assert the delta this test's own insert caused instead — the
+      // fix that doesn't depend on the table starting empty of other expired
+      // rows.
+      const [{ count: expiredBefore }] = await tx
+        .select({ count: count() })
+        .from(idempotencyKeys)
+        .where(lt(idempotencyKeys.expiresAt, new Date()));
+
       await tx.insert(idempotencyKeys).values({
         userId: learnerId,
         operation: "test.expired",
@@ -293,7 +306,7 @@ describe("withIdempotency", () => {
       });
 
       const deletedCount = await cleanupExpiredIdempotencyKeys(tx);
-      expect(deletedCount).toBe(1);
+      expect(deletedCount).toBe(expiredBefore + 1);
 
       const [expiredRow] = await tx
         .select()

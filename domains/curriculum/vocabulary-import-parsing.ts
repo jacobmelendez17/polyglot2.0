@@ -142,9 +142,18 @@ export type ValidatedImportRow = {
   fieldIssues: ImportRowFieldIssue[];
 };
 
+/**
+ * A spreadsheet's placeholder for "doesn't apply" (`N/A`, any case) is
+ * exactly as absent as a truly blank cell — without this, an authored file
+ * that writes `N/A` in `article` for e.g. numerals stores the literal string
+ * "N/A" as the word's article, and every place that composes "article +
+ * term" for display (`level-view.ts`, `deck-practice.ts`, ...) prints "N/A
+ * cero" instead of "cero".
+ */
 function emptyToUndefined(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
-  return trimmed ? trimmed : undefined;
+  if (!trimmed || trimmed.toLowerCase() === "n/a") return undefined;
+  return trimmed;
 }
 
 /**
