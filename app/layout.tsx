@@ -42,6 +42,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       className={`${shantellSans.variable} ${lora.variable} ${inter.variable} ${geistMono.variable} h-full antialiased`}
+      // The pre-hydration bootstrap script in <head> below sets
+      // data-palette/data-font-family/data-font-scale/data-color-blind (and
+      // the dark class) from localStorage before React hydrates, to avoid a
+      // theme flash — the server can't know that value, so this attribute
+      // mismatch is expected here and only here.
+      suppressHydrationWarning
     >
       <head>
         {/* Spec 20 Appearance — "Avoid Theme Flash": must run before the body paints, so it lives directly in <head> rather than anywhere hydration-ordered. */}
