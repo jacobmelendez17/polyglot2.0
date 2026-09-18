@@ -18,6 +18,7 @@
     "sprites:build": "node scripts/build-sprites.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:migrate-concurrent": "tsx --env-file=.env.local scripts/apply-concurrent-migration.ts",
     "db:verify": "drizzle-kit check",
     "db:seed": "tsx --env-file=.env.local db/seed/run.ts",
     "db:cleanup-idempotency": "tsx --env-file=.env.local db/seed/cleanup-idempotency.ts",

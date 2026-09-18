@@ -618,7 +618,7 @@ Extends the Drizzle Schema and Migrations section above.
 - Review every generated migration before committing. Generators produce destructive statements without warning.
 - One logical schema change per migration. A migration doing four unrelated things cannot be reasoned about when it fails halfway.
 - Never edit a migration that has been merged.
-- Index creation on a populated table uses the concurrent form and sits in its own migration.
+- Index creation on a populated table uses the concurrent form and sits in its own migration (`index(...).on(...).concurrently()` in the schema — `drizzle-kit generate` emits correct `CREATE INDEX CONCURRENTLY` SQL for it). **`npm run db:migrate` cannot run that migration** — confirmed 2026-09-17 by reading `drizzle-orm`'s installed `pg-core/dialect.js`: it wraps every pending migration file into one shared transaction before running any of their statements, and Postgres unconditionally rejects `CONCURRENTLY` inside a transaction block. Apply a concurrent-index migration with `npm run db:migrate-concurrent -- <tag>` instead (`scripts/apply-concurrent-migration.ts`), which runs it directly outside a transaction and hand-records it in `__drizzle_migrations` — then continue with `npm run db:migrate` as usual for anything after it in the journal.
 - Adding a non-nullable column to a populated table requires a default or a backfill-then-constrain sequence across separate migrations.
 - Backfills are batched and resumable. A single statement updating every row will lock the table.
 - A migration introducing a query pattern also introduces its supporting index.
