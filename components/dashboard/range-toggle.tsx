@@ -44,14 +44,26 @@ export function RangeToggle<T extends string>({
                 : "text-muted-foreground hover:text-foreground",
             )}
           >
+            {/* No z-index on the pill (it previously used `-z-10`): none of
+                this button's ancestors establish their own stacking context,
+                so a negative z-index sent it all the way out to the page's
+                *root* stacking context — where it painted behind every other
+                card's own background, invisible, rather than just behind its
+                own label. With no z-index, `position: absolute` alone
+                already promotes the pill above plain in-flow text — but that
+                same rule means it would paint above the label regardless of
+                DOM order too, so the label is wrapped in `relative` to
+                become a positioned element itself, putting both in the same
+                paint layer where tree order (pill first, so it's beneath)
+                decides between them. */}
             {isActive ? (
               <motion.span
                 layoutId={layoutId}
-                className="absolute inset-0 -z-10 rounded-full bg-primary"
+                className="absolute inset-0 rounded-full bg-primary"
                 transition={{ type: "spring", bounce: 0.15, duration: 0.35 }}
               />
             ) : null}
-            {option.label}
+            <span className="relative">{option.label}</span>
           </button>
         );
       })}
