@@ -37,7 +37,7 @@ export function Footer({ className }: { className?: string }) {
 
   return (
     <footer className={cn("border-t border-border bg-background", className)}>
-      <div className="mx-auto max-w-6xl px-2 py-12 sm:px-3 lg:px-4">
+      <div className="mx-auto max-w-6xl px-2 py-6 sm:px-3 lg:px-4">
         <div className="flex flex-col gap-10 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <Link
@@ -64,7 +64,7 @@ export function Footer({ className }: { className?: string }) {
           container above so it spans the whole footer, not just the
           content column. */}
       <div className="border-t border-border">
-        <div className="mx-auto max-w-6xl px-2 py-6 text-sm text-muted-foreground sm:px-3 lg:px-4">
+        <div className="mx-auto max-w-6xl px-2 py-3 text-sm text-muted-foreground sm:px-3 lg:px-4">
           <p>
             &copy; {year} {APP_NAME} &middot; {APP_VERSION_LABEL}
           </p>
