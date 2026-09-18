@@ -9,7 +9,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { EmptyState } from "@/components/dashboard/empty-state";
 import type { DashboardData } from "@/domains/dashboard";
 
 type LessonsCardProps = {
@@ -36,11 +35,23 @@ export function LessonsCard({ lessons }: LessonsCardProps) {
             </Button>
           </div>
         ) : (
-          <EmptyState
-            icon={BookOpen}
-            title="No lessons available right now"
-            description="New lessons unlock as you review and level up."
-          />
+          // A single row, matching the height of the button row above — the
+          // shared `EmptyState` component's stacked icon/title/description
+          // layout is much taller, and since this card shares a grid row
+          // with `ReviewsCard`, a taller empty state here stretched both
+          // cards to match it.
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+            <BookOpen
+              className="h-4 w-4 shrink-0 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <span className="font-medium text-foreground">
+              No lessons available right now
+            </span>
+            <span className="text-muted-foreground">
+              New lessons unlock as you review and level up.
+            </span>
+          </div>
         )}
       </CardContent>
     </Card>

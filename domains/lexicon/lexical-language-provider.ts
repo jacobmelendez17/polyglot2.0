@@ -106,21 +106,35 @@ const SPANISH_REGION_LABELS: Record<string, string> = {
 };
 
 /**
+ * Inverted `¿`/`¡` and terminal punctuation are meaningful in
+ * `normalizeLexicalForm` (duplicate detection, answer checking) and stay
+ * untouched there — but Wiktionary lemmatizes a full sentence like
+ * `¿cómo estás?` as `cómo estás`, with no punctuation at all. Deliberately
+ * tiny and closed, matching `PUNCTUATION_SUBSTITUTIONS`'s own precedent: only
+ * strips from the *ends* of the whole phrase, never mid-string, so it cannot
+ * turn one word into two.
+ */
+const SURROUNDING_PUNCTUATION_PATTERN = /^[¿¡?!.,;:]+|[¿¡?!.,;:]+$/g;
+
+/**
  * Spanish lexical behavior (spec 12 "Spanish Matching").
  *
- * The only structural transformation is article removal, and only where it
- * is actually appropriate: the leading token must be an article *and*
- * something must remain after it. Spec 12 is explicit that the first token
- * of every phrase must not be blindly stripped — so `por favor`, `de nada`,
- * and `buenos días` all yield exactly one lookup form, their own, while
- * `el padre` yields `el padre` then `padre`.
+ * The only structural transformations are article removal and stripping
+ * surrounding punctuation, and only where each is actually appropriate: the
+ * leading token must be an article *and* something must remain after it;
+ * punctuation is stripped only from the start/end of the whole phrase, never
+ * from the middle. Spec 12 is explicit that the first token of every phrase
+ * must not be blindly stripped — so `por favor`, `de nada`, and
+ * `buenos días` all yield exactly one lookup form, their own, while
+ * `el padre` yields `el padre` then `padre`, and `¿cómo estás?` yields
+ * `¿cómo estás?` then `cómo estás`.
  *
  * Note what this deliberately does not do: it never splits a multiword
  * expression into component words. Every form it returns is either the whole
- * input or the whole input minus a leading article, so the matcher can treat
- * each lookup form as an indivisible unit and spec 12's "do not fabricate a
- * dictionary entry by combining separate words" holds structurally rather
- * than by convention.
+ * input, the whole input minus a leading article, or the whole input minus
+ * surrounding punctuation, so the matcher can treat each lookup form as an
+ * indivisible unit and spec 12's "do not fabricate a dictionary entry by
+ * combining separate words" holds structurally rather than by convention.
  */
 export const spanishLexicalProvider: LexicalLanguageProvider = {
   languageCode: "es",
@@ -137,6 +151,16 @@ export const spanishLexicalProvider: LexicalLanguageProvider = {
     if (tokens.length > 1 && SPANISH_ARTICLES.has(tokens[0])) {
       const withoutArticle = tokens.slice(1).join(" ");
       if (withoutArticle.length > 0) lookups.push(withoutArticle);
+    }
+
+    const withoutPunctuation = normalized
+      .replace(SURROUNDING_PUNCTUATION_PATTERN, "")
+      .trim();
+    if (
+      withoutPunctuation.length > 0 &&
+      !lookups.includes(withoutPunctuation)
+    ) {
+      lookups.push(withoutPunctuation);
     }
 
     return lookups;

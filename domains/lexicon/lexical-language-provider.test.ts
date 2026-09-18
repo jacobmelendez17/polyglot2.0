@@ -92,6 +92,29 @@ describe("spanishLexicalProvider.deriveDictionaryLookups", () => {
   it("returns nothing for an empty display word", () => {
     expect(spanishLexicalProvider.deriveDictionaryLookups("   ")).toEqual([]);
   });
+
+  it("strips surrounding punctuation as an additional lookup form, keeping the original first", () => {
+    // The real curriculum item Wiktionary lemmatizes with no punctuation at all.
+    expect(
+      spanishLexicalProvider.deriveDictionaryLookups("¿cómo estás?"),
+    ).toEqual(["¿cómo estás?", "cómo estás"]);
+    expect(spanishLexicalProvider.deriveDictionaryLookups("¡hola!")).toEqual([
+      "¡hola!",
+      "hola",
+    ]);
+  });
+
+  it("does not duplicate a lookup form that already has no surrounding punctuation", () => {
+    expect(spanishLexicalProvider.deriveDictionaryLookups("hola")).toEqual([
+      "hola",
+    ]);
+  });
+
+  it("never strips punctuation from the middle of a phrase", () => {
+    expect(
+      spanishLexicalProvider.deriveDictionaryLookups("sí, gracias"),
+    ).toEqual(["sí, gracias"]);
+  });
 });
 
 describe("spanishLexicalProvider.regionCodeForSourceLabel", () => {

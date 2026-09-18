@@ -8,6 +8,7 @@ import {
   countProgressForItems,
   getDueReviewItems,
   getNextUpcomingReviewAt,
+  getProgressCountsByStage,
   getUnlockedLevels,
   getUpcomingReviewForecast,
 } from "@/domains/progress/repository";
@@ -17,6 +18,7 @@ import { resolveUserNow } from "@/domains/users/user-clock";
 import {
   buildForecastBuckets,
   buildReviewHistoryBuckets,
+  buildStageProgress,
   buildStreak,
 } from "./dashboard-aggregation";
 import type { DashboardData } from "./dashboard-types";
@@ -59,6 +61,7 @@ export async function getDashboardData(
     historyTimestamps,
     unlockedLevelProgress,
     allLevels,
+    stageCounts,
   ] = await Promise.all([
     getEligibleLessonItems(db, userId, languageId),
     getDueReviewItems(db, userId, languageId, now),
@@ -72,6 +75,7 @@ export async function getDashboardData(
     }),
     getUnlockedLevels(db, userId, languageId),
     getLevelsByLanguage(db, languageId),
+    getProgressCountsByStage(db, userId, languageId),
   ]);
 
   // Nothing currently due doesn't mean nothing is scheduled — check for the
@@ -123,6 +127,7 @@ export async function getDashboardData(
     },
     forecast: buildForecastBuckets(now, forecastItems),
     reviewHistory: buildReviewHistoryBuckets(now, historyTimestamps),
+    stageProgress: buildStageProgress(stageCounts),
     levelProgress: {
       currentLevel: currentLevelNumber,
       streak: buildStreak(now, historyTimestamps),

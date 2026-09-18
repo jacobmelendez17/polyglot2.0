@@ -15,5 +15,7 @@ export type {
   ReviewHistoryPoint,
   ReviewHistoryRange,
   ReviewsSummary,
+  StageGroup,
+  StageProgressBucket,
   StreakDay,
 } from "./dashboard-types";

@@ -67,6 +67,13 @@ const POPULATED_DASHBOARD: DashboardData = {
     grammar: { learned: 7, total: 12 },
     overall: { learned: 38, total: 60 },
   },
+  stageProgress: [
+    { stage: "beginner", label: "Beginner", vocabularyCount: 12, grammarCount: 3 },
+    { stage: "familiar", label: "Familiar", vocabularyCount: 9, grammarCount: 2 },
+    { stage: "intermediate", label: "Intermediate", vocabularyCount: 6, grammarCount: 1 },
+    { stage: "master", label: "Master", vocabularyCount: 3, grammarCount: 1 },
+    { stage: "fluent", label: "Fluent", vocabularyCount: 1, grammarCount: 0 },
+  ],
 };
 
 const NEW_USER_DASHBOARD: DashboardData = {
@@ -81,6 +88,13 @@ const NEW_USER_DASHBOARD: DashboardData = {
     grammar: { learned: 0, total: 12 },
     overall: { learned: 0, total: 60 },
   },
+  stageProgress: [
+    { stage: "beginner", label: "Beginner", vocabularyCount: 0, grammarCount: 0 },
+    { stage: "familiar", label: "Familiar", vocabularyCount: 0, grammarCount: 0 },
+    { stage: "intermediate", label: "Intermediate", vocabularyCount: 0, grammarCount: 0 },
+    { stage: "master", label: "Master", vocabularyCount: 0, grammarCount: 0 },
+    { stage: "fluent", label: "Fluent", vocabularyCount: 0, grammarCount: 0 },
+  ],
 };
 
 describe("DashboardView", () => {
@@ -103,12 +117,19 @@ describe("DashboardView", () => {
       screen.getByRole("heading", { name: "Level Progress" }),
     ).toBeInTheDocument();
     expect(
+      screen.getByRole("heading", { name: "Progress" }),
+    ).toBeInTheDocument();
+    expect(
       screen.getByRole("heading", { name: "Practice" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Speaking" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Listening" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Reading" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Writing" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "News" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Community" }),
+    ).toBeInTheDocument();
   });
 
   it("renders the new-user empty states instead of populated data", () => {

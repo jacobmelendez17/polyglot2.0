@@ -208,6 +208,22 @@ describe("getDashboardData", () => {
       // Level 1 has 1 grammar item; the learner has no progress on it.
       expect(data.levelProgress.grammar).toEqual({ learned: 0, total: 1 });
       expect(data.levelProgress.overall).toEqual({ learned: 1, total: 4 });
+
+      // gato is the only progress row, seeded at `srsStage: "beginner_2"` —
+      // it should fold into the "beginner" group's vocabulary count, and
+      // nowhere else.
+      const beginner = data.stageProgress.find((b) => b.stage === "beginner");
+      expect(beginner).toEqual({
+        stage: "beginner",
+        label: "Beginner",
+        vocabularyCount: 1,
+        grammarCount: 0,
+      });
+      expect(
+        data.stageProgress
+          .filter((b) => b.stage !== "beginner")
+          .every((b) => b.vocabularyCount === 0 && b.grammarCount === 0),
+      ).toBe(true);
     });
   });
 

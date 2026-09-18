@@ -1,8 +1,11 @@
+import type { SrsStage } from "@/domains/srs";
 import { previousDateKey } from "@/lib/time/zoned-date";
 
 import type {
   ForecastBucket,
   ReviewHistoryPoint,
+  StageGroup,
+  StageProgressBucket,
   StreakDay,
 } from "./dashboard-types";
 
@@ -163,6 +166,65 @@ export function buildStreak(now: Date, reviewTimestamps: Date[]): StreakDay[] {
       label: WEEKDAY_LABELS[date.getDay()],
       isActive: activeDates.has(dateKey),
       isToday: daysAgo === 0,
+    };
+  });
+}
+
+/** Which of the 5 general stage groups (`SRS_STAGE_GROUP_ORDER`) each of the 9 raw `SrsStage` values belongs to — see `StageGroup` in `dashboard-types.ts`. */
+const SRS_STAGE_GROUP: Record<SrsStage, StageGroup> = {
+  beginner_1: "beginner",
+  beginner_2: "beginner",
+  beginner_3: "beginner",
+  beginner_4: "beginner",
+  familiar_1: "familiar",
+  familiar_2: "familiar",
+  intermediate: "intermediate",
+  master: "master",
+  fluent: "fluent",
+};
+
+export const SRS_STAGE_GROUP_ORDER: readonly StageGroup[] = [
+  "beginner",
+  "familiar",
+  "intermediate",
+  "master",
+  "fluent",
+];
+
+const SRS_STAGE_GROUP_LABELS: Record<StageGroup, string> = {
+  beginner: "Beginner",
+  familiar: "Familiar",
+  intermediate: "Intermediate",
+  master: "Master",
+  fluent: "Fluent",
+};
+
+export type StageProgressSourceRow = {
+  itemType: "vocabulary" | "grammar";
+  stage: SrsStage;
+  count: number;
+};
+
+/**
+ * Folds the 9 raw SRS stages `getProgressCountsByStage` returns down into
+ * the 5 general groups the Progress card displays — always all 5, in order,
+ * zero-filled where the learner has nothing at that stage yet, so the card
+ * never has to special-case a missing bucket.
+ */
+export function buildStageProgress(
+  rows: StageProgressSourceRow[],
+): StageProgressBucket[] {
+  return SRS_STAGE_GROUP_ORDER.map((group) => {
+    const matching = rows.filter((row) => SRS_STAGE_GROUP[row.stage] === group);
+    return {
+      stage: group,
+      label: SRS_STAGE_GROUP_LABELS[group],
+      vocabularyCount: matching
+        .filter((row) => row.itemType === "vocabulary")
+        .reduce((sum, row) => sum + row.count, 0),
+      grammarCount: matching
+        .filter((row) => row.itemType === "grammar")
+        .reduce((sum, row) => sum + row.count, 0),
     };
   });
 }

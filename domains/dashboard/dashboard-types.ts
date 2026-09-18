@@ -32,6 +32,21 @@ export type StreakDay = {
   isToday: boolean;
 };
 
+/** The 5 general SRS stage groups shown on the Progress card — `beginner_1`..`beginner_4` collapse to `"beginner"`, `familiar_1`/`familiar_2` collapse to `"familiar"`, and the remaining 3 stages map 1:1. */
+export type StageGroup =
+  | "beginner"
+  | "familiar"
+  | "intermediate"
+  | "master"
+  | "fluent";
+
+export type StageProgressBucket = {
+  stage: StageGroup;
+  label: string;
+  vocabularyCount: number;
+  grammarCount: number;
+};
+
 export type LevelProgress = {
   currentLevel: number;
   streak: StreakDay[];
@@ -58,4 +73,6 @@ export type DashboardData = {
   forecast: Record<ForecastRange, ForecastBucket[]>;
   reviewHistory: Record<ReviewHistoryRange, ReviewHistoryPoint[]>;
   levelProgress: LevelProgress;
+  /** Always the 5 groups in `SRS_STAGE_GROUP_ORDER`, zero-filled where the learner has nothing at that stage yet. */
+  stageProgress: StageProgressBucket[];
 };

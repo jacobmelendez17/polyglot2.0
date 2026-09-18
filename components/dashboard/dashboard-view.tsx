@@ -1,7 +1,10 @@
+import { CommunityCard } from "@/components/dashboard/community-card";
 import { ItemForecastCard } from "@/components/dashboard/item-forecast-card";
 import { LessonsCard } from "@/components/dashboard/lessons-card";
 import { LevelProgressCard } from "@/components/dashboard/level-progress-card";
+import { NewsCard } from "@/components/dashboard/news-card";
 import { PracticeGrid } from "@/components/dashboard/practice-grid";
+import { ProgressCard } from "@/components/dashboard/progress-card";
 import { ReviewHistoryCard } from "@/components/dashboard/review-history-card";
 import { ReviewsCard } from "@/components/dashboard/reviews-card";
 import type { DashboardData } from "@/domains/dashboard";
@@ -29,7 +32,16 @@ export function DashboardView({ data }: { data: DashboardData }) {
       </div>
 
       <div className="mt-6">
+        <ProgressCard stageProgress={data.stageProgress} />
+      </div>
+
+      <div className="mt-6">
         <PracticeGrid />
+      </div>
+
+      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <NewsCard />
+        <CommunityCard />
       </div>
     </>
   );

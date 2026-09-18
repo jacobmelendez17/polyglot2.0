@@ -36,7 +36,9 @@ export function RangeToggle<T extends string>({
             aria-pressed={isActive}
             onClick={() => onChange(option.value)}
             className={cn(
-              "relative rounded-md px-3 py-1 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+              // `cursor-pointer` is explicit — Tailwind v4's preflight leaves
+              // a <button> at the browser default `cursor: default`.
+              "relative cursor-pointer rounded-full px-3 py-1 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
               isActive
                 ? "text-primary-foreground"
                 : "text-muted-foreground hover:text-foreground",
@@ -45,7 +47,7 @@ export function RangeToggle<T extends string>({
             {isActive ? (
               <motion.span
                 layoutId={layoutId}
-                className="absolute inset-0 -z-10 rounded-md bg-primary"
+                className="absolute inset-0 -z-10 rounded-full bg-primary"
                 transition={{ type: "spring", bounce: 0.15, duration: 0.35 }}
               />
             ) : null}

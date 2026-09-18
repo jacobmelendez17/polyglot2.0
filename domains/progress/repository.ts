@@ -254,6 +254,49 @@ export async function getUpcomingReviewForecast(
   }));
 }
 
+export type ProgressStageCount = {
+  itemType: "vocabulary" | "grammar";
+  stage: SrsStage;
+  count: number;
+};
+
+/**
+ * Every (item type, SRS stage) pair the user has any progress in, across
+ * the whole language — the dashboard's Progress card (spec 13). Grouped in
+ * SQL rather than fetched row-by-row since a learner can have hundreds of
+ * progress rows per language; `dashboard-aggregation.ts` folds the 9 raw
+ * stages down into the 5 general stage groups the card actually displays.
+ */
+export async function getProgressCountsByStage(
+  db: DbClient,
+  userId: string,
+  languageId: string,
+): Promise<ProgressStageCount[]> {
+  const rows = await db
+    .select({
+      itemType: learningItems.type,
+      stage: userItemProgress.srsStage,
+      value: count(),
+    })
+    .from(userItemProgress)
+    .innerJoin(
+      learningItems,
+      eq(learningItems.id, userItemProgress.learningItemId),
+    )
+    .where(
+      and(
+        eq(userItemProgress.userId, userId),
+        eq(userItemProgress.languageId, languageId),
+      ),
+    )
+    .groupBy(learningItems.type, userItemProgress.srsStage);
+  return rows.map((row) => ({
+    itemType: row.itemType,
+    stage: row.stage,
+    count: row.value,
+  }));
+}
+
 /**
  * How many of the given learning items the user has any progress row for —
  * the dashboard's per-level "learned" count (spec 13). Bounded by

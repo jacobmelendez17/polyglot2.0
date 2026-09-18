@@ -3,10 +3,14 @@ import { describe, expect, it } from "vitest";
 import {
   buildForecastBuckets,
   buildReviewHistoryBuckets,
+  buildStageProgress,
   buildStreak,
   calculateCurrentStreakLength,
 } from "./dashboard-aggregation";
-import type { ForecastSourceItem } from "./dashboard-aggregation";
+import type {
+  ForecastSourceItem,
+  StageProgressSourceRow,
+} from "./dashboard-aggregation";
 
 const NOW = new Date("2026-08-30T12:00:00.000Z"); // a Sunday
 
@@ -102,6 +106,55 @@ describe("buildReviewHistoryBuckets", () => {
   it("returns all-zero points for no history", () => {
     const { "24h": h24 } = buildReviewHistoryBuckets(NOW, []);
     expect(h24.every((point) => point.completedCount === 0)).toBe(true);
+  });
+});
+
+describe("buildStageProgress", () => {
+  it("always returns all 5 general groups in order, folding the 9 raw stages down and zero-filling the rest", () => {
+    const rows: StageProgressSourceRow[] = [
+      { itemType: "vocabulary", stage: "beginner_1", count: 4 },
+      { itemType: "vocabulary", stage: "beginner_3", count: 2 },
+      { itemType: "grammar", stage: "beginner_2", count: 1 },
+      { itemType: "vocabulary", stage: "familiar_2", count: 5 },
+      { itemType: "grammar", stage: "fluent", count: 3 },
+    ];
+
+    const result = buildStageProgress(rows);
+
+    expect(result.map((bucket) => bucket.stage)).toEqual([
+      "beginner",
+      "familiar",
+      "intermediate",
+      "master",
+      "fluent",
+    ]);
+    expect(result).toEqual([
+      { stage: "beginner", label: "Beginner", vocabularyCount: 6, grammarCount: 1 },
+      { stage: "familiar", label: "Familiar", vocabularyCount: 5, grammarCount: 0 },
+      {
+        stage: "intermediate",
+        label: "Intermediate",
+        vocabularyCount: 0,
+        grammarCount: 0,
+      },
+      { stage: "master", label: "Master", vocabularyCount: 0, grammarCount: 0 },
+      { stage: "fluent", label: "Fluent", vocabularyCount: 0, grammarCount: 3 },
+    ]);
+  });
+
+  it("zero-fills every group when there is no progress at all", () => {
+    expect(buildStageProgress([])).toEqual([
+      { stage: "beginner", label: "Beginner", vocabularyCount: 0, grammarCount: 0 },
+      { stage: "familiar", label: "Familiar", vocabularyCount: 0, grammarCount: 0 },
+      {
+        stage: "intermediate",
+        label: "Intermediate",
+        vocabularyCount: 0,
+        grammarCount: 0,
+      },
+      { stage: "master", label: "Master", vocabularyCount: 0, grammarCount: 0 },
+      { stage: "fluent", label: "Fluent", vocabularyCount: 0, grammarCount: 0 },
+    ]);
   });
 });
 
