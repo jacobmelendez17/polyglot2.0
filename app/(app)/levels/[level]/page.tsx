@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { LevelContentView } from "@/components/levels/level-content-view";
 import { LevelPageHeader } from "@/components/levels/level-page-header";
 import { LevelSelector } from "@/components/levels/level-selector";
+import { Card, CardContent } from "@/components/ui/card";
 import { buildLevelViewModel, parseLevelNumber } from "@/domains/curriculum";
 import {
   getLevelByLanguageAndNumber,
@@ -52,10 +53,14 @@ export default async function LevelPage({ params }: LevelPageProps) {
   const { grammar, vocabulary } = buildLevelViewModel(items);
 
   return (
-    <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6 px-3 py-6 sm:px-4">
+    <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6 px-8 py-6 sm:px-14 lg:px-24">
       <LevelSelector currentLevel={levelNumber} />
-      <LevelPageHeader levelNumber={levelNumber} />
-      <LevelContentView grammar={grammar} vocabulary={vocabulary} />
+      <Card>
+        <CardContent className="flex flex-col gap-6">
+          <LevelPageHeader levelNumber={levelNumber} />
+          <LevelContentView grammar={grammar} vocabulary={vocabulary} />
+        </CardContent>
+      </Card>
     </div>
   );
 }
