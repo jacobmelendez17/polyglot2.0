@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { Check } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -169,6 +170,11 @@ export function CurriculumItemForm({
     existing?.grammar ?? EMPTY_GRAMMAR,
   );
   const [error, setError] = useState<string | null>(null);
+  // `null` = nothing saved yet this visit; a string is the confirmation
+  // shown after a successful save — its wording differs for a save that
+  // applied live versus one that only created a draft (spec 11's `savedAsDraft`),
+  // since those are very different outcomes for an admin to be told apart.
+  const [savedMessage, setSavedMessage] = useState<string | null>(null);
   const [duplicateCandidates, setDuplicateCandidates] = useState<
     { learningItemId: string; displayLabel: string }[] | null
   >(null);
@@ -178,6 +184,7 @@ export function CurriculumItemForm({
 
   function handleSubmit(approvedAsHomonymOf?: string) {
     setError(null);
+    setSavedMessage(null);
     startTransition(async () => {
       const fieldsPayload =
         type === "vocabulary"
@@ -220,8 +227,16 @@ export function CurriculumItemForm({
       setDuplicateCandidates(null);
       setIdempotencyKey(crypto.randomUUID());
       if (!existing && "learningItemId" in result.data) {
+        // Navigating to the new item's own page is itself the confirmation
+        // here — no separate message needed, and there is nothing yet on
+        // this page to attach one to.
         router.push(`/admin/curriculum/items/${result.data.learningItemId}`);
       } else {
+        setSavedMessage(
+          "savedAsDraft" in result.data && result.data.savedAsDraft
+            ? "Saved as a draft — publish this item to make the change live."
+            : "Saved.",
+        );
         router.refresh();
       }
     });
@@ -321,9 +336,20 @@ export function CurriculumItemForm({
         </p>
       ) : null}
 
-      <Button type="submit" disabled={isPending}>
-        {existing ? "Save" : "Create"}
-      </Button>
+      <div className="flex items-center gap-3">
+        <Button type="submit" disabled={isPending}>
+          {existing ? "Save" : "Create"}
+        </Button>
+        {savedMessage ? (
+          <span
+            role="status"
+            className="flex items-center gap-1 text-sm text-state-success"
+          >
+            <Check className="h-4 w-4" aria-hidden="true" />
+            {savedMessage}
+          </span>
+        ) : null}
+      </div>
     </form>
   );
 }
