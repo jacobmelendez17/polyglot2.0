@@ -1,0 +1,157 @@
+word,position,target_text,translation
+cero,1,¿Cómo saqué un cero en el examen?,How did I get a zero on the test?
+cero,2,Hace cinco grados sobre cero. ¡Qué frío!,It’s five degrees above zero! It’s so cold.
+cero,3,¡La regaste! Ahora tenemos que empezar desde cero.,You messed up! Now we have to start from scratch.
+uno,1,Solo traje uno: una toalla para la alberca. ¡Perdón!,I only brought one towel for the pool. Sorry!
+uno,2,Debería bastar con uno: una sandía para la caminata.,One watermelon should be enough for the hike.
+uno,3,Solo encontré un departamento con uno de cada cosa: una cama y un baño.,I could only find an apartment with one bed and one bath.
+dos,1,Tengo dos plumas. ¿Cuál quieres?,I have two pens. Which one do you want?
+dos,2,Han pasado dos meses desde el terremoto.,Two months have passed since the earthquake.
+dos,3,Tenemos dos mesas disponibles.,We have two tables available.
+tres,1,Los tres ratones ciegos son blancos.,The three blind mice are white.
+tres,2,Agrega tres tazas de azúcar al tazón.,Add three cups of sugar to the bowl.
+tres,3,No sabía que tres cerdos construyeron esas casas.,I didn’t know three pigs built those houses.
+cuatro,1,Pude visitar cuatro estados este año.,I was able to visit four states this year.
+cuatro,2,El equipo de fútbol ganó por cuatro goles anoche.,The soccer team won by four goals last night.
+cuatro,3,No pude dormir hasta las cuatro de la mañana.,I couldn’t sleep until four in the morning.
+cinco,1,Me pasé de la fecha límite por cinco minutos.,I missed the deadline by five minutes.
+cinco,2,¿Pagué cinco dólares por esto? Ni siquiera sabe rico.,I paid five dollars for this? It doesn’t even taste good.
+cinco,3,Alguien quitó cinco frutas de mi jardín.,Someone removed five fruits from my garden.
+seis,1,¿Ahora cuesta seis dólares? ¡Qué caro!,It costs six dollars now? So expensive.
+seis,2,Tengo el hábito de correr todas las mañanas a las seis de la mañana.,I make it a habit to run every morning at 6 AM.
+seis,3,Solo hay seis estudiantes en mi clase de álgebra.,There are only six students in my algebra class.
+siete,1,Esa pandilla lleva el nombre de los siete pecados capitales.,That gang is named after the seven sins.
+siete,2,¡Mi vestido costó siete billetes de cien dólares! Ahora está arruinado.,My dress cost seven hundred dollars! Now it’s ruined.
+siete,3,Hablemos de esto otra vez el siete de julio.,Let’s talk about this again on July 7.
+ocho,1,Solo faltan ocho años luz para llegar a nuestro planeta.,Only eight more light years until we reach our home planet.
+ocho,2,Los ocho caballos se escaparon anoche.,All eight horses escaped last night.
+ocho,3,Necesito completar ocho páginas antes de poder entregar este ensayo.,I need to complete eight pages before I can turn in this essay.
+nueve,1,Mi esposo y yo estaremos de vacaciones por nueve días.,My husband and I will be on vacation for nine days.
+nueve,2,El total de nuestras compras fue exactamente nueve dólares.,The total for our groceries came out to exactly nine dollars.
+nueve,3,No hay manera de que los nueve quepamos en ese carro.,There’s no way all nine of us will fit in that car.
+diez,1,"Para llegar a la tienda, la gente debe subir una escalera de diez pisos.","To reach the store, people must climb a ten-story staircase."
+diez,2,La próxima vez me aseguraré de comprar diez cajas.,I’ll make sure to buy ten boxes next time.
+diez,3,¿Te quedaría un zapato número diez?,Would a size ten shoe fit you?
+hola,1,¡Hola! Mucho gusto.,Hello! Nice to meet you.
+hola,2,¿Me oyes? ¿Hola?,Can you hear me? Hello?
+hola,3,¡Hola! ¡Cuánto tiempo sin verte!,Hello! It’s been a while!
+adiós,1,¡Adiós! Nos vemos el próximo año.,Goodbye! I’ll see you next year.
+adiós,2,Te veo mañana en el trabajo. Adiós.,I’ll see you at work tomorrow. Goodbye.
+adiós,3,Ese es el final de la presentación. Adiós.,That is the end of the presentation. Goodbye.
+gracias,1,Llevo todo el año pidiendo esto. ¡Gracias!,I’ve been asking for this all year. Thank you!
+gracias,2,Gracias por detener ese tren antes de que me atropellara.,Thank you for stopping that train from hitting me.
+gracias,3,"Ya es suficiente queso, gracias.","That’s enough cheese, thank you."
+por favor,1,"Habla más bajo, por favor.",Please talk more quietly.
+por favor,2,"Tres boletos, por favor.","Three tickets, please."
+por favor,3,"¡Por favor, ayúdanos! Eres nuestra única esperanza.",Please help us! You’re our only hope.
+perdón,1,"Perdón, ¿fuiste tú quien se echó un pedo?",Excuse me. Was that you who farted?
+perdón,2,"Perdón, pero ¿por qué lo invitaron? Apesta.","Sorry, but why was he invited? He stinks."
+perdón,3,"Después de perder la batalla, los soldados pidieron perdón.","After losing the battle, the soldiers asked for forgiveness."
+bien,1,No dormí bien en la incómoda cabaña.,I did not sleep well in the uncomfortable cabin.
+bien,2,Como bien después de nadar todo el día.,I eat well after swimming all day.
+bien,3,La obra salió bien porque todos actuaron correctamente su papel.,The play went well because everyone acted out their part correctly.
+mal,1,El restaurante cerró después de que a todos les quedó mal aliento por la comida.,The restaurant closed after everyone got bad breath from the food.
+mal,2,El cantante del concierto bailaba mal.,The singer performing at the concert was bad at dancing.
+mal,3,¿Está mal que no quisiera presentar el examen final?,Is it bad that I didn’t want to take the final test?
+aquí,1,Tus llaves estuvieron aquí todo el tiempo.,Your keys were over here the whole time.
+aquí,2,Huele muy mal aquí. ¿Podemos ir a otro lado?,It smells so bad here. Can we go somewhere else?
+aquí,3,Viajar aquí fue la mejor idea que tuvieron mis padres.,Traveling here was the best idea my parents had.
+ayuda,1,Pídele ayuda a la tortuga. Quizás sepa.,Ask the turtle for help. He might know.
+ayuda,2,A quienes la necesitan siempre se les debe ofrecer ayuda.,Those who need it should always be offered help.
+ayuda,3,¿Necesitas ayuda?,Do you need help?
+nombre,1,¿Cuál era tu nombre otra vez?,What was your name again?
+nombre,2,"Cada vez que iba a una fiesta, nunca recordaba el nombre de la chica con la que hablaba.","Every time he went to a party, he never remembered the name of the girl he spoke to."
+nombre,3,"Cuidado, aquí no debes decir su nombre.","Careful, you’re not supposed to say his name around here."
+familia,1,Mi familia se compone de tres niños y seis niñas.,My family consists of three boys and six girls.
+familia,2,No te preocupes por lo que piensa mi familia. Me gusta estar aquí.,Don’t worry about what my family thinks. I like it here.
+familia,3,La familia de enfrente creció preparándose para un apocalipsis que nunca llegó.,The family across the street grew up preparing for an apocalypse that never came.
+madre,1,Mi madre no siempre sabía qué era lo mejor para mí.,My mother didn’t always know what was best for me.
+madre,2,¿Esa es tu madre haciendo paracaidismo? ¡Qué valiente!,Is that your mother skydiving? She’s so brave!
+madre,3,La madre de la película se llamaba Crystal.,The mother in the movie was named Crystal.
+padre,1,¿Tu padre es apicultor? ¿Cuida abejas?,Is your father a beekeeper? He takes care of bees?
+padre,2,"Después de que murió mi padre, la corona pasó a mi hermano.","After my father died, the crown was given to my brother."
+padre,3,El padre de estas ovejas vivía en lo profundo de las montañas.,The father of these sheep lived deep in the mountains.
+padres,1,¿Crees que nuestros padres ya saben que estamos perdidos?,Do you think our parents know we are lost yet?
+padres,2,Los padres de esos niños nunca los educaron bien.,The parents of those kids never raised them properly.
+padres,3,Mis padres vinieron de Camboya.,My parents came from Cambodia.
+hermano,1,"¿Estás perdido, hermano? Nunca te había visto por aquí.","Are you lost, brother? I’ve never seen you around here."
+hermano,2,Su hermano tenía muchísimos trenes de juguete. Quería robarme uno.,Her brother owned so many toy trains. I wanted to steal one.
+hermano,3,¿Crees que tu hermano querría ir de excursión con nosotros?,Do you think your brother would want to hike with us?
+hermana,1,Mi familia se fue de vacaciones a Corea del Sur por el cumpleaños de mi hermana.,My family went on vacation to South Korea for my sister’s birthday.
+hermana,2,¿Esa era tu hermana? No te pareces en nada a ella.,That was your sister? You look nothing like her.
+hermana,3,No sé cómo es tener una hermana.,I don’t know what it’s like to have a sister.
+hijo,1,El hijo del rey nunca conoció la vida fuera de los muros.,The king’s son never knew life outside of the walls.
+hijo,2,¿Qué nombre le pondrás a nuestro hijo?,What will you name our son?
+hijo,3,Su hijo creció para ser un cirujano que salvó incontables vidas.,Her son grew up to be a surgeon that saved countless lives.
+hija,1,Mi hija menor tiene doce años.,My youngest daughter is twelve years old.
+hija,2,La hija quedó devastada al enterarse de que era daltónica.,The daughter was devastated to find out she was color blind.
+hija,3,¿Esa es tu hija? Acaba de robarme mi lápiz.,Is that your daughter? She just stole my pencil.
+abuelo,1,¿Tu abuelo no me oye? Solo sonríe cuando le hago una pregunta.,Can your grandfather not hear me? He only smiles when I ask him a question.
+abuelo,2,El abuelo estaba sentado en el café buscando a su esposa entre la multitud.,The grandfather sat at the cafe looking for his wife in the crowd.
+abuelo,3,"¡Gracias por venir a mi fiesta, abuelo! ¡Tomaste mucha cerveza!","Thank you for coming to my party, grandfather! You drank so much beer!"
+abuela,1,¿Por qué mi abuela parece un lobo hoy?,Why does my grandmother look like a wolf today?
+abuela,2,A la abuela le encantaba comer las galletas del hospital.,The grandmother loved eating the crackers from the hospital.
+abuela,3,Mi abuela viene de visita desde el norte.,My grandmother is visiting from the north.
+amigo,1,Conocí a este amigo porque choqué con su carro el año pasado.,I met this friend because I crashed into his car last year.
+amigo,2,¿Por qué es tan difícil hacer un amigo en esta ciudad?,Why is it so hard to make a friend in this city?
+amigo,3,"¡Hola, amigo! ¿Puedes ayudarme con mi llanta?","Hello, friend! Can you help me with my tire?"
+persona,1,Cada persona debe medir al menos cuatro pies para subirse al juego.,Every person must be at least four feet to get on the ride.
+persona,2,Esa persona no deja de mirarnos. ¿Será un asesino en serie?,That person keeps staring at us. Is he a serial killer?
+persona,3,La única persona en la que confío con mi vida es mi hermano.,The only person I trust with my life is my brother.
+rojo,1,¿Estás seguro de que ese carro es rojo? A mí me parece verde.,Are you sure that car is red? It looks green to me.
+rojo,2,Las páginas del libro están manchadas de un color rojo oscuro.,The book pages are stained with a dark red color.
+rojo,3,Me encanta recibir flores de color rojo en mi cumpleaños.,I love receiving red flowers on my birthday.
+azul,1,El agua cerca de la orilla parece más morada que azul.,The water near the shore looks more like purple than blue.
+azul,2,¿Puedes usar el sello azul en el sobre?,Can you use the blue stamp on the envelope?
+azul,3,"Haz el diseño del sitio web azul, porque es mi color favorito.",Make the website design blue since that’s my favorite color.
+blanco,1,Solo necesito una falda de color blanco para combinar con mi disfraz de Halloween.,I just need a white skirt to go with my outfit for Halloween.
+blanco,2,¿Por qué compraste zapatos de color blanco? Eres muy desordenado y se van a ensuciar.,Why did you buy white shoes? You’re such a messy person and they will get dirty.
+blanco,3,Se supone que las paredes de la casa que vendo son de color blanco.,The walls of the house I’m selling are supposed to be white.
+negro,1,Prefiero usar los bolígrafos de color negro porque son más baratos en la tienda.,I prefer to use the black pens because they are cheaper at the store.
+negro,2,¡Quemaste la carne! Ahora por fuera es de color negro.,You burnt the meat! Now it’s black on the outside.
+negro,3,¡Alguien encienda las luces! Aquí está negro como boca de lobo.,Someone turn on the lights! It’s pitch black in here.
+verde,1,Tuvimos que irnos porque el agua de las bebidas estaba verde.,We had to walk out because the water in the drinks was green.
+verde,2,El viejo marinero del barco tenía tristes ojos de color verde.,"The old sailor on the boat had sad, green eyes."
+verde,3,Solo compro plátanos si el color es verde.,I only buy bananas if they are green.
+gris,1,Esa es una zona gris. No sé mucho de eso.,That’s a gray area. I don’t know a lot about that.
+gris,2,¿Me pasas ese cuaderno? Es el gris.,Can you hand me that notebook? It’s the gray one.
+gris,3,Le di una mordida a mi hamburguesa y por dentro estaba gris.,I bit into my burger and the inside of it was gray.
+amarillo,1,¿Por qué me compraste un cepillo de dientes amarillo? Se ve feo.,Why did you buy me a yellow toothbrush? It looks ugly.
+amarillo,2,¡Todos miren el cielo! Está amarillo por el atardecer.,Everyone look at the sky! It’s yellow from the sunset.
+amarillo,3,Ese pato se ve verde. Pensé que todos los patos eran de color amarillo.,That duck looks green. I thought all ducks were yellow.
+naranja,1,El naranja hace que todos mis atuendos se vean mejor.,Orange makes all my outfits look nicer.
+naranja,2,Las luces del concierto tenían un tono naranja.,The lights at the concert had an orange tint.
+naranja,3,¿Estás en el equipo naranja? ¡Estás en mi equipo!,Are you on the orange team? You’re on my team!
+yo,1,Yo hablo inglés cuando hablo con mi padre y español con mi madre.,I speak English when I talk to my father and Spanish with my mother.
+yo,2,Yo no entraría al bosque si fuera tú.,I wouldn’t go in the forest if I were you.
+yo,3,¡Yo también toco el violín!,"I play the violin, too!"
+el,1,¡Perdí mi boleto para el vuelo!,I lost my ticket for the flight!
+el,2,El hotel donde nos hospedamos es muy elegante. Nuestra habitación tiene alberca.,The hotel we are staying at is so fancy. Our room has a pool.
+el,3,Me duele el brazo. ¿Debería ir al hospital?,My arm hurts. Should I go to the hospital?
+la,1,La tortuga se convierte en humanos a medianoche.,The turtle turns into humans at midnight.
+la,2,La reservación de mi familia es para las 7:00 p. m.,My family has a reservation for 7:00 PM.
+la,3,¿Estás diciendo la verdad? Parece que estás mintiendo.,Are you telling the truth? It sounds like you are lying.
+y,1,Normalmente sazono mi comida con sal y pimienta.,I usually season my food with salt and pepper.
+y,2,Asegúrate de que alimente a los caballos y limpie la cocina primero.,Make sure he feeds the horses and cleans the kitchen first.
+y,3,"Tengo pescado, pan y granos de café. ¿Qué te gustaría?","I have fish, bread, and coffee beans. What would you like?"
+o,1,¿Debería ir en bicicleta o correr al gimnasio hoy?,Should I bike or run to the gym today?
+o,2,¿Es difícil o solo eres flojo?,Is it hard or are you just lazy?
+o,3,Viajemos a Oregón o Washington esta primavera.,Let’s travel to Oregon or Washington this spring.
+pero,1,"Puedo intentarlo, pero no sé si la pintura se verá bien.","I can try, but I don’t know if the painting will look good."
+pero,2,"Normalmente es ruidoso, pero hoy David está muy callado.","He is usually loud, but today David is very quiet."
+pero,3,"Quiero comprar el juguete nuevo, pero no tengo dinero.","I want to buy the new toy, but I don’t have money."
+de,1,La estatua de la boda está hecha de azúcar.,The statue at the wedding is made of sugar.
+de,2,¿Acaba de terminar?,Did it just finish?
+de,3,"Soy de Japón, pero crecí en Brasil.","I’m from Japan, but I was raised in Brazil."
+a,1,El partido de fútbol es de 9 a 10 p. m.,The soccer match is from 9 to 10 PM.
+a,2,"Conozco a Sarah. Trabaja en el banco, ¿verdad?","I know Sarah. She works at the bank, right?"
+a,3,Veo a mi amigo los fines de semana porque estamos muy ocupados.,I see my friend on the weekends because we are so busy.
+en,1,Cada noche la escucho cantando en la regadera.,Every night I hear her singing in the shower.
+en,2,Mis amigos y yo estuvimos en Florencia en las vacaciones de verano.,My friends and I were in Florence for summer break.
+en,3,Las raíces del árbol están entrando en el sótano.,The roots of the tree are getting in the basement.
+con,1,"Quiero mantequilla con mi filete, por favor.","I want butter with my steak, please."
+con,2,Solo puedes venir con otra persona. No te dejarán entrar solo.,You can only come with another person. They won’t let you in alone.
+con,3,¿Hay descuento con eso?,Is there a discount with that?
+sin,1,Ahora puedo levantar 600 libras sin ayuda.,I’m able to lift 600 pounds without help now.
+sin,2,Tu cuarto se ve mejor sin esos pósters tan raros en tu puerta.,Your room looks better without those weird posters on your door.
+sin,3,¿Es posible aprender sin leer sobre ello?,Is it possible to learn without reading about it?
