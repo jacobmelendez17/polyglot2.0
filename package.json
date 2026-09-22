@@ -23,6 +23,7 @@
     "db:seed": "tsx --env-file=.env.local db/seed/run.ts",
     "db:cleanup-idempotency": "tsx --env-file=.env.local db/seed/cleanup-idempotency.ts",
     "curriculum:import": "tsx --env-file=.env.local scripts/curriculum-import.ts",
+    "curriculum:sentences": "tsx --env-file=.env.local scripts/curriculum-sentences-import.ts",
     "curriculum:reset": "tsx --env-file=.env.local scripts/curriculum-reset.ts",
     "leech:backfill": "tsx --env-file=.env.local scripts/backfill-leech-counters.ts",
     "lexicon:import": "tsx --env-file=.env.local scripts/lexicon-import.ts",
