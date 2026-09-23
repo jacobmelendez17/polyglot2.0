@@ -3,6 +3,9 @@ import {
   getLanguageById,
   getLearningItemsByIds,
 } from "@/domains/curriculum/curriculum-repository";
+// A pure read despite living alongside the admin mutation functions — see
+// domains/srs/review-orchestration.ts's identical import for why.
+import { getAcceptedAnswers } from "@/domains/curriculum/curriculum-mutation-repository";
 import { getSynonyms } from "@/domains/learner-content/repository";
 import type { ReviewQuestionDirection } from "@/domains/srs";
 import {
@@ -121,7 +124,13 @@ export async function gradeDeckPracticeAnswer(
   if (!item) throw new DeckError("DECK_ITEM_NOT_FOUND");
 
   const synonyms = await getSynonyms(db, input.userId, input.learningItemId);
-  const spec = getReviewQuestionAnswerSpec(item, input.direction, synonyms);
+  const officialAnswers = await getAcceptedAnswers(db, input.learningItemId);
+  const spec = getReviewQuestionAnswerSpec(
+    item,
+    input.direction,
+    synonyms,
+    officialAnswers,
+  );
   const result = checkAnswer({
     userAnswer: input.answer.trim(),
     acceptedAnswers: spec.acceptedAnswers,

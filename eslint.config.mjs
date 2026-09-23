@@ -20,6 +20,14 @@ const eslintConfig = defineConfig([
     // Generated Lambda bundle (spec 19 §48 step 11, scripts/build-lambda.mjs)
     // — esbuild output, never hand-edited and never committed (.gitignore).
     "dist/**",
+    // Playwright's own generated HTML report and trace-viewer bundle
+    // (spec 22, `npm run test:e2e`) — third-party build output, never
+    // hand-edited and never committed (.gitignore), same reasoning as
+    // `.next-e2e/**` above. Found the same way that one was: a full `npm
+    // run lint` reporting thousands of false positives once the directory
+    // existed on disk.
+    "playwright-report/**",
+    "test-results/**",
   ]),
 ]);
 

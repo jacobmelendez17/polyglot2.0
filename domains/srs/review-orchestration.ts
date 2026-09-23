@@ -6,6 +6,11 @@ import {
   getLevelsByLanguage,
   getSentenceById,
 } from "@/domains/curriculum/curriculum-repository";
+// A pure read despite living alongside the admin mutation functions
+// (`getUsageContexts`/`getItemExamples` are the same shape) — the official
+// curriculum-authored accepted answers an admin added via the item editor,
+// needed here so review grading matches what Lessons already accept.
+import { getAcceptedAnswers } from "@/domains/curriculum/curriculum-mutation-repository";
 import type {
   CurriculumLanguage,
   CurriculumLearningItem,
@@ -166,7 +171,13 @@ async function buildQuestionView(
   if (!item) throw new ReviewError("ITEM_NOT_FOUND");
 
   const synonyms = await getSynonyms(db, state.userId, question.itemId);
-  const spec = getReviewQuestionAnswerSpec(item, question.direction, synonyms);
+  const officialAnswers = await getAcceptedAnswers(db, question.itemId);
+  const spec = getReviewQuestionAnswerSpec(
+    item,
+    question.direction,
+    synonyms,
+    officialAnswers,
+  );
   const { presentation } = await resolveQuestionPresentation(
     db,
     state,
@@ -485,7 +496,13 @@ export async function submitReviewAnswer(
   if (!item) throw new ReviewError("ITEM_NOT_FOUND");
 
   const synonyms = await getSynonyms(db, userId, question.itemId);
-  const spec = getReviewQuestionAnswerSpec(item, question.direction, synonyms);
+  const officialAnswers = await getAcceptedAnswers(db, question.itemId);
+  const spec = getReviewQuestionAnswerSpec(
+    item,
+    question.direction,
+    synonyms,
+    officialAnswers,
+  );
   const { presentation, clozeSentence } = await resolveQuestionPresentation(
     db,
     state,

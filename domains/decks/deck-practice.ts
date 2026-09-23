@@ -63,10 +63,16 @@ export function buildDeckPracticeQuestions(
     (question) => {
       const item = itemById.get(question.itemId);
       if (!item) return [];
-      // Synonyms only widen the accepted-answer set; the prompt itself never
-      // depends on them, so an empty list here is correct rather than a
-      // shortcut. Grading loads the learner's real synonyms separately.
-      const spec = getReviewQuestionAnswerSpec(item, question.direction, []);
+      // Synonyms/official answers only widen the accepted-answer set; the
+      // prompt itself never depends on them, so empty lists here are
+      // correct rather than a shortcut. Grading loads the real ones
+      // separately (deck-practice-session.ts).
+      const spec = getReviewQuestionAnswerSpec(
+        item,
+        question.direction,
+        [],
+        [],
+      );
       return [
         {
           questionId: question.id,
