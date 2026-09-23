@@ -1583,6 +1583,55 @@ writing to real `user_item_progress` rows.
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
 
+- **Admin Synonyms/Variants: surfacing dictionary-sourced suggestions,
+  one-click-add** (2026-09-23, same-day follow-up, user-requested, real
+  data verified against the real database — see below). User report, with
+  screenshots: `uno`'s item page shows two Variations ("una", "before a
+  noun un") that the new admin Variants field (previous entry, same day)
+  showed as empty — "I should be able to see all synonyms and variations
+  ... or i might accidentally add duplicates." Investigated the real data
+  before assuming a bug in the new editor: `accepted_answers` for `uno` is
+  genuinely empty (verified directly), so the editor was correctly showing
+  nothing _admin-authored_ — the two Variations the item page shows are
+  Wiktextract-imported dictionary forms (`una`/feminine, `before a noun
+un`/masculine — confirmed by reading the actual `dictionary_forms` rows),
+  never admin-authored `accepted_answers` at all. Not a bug; a real, valid
+  distinction the editor simply never showed. Fixed by surfacing it:
+  - Extracted `deriveDictionaryRelationAnswers` (pure, relations → synonyms/
+    variants) out of `lexicon-read-model.ts`'s private `loadDictionaryHalf`
+    into an exported function reused by both the learner-facing read model
+    and the admin page — same derivation, no drift between the two.
+  - Admin item page now also computes `dictionarySynonyms`/`dictionaryVariants`
+    (relations + `entry.forms`, matching `officialVariations`'s own merge
+    in `item-detail-service.ts` exactly — verified against the real `uno`
+    row, script output: `dictionaryVariants: ['before a noun un', 'una']`,
+    matching the screenshot precisely) and passes them through the existing
+    `resolved` prop, gated the same "confirmed mapping only" way every other
+    dictionary-sourced field on this page already is.
+  - `StringListEditor` gained an optional `suggestions` list: shown as small
+    clickable chips beneath the editable rows, already-added values filtered
+    out automatically, one click adds a suggestion to the real editable
+    list. This isn't cosmetic or a redundant duplicate when clicked — a
+    dictionary form/relation is evidence only and (correctly, per the same-day
+    Reviews-grading fix above) never itself graded; promoting one into the
+    admin's own list is what makes it a real, graded accepted answer,
+    exactly the "admin reviews dictionary evidence and promotes it"
+    workflow the rest of Lexicon (`DictionaryMappingPanel`, "Promotion on
+    approval") is already built around.
+  - Scoped to the Admin Curriculum item page only, matching where the user's
+    screenshots were taken from — `item-admin-slots.tsx` (the learner item
+    page's inline admin editor) doesn't fetch a dictionary mapping view at
+    all today and shows no dictionary-provenance hints for _any_ field
+    there yet, a pre-existing asymmetry between the two spec-18-mandated
+    editing surfaces, not something this entry's report was about.
+  - Verified against the real database directly (not just unit tests): ran
+    the exact same derivation the page now uses against `uno`'s real
+    mapping/forms and confirmed the output matches the screenshot's two
+    Variations exactly, and that `accepted_answers` is genuinely empty.
+    `tsc`, `eslint`, full unit suite (1092/1092, including
+    `domains/lexicon`'s suite passing unchanged after the `loadDictionaryHalf`
+    refactor), and `npm run build` all clean.
+
 - **Admin Synonyms/Variants: two explicit fields, not one generic
   side-picker list** (2026-09-23, user-requested — not a numbered spec; no
   real-browser check this entry, see below). User report: opened an item in

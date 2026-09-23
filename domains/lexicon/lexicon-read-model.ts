@@ -355,25 +355,22 @@ async function loadCurriculumHalf(
   };
 }
 
-async function loadDictionaryHalf(
-  db: DbClient,
-  vocabularyItemId: string,
-): Promise<VocabularyDetailDictionary | null> {
-  const mapping = await getMapping(db, vocabularyItemId);
-  if (!mapping?.dictionaryEntryId) return null;
-
-  const entry = await getDictionaryEntryDetail(db, mapping.dictionaryEntryId);
-  if (!entry) return null;
-
-  const selectedSenseIds = await getSelectedSenseIds(db, vocabularyItemId);
-  const senseById = new Map(entry.senses.map((sense) => [sense.id, sense]));
-
-  const attribution = await getSourceAttribution(db, entry.sourceId);
-
-  // Synonyms and alternative spellings are relationships, not curriculum:
-  // they are surfaced as evidence and never turned into vocabulary items
-  // (spec 12: "Do not create new curriculum items automatically from
-  // dictionary forms or synonyms").
+/**
+ * Synonyms and alternative spellings a dictionary entry's own relations
+ * assert — relationships, not curriculum: they are surfaced as evidence and
+ * never turned into vocabulary items (spec 12: "Do not create new
+ * curriculum items automatically from dictionary forms or synonyms").
+ * `variants` deliberately excludes `entry.forms` — a caller that wants the
+ * *displayed* variations (which do fold forms in) adds `forms.map(f =>
+ * f.form)` itself, same as `officialVariations` in
+ * `domains/curriculum/item-detail-service.ts` and the Admin reference hint
+ * in `app/(admin)/admin/curriculum/items/[itemId]/page.tsx` both do — this
+ * function's own contract (matching `VocabularyDetailDictionary.variants`)
+ * stays relations-only.
+ */
+export function deriveDictionaryRelationAnswers(
+  entry: Pick<DictionaryEntryDetail, "relations">,
+): { synonyms: string[]; variants: string[] } {
   const synonyms = entry.relations
     .filter(
       (relation) =>
@@ -389,6 +386,25 @@ async function loadDictionaryHalf(
         relation.sourceStatus === "active",
     )
     .map((relation) => relation.targetLemma);
+  return { synonyms, variants };
+}
+
+async function loadDictionaryHalf(
+  db: DbClient,
+  vocabularyItemId: string,
+): Promise<VocabularyDetailDictionary | null> {
+  const mapping = await getMapping(db, vocabularyItemId);
+  if (!mapping?.dictionaryEntryId) return null;
+
+  const entry = await getDictionaryEntryDetail(db, mapping.dictionaryEntryId);
+  if (!entry) return null;
+
+  const selectedSenseIds = await getSelectedSenseIds(db, vocabularyItemId);
+  const senseById = new Map(entry.senses.map((sense) => [sense.id, sense]));
+
+  const attribution = await getSourceAttribution(db, entry.sourceId);
+
+  const { synonyms, variants } = deriveDictionaryRelationAnswers(entry);
 
   const usageLabels = [
     ...new Set(

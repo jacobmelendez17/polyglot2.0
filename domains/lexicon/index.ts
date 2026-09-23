@@ -80,6 +80,7 @@ export type {
 } from "./lexicon-types";
 
 export {
+  deriveDictionaryRelationAnswers,
   resolveConfirmedDictionaryFields,
   resolveVocabularyPresentation,
 } from "./lexicon-read-model";

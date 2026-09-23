@@ -46,6 +46,18 @@ export type ResolvedVocabularyFieldInfo = {
   partOfSpeech: string | null;
   /** Fields an author has taken over from the dictionary (spec 17). */
   overrides: DictionaryOverridableField[];
+  /**
+   * What the confirmed dictionary mapping's own relations/forms already
+   * show a learner on this item's Synonyms/Variations cards — evidence,
+   * never itself an accepted answer (spec 12), so Reviews/Lessons don't
+   * grade it unless an admin promotes one into the real list below.
+   * Surfaced here so an admin can see the whole picture before typing —
+   * the exact gap a 2026-09-23 user report found: the item page showed
+   * variations the admin editor had no way to see, so there was no way to
+   * add a new one without guessing whether it already existed.
+   */
+  dictionarySynonyms: string[];
+  dictionaryVariants: string[];
 };
 
 type VocabularyEditorProps = {
@@ -155,6 +167,8 @@ export function VocabularyEditor({
           onChange={(synonyms) => set("synonyms", synonyms)}
           emptyText="No additional accepted translations yet."
           addLabel="Add synonym"
+          suggestions={resolved?.dictionarySynonyms}
+          suggestionsLabel="Already shown to learners, from the dictionary:"
         />
         <StringListEditor
           label="Variants"
@@ -162,6 +176,8 @@ export function VocabularyEditor({
           onChange={(variants) => set("variants", variants)}
           emptyText="No additional accepted spellings yet."
           addLabel="Add variant"
+          suggestions={resolved?.dictionaryVariants}
+          suggestionsLabel="Already shown to learners, from the dictionary:"
         />
       </div>
 

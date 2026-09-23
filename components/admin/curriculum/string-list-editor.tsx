@@ -11,7 +11,23 @@ type StringListEditorProps = {
   onChange: (next: string[]) => void;
   emptyText: string;
   addLabel: string;
+  /**
+   * Values already shown to learners from a source this editor doesn't
+   * own — a confirmed dictionary mapping's own synonyms/forms, for a
+   * vocabulary item (spec 12's evidence, never itself sent to the server
+   * from here). Shown so an admin can see everything a learner already
+   * effectively sees before typing a new entry, rather than guessing and
+   * risking a near-duplicate. Already-added values are filtered out
+   * automatically; clicking a suggestion adds it with one click instead of
+   * retyping it by hand.
+   */
+  suggestions?: string[];
+  suggestionsLabel?: string;
 };
+
+function normalize(value: string): string {
+  return value.trim().toLowerCase();
+}
 
 /**
  * A plain list of extra accepted-answer strings — one field per Synonym or
@@ -37,6 +53,8 @@ export function StringListEditor({
   onChange,
   emptyText,
   addLabel,
+  suggestions = [],
+  suggestionsLabel,
 }: StringListEditorProps) {
   function updateRow(index: number, next: string) {
     onChange(value.map((row, i) => (i === index ? next : row)));
@@ -49,6 +67,15 @@ export function StringListEditor({
   function addRow() {
     onChange([...value, ""]);
   }
+
+  function addSuggestion(suggestion: string) {
+    onChange([...value, suggestion]);
+  }
+
+  const alreadyPresent = new Set(value.map(normalize));
+  const unaddedSuggestions = suggestions.filter(
+    (suggestion) => !alreadyPresent.has(normalize(suggestion)),
+  );
 
   return (
     <div className="space-y-2">
@@ -77,6 +104,27 @@ export function StringListEditor({
       <Button type="button" variant="outline" size="sm" onClick={addRow}>
         <Plus /> {addLabel}
       </Button>
+      {unaddedSuggestions.length > 0 ? (
+        <div className="space-y-1 pt-1">
+          <p className="text-xs text-muted-foreground">
+            {suggestionsLabel ??
+              "Already shown to learners, from the dictionary:"}
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {unaddedSuggestions.map((suggestion) => (
+              <button
+                key={suggestion}
+                type="button"
+                onClick={() => addSuggestion(suggestion)}
+                className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-xs text-foreground ring-1 ring-foreground/10 hover:bg-muted/70"
+              >
+                <Plus className="h-3 w-3" aria-hidden="true" />
+                {suggestion}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

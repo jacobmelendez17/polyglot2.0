@@ -29,6 +29,7 @@ import {
 } from "@/domains/curriculum/server";
 import {
   composeVocabularyDisplayWord,
+  deriveDictionaryRelationAnswers,
   resolveConfirmedDictionaryFields,
 } from "@/domains/lexicon";
 import { getVocabularyMappingView } from "@/domains/lexicon/server";
@@ -175,11 +176,37 @@ export default async function EditCurriculumItemPage({
   // confirmed mapping. `resolveConfirmedDictionaryFields` works directly
   // off the mapping view above, which this page already fetches
   // regardless of item status.
+  // Same "confirmed only" rule as every other dictionary-sourced field on
+  // this page: an unreviewed auto-match is never shown, even as read-only
+  // reference text — spec 13's "an unreviewed guess must never reach a
+  // learner" extends here to "must never look like it's already covered".
+  const dictionaryReference =
+    mappingView?.entry && mappingView.mapping?.matchStatus === "manual"
+      ? (() => {
+          const { synonyms, variants } = deriveDictionaryRelationAnswers(
+            mappingView.entry,
+          );
+          return {
+            dictionarySynonyms: synonyms,
+            // Matches `officialVariations`'s own merge in
+            // domains/curriculum/item-detail-service.ts — forms fold into
+            // what a learner sees as a Variation, relations alone don't.
+            dictionaryVariants: [
+              ...new Set([
+                ...variants,
+                ...mappingView.entry.forms.map((form) => form.form),
+              ]),
+            ],
+          };
+        })()
+      : { dictionarySynonyms: [], dictionaryVariants: [] };
+
   const resolvedVocabulary =
     mappingView && item.type === "vocabulary"
       ? {
           ...resolveConfirmedDictionaryFields(mappingView),
           overrides: item.vocabulary.dictionaryFieldOverrides,
+          ...dictionaryReference,
         }
       : undefined;
 
