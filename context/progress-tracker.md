@@ -1583,6 +1583,30 @@ writing to real `user_item_progress` rows.
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
 
+- **Lesson study screen — an explicit Back button** (2026-09-23,
+  user-requested). The study screen's progress-segment row already let a
+  learner jump to any item, viewed or not, by clicking its dot
+  (`LessonProgressSegments`' `onSelect` was never restricted to
+  already-viewed items) — but a row of small dots reads as a progress
+  indicator, not an obvious navigation control, which is exactly what the
+  user reported ("it currently only allows for next button"). Added a
+  `handleBack` alongside the existing `handleNext`, and a "Back" button in
+  the footer next to Next/Start Quiz — disabled only on the first item, no
+  wraparound (unlike `handleNext`'s end-of-batch "jump to first unviewed"
+  behavior, which has no equivalent going backward: stepping past the first
+  item has nothing to wrap to). Re-selecting an already-viewed item was
+  already safe by construction (`handleSelectStudyIndex` only calls
+  `markViewed` — a real server round trip — for an item not already in
+  `viewedItemIds`), confirmed with a new test that clicking Back to an
+  already-viewed item makes no server call at all. `tsc`, `eslint`, full
+  unit suite (1093/1093 — two unrelated tests flaked once under full-suite
+  load on the first run afterward, `components/settings/general/timezone-select.test.tsx`
+  among them; confirmed not a regression by passing cleanly both in
+  isolation and on a clean re-run of the whole suite immediately after), and
+  `npm run build` all clean. No real-browser check — same standing caveat as
+  the last several entries: this session still has no way to drive a real
+  admin/learner session against the actual dev server.
+
 - **Bug fix — Theme-mode "Start lesson" failed with "That request could not
   be understood" for real, live curriculum content** (2026-09-23,
   user-reported from a live dev-server session with server logs and a

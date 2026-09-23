@@ -148,6 +148,49 @@ describe("LessonSessionView", () => {
     );
   });
 
+  it("lets a learner freely go back to an earlier item, disabled only on the first one", async () => {
+    openLessonItemAction.mockImplementation(({ itemId }: { itemId: string }) =>
+      Promise.resolve({
+        ok: true,
+        data: {
+          token: "t2",
+          viewedItemIds: ["vocab-gato", "vocab-perro"].filter(
+            (id) => id === "vocab-gato" || id === itemId,
+          ),
+        },
+      }),
+    );
+
+    const user = userEvent.setup();
+    render(<LessonSessionView initial={INITIAL} />);
+
+    const nextButton = screen.getByRole("button", { name: "Next" });
+    await waitFor(() => expect(nextButton).toBeEnabled(), { timeout: 3000 });
+    const backButton = screen.getByRole("button", { name: "Back" });
+    expect(backButton).toBeDisabled();
+    expect(screen.getByRole("heading", { name: "gato" })).toBeInTheDocument();
+
+    await user.click(nextButton);
+    await waitFor(() =>
+      expect(
+        screen.getByRole("heading", { name: "perro" }),
+      ).toBeInTheDocument(),
+    );
+    await waitFor(() => expect(backButton).toBeEnabled());
+
+    // Going back to an already-viewed item is a pure client-side navigation
+    // — it must not call the server again to re-mark something already
+    // marked viewed.
+    openLessonItemAction.mockClear();
+    await user.click(backButton);
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "gato" })).toBeInTheDocument(),
+    );
+    expect(backButton).toBeDisabled();
+    expect(openLessonItemAction).not.toHaveBeenCalled();
+  });
+
   it("exposes an accessible exit control throughout the study phase", () => {
     openLessonItemAction.mockResolvedValue({
       ok: true,

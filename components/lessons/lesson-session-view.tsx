@@ -306,6 +306,22 @@ export function LessonSessionView({ initial }: LessonSessionViewProps) {
     if (firstUnviewed !== -1) handleSelectStudyIndex(firstUnviewed);
   }
 
+  /**
+   * The study screen's own "look at anything again" control (user report,
+   * 2026-09-23 — the segment row below already lets a learner jump to any
+   * item, viewed or not, but a row of small dots reads as a progress
+   * indicator, not an obvious navigation control). No wraparound, unlike
+   * `handleNext`'s end-of-batch behavior: stepping past the first item has
+   * nothing to wrap to, so the button is simply disabled there instead.
+   * Re-selecting an already-viewed item is always safe —
+   * `handleSelectStudyIndex` only calls `markViewed` for one that isn't.
+   */
+  function handleBack() {
+    if (state.currentStudyIndex > 0) {
+      handleSelectStudyIndex(state.currentStudyIndex - 1);
+    }
+  }
+
   function handleStartQuiz() {
     startTransition(async () => {
       const result = await startQuizAction({ token: state.token });
@@ -465,7 +481,15 @@ export function LessonSessionView({ initial }: LessonSessionViewProps) {
               if (index !== -1) handleSelectStudyIndex(index);
             }}
           />
-          <div className="flex justify-end">
+          <div className="flex justify-between">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleBack}
+              disabled={isPending || state.currentStudyIndex === 0}
+            >
+              Back
+            </Button>
             <Button
               type="button"
               onClick={allViewed ? handleStartQuiz : handleNext}
