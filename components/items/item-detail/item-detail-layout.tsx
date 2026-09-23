@@ -104,6 +104,7 @@ export function ItemDetailLayout({
             <InfoSummary view={view} languageCode={languageCode} />
             {adminSlots?.details}
           </div>
+          <div className="border-t border-border" role="separator" />
           <div>
             <AboutDefinition about={view.about} languageCode={languageCode} />
             {adminSlots?.about}

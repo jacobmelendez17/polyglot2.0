@@ -57,16 +57,21 @@ export function InfoSummary({ view, languageCode }: InfoSummaryProps) {
                 {view.pronunciation.guide ?? EMPTY_FIELD}
               </span>
             </div>
-            {/* Stored IPA already carries its own delimiters — do not add another pair. */}
-            <p className="font-mono text-base text-muted-foreground">
-              {view.pronunciation.ipa ?? EMPTY_FIELD}
-            </p>
             <div>
               <dt className="text-sm font-medium text-muted-foreground">
                 Word Type
               </dt>
               <dd className="mt-0.5 text-base text-foreground">
                 {view.pronunciation.wordType ?? EMPTY_FIELD}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-sm font-medium text-muted-foreground">
+                IPA
+              </dt>
+              {/* Stored IPA already carries its own delimiters — do not add another pair. */}
+              <dd className="mt-0.5 font-mono text-base text-foreground">
+                {view.pronunciation.ipa ?? EMPTY_FIELD}
               </dd>
             </div>
           </div>

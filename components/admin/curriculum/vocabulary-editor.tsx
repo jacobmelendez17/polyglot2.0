@@ -188,7 +188,7 @@ export function VocabularyEditor({
       </div>
 
       <label className="block text-sm">
-        <span className="font-medium text-foreground">Teaching meaning</span>
+        <span className="font-medium text-foreground">Definition</span>
         <Textarea
           className="mt-1"
           value={value.definition}
