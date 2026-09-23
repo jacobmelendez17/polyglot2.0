@@ -25,8 +25,6 @@ function vocabulary(
     ipa: "/ˈɡa.to/",
     audioUrl: null,
     teachingDefinition: null,
-    dictionarySenses: [],
-    attribution: null,
     officialSynonyms: [],
     personalSynonyms: [],
     officialVariations: [],

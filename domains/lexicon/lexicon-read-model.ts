@@ -108,26 +108,36 @@ export interface VocabularyDetail {
 }
 
 export interface ResolvedVocabularyPresentation {
-  /** What's actually shown as the item's teaching meaning — never `vocabulary_items.primaryMeaning` (the short translation graded during quizzes), only the longer explanatory field. */
+  /** What's actually shown as the item's teaching meaning — never `vocabulary_items.primaryMeaning` (the short translation graded during quizzes), only the longer explanatory field. Always the stored curriculum value; see this function's own docstring for why. */
   definition: string | null;
-  definitionSource: "dictionary" | "curriculum" | "none";
+  definitionSource: "curriculum" | "none";
   ipa: string | null;
   ipaSource: "dictionary" | "curriculum" | "none";
 }
 
 /**
- * The live precedence rule (2026-09-07 product decision, superseding spec
- * 12's original "dictionary content must stay visually separate from the
- * teaching explanation" boundary): once an admin has *confirmed* a
- * vocabulary item's dictionary mapping (`matchStatus === "manual"` —
- * `auto_matched` alone is never enough; an unreviewed guess must never
- * reach a learner), the dictionary's own primary sense and IPA become the
- * effective definition/pronunciation, replacing whatever an admin typed
- * into `vocabulary_items.definition`/`ipa` — confirming a mapping is itself
- * the "use dictionary data instead" action. This is computed fresh from
- * the current mapping every call, never written back into `vocabulary_items`
- * — a later re-import or a changed sense selection is reflected immediately
- * everywhere this is called, with nothing to keep in sync by hand.
+ * The live precedence rule for pronunciation, and — as of this decision —
+ * the *lack* of one for the teaching definition.
+ *
+ * A 2026-09-07 product decision briefly had a confirmed dictionary mapping's
+ * own primary sense silently replace whatever an admin had typed into
+ * `vocabulary_items.definition`, superseding spec 12's original "dictionary
+ * content must stay visually separate from the teaching explanation"
+ * boundary. That reliably produced exactly the bug it looks like: an admin
+ * types a teaching definition, saves it, and the page keeps showing the
+ * dictionary's gloss instead, because the mapping is still "confirmed" and
+ * the override keeps winning. Reverted (user decision) to spec 12's
+ * original rule: **`definition` is always `detail.curriculum.teachingSummary`
+ * — the stored field, hand-typed or filled in once when an admin confirms a
+ * match (`domains/admin`'s "Promotion on approval") — and nothing here ever
+ * replaces it afterward.** The raw dictionary senses this used to fall back
+ * to are still visible to an admin (`DictionaryMappingPanel`), just never
+ * substituted for the teaching explanation a learner sees.
+ *
+ * IPA keeps the original precedence deliberately — a pronunciation is a
+ * fact about the word, not prose an admin authors, so preferring the
+ * dictionary's transcription when one exists is still the more accurate
+ * default. Nothing about this decision touched IPA.
  *
  * Deliberately excludes `primaryMeaning`/`translation`: that field is the
  * authoritative graded quiz answer (`domains/srs`'s answer checking), and
@@ -139,9 +149,6 @@ export function resolveVocabularyPresentation(
   detail: Pick<VocabularyDetail, "curriculum" | "dictionary">,
 ): ResolvedVocabularyPresentation {
   const confirmed = detail.dictionary?.matchStatus === "manual";
-  const dictionaryDefinition = confirmed
-    ? (detail.dictionary!.selectedSenses[0]?.gloss ?? null)
-    : null;
   const preferredPronunciation = confirmed
     ? (detail.dictionary!.pronunciations.find(
         (p) => p.id === detail.dictionary!.preferredPronunciationId,
@@ -149,16 +156,12 @@ export function resolveVocabularyPresentation(
     : undefined;
   const dictionaryIpa = preferredPronunciation?.ipa ?? null;
 
-  const definition = dictionaryDefinition ?? detail.curriculum.teachingSummary;
+  const definition = detail.curriculum.teachingSummary;
   const ipa = dictionaryIpa ?? detail.curriculum.manualIpa;
 
   return {
     definition,
-    definitionSource: dictionaryDefinition
-      ? "dictionary"
-      : detail.curriculum.teachingSummary
-        ? "curriculum"
-        : "none",
+    definitionSource: definition ? "curriculum" : "none",
     ipa,
     ipaSource: dictionaryIpa
       ? "dictionary"

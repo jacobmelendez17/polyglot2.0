@@ -10,17 +10,17 @@ type AboutDefinitionProps = {
  * The full-width nested card beneath the four Info cards: `Definition` for
  * vocabulary, `About <grammar point>` for grammar (spec 18).
  *
- * Polyglot's own teaching explanation and any Wiktionary-derived senses are
- * separate blocks with their own heading and attribution, never one merged
- * paragraph — spec 12/13's "clearly distinguish" rule, which survives the
- * 2026-09-07 "confirmed mapping wins" change: a confirmed sense may *become*
- * the teaching definition, but the reader is still told where it came from.
+ * Shows only Polyglot's own teaching explanation — never raw dictionary
+ * senses (reverted user decision: a learner-facing "Dictionary senses" list
+ * used to render here, alongside the 2026-09-07 "confirmed mapping wins"
+ * change that let a dictionary gloss silently replace the teaching
+ * definition itself; both are gone now, back to spec 12's original
+ * "dictionary content stays out of what a learner is taught" boundary. See
+ * `resolveVocabularyPresentation`'s docstring for the full history).
+ * Dictionary senses are still visible to an admin, in `DictionaryMappingPanel`.
  */
 export function AboutDefinition({ about, languageCode }: AboutDefinitionProps) {
-  const hasContent =
-    about.body !== null ||
-    about.blocks.length > 0 ||
-    about.dictionarySenses.length > 0;
+  const hasContent = about.body !== null || about.blocks.length > 0;
 
   return (
     <div className="rounded-xl bg-muted/30 p-4 ring-1 ring-foreground/5 sm:p-5">
@@ -39,31 +39,6 @@ export function AboutDefinition({ about, languageCode }: AboutDefinitionProps) {
           blocks={about.blocks}
           languageCode={languageCode}
         />
-
-        {about.dictionarySenses.length > 0 ? (
-          <div className="rounded-lg bg-card p-3 ring-1 ring-foreground/10">
-            <h4 className="text-sm font-medium text-muted-foreground">
-              Dictionary senses
-            </h4>
-            <ol className="mt-1.5 flex list-decimal flex-col gap-1 pl-4">
-              {about.dictionarySenses.map((sense) => (
-                <li key={sense.id} className="text-base text-foreground">
-                  {sense.gloss}
-                  {sense.tags.length > 0 ? (
-                    <span className="ml-1 text-sm text-muted-foreground">
-                      ({sense.tags.join(", ")})
-                    </span>
-                  ) : null}
-                </li>
-              ))}
-            </ol>
-            {about.attribution ? (
-              <p className="mt-2 text-sm text-muted-foreground">
-                {about.attribution}
-              </p>
-            ) : null}
-          </div>
-        ) : null}
 
         {hasContent ? null : (
           <p className="text-base text-muted-foreground">

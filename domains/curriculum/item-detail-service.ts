@@ -274,15 +274,6 @@ export async function getItemDetailPageData(
       ipa: resolved.ipa,
       audioUrl: preferredPronunciation?.audioUrl ?? null,
       teachingDefinition: resolved.definition,
-      // Only the admin-curated senses, never `allSenses` — that field is an
-      // admin QA view, not learner-facing content.
-      dictionarySenses:
-        confirmedDictionary?.selectedSenses.map((sense) => ({
-          id: sense.id,
-          gloss: sense.gloss,
-          tags: sense.tags,
-        })) ?? [],
-      attribution: confirmedDictionary?.attribution?.attributionText ?? null,
       officialSynonyms: dedupe([
         ...(confirmedDictionary?.synonyms ?? []),
         ...officialMeaningAnswers,

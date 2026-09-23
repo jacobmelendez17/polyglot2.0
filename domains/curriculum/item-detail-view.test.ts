@@ -30,8 +30,6 @@ function vocabularySource(
     ipa: "/ˈɡa.to/",
     audioUrl: null,
     teachingDefinition: "A cat.",
-    dictionarySenses: [],
-    attribution: null,
     officialSynonyms: [],
     personalSynonyms: [],
     officialVariations: [],
@@ -109,25 +107,15 @@ describe("buildItemDetailView — vocabulary", () => {
     ]);
   });
 
-  it("titles the About card Definition and keeps dictionary senses out of Polyglot's teaching text", () => {
+  it("titles the About card Definition and shows only Polyglot's own teaching text", () => {
     const view = buildItemDetailView(
       vocabularySource({
         teachingDefinition: "Polyglot's explanation.",
-        dictionarySenses: [
-          {
-            id: "sense-1",
-            gloss: "a small domesticated feline",
-            tags: ["animal"],
-          },
-        ],
-        attribution: "From Wiktionary, CC BY-SA 4.0",
       }),
     );
 
     expect(view.about.title).toBe("Definition");
     expect(view.about.body).toBe("Polyglot's explanation.");
-    expect(view.about.dictionarySenses).toHaveLength(1);
-    expect(view.about.attribution).toBe("From Wiktionary, CC BY-SA 4.0");
   });
 
   it("keeps personal synonyms and variations separate from official ones", () => {

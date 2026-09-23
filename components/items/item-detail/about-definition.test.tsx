@@ -11,40 +11,26 @@ function about(
   return {
     title: "Definition",
     body: null,
-    dictionarySenses: [],
-    attribution: null,
     blocks: [],
     ...overrides,
   };
 }
 
 describe("AboutDefinition", () => {
-  it("keeps Polyglot's teaching text and dictionary senses in separate blocks", () => {
+  it("shows only Polyglot's own teaching text — never a raw dictionary sense", () => {
     render(
       <AboutDefinition
-        about={about({
-          body: "Polyglot's own explanation.",
-          dictionarySenses: [
-            {
-              id: "sense-1",
-              gloss: "a small domesticated feline",
-              tags: ["animal"],
-            },
-          ],
-          attribution: "From Wiktionary, CC BY-SA 4.0",
-        })}
+        about={about({ body: "Polyglot's own explanation." })}
         languageCode="es-MX"
       />,
     );
 
     expect(screen.getByText("Polyglot's own explanation.")).toBeInTheDocument();
+    // Reverted 2026-09-07's "confirmed mapping wins" change (user decision):
+    // a "Dictionary senses" block used to render here and no longer does.
     expect(
-      screen.getByRole("heading", { name: "Dictionary senses" }),
-    ).toBeInTheDocument();
-    // Attribution travels with the content it describes, not with Polyglot's.
-    expect(
-      screen.getByText("From Wiktionary, CC BY-SA 4.0"),
-    ).toBeInTheDocument();
+      screen.queryByRole("heading", { name: "Dictionary senses" }),
+    ).not.toBeInTheDocument();
   });
 
   it("says an item has no explanation rather than rendering an empty card", () => {

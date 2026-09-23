@@ -36,8 +36,6 @@ function vocabularySource(
     ipa: "/ˈɡa.to/",
     audioUrl: null,
     teachingDefinition: "A common household animal.",
-    dictionarySenses: [],
-    attribution: null,
     officialSynonyms: [],
     personalSynonyms: [],
     officialVariations: [],

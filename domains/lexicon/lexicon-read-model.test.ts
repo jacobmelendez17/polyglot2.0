@@ -90,20 +90,20 @@ describe("resolveVocabularyPresentation", () => {
     expect(result.ipaSource).toBe("curriculum");
   });
 
-  it("uses the dictionary's primary sense and preferred pronunciation once the mapping is confirmed", () => {
+  it("uses the dictionary's preferred pronunciation once the mapping is confirmed, but never its sense for the definition", () => {
     const result = resolveVocabularyPresentation({
       curriculum: curriculum(),
       dictionary: dictionary(),
     });
     expect(result).toEqual({
-      definition: "a domestic cat",
-      definitionSource: "dictionary",
+      definition: "Admin-written teaching note.",
+      definitionSource: "curriculum",
       ipa: "/ˈga.to/",
       ipaSource: "dictionary",
     });
   });
 
-  it("confirming a mapping wins even over an already-typed admin value — it isn't just a gap-filler", () => {
+  it("never lets a confirmed mapping replace an already-typed admin definition — reverted 2026-09-07's 'confirming wins' rule", () => {
     const result = resolveVocabularyPresentation({
       curriculum: curriculum({
         teachingSummary: "A pre-existing admin note.",
@@ -111,17 +111,19 @@ describe("resolveVocabularyPresentation", () => {
       }),
       dictionary: dictionary(),
     });
-    expect(result.definition).toBe("a domestic cat");
+    expect(result.definition).toBe("A pre-existing admin note.");
+    // IPA precedence is unchanged by that reversion — a pronunciation is a
+    // fact about the word, not authored prose.
     expect(result.ipa).toBe("/ˈga.to/");
   });
 
-  it("falls back to the curriculum definition when a confirmed mapping has no selected senses", () => {
+  it("still reports 'none' when there is no stored definition, confirmed mapping or not", () => {
     const result = resolveVocabularyPresentation({
-      curriculum: curriculum(),
+      curriculum: curriculum({ teachingSummary: null }),
       dictionary: dictionary({ selectedSenses: [] }),
     });
-    expect(result.definition).toBe("Admin-written teaching note.");
-    expect(result.definitionSource).toBe("curriculum");
+    expect(result.definition).toBeNull();
+    expect(result.definitionSource).toBe("none");
   });
 
   it("falls back to the curriculum IPA when a confirmed mapping has no pronunciations", () => {

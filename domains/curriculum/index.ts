@@ -134,7 +134,6 @@ export type {
   ItemDetailPronunciationView,
   ItemDetailResourceSource,
   ItemDetailSectionId,
-  ItemDetailSenseSource,
   ItemDetailSource,
   ItemDetailType,
   ItemDetailView,

@@ -73,12 +73,6 @@ export const NOT_APPLICABLE_FIELD = "N/A";
 
 // --- Source shapes each caller builds ---
 
-export type ItemDetailSenseSource = {
-  id: string;
-  gloss: string;
-  tags: string[];
-};
-
 export type ItemDetailPatternSource = {
   id: string;
   label: string;
@@ -132,11 +126,8 @@ export type ItemDetailSource =
       pronunciationGuide: string | null;
       ipa: string | null;
       audioUrl: string | null;
-      /** Polyglot's own teaching explanation. */
+      /** Polyglot's own teaching explanation — the only thing a learner is ever shown as the definition (user decision, reverting 2026-09-07's "confirmed mapping wins": see `resolveVocabularyPresentation`'s docstring). */
       teachingDefinition: string | null;
-      /** Wiktionary-derived senses, kept in their own list so the UI can never present one as Polyglot's teaching text. */
-      dictionarySenses: ItemDetailSenseSource[];
-      attribution: string | null;
       officialSynonyms: string[];
       personalSynonyms: string[];
       officialVariations: string[];
@@ -186,11 +177,8 @@ export type ItemDetailAnswerListView = {
 
 export type ItemDetailAboutView = {
   title: string;
-  /** Polyglot's teaching text. `null` when nothing has been authored and there are no blocks either. */
+  /** Polyglot's teaching text. `null` when nothing has been authored and there are no blocks either. Never a dictionary sense — see `teachingDefinition`'s comment on `ItemDetailSource`. */
   body: string | null;
-  /** Dictionary senses, always separate from `body` so attribution stays attached to what it describes. */
-  dictionarySenses: ItemDetailSenseSource[];
-  attribution: string | null;
   blocks: GrammarContentBlockSource[];
 };
 
@@ -324,8 +312,6 @@ export function buildItemDetailView(source: ItemDetailSource): ItemDetailView {
         // rendering alongside it: an admin who has authored blocks has
         // written the explanation there, and showing both would duplicate it.
         body: hasBlocks ? null : source.explanation,
-        dictionarySenses: [],
-        attribution: null,
         blocks: [...source.blocks].sort((a, b) => a.position - b.position),
       },
       patterns,
@@ -369,8 +355,6 @@ export function buildItemDetailView(source: ItemDetailSource): ItemDetailView {
     about: {
       title: "Definition",
       body: source.teachingDefinition,
-      dictionarySenses: source.dictionarySenses,
-      attribution: source.attribution,
       blocks: [],
     },
     patterns,

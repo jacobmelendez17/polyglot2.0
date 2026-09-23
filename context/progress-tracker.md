@@ -1583,6 +1583,81 @@ writing to real `user_item_progress` rows.
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
 
+- **Reverted "confirmed dictionary mapping becomes the effective teaching
+  content"** (2026-09-22, user-requested — not a numbered spec).
+  **Supersedes the 2026-09-07 "Confirmed dictionary mapping becomes the
+  effective teaching content" entry below**, which that entry's own text
+  should be read alongside for the full history. User report: edited a
+  word's teaching definition in Admin, saved it, and the item page kept
+  showing something else instead — traced to the 2026-09-07 rule, which had
+  a confirmed dictionary mapping silently replace whatever an admin typed
+  into `vocabulary_items.definition` on every render, "even over an
+  already-typed admin value... not just a gap-filler" (that entry's own
+  words). Explained the finding and offered three scopes (revert just the
+  override; also remove the admin per-item dictionary-matching workflow;
+  remove Lexicon outright) via `AskUserQuestion` before touching anything,
+  per the standing feedback on scope decisions — user chose the narrowest:
+  revert the override only.
+  - `domains/lexicon/lexicon-read-model.ts`'s `resolveVocabularyPresentation`:
+    `definition` is now always `detail.curriculum.teachingSummary` (the
+    stored field — hand-typed, or filled in once when an admin confirms a
+    match, via `domains/admin`'s existing, unchanged "Promotion on
+    approval"). Nothing computes a live `dictionaryDefinition` fallback
+    anymore. **IPA's precedence is deliberately untouched** — a
+    pronunciation is a fact about the word, not authored prose, so
+    preferring the dictionary's transcription when one exists is still the
+    more accurate default, and the user's report was about the definition
+    specifically.
+  - Removed the learner-facing "Dictionary senses" list
+    (`components/items/item-detail/about-definition.tsx`) that used to
+    render raw dictionary glosses beneath the definition whenever a mapping
+    was confirmed — the second half of the user's request ("get rid of the
+    dictionary sense"). Dictionary senses are still visible to an admin, in
+    `DictionaryMappingPanel` — this only removes the learner-facing copy.
+  - Deleted the now-dead plumbing that fed that list end-to-end:
+    `ItemDetailSenseSource` type, `dictionarySenses`/`attribution` on
+    `ItemDetailSource`'s vocabulary variant and on `ItemDetailAboutView`,
+    and their computation in `item-detail-service.ts`
+    (`confirmedDictionary?.selectedSenses`/`.attribution`). The admin
+    editor's separate "resolved" provenance hints (`resolveConfirmedDictionaryFields`,
+    the "reset to dictionary value" buttons in `vocabulary-editor.tsx`) are
+    a different, still-correct mechanism — informational only, never
+    forcing the editable field's displayed value — and were deliberately
+    left untouched.
+  - This also **fixed a second, separately-reported bug**: the Save button
+    on an item's edit page gave no success feedback at all, so a save that
+    correctly went into a draft (any edit to an already-**published** item)
+    looked identical to nothing happening. `curriculum-item-form.tsx` now
+    surfaces the `savedAsDraft` flag `updateItem` already returned but the
+    form was discarding — "Saved." when a change applied live, or "Saved as
+    a draft — publish this item to make the change live." when it didn't,
+    both with a `role="status"` checkmark matching `level-edit-form.tsx`'s
+    existing convention. Diagnosed by reproducing the exact save path
+    directly against the real database (not guessed): ran `updateItem` on
+    the real `cero` item, confirmed `{ savedAsDraft: true }` and a correctly
+    written draft row while the live row stayed unchanged, then cleaned up
+    that reproduction's draft with `discardDraft` before moving on — no
+    leftover test data.
+  - Also confirmed (same investigation) that `/admin/curriculum/items/[itemId]`
+    already had a "Publish changes" button for exactly this case
+    (`PublishDialog`, `isDraftEdit ? "Publish changes" : "Publish"`) — it
+    was just easy to miss without the save confirmation above telling an
+    admin a draft now existed. No new button was built; the existing one
+    was the answer.
+  - De-escalates, but does **not** resolve, the CC BY-SA ShareAlike open
+    question below — see that entry's update.
+  - `tsc`, `eslint`, and the full unit suite (1087/1087, up from 1077 —
+    `curriculum:sentences` in between also added tests) all clean.
+  - Related, same session: imported 156 real example sentences (3 per Level
+    1 word, in es-MX) through a new idempotent `npm run curriculum:sentences`
+    script (`scripts/curriculum-sentences-import.ts`), routed through the
+    same audited `mutateItemExample` path the Admin item page's own "Add
+    example" form uses — not a raw data load. Content was reviewed and
+    corrected with the user across several rounds (cloze-compatibility
+    checks, two real Spanish grammar/meaning bugs found and fixed before
+    import, wording trade-offs decided explicitly) before anything was
+    written.
+
 - **Bug-fix sweep through the Next Up / Open Questions backlog** (2026-09-17,
   user-requested — not a numbered spec). Went through every currently-open
   item and fixed the ones with an unambiguous, already-decided fix; left
@@ -4859,7 +4934,7 @@ the level` hardcoded 4 for Level 1. The first now reads the level's
   - **One real regression test rewritten, not just patched**: `lesson-session-view.test.tsx` had a spec-07-follow-up test proving a _different_, earlier bug stayed fixed — that the just-answered item's state doesn't jump to the server's already-advanced value until the learner explicitly advances past feedback (§28's two-step Enter flow). It asserted this through the now-deleted progress-segment labels. Rewritten to assert the same underlying "pending state held until advance" guarantee through `quizStats` (the "X / Y" counter in the quiz header) instead — that value goes through the exact same `pendingQuizStats`/`ADVANCE_QUESTION` mechanism and is still on screen, so the regression coverage is preserved, not weakened. `quiz-view.test.tsx`'s 9 call sites had their now-nonexistent `segments={[]}` prop removed (none of them asserted on segment rendering — all passed an empty array already); `lesson-progress-segments.test.tsx`'s "is not interactive during the quiz (no onSelect)" test renamed to "...when onSelect is omitted" since that capability is no longer exercised by any quiz code path, just by the reusable component's own contract.
   - **Verification**: `tsc`, full-project `eslint .`, `npm run build`, and `npm run test` (514/514, unchanged count — every change here was a rewrite or deletion of existing tests, not a net addition) all clean. Real-browser Playwright pass (throwaway Clerk user, deleted afterward; lesson exited before completion so no real SRS enrollment was triggered by the verification itself) against the real dev database's real 5-item batch confirmed: the footer holds its exact screen position across all three item tabs; the quiz screen (`getByLabel(/item \d+ of \d+/i)`) renders zero segment elements; mobile has no horizontal overflow and the footer still sits flush with the viewport bottom; dark mode renders correctly. Screenshots reviewed directly.
 
-- **Confirmed dictionary mapping becomes the effective teaching content, everywhere it's shown** (2026-09-07) — a direct user request, not a spec unit: "when users do a lesson, all the data from the dictionary mapping is what is shown... the admin should be able to review the mapping for an item and then that mapping is used for the actual information of the item." Answered via `AskUserQuestion` before implementing: (1) the teaching definition itself should be dictionary-replaced too, not just pronunciation/IPA — an admin's own "Creator notes" become an optional Bunpro-style expansion, never a replacement; (2) only a **manually confirmed** mapping (`matchStatus === "manual"`) is trusted, never a bare `auto_matched` guess; (3) confirming a mapping always wins over any pre-existing admin-typed value; (4) lessons show _everything_ the dictionary has, not a trimmed subset. This directly resolves the Open Question above ("Whether `vocabulary_items`' dictionary-shaped columns should eventually go") for `definition`/`ipa` specifically — the columns stay (an admin still authors them before a mapping is confirmed, or if it's later unconfirmed), but they are no longer the default source of truth once a mapping is confirmed.
+- **Confirmed dictionary mapping becomes the effective teaching content, everywhere it's shown** (2026-09-07) — **the definition side of this was reverted 2026-09-22, by user request, after it reliably produced the exact bug its own text below predicts ("confirming a mapping always wins over any pre-existing admin-typed value"): an admin's edited definition stopped being what the page showed. See the 2026-09-22 Completed entry above for the reversion. IPA's precedence, and the "Promotion on approval" one-time write this entry also describes, are both unaffected.** Originally: a direct user request, not a spec unit: "when users do a lesson, all the data from the dictionary mapping is what is shown... the admin should be able to review the mapping for an item and then that mapping is used for the actual information of the item." Answered via `AskUserQuestion` before implementing: (1) the teaching definition itself should be dictionary-replaced too, not just pronunciation/IPA — an admin's own "Creator notes" become an optional Bunpro-style expansion, never a replacement; (2) only a **manually confirmed** mapping (`matchStatus === "manual"`) is trusted, never a bare `auto_matched` guess; (3) confirming a mapping always wins over any pre-existing admin-typed value; (4) lessons show _everything_ the dictionary has, not a trimmed subset. This directly resolves the Open Question above ("Whether `vocabulary_items`' dictionary-shaped columns should eventually go") for `definition`/`ipa` specifically — the columns stay (an admin still authors them before a mapping is confirmed, or if it's later unconfirmed), but they are no longer the default source of truth once a mapping is confirmed.
   - **Explicit, deliberate scope boundary**: `vocabulary_items.primaryMeaning`/`translation` — the short answer graded during quizzes/SRS reviews (`domains/srs`'s answer-checking) — is untouched. Only the longer teaching `definition` and pronunciation/`ipa` fields are affected. Changing what counts as a correct quiz answer is a separate, higher-risk decision nobody asked for.
   - **Design principle: live, never copied.** Every resolved value is computed fresh from the current confirmed mapping on each read — nothing is ever written back into `vocabulary_items` columns. This avoids duplicating Lexicon data into curriculum rows (the existing architecture rule) and means a later re-import or a changed sense selection is reflected immediately everywhere, with nothing to keep in sync by hand.
   - **`domains/lexicon` gained two resolvers**, both pure/read-only, no writes: `resolveVocabularyPresentation` (`lexicon-read-model.ts`) composes the learner-facing `VocabularyDetail` into `{ definition, definitionSource, ipa, ipaSource }`, each `Source` one of `"dictionary" | "curriculum" | "none"` — used by `/items/[itemId]`. A **second**, distinct resolver was needed for the admin editor: `resolveConfirmedDictionaryFields`, operating directly on a `VocabularyMappingView` shape (mapping + entry + selected senses) rather than routing through `getVocabularyDetail` — caught before it shipped, by re-reading `loadCurriculumHalf`'s own code comment, which states it deliberately only resolves `published`/`archived` items and that admin surfaces should use a status-agnostic path instead. Reusing the learner-facing resolver for the admin item-edit page would have silently shown "no dictionary data" for any `pending`/`draft` item — the common case immediately after creation, exactly when review is most needed. Both are exported through `domains/lexicon/index.ts` (client-safe, pure).
@@ -5140,7 +5215,7 @@ say whether more real vocabulary is being dropped silently.
 - **No dark-mode toggle exists anywhere in the app.** `globals.css` defines the full `.dark` token set (`--bg-base`, `--text-primary`, etc. — spec 01/`ui-context.md`), but nothing ever applies the `.dark` class: there is no `next-themes` dependency, no theme provider in `app/layout.tsx`, and no toggle control anywhere in `components/`. Discovered 2026-08-31 during spec 07 browser verification — Playwright's `colorScheme: "dark"` context option had no visible effect, because the app never reads `prefers-color-scheme` either. Confirmed spec 07's own components render correctly against the dark tokens by forcing `document.documentElement.classList.add("dark")` directly (screenshots in that unit's verification), so this is purely a missing switching mechanism, not a token/component problem. Left unfixed — wiring a theme provider and toggle UI is a real (if small-ish) feature of its own, not "tiny and directly blocking" spec 07's lesson work, per `ai-workflow-rules.md`'s rule on unrelated bugs found during other work. Worth its own implementation unit.
 - **Grammar fixture items untested in a live spec 07 browser pass.** The fixture curriculum (`domains/curriculum/curriculum-fixtures.ts`) has 6 vocabulary + 2 grammar items at Level 1 plus 1 more vocabulary item at Level 2 (9 total), but the default lesson batch size (6) means every batch actually exercised in browser verification was all-vocabulary. The grammar path (single-direction translation questions) is covered by `quiz-requirements.test.ts` and `lesson-service.test.ts` at the unit level, just not walked through in a real browser session this unit. Worth a manual pass — or a temporarily smaller `getLessonBatchSize()` — once convenient, and doubly so once real multi-level curriculum data exists and grammar items become common in real batches.
 
-- **Dictionary licensing is architecturally handled but not legally cleared — now more pressing.** `/licenses` records what CC BY-SA 4.0 (Wiktionary/Wiktextract) and RLA-ES's tri-license oblige, and the schema is built to satisfy them: attribution is stored as data and travels with the content, third-party content lives in separate tables from Polyglot-authored curriculum, and the unmodified upstream record is retained. What is **not** resolved is the ShareAlike question — whether presenting CC BY-SA dictionary content alongside proprietary curriculum in one interface creates a combined adaptation, and what that would require. Spec 12 says this must be verified separately before production. It has not been. **2026-09-07 update**: the "confirmed mapping wins" feature (see that Completed entry) makes this materially more pressing — a confirmed dictionary sense is no longer a clearly-separated supplementary panel, it _becomes_ the primary teaching definition shown in lessons and on the item page, with attribution kept alongside it but visually blended into the main content rather than confined to its own boxed section. Flagged to the user as part of that feature's delivery, not silently resolved; still open.
+- **Dictionary licensing is architecturally handled but not legally cleared.** `/licenses` records what CC BY-SA 4.0 (Wiktionary/Wiktextract) and RLA-ES's tri-license oblige, and the schema is built to satisfy them: attribution is stored as data and travels with the content, third-party content lives in separate tables from Polyglot-authored curriculum, and the unmodified upstream record is retained. What is **not** resolved is the ShareAlike question — whether presenting CC BY-SA dictionary content alongside proprietary curriculum in one interface creates a combined adaptation, and what that would require. Spec 12 says this must be verified separately before production. It has not been. **2026-09-07 update, de-escalated 2026-09-22**: the 2026-09-07 "confirmed mapping wins" feature made this materially more pressing — a confirmed dictionary sense was no longer a clearly-separated supplementary panel, it *became* the primary teaching definition shown to learners, blended into the main content rather than confined to its own boxed section. That specific change was reverted 2026-09-22 (see the Completed entry) — a learner is never shown a raw dictionary sense again, on the item page or (it never reached) lessons. This removes the "blended into primary teaching content" escalation, **but does not close the underlying question**: an admin can still confirm a mapping and have its gloss copied once into `vocabulary_items.definition` (unchanged "Promotion on approval" behavior), and an admin still sees full CC BY-SA dictionary content in `DictionaryMappingPanel`. Spec 12's "verify separately before production" is still not done. Still open.
 - ~~**Whether `vocabulary_items`' dictionary-shaped columns should eventually go.**~~ — **answered in part, 2026-09-07.** For `definition` and `ipa` specifically: the columns stay (an admin still authors them before a mapping exists or is confirmed, and they remain the fallback when no confirmed mapping exists), but a confirmed dictionary mapping's own values are now the resolved default everywhere the item is shown — see the "Confirmed dictionary mapping becomes the effective teaching content" Completed entry for the full precedence rule and its "live, never copied" design. `part_of_speech` and plain-text `pronunciation` (the guide, distinct from `ipa`) are untouched — no dictionary equivalent exists to override the former, and no product decision was made to override the latter.
 
 ## Architecture Decisions
