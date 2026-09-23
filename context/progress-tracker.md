@@ -1583,6 +1583,45 @@ writing to real `user_item_progress` rows.
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
 
+- **Choose Group as You Go now re-prompts on every lesson start, not just
+  once a group empties** (2026-09-23, user-reported: finished a 5-item
+  batch out of Numbers, which still had items left, clicked "Start lesson"
+  again, and it silently continued in Numbers with no prompt — "if I have
+  choose group as you go, then I should choose my lesson group every time I
+  click it unless there is only one group left," their words, taken as the
+  exact rule to implement). Root cause: `isThemeSelectionRequired`
+  (`domains/users/curriculum-preference.ts`) only asked again once the
+  previously selected group had _nothing left_ — "continue with whatever
+  was picked last time, as long as it still has items" was the original
+  spec 16 design, not a bug, but the user's decision today explicitly
+  reverses it. Changed the rule to the one now stated verbatim: ask whenever
+  more than one group has anything left, skip asking only when exactly one
+  group remains (a real "no choice to make" case, not friction to remove).
+  `startLesson` (`domains/lessons/lesson-service.ts`) needed a matching
+  change beyond just calling the updated function: with the old rule, its
+  "nothing left in any group" empty-check and its batch-building both lived
+  inside the `isThemeSelectionRequired` branch, which the new rule no
+  longer always enters — moved the empty-check out to run unconditionally,
+  and added explicit resolution of the single-remaining-group's id when
+  selection isn't required, rather than trusting whatever is stored in
+  `selectedVocabularyGroupId` (which can be `null`, on a first-ever lesson,
+  or stale, pointing at a group that only just became not-an-option) to
+  already agree with it — a stale/missing value there would otherwise make
+  `selectLessonBatch` return nothing instead of proceeding. Updated
+  `curriculum-preference.test.ts`'s existing tests for the old semantics
+  (one assertion's expected result flips under the new rule, as it should)
+  and added dedicated `startLesson` coverage in `lesson-service.test.ts`
+  reproducing the exact reported scenario with a custom themed curriculum
+  reader (the shared `fixtureCurriculumReader`'s items carry no theme data
+  to exercise this with). `tsc`, `eslint`, full unit suite (1097/1097, up
+  from 1093), `npm run build` all clean. Also reset the real `nerdalert`
+  admin account's progress at the user's request, through the same real,
+  audited `resetOwnAccountProgress` service the Admin Sandbox's own "Reset
+  my account progress" button calls (not raw SQL) — confirmed via the real
+  audit log (`ACCOUNT_PROGRESS_RESET`) and confirmed `user_item_progress`
+  empty / `user_level_progress` re-unlocked to Level 1 afterward — so this
+  fix can be retested cleanly from a fresh account state.
+
 - **Lesson quiz screen — correct/incorrect feedback no longer shifts the
   prompt and input** (2026-09-23, user-reported). The prompt, input, and
   feedback used to be three children of one `justify-center` flex column

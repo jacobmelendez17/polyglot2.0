@@ -73,34 +73,29 @@ describe("isCurriculumChoiceRequired", () => {
 describe("isThemeSelectionRequired", () => {
   it("is irrelevant outside Choose Group as You Go", () => {
     expect(
-      isThemeSelectionRequired(settings({ curriculumMode: "variety" }), []),
-    ).toBe(false);
-    expect(
-      isThemeSelectionRequired(
-        settings({ curriculumMode: "default_order" }),
-        [],
-      ),
-    ).toBe(false);
-    expect(isThemeSelectionRequired(null, ["theme-1"])).toBe(false);
-  });
-
-  it("asks when Choose Group as You Go has no group picked yet", () => {
-    expect(
-      isThemeSelectionRequired(settings({ curriculumMode: "choose_group" }), [
+      isThemeSelectionRequired(settings({ curriculumMode: "variety" }), [
         "theme-1",
+        "theme-2",
       ]),
-    ).toBe(true);
+    ).toBe(false);
+    expect(
+      isThemeSelectionRequired(settings({ curriculumMode: "default_order" }), [
+        "theme-1",
+        "theme-2",
+      ]),
+    ).toBe(false);
+    expect(isThemeSelectionRequired(null, ["theme-1", "theme-2"])).toBe(false);
   });
 
-  it("asks again once the chosen group has nothing left in it", () => {
-    const chosen = settings({
-      curriculumMode: "choose_group",
-      selectedVocabularyGroupId: "theme-finished",
-    });
-    expect(isThemeSelectionRequired(chosen, ["theme-1", "theme-2"])).toBe(true);
-  });
-
-  it("stays out of the way while the chosen group still has items", () => {
+  // 2026-09-23 user decision: a learner who finishes a lesson and clicks
+  // "Start lesson" again must be asked again, not silently continued in
+  // whatever group they picked before — `domains/lessons/lesson-completion.ts`
+  // clears `selectedVocabularyGroupId` back to `null` on completion, which
+  // is what makes this fire; an *active* selection (just picked, lesson
+  // not completed yet) must NOT re-trigger this, or picking a theme on the
+  // "What next?" screen would loop back into asking again instead of
+  // starting the lesson it just built.
+  it("does not ask again for the lesson about to be built when a selection is still active", () => {
     const chosen = settings({
       curriculumMode: "choose_group",
       selectedVocabularyGroupId: "theme-1",
@@ -108,6 +103,63 @@ describe("isThemeSelectionRequired", () => {
     expect(isThemeSelectionRequired(chosen, ["theme-1", "theme-2"])).toBe(
       false,
     );
+  });
+
+  it("asks again once the active selection has been cleared (lesson completion) and more than one group is available", () => {
+    const cleared = settings({
+      curriculumMode: "choose_group",
+      selectedVocabularyGroupId: null,
+    });
+    expect(isThemeSelectionRequired(cleared, ["theme-1", "theme-2"])).toBe(
+      true,
+    );
+  });
+
+  it("asks again once the previously chosen group has nothing left, even without a completion clearing it first", () => {
+    const stale = settings({
+      curriculumMode: "choose_group",
+      selectedVocabularyGroupId: "theme-finished",
+    });
+    expect(isThemeSelectionRequired(stale, ["theme-1", "theme-2"])).toBe(
+      true,
+    );
+  });
+
+  it("asks when nothing has been picked yet and more than one group is available", () => {
+    expect(
+      isThemeSelectionRequired(settings({ curriculumMode: "choose_group" }), [
+        "theme-1",
+        "theme-2",
+      ]),
+    ).toBe(true);
+  });
+
+  // The one exception, verbatim from the same 2026-09-23 decision: "unless
+  // there is only one group left" — a single remaining group is not a real
+  // choice, so this stays out of the way regardless of whether it was ever
+  // explicitly picked or is a previously-picked group that just now became
+  // the only one left.
+  it("does not ask when only one group has anything left", () => {
+    expect(
+      isThemeSelectionRequired(settings({ curriculumMode: "choose_group" }), [
+        "theme-1",
+      ]),
+    ).toBe(false);
+
+    const chosen = settings({
+      curriculumMode: "choose_group",
+      selectedVocabularyGroupId: "theme-1",
+    });
+    expect(isThemeSelectionRequired(chosen, ["theme-1"])).toBe(false);
+  });
+
+  it("does not ask when nothing is left in any group — the caller reads that as empty, not a choice", () => {
+    expect(
+      isThemeSelectionRequired(
+        settings({ curriculumMode: "choose_group" }),
+        [],
+      ),
+    ).toBe(false);
   });
 });
 

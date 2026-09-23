@@ -234,26 +234,32 @@ export async function startLesson({
   );
   const batchSize = settings?.lessonBatchSize ?? DEFAULT_LESSON_BATCH_SIZE;
   const mode = settings?.curriculumMode ?? FALLBACK_CURRICULUM_MODE;
+  let selectedThemeId = settings?.selectedVocabularyGroupId ?? null;
 
   if (mode === "choose_group") {
     const themes = toThemeChoices(eligibleItems);
+    // Nothing left in any group is "nothing left to learn", not a choice.
+    if (themes.length === 0) return { kind: "empty" };
     if (
       isThemeSelectionRequired(
         settings,
         themes.map((theme) => theme.id),
       )
     ) {
-      // Nothing left in any group is "nothing left to learn", not a choice.
-      if (themes.length === 0) return { kind: "empty" };
       return { kind: "choose-theme", themes };
     }
+    // Exactly one group has anything left — nothing to choose between, so
+    // proceed with it directly rather than trusting `selectedThemeId` to
+    // already agree: it may be stale (pointing at a group that has since
+    // emptied into this exact state) or never set at all.
+    selectedThemeId = themes[0]!.id;
   }
 
   const selected = selectLessonBatch({
     eligibleItems,
     batchSize,
     mode,
-    selectedThemeId: settings?.selectedVocabularyGroupId ?? null,
+    selectedThemeId,
     grammarPlacement: settings?.grammarPlacement,
   });
 

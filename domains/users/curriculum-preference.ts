@@ -109,18 +109,41 @@ export function isCurriculumChoiceRequired(
 
 /**
  * Whether Choose Group as You Go still needs a group chosen before a lesson
- * can be built. True when the learner is in that mode and either has never
- * picked a group or the one they picked has no eligible items left — "after
- * the active group is completed, the learner chooses another."
+ * can be built.
+ *
+ * Two independent conditions, both required (user decision, 2026-09-23):
+ *
+ * 1. **There must be a real choice to make** — more than one group with
+ *    anything left to study. A single remaining group is nothing to choose
+ *    between, so this returns `false` regardless of the rest ("unless
+ *    there is only one group left," verbatim). See the caller
+ *    (`domains/lessons/lesson-service.ts`'s `startLesson`) for how it
+ *    resolves straight to that one group without needing it already stored
+ *    as the learner's selection.
+ * 2. **No selection is currently active for the lesson about to be
+ *    built** — `selectedVocabularyGroupId` is `null`, or points at a group
+ *    that is no longer available (finished, or never existed). A learner
+ *    picking a group on the "What next?" screen writes it here and the
+ *    very next `startLesson` call must honor it immediately, not loop back
+ *    into asking again — `domains/lessons/lesson-completion.ts` clears
+ *    this field back to `null` once that lesson actually *completes*,
+ *    which is what makes the *following* `startLesson` call ask again.
+ *    Original report this whole rule exists for: a learner finished a
+ *    5-item batch out of an 11-item "Numbers" group and clicked "Start
+ *    lesson" again — silently continued in Numbers, no prompt, because
+ *    "the chosen group still has items" used to be reason enough on its
+ *    own to skip asking. It no longer is; only an *active* selection is.
  *
  * Takes the *eligible* group ids rather than every group in the curriculum,
- * so a finished group and a group that never existed resolve the same way.
+ * so a finished group and a group that never existed count the same way —
+ * neither is a real option to choose.
  */
 export function isThemeSelectionRequired(
   settings: LanguageSettings | null,
   availableThemeIds: readonly string[],
 ): boolean {
   if (settings?.curriculumMode !== "choose_group") return false;
+  if (availableThemeIds.length <= 1) return false;
   if (!settings.selectedVocabularyGroupId) return true;
   return !availableThemeIds.includes(settings.selectedVocabularyGroupId);
 }

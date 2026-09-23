@@ -7,6 +7,10 @@ import {
   DEFAULT_SRS_INTERVAL_MODE,
   MINIMUM_REVIEW_STAGE,
 } from "@/domains/srs";
+import {
+  findLanguageSettings,
+  saveCurriculumPreference,
+} from "@/domains/users/user-repository";
 import { LessonError } from "@/lib/errors/lesson-errors";
 import { logger } from "@/lib/logging/logger";
 import { withTrace } from "@/lib/logging/operation-tracer";
@@ -186,6 +190,34 @@ export async function completeLesson(
             newStage: MINIMUM_REVIEW_STAGE,
             accuracy: accuracyFrom(state),
           });
+
+          // Choose Group as You Go re-prompts on every lesson start, not
+          // just once a group empties (user decision, 2026-09-23) — see
+          // `domains/users/curriculum-preference.ts`'s
+          // `isThemeSelectionRequired` for the full rule. This is the other
+          // half of that rule: an *active* selection is honored for the
+          // one lesson it was made for, then cleared back to `null` right
+          // here, on real completion, so the *next* `startLesson` call
+          // asks again instead of silently continuing in the same group.
+          // Scoped to `choose_group` specifically — every other mode
+          // already always stores `null` here (the database enforces it),
+          // so this is a genuine no-op for them, not a mode switch.
+          const settings = await findLanguageSettings(
+            tx,
+            input.userId,
+            input.languageId,
+          );
+          if (
+            settings?.curriculumMode === "choose_group" &&
+            settings.selectedVocabularyGroupId !== null
+          ) {
+            await saveCurriculumPreference(tx, {
+              userId: input.userId,
+              languageId: input.languageId,
+              curriculumMode: "choose_group",
+              selectedVocabularyGroupId: null,
+            });
+          }
 
           return {
             items: orderedItems.map((item) => ({

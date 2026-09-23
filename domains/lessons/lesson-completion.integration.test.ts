@@ -6,6 +6,7 @@ import {
   learningItems,
   levels,
   userItemProgress,
+  userLanguageSettings,
   userLevelProgress,
   users,
   vocabularyGroups,
@@ -113,6 +114,7 @@ async function seedLesson(
   return {
     languageId: language.id,
     levelId: level.id,
+    groupId: group.id,
     userId: user.id,
     itemIds,
     languageCode: language.code,
@@ -197,6 +199,68 @@ describe("completeLesson", () => {
         expect(row.nextReviewAt).not.toBeNull();
         expect(row.nextReviewAt!.getTime()).toBeGreaterThan(now.getTime());
       }
+    });
+  });
+
+  // 2026-09-23 user report, root-caused: a learner in Choose Group as You
+  // Go finished a lesson and clicked "Start lesson" again, and it silently
+  // continued in the same group with no prompt because the group still had
+  // items left. `isThemeSelectionRequired`
+  // (`domains/users/curriculum-preference.ts`) now re-prompts whenever a
+  // real choice exists, but only once the *active* selection for the
+  // lesson just finished is cleared — this is that clearing, verified
+  // against the real database rather than assumed from the unit-level
+  // logic alone.
+  it("clears the learner's selected group in Choose Group as You Go once the lesson actually completes", async () => {
+    await withTestTransaction(async (tx) => {
+      const fixture = await seedLesson(tx);
+      await tx.insert(userLanguageSettings).values({
+        userId: fixture.userId,
+        languageId: fixture.languageId,
+        curriculumMode: "choose_group",
+        selectedVocabularyGroupId: fixture.groupId,
+      });
+
+      await completeLesson(tx, {
+        curriculum: readerFor(tx),
+        token: await completedToken(fixture),
+        userId: fixture.userId,
+        languageId: fixture.languageId,
+        idempotencyKey: crypto.randomUUID(),
+      });
+
+      const [settings] = await tx
+        .select()
+        .from(userLanguageSettings)
+        .where(eq(userLanguageSettings.userId, fixture.userId));
+      expect(settings.curriculumMode).toBe("choose_group");
+      expect(settings.selectedVocabularyGroupId).toBeNull();
+    });
+  });
+
+  it("leaves any other curriculum mode's settings alone — there is nothing to clear", async () => {
+    await withTestTransaction(async (tx) => {
+      const fixture = await seedLesson(tx);
+      await tx.insert(userLanguageSettings).values({
+        userId: fixture.userId,
+        languageId: fixture.languageId,
+        curriculumMode: "variety",
+      });
+
+      await completeLesson(tx, {
+        curriculum: readerFor(tx),
+        token: await completedToken(fixture),
+        userId: fixture.userId,
+        languageId: fixture.languageId,
+        idempotencyKey: crypto.randomUUID(),
+      });
+
+      const [settings] = await tx
+        .select()
+        .from(userLanguageSettings)
+        .where(eq(userLanguageSettings.userId, fixture.userId));
+      expect(settings.curriculumMode).toBe("variety");
+      expect(settings.selectedVocabularyGroupId).toBeNull();
     });
   });
 
