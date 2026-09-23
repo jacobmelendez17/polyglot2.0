@@ -29,6 +29,16 @@ type QuizViewProps = {
  * segments/item tiles here — those are a study-only affordance (see
  * `lesson-progress-segments.tsx`'s docstring); showing them during the quiz
  * was found confusing and removed per explicit product direction.
+ *
+ * The prompt/input block and the correct/incorrect feedback are
+ * deliberately two separate layout regions, not one centered flex group
+ * (user report, 2026-09-23: the feedback used to be the last child inside
+ * the same `justify-center` block as the prompt and input, so the whole
+ * group re-centered — and visibly shifted upward — the instant feedback
+ * text added height to it). The prompt/input block now centers in the
+ * full available height on its own, unaffected by whether feedback exists;
+ * feedback is `fixed` to the viewport bottom instead, so it appears
+ * beneath everything without moving anything above it.
  */
 export function QuizView({
   question,
@@ -83,11 +93,15 @@ export function QuizView({
           onSubmit={onSubmit}
           onAdvance={onAdvance}
         />
-
-        {feedback && feedback.kind !== "empty" ? (
-          <FeedbackRegion feedback={feedback} />
-        ) : null}
       </div>
+
+      {feedback && feedback.kind !== "empty" ? (
+        <div className="fixed inset-x-0 bottom-0 z-10 flex justify-center px-4 pb-6 sm:pb-10">
+          <div className="animate-in fade-in slide-in-from-bottom-4 flex w-full max-w-2xl flex-col items-center duration-200">
+            <FeedbackRegion feedback={feedback} />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

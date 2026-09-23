@@ -1583,6 +1583,34 @@ writing to real `user_item_progress` rows.
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
 
+- **Lesson quiz screen — correct/incorrect feedback no longer shifts the
+  prompt and input** (2026-09-23, user-reported). The prompt, input, and
+  feedback used to be three children of one `justify-center` flex column
+  (`QuizView`), so the whole group re-centered — visibly moving the prompt
+  and input upward — the instant feedback text added height to it. Fixed by
+  splitting them into two independent layout regions: the prompt/input
+  block now centers within its own `flex-1` area regardless of whether
+  feedback exists, and feedback renders in a `fixed inset-x-0 bottom-0`
+  bar anchored to the viewport instead of participating in that flex flow
+  at all — appears with a fade/slide-in (`tw-animate-css`, already used
+  elsewhere in this codebase) without moving anything above it. Kept the
+  screen's existing "chromeless, no cards/panels/tinted surfaces" rule
+  intact — the feedback bar has no background of its own, same as before,
+  just a different position. Verified this genuinely fixed the reported
+  shift, not just by reasoning about flexbox: wrote a throwaway Playwright
+  script that loaded this project's own real compiled Tailwind CSS (via the
+  public `/sign-in` page, so no auth was needed) and injected the exact
+  before/after markup, measuring the prompt's bounding box with no feedback
+  present vs. with the tallest real feedback content present (the
+  `missing_article` case). Result: **0px Y-shift**, confirmed at both an
+  800×900 desktop viewport and a 390×844 mobile viewport (matching the
+  E2E mobile smoke test's own viewport), with the feedback bar's bottom
+  edge staying within the viewport on both — no overlap with the input
+  above it. Screenshot reviewed directly, script deleted after. `tsc`,
+  `eslint`, the existing `quiz-view.test.tsx` suite (9/9, unchanged —
+  behavior, not markup structure, is what those tests assert), full unit
+  suite (1093/1093), and `npm run build` all clean.
+
 - **Lesson study screen — an explicit Back button** (2026-09-23,
   user-requested). The study screen's progress-segment row already let a
   learner jump to any item, viewed or not, by clicking its dot
