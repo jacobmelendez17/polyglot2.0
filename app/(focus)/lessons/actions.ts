@@ -2,6 +2,24 @@
 
 import { z } from "zod";
 
+/**
+ * Same permissive UUID-shape reasoning as `domains/admin/audit-schemas.ts`
+ * — this codebase's seeded fixture IDs (e.g. `vocabulary_groups` rows like
+ * `30000000-0000-0000-0000-000000000001`) don't satisfy `z.uuid()`'s
+ * stricter RFC 4122 version check, which rejects them outright. Confirmed
+ * live 2026-09-23: a real learner's Theme-mode "Start lesson" against a
+ * real seeded group id failed with "That request could not be understood"
+ * — `chooseThemeInputSchema`'s `themeId` (a `vocabulary_groups.id`) was the
+ * one `z.string().uuid()` in this file that was never switched to this
+ * already-established pattern.
+ */
+const uuidLike = z
+  .string()
+  .regex(
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    "Invalid UUID",
+  );
+
 import {
   completeLesson,
   openLessonItem,
@@ -137,7 +155,7 @@ export async function completeLessonAction(
   });
 }
 
-const chooseThemeInputSchema = z.object({ themeId: z.string().uuid() });
+const chooseThemeInputSchema = z.object({ themeId: uuidLike });
 
 /**
  * Spec 16 — the Theme-mode learner picking which theme to study next, from

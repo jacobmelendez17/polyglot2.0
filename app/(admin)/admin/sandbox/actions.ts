@@ -37,6 +37,19 @@ export type ActionResult<T> =
   | { ok: true; data: T }
   | { ok: false; error: { code: string; message: string } };
 
+/**
+ * Same permissive UUID-shape reasoning as `domains/admin/audit-schemas.ts`
+ * — this codebase's seeded fixture IDs (e.g. `vocabulary_groups` rows like
+ * `30000000-0000-0000-0000-000000000001`) don't satisfy `z.uuid()`'s
+ * stricter RFC 4122 version check, which rejects them outright.
+ */
+const uuidLike = z
+  .string()
+  .regex(
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    "Invalid UUID",
+  );
+
 async function runSandboxAction<T>(
   fn: () => Promise<T>,
 ): Promise<ActionResult<T>> {
@@ -265,7 +278,7 @@ export async function closeSandboxAction(): Promise<ActionResult<void>> {
 const setCurriculumModeActionSchema = z.object({
   languageId: z.string().min(1),
   curriculumMode: z.enum(CURRICULUM_MODES),
-  selectedVocabularyGroupId: z.string().uuid().nullish(),
+  selectedVocabularyGroupId: uuidLike.nullish(),
   idempotencyKey: z.string().min(1),
 });
 

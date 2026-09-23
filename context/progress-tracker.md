@@ -1583,6 +1583,47 @@ writing to real `user_item_progress` rows.
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
 
+- **Bug fix — Theme-mode "Start lesson" failed with "That request could not
+  be understood" for real, live curriculum content** (2026-09-23,
+  user-reported from a live dev-server session with server logs and a
+  screenshot). Root-caused, not guessed: `POST /lessons` was returning
+  `200` (Server Actions always do, at the transport level) while the
+  action's own result was `{ ok: false }` — the visible error came from
+  `chooseLessonThemeAction`'s Zod-parse catch branch. Confirmed directly by
+  running the exact failing input, `{ themeId:
+"30000000-0000-0000-0000-000000000001" }` (the real, live "Numbers"
+  vocabulary group id, taken straight from the reported server log), through
+  `chooseThemeInputSchema`: `z.string().uuid()` rejects it, because that id
+  is a deterministically-seeded fixture-style UUID (version nibble `0`) and
+  `z.uuid()` enforces RFC 4122's version/variant bits strictly. This
+  codebase already has a documented, established fix for exactly this
+  — a permissive `uuidLike` regex, already used in five other schema files
+  (`domains/admin/audit-schemas.ts`'s own comment: "Confirmed directly:
+  `z.uuid()` rejects that exact fixture ID") — but `chooseThemeInputSchema`
+  in `app/(focus)/lessons/actions.ts` was never switched to it. Found and
+  fixed the same bug in three sibling files sharing the identical
+  `selectedVocabularyGroupId: z.string().uuid()` field before it could bite
+  the same way: `app/(app)/settings/lessons/actions.ts` (the Lessons
+  settings picker), `app/(onboarding)/onboarding/curriculum/actions.ts`
+  (onboarding's curriculum choice), `app/(admin)/admin/sandbox/actions.ts`
+  (the sandbox persona's curriculum mode). Verified the exact failing input
+  now parses successfully with the fix in place, confirmed no other
+  `.uuid()` check exists further downstream in either call path
+  (`domains/lessons`/`domains/users`, grepped clean), and confirmed `idempotencyKey`
+  fields elsewhere correctly keep strict `z.string().uuid()` — those are
+  genuinely client-generated `crypto.randomUUID()` values, not seeded ids,
+  so tightening them would have been the wrong fix. `tsc`, `eslint`, full
+  unit suite (1092/1092), `npm run build` all clean. No dedicated test
+  covers any of the four touched Server Action files directly (consistent
+  with how every other thin Server Action file in this codebase is tested —
+  through the integration/E2E layers, not unit tests of the action itself).
+  **Not fully closed**: this was root-caused and fixed from the reported
+  symptom and a direct schema-level reproduction, not from a live click
+  through the real UI — this session still has no way to drive a real admin
+  session against the actual dev server (see the same caveat on the
+  Synonyms/Variants entry below). Worth a real click-through before calling
+  Theme-mode fully confirmed fixed.
+
 - **Admin Synonyms/Variants: surfacing dictionary-sourced suggestions,
   one-click-add** (2026-09-23, same-day follow-up, user-requested, real
   data verified against the real database — see below). User report, with
