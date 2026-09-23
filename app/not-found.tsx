@@ -34,10 +34,10 @@ export default function NotFound() {
       />
       <div className="flex flex-col gap-2">
         <h1 className="font-heading text-2xl font-semibold text-foreground sm:text-3xl">
-          Page not found
+          Uh oh! Page not found.
         </h1>
         <p className="text-base text-muted-foreground">
-          We couldn&apos;t find the page you&apos;re looking for.
+          Looks like we&apos;re still working on this page. Come back next time.
         </p>
       </div>
       <Button asChild>
