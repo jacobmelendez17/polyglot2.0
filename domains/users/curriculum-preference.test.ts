@@ -120,9 +120,7 @@ describe("isThemeSelectionRequired", () => {
       curriculumMode: "choose_group",
       selectedVocabularyGroupId: "theme-finished",
     });
-    expect(isThemeSelectionRequired(stale, ["theme-1", "theme-2"])).toBe(
-      true,
-    );
+    expect(isThemeSelectionRequired(stale, ["theme-1", "theme-2"])).toBe(true);
   });
 
   it("asks when nothing has been picked yet and more than one group is available", () => {

@@ -158,9 +158,7 @@ describe("startLesson", () => {
       expect(result.kind).toBe("session");
       if (result.kind === "session") {
         expect(
-          result.batch.every((item) =>
-            item.itemId.startsWith("numbers-"),
-          ),
+          result.batch.every((item) => item.itemId.startsWith("numbers-")),
         ).toBe(true);
       }
     });

@@ -1583,6 +1583,86 @@ writing to real `user_item_progress` rows.
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
 
+- **Choose Group as You Go, third pass same day: the account-reset control
+  itself left a stale selection behind, silently skipping the "What next?"
+  prompt on what should have been a fresh start** (2026-09-23,
+  user-reported: "it works now but it doesn't ask what theme i want first.
+  it automatically gives me numbers again so its the same bug as before").
+  This one **presented identically to the two prior reports but was a
+  genuinely different bug**, confirmed by direct evidence rather than
+  assumed to be a repeat: queried the real database and found (1) the
+  learner's account genuinely has two real eligible themes right now
+  (Numbers, 11 words; Family & People, 12 words — its _group_ row happens
+  to still be `draft`, but eligibility only ever checks the learning
+  item's own status and the level's, never the group's, so this is real
+  content, not a false positive), and (2) `user_item_progress` was
+  completely empty — meaning **no lesson had actually completed** since the
+  account was reset (the first entry above), so the completion-time
+  clearing added in that entry's fix had no chance to run at all. What
+  _was_ set: `selected_vocabulary_group_id = Numbers`, updated _after_ the
+  reset — a leftover from clicking through the theme picker while
+  debugging the earlier loop bug. `resetOwnAccountProgress`
+  (`domains/admin/account-reset-service.ts`) clears `user_item_progress`/
+  `user_level_progress` but never touched `user_language_settings`, so that
+  stale selection survived the reset untouched and was silently honored as
+  "still active" by `isThemeSelectionRequired`'s condition 2 — correctly,
+  by that rule's own logic; the rule was never told the reset had made the
+  selection stale. Fixed by having the reset clear it too, same call as
+  `lesson-completion.ts`'s completion-time clearing
+  (`findLanguageSettings`/`saveCurriculumPreference`, scoped to
+  `choose_group` mode only). Two new integration tests in
+  `account-reset-service.integration.test.ts` (6/6 passing, up from 2) —
+  one confirming the clearing, one confirming `variety` mode is left
+  alone, mirroring the same pair added for lesson completion. `tsc`,
+  `eslint`, full unit suite (1100/1100, unchanged — these are
+  integration-only tests), `npm run build` all clean. Cleared the real
+  account's stale selection through the same real, audited service
+  (confirmed `selected_vocabulary_group_id` is now `null`,
+  `user_item_progress` still empty) rather than leaving the user blocked on
+  a fix that would only help the _next_ reset.
+
+- **Choose Group as You Go regression fixed same-day, real cause this time:
+  the "What next?" picker's own "Start lesson" click looped back into
+  itself** (2026-09-23, user-reported: "when i click on the start lesson
+  for either theme nothing happens. It renders then stops"). This was a
+  genuine bug **introduced by the entry directly below**, caught and fixed
+  within the same session rather than left standing — recorded honestly
+  rather than folded silently into that entry, since it shipped, broke a
+  real flow, and was reported. Root cause: the previous fix made
+  `isThemeSelectionRequired` return `true` whenever more than one group had
+  anything left, with **no regard for whether a selection had just been
+  made**. Picking a theme on the picker and clicking its own "Start lesson"
+  saves that choice and reloads `/lessons` — which under that rule asked
+  again immediately, since the picked group's availability alone was
+  already enough to require asking, showing the identical picker screen
+  and looking exactly like nothing had happened. Fixed by restoring what
+  the _actual_ rule needed to be: two independent conditions, not one —
+  (1) more than one group must have anything left (unchanged), **and** (2)
+  no _active_ selection exists for the lesson about to be built
+  (`selectedVocabularyGroupId` is `null` or points at a now-unavailable
+  group). The picker's own confirm click sets an active selection, which
+  condition 2 now correctly honors immediately instead of re-asking.
+  What makes the _next, separate_ lesson start ask again — the actual
+  behavior the user asked for two entries ago — is a new piece that
+  entry's fix was missing entirely: `domains/lessons/lesson-completion.ts`'s
+  `completeLesson` now clears `selectedVocabularyGroupId` back to `null`
+  inside the same completion transaction, once a lesson genuinely
+  completes (scoped to `choose_group` mode only — every other mode already
+  always stores `null` there, so this is a real no-op for them, confirmed
+  by a dedicated test rather than assumed). Verified against the real
+  database, not just the unit-level rule: two new integration tests in
+  `lesson-completion.integration.test.ts` (12/12 passing, up from 10) —
+  one confirming the clearing happens for `choose_group`, one confirming
+  `variety` mode's settings are left untouched. Updated
+  `curriculum-preference.test.ts` and `lesson-service.test.ts` for the
+  corrected two-condition rule (an earlier version of both files, written
+  for the broken single-condition rule, would have let this regression
+  through — they simply didn't test the "selection was just made" case at
+  all). `tsc`, `eslint`, full unit suite (1100/1100, up from 1097), and
+  `npm run build` all clean. The account reset from two entries ago is
+  still valid — the loop this fixes never got far enough to write any real
+  progress, so nothing further needed resetting.
+
 - **Choose Group as You Go now re-prompts on every lesson start, not just
   once a group empties** (2026-09-23, user-reported: finished a 5-item
   batch out of Numbers, which still had items left, clicked "Start lesson"

@@ -1,10 +1,13 @@
+import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 
+import { userLanguageSettings } from "@/db/schema";
 import {
   ITEM_CASA_ID,
   ITEM_GATO_ID,
   LEARNER_ID,
   LEVEL_2_ID,
+  VOCAB_GROUP_ID,
   seedTestFixtures,
 } from "@/db/seed/test-fixtures";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
@@ -61,6 +64,59 @@ describe("resetOwnAccountProgress", () => {
         limit: 10,
       });
       expect(audit.items).toHaveLength(1);
+    });
+  });
+
+  // 2026-09-23 real report, root-caused: a group picked before a reset
+  // survived it untouched, and the very next `startLesson` call silently
+  // honored that stale selection as still-active and skipped the "What
+  // next?" prompt on what was supposed to be a genuinely fresh start.
+  it("clears an active Choose Group as You Go selection, so the next lesson start asks again", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      await tx.insert(userLanguageSettings).values({
+        userId: LEARNER_ID,
+        languageId,
+        curriculumMode: "choose_group",
+        selectedVocabularyGroupId: VOCAB_GROUP_ID,
+      });
+
+      await resetOwnAccountProgress(tx, {
+        userId: LEARNER_ID,
+        languageId,
+        idempotencyKey: crypto.randomUUID(),
+      });
+
+      const [settings] = await tx
+        .select()
+        .from(userLanguageSettings)
+        .where(eq(userLanguageSettings.userId, LEARNER_ID));
+      expect(settings.curriculumMode).toBe("choose_group");
+      expect(settings.selectedVocabularyGroupId).toBeNull();
+    });
+  });
+
+  it("leaves any other curriculum mode's settings alone — there is nothing to clear", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      await tx.insert(userLanguageSettings).values({
+        userId: LEARNER_ID,
+        languageId,
+        curriculumMode: "variety",
+      });
+
+      await resetOwnAccountProgress(tx, {
+        userId: LEARNER_ID,
+        languageId,
+        idempotencyKey: crypto.randomUUID(),
+      });
+
+      const [settings] = await tx
+        .select()
+        .from(userLanguageSettings)
+        .where(eq(userLanguageSettings.userId, LEARNER_ID));
+      expect(settings.curriculumMode).toBe("variety");
+      expect(settings.selectedVocabularyGroupId).toBeNull();
     });
   });
 
