@@ -4,7 +4,7 @@ import {
   getLearningItemExamples,
   getLearningItemsByIds,
   getLevelsByLanguage,
-  getSentenceById,
+  getSentencesByIds,
 } from "@/domains/curriculum/curriculum-repository";
 // A pure read despite living alongside the admin mutation functions
 // (`getUsageContexts`/`getItemExamples` are the same shape) — the official
@@ -244,15 +244,22 @@ async function buildGhostReviewViews(
   if (ghosts.length === 0) return [];
 
   const itemIds = [...new Set(ghosts.map((ghost) => ghost.learningItemId))];
-  const items = await getLearningItemsByIds(db, itemIds);
+  const sentenceIds = [...new Set(ghosts.map((ghost) => ghost.sentenceId))];
+  const [items, sentences] = await Promise.all([
+    getLearningItemsByIds(db, itemIds),
+    getSentencesByIds(db, sentenceIds),
+  ]);
   const itemById = new Map(items.map((item) => [item.id, item]));
+  const sentenceById = new Map(
+    sentences.map((sentence) => [sentence.id, sentence]),
+  );
 
   const views: GhostReviewView[] = [];
   for (const ghost of ghosts) {
     const item = itemById.get(ghost.learningItemId);
     if (!item || !ghost.ghostStage) continue;
 
-    const sentence = await getSentenceById(db, ghost.sentenceId);
+    const sentence = sentenceById.get(ghost.sentenceId);
     if (!sentence) continue;
 
     const targetWord =

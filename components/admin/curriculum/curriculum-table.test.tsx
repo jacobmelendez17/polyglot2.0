@@ -1,9 +1,14 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { CurriculumTable } from "./curriculum-table";
 import type { AdminCurriculumListItem } from "@/domains/curriculum";
+
+let currentSearchParams = new URLSearchParams();
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => currentSearchParams,
+}));
 
 function item(
   overrides: Partial<AdminCurriculumListItem>,
@@ -28,6 +33,10 @@ function item(
 const noop = () => {};
 
 describe("CurriculumTable", () => {
+  beforeEach(() => {
+    currentSearchParams = new URLSearchParams();
+  });
+
   it("renders each item's type, item, meaning, level, group, and status", () => {
     render(
       <CurriculumTable
@@ -46,7 +55,8 @@ describe("CurriculumTable", () => {
     expect(screen.getByText("Published")).toBeInTheDocument();
   });
 
-  it("links each row's Edit action to that item's editor", () => {
+  it("links the whole row to that item's editor, via its label", () => {
+    currentSearchParams = new URLSearchParams();
     render(
       <CurriculumTable
         items={[item({})]}
@@ -55,9 +65,25 @@ describe("CurriculumTable", () => {
         onToggleAll={noop}
       />,
     );
-    expect(screen.getByRole("link", { name: "Edit" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "el gato" })).toHaveAttribute(
       "href",
       "/admin/curriculum/items/item-1",
+    );
+  });
+
+  it("carries the current filters through to the item editor as `from`, so Back can restore them", () => {
+    currentSearchParams = new URLSearchParams("language=lang-es&level=level-1");
+    render(
+      <CurriculumTable
+        items={[item({})]}
+        selectedIds={new Set()}
+        onToggleItem={noop}
+        onToggleAll={noop}
+      />,
+    );
+    expect(screen.getByRole("link", { name: "el gato" })).toHaveAttribute(
+      "href",
+      "/admin/curriculum/items/item-1?from=language%3Dlang-es%26level%3Dlevel-1",
     );
   });
 

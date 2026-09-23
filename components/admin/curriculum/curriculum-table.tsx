@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { ChevronRight } from "lucide-react";
 
 import { Checkbox } from "@/components/ui/checkbox";
 import { CurriculumStatusBadge } from "./curriculum-status-badge";
@@ -22,6 +24,20 @@ export function CurriculumTable({
   onToggleItem,
   onToggleAll,
 }: CurriculumTableProps) {
+  // Carries the current filters/search/pagination through to the item
+  // editor and back again, so following a row and clicking "Back to
+  // Curriculum" from there restores this exact view instead of the admin
+  // needing to redo their filters. The sidebar's own "Curriculum" link has
+  // no query string and is left alone, so it still resets to a blank view.
+  const searchParams = useSearchParams();
+  const fromQuery = searchParams.toString();
+
+  function itemHref(itemId: string) {
+    return fromQuery
+      ? `/admin/curriculum/items/${itemId}?from=${encodeURIComponent(fromQuery)}`
+      : `/admin/curriculum/items/${itemId}`;
+  }
+
   if (items.length === 0) {
     return (
       <div className="rounded-xl border border-border bg-card p-8 text-center">
@@ -87,9 +103,9 @@ export function CurriculumTable({
           {items.map((item) => (
             <tr
               key={item.id}
-              className="border-b border-border last:border-0 hover:bg-muted/30"
+              className="relative border-b border-border last:border-0 hover:bg-muted/30"
             >
-              <td className="px-3 py-2">
+              <td className="relative z-10 px-3 py-2">
                 <Checkbox
                   checked={selectedIds.has(item.id)}
                   onCheckedChange={() => onToggleItem(item.id)}
@@ -100,7 +116,12 @@ export function CurriculumTable({
                 {TYPE_LABEL[item.type]}
               </td>
               <td className="px-3 py-2 font-medium text-foreground">
-                {item.itemLabel}
+                <Link
+                  href={itemHref(item.id)}
+                  className="after:absolute after:inset-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {item.itemLabel}
+                </Link>
               </td>
               <td className="px-3 py-2 text-muted-foreground">
                 {item.meaningLabel}
@@ -114,13 +135,8 @@ export function CurriculumTable({
               <td className="px-3 py-2">
                 <CurriculumStatusBadge status={item.status} />
               </td>
-              <td className="px-3 py-2 text-right">
-                <Link
-                  href={`/admin/curriculum/items/${item.id}`}
-                  className="text-sm font-medium text-primary underline-offset-4 hover:underline"
-                >
-                  Edit
-                </Link>
+              <td className="px-3 py-2 text-right text-muted-foreground">
+                <ChevronRight className="ml-auto h-4 w-4" aria-hidden="true" />
               </td>
             </tr>
           ))}

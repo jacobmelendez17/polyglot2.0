@@ -487,6 +487,27 @@ export async function getSentenceById(
   return row ?? null;
 }
 
+/**
+ * Batch form of `getSentenceById` (spec 20 Ghost Reviews) — one query for
+ * every sentence a due Ghost queue needs, instead of one round-trip per
+ * Ghost. Order is not guaranteed to match `sentenceIds`; callers look up by
+ * id from the returned rows.
+ */
+export async function getSentencesByIds(
+  db: DbClient,
+  sentenceIds: string[],
+): Promise<CurriculumExampleSentence[]> {
+  if (sentenceIds.length === 0) return [];
+  return db
+    .select({
+      id: sentences.id,
+      targetText: sentences.targetText,
+      translation: sentences.translation,
+    })
+    .from(sentences)
+    .where(inArray(sentences.id, sentenceIds));
+}
+
 // --- Spec 18: grammar About blocks, resources, and hero navigation ---
 
 /**

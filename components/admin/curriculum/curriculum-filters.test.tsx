@@ -15,7 +15,10 @@ const LEVELS = [
   { id: "level-1", levelNumber: 1 },
   { id: "level-2", levelNumber: 2 },
 ];
-const GROUPS = [{ id: "group-1", name: "Home & Basics", levelNumber: 1 }];
+const GROUPS = [
+  { id: "group-1", name: "Home & Basics", levelNumber: 1 },
+  { id: "group-2", name: "Travel", levelNumber: 2 },
+];
 
 function baseValue(
   overrides: Partial<
@@ -33,7 +36,7 @@ describe("CurriculumFilters", () => {
         levels={LEVELS}
         groups={GROUPS}
         value={baseValue({
-          levelId: "level-2",
+          levelId: "level-1",
           type: "grammar",
           status: "pending",
           groupId: "group-1",
@@ -49,7 +52,7 @@ describe("CurriculumFilters", () => {
       screen.getByRole("combobox", { name: "Language" }),
     ).toHaveTextContent("Spanish");
     expect(screen.getByRole("combobox", { name: "Level" })).toHaveTextContent(
-      "Level 2",
+      "Level 1",
     );
     expect(screen.getByRole("combobox", { name: "Type" })).toHaveTextContent(
       "Grammar",
@@ -140,5 +143,44 @@ describe("CurriculumFilters", () => {
     await user.click(await screen.findByRole("option", { name: "All levels" }));
 
     expect(push).toHaveBeenCalledWith("/admin/curriculum?language=lang-es");
+  });
+
+  it("scopes the Group dropdown to the selected Level", async () => {
+    const user = userEvent.setup();
+    render(
+      <CurriculumFilters
+        languages={LANGUAGES}
+        levels={LEVELS}
+        groups={GROUPS}
+        value={baseValue({ levelId: "level-1" })}
+      />,
+    );
+
+    await user.click(screen.getByRole("combobox", { name: "Group" }));
+    expect(
+      screen.getByRole("option", { name: "Home & Basics" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("option", { name: "Travel" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("selecting a Level clears the current Group filter", async () => {
+    const user = userEvent.setup();
+    render(
+      <CurriculumFilters
+        languages={LANGUAGES}
+        levels={LEVELS}
+        groups={GROUPS}
+        value={baseValue({ levelId: "level-2", groupId: "group-2" })}
+      />,
+    );
+
+    await user.click(screen.getByRole("combobox", { name: "Level" }));
+    await user.click(await screen.findByRole("option", { name: "Level 1" }));
+
+    expect(push).toHaveBeenCalledWith(
+      "/admin/curriculum?language=lang-es&level=level-1",
+    );
   });
 });

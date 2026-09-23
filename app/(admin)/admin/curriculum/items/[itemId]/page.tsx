@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { forbidden, notFound } from "next/navigation";
 
@@ -137,13 +138,21 @@ function toGrammarFormValue(
  */
 export default async function EditCurriculumItemPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ itemId: string }>;
+  searchParams: Promise<{ from?: string }>;
 }) {
   const user = await requireUser();
   if (!canManageCurriculum(user)) forbidden();
 
   const { itemId } = await params;
+  const { from } = await searchParams;
+  // The curriculum list's own filters/search/pagination, carried through by
+  // its row links (see CurriculumTable) so following a row here and then
+  // going back restores that exact view instead of a blank one — the
+  // sidebar's plain "Curriculum" link has no `from` and still resets.
+  const backHref = from ? `/admin/curriculum?${from}` : "/admin/curriculum";
   const item: CurriculumLearningItem | null = await getLearningItem(itemId);
   if (!item) notFound();
 
@@ -254,6 +263,12 @@ export default async function EditCurriculumItemPage({
 
   return (
     <div>
+      <Link
+        href={backHref}
+        className="mb-2 inline-block text-sm text-primary underline-offset-4 hover:underline"
+      >
+        ← Back to Curriculum
+      </Link>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <AdminPageHeader
           title={itemLabel}

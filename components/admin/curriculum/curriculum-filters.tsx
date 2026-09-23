@@ -55,6 +55,15 @@ export function CurriculumFilters({
   const pathname = usePathname();
   const [searchDraft, setSearchDraft] = useState(value.search ?? "");
 
+  // Scope the Group dropdown to the selected Level, so filtering to Level 1
+  // doesn't still offer every other level's groups alongside it.
+  const selectedLevelNumber = levels.find(
+    (level) => level.id === value.levelId,
+  )?.levelNumber;
+  const visibleGroups = selectedLevelNumber
+    ? groups.filter((group) => group.levelNumber === selectedLevelNumber)
+    : groups;
+
   function navigate(overrides: Record<string, string | undefined>) {
     const params = new URLSearchParams();
     const next = { ...value, ...overrides };
@@ -111,7 +120,13 @@ export function CurriculumFilters({
       <Select
         value={value.levelId ?? ALL_VALUE}
         onValueChange={(levelId) =>
-          navigate({ levelId: levelId === ALL_VALUE ? undefined : levelId })
+          // A group from a different level no longer applies once the level
+          // filter changes, so it's cleared along with it rather than left
+          // behind as a hidden, no-longer-visible-in-the-dropdown filter.
+          navigate({
+            levelId: levelId === ALL_VALUE ? undefined : levelId,
+            groupId: undefined,
+          })
         }
       >
         <SelectTrigger aria-label="Level" className="sm:w-32">
@@ -181,9 +196,11 @@ export function CurriculumFilters({
         </SelectTrigger>
         <SelectContent>
           <SelectItem value={ALL_VALUE}>All groups</SelectItem>
-          {groups.map((group) => (
+          {visibleGroups.map((group) => (
             <SelectItem key={group.id} value={group.id}>
-              L{group.levelNumber} — {group.name}
+              {selectedLevelNumber
+                ? group.name
+                : `L${group.levelNumber} — ${group.name}`}
             </SelectItem>
           ))}
         </SelectContent>
