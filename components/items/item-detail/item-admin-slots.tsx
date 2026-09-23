@@ -7,6 +7,7 @@ import { CurriculumItemForm } from "@/components/admin/curriculum/curriculum-ite
 import { GrammarContentBlockEditor } from "@/components/admin/curriculum/grammar-content-block-editor";
 import { ItemResourceEditor } from "@/components/admin/curriculum/item-resource-editor";
 import { toRegisterEditorValue } from "@/components/admin/curriculum/register-value";
+import { splitAcceptedAnswers } from "@/components/admin/curriculum/accepted-answers-value";
 import { UsageContextEditor } from "@/components/admin/curriculum/usage-context-editor";
 import type { ItemAdminEditingData } from "@/domains/curriculum/server";
 import type { CurriculumStatus } from "@/domains/curriculum";
@@ -74,7 +75,7 @@ export function buildItemAdminSlots({
             context: item.vocabulary.context ?? "",
             creatorNotes: item.vocabulary.creatorNotes ?? "",
             register: toRegisterEditorValue(item.vocabulary.register),
-            acceptedAnswers: data.acceptedAnswers,
+            ...splitAcceptedAnswers(data.acceptedAnswers),
           },
         }
       : {
@@ -91,7 +92,8 @@ export function buildItemAdminSlots({
             requiredDirections: item.grammar.requiredQuestions.map(
               (question) => question.direction,
             ),
-            acceptedAnswers: data.acceptedAnswers,
+            // Grammar has no Variants field — see GrammarEditorValue's docstring.
+            synonyms: splitAcceptedAnswers(data.acceptedAnswers).synonyms,
           },
         };
 

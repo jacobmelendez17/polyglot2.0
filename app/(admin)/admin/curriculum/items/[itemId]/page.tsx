@@ -11,6 +11,7 @@ import type { VocabularyEditorValue } from "@/components/admin/curriculum/vocabu
 import { DictionaryMappingPanel } from "@/components/admin/dictionary/dictionary-mapping-panel";
 import { UsageContextEditor } from "@/components/admin/curriculum/usage-context-editor";
 import { toRegisterEditorValue } from "@/components/admin/curriculum/register-value";
+import { splitAcceptedAnswers } from "@/components/admin/curriculum/accepted-answers-value";
 import type { Register } from "@/db/schema";
 import { canManageCurriculum } from "@/domains/admin";
 import type {
@@ -83,6 +84,7 @@ function toVocabularyFormValue(
   detail: VocabularyDetailLike,
   acceptedAnswers: AcceptedAnswerInput[],
 ): VocabularyEditorValue {
+  const { synonyms, variants } = splitAcceptedAnswers(acceptedAnswers);
   return {
     vocabularyGroupId: detail.vocabularyGroupId,
     term: detail.term,
@@ -95,7 +97,8 @@ function toVocabularyFormValue(
     context: detail.context ?? "",
     creatorNotes: detail.creatorNotes ?? "",
     register: toRegisterEditorValue(detail.register),
-    acceptedAnswers,
+    synonyms,
+    variants,
   };
 }
 
@@ -112,7 +115,10 @@ function toGrammarFormValue(
     creatorNotes: detail.creatorNotes ?? "",
     register: toRegisterEditorValue(detail.register),
     requiredDirections: detail.requiredQuestions.map((q) => q.direction),
-    acceptedAnswers,
+    // Grammar has no Variants field — see GrammarEditorValue's docstring.
+    // A term-side row is never authored for a grammar item, but this drops
+    // one silently rather than crashing if one somehow exists.
+    synonyms: splitAcceptedAnswers(acceptedAnswers).synonyms,
   };
 }
 

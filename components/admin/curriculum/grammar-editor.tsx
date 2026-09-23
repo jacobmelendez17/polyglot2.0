@@ -3,12 +3,9 @@
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
-import {
-  AcceptedAnswersEditor,
-  type AcceptedAnswerValue,
-} from "./accepted-answers-editor";
 import { RegisterSelect } from "./register-select";
 import type { RegisterEditorValue } from "./register-value";
+import { StringListEditor } from "./string-list-editor";
 
 export type GrammarQuestionDirection = "targetToEnglish" | "englishToTarget";
 
@@ -22,7 +19,15 @@ export type GrammarEditorValue = {
   /** Spec 18. `REGISTER_UNSET` when nobody has classified the structure. */
   register: RegisterEditorValue;
   requiredDirections: GrammarQuestionDirection[];
-  acceptedAnswers: AcceptedAnswerValue[];
+  /**
+   * Alternate accepted English translations. No Variants field exists here
+   * — unlike a vocabulary term, a grammar structure (`y`, `el`, ...) has no
+   * "alternate accepted spelling" concept: the item page has no Variations
+   * card for grammar, and review grading never widens on the English→target
+   * direction for one either (`domains/srs/review-answer-spec.ts`). Adding
+   * one here would be a control with no effect anywhere.
+   */
+  synonyms: string[];
 };
 
 type GrammarEditorProps = {
@@ -112,6 +117,14 @@ export function GrammarEditor({ value, onChange }: GrammarEditorProps) {
         </label>
       </div>
 
+      <StringListEditor
+        label="Synonyms"
+        value={value.synonyms}
+        onChange={(synonyms) => set("synonyms", synonyms)}
+        emptyText="No additional accepted translations yet."
+        addLabel="Add synonym"
+      />
+
       <label className="block text-sm">
         <span className="font-medium text-foreground">Full explanation</span>
         <Textarea
@@ -147,11 +160,6 @@ export function GrammarEditor({ value, onChange }: GrammarEditorProps) {
           onChange={(e) => set("creatorNotes", e.target.value)}
         />
       </label>
-
-      <AcceptedAnswersEditor
-        value={value.acceptedAnswers}
-        onChange={(v) => set("acceptedAnswers", v)}
-      />
     </div>
   );
 }

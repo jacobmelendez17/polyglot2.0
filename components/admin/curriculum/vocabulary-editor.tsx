@@ -15,12 +15,9 @@ import { Textarea } from "@/components/ui/textarea";
 
 import type { DictionaryOverridableField } from "@/db/schema";
 
-import {
-  AcceptedAnswersEditor,
-  type AcceptedAnswerValue,
-} from "./accepted-answers-editor";
 import { RegisterSelect } from "./register-select";
 import type { RegisterEditorValue } from "./register-value";
+import { StringListEditor } from "./string-list-editor";
 
 export type VocabularyEditorValue = {
   vocabularyGroupId: string;
@@ -35,7 +32,10 @@ export type VocabularyEditorValue = {
   creatorNotes: string;
   /** Spec 18. `REGISTER_UNSET` when nobody has classified the word. */
   register: RegisterEditorValue;
-  acceptedAnswers: AcceptedAnswerValue[];
+  /** Alternate accepted English translations — graded as correct alongside `primaryMeaning` in Lessons and Reviews alike. */
+  synonyms: string[];
+  /** Alternate accepted Spanish spellings/forms of `term` — graded as correct alongside `term` itself. */
+  variants: string[];
 };
 
 export type ResolvedVocabularyFieldInfo = {
@@ -124,7 +124,7 @@ export function VocabularyEditor({
           />
         </label>
         <label className="block text-sm">
-          <span className="font-medium text-foreground">Primary meaning</span>
+          <span className="font-medium text-foreground">Translation</span>
           <Input
             className="mt-1"
             value={value.primaryMeaning}
@@ -145,6 +145,23 @@ export function VocabularyEditor({
         <RegisterSelect
           value={value.register}
           onChange={(register) => onChange({ ...value, register })}
+        />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <StringListEditor
+          label="Synonyms"
+          value={value.synonyms}
+          onChange={(synonyms) => set("synonyms", synonyms)}
+          emptyText="No additional accepted translations yet."
+          addLabel="Add synonym"
+        />
+        <StringListEditor
+          label="Variants"
+          value={value.variants}
+          onChange={(variants) => set("variants", variants)}
+          emptyText="No additional accepted spellings yet."
+          addLabel="Add variant"
         />
       </div>
 
@@ -222,11 +239,6 @@ export function VocabularyEditor({
           onChange={(e) => set("creatorNotes", e.target.value)}
         />
       </label>
-
-      <AcceptedAnswersEditor
-        value={value.acceptedAnswers}
-        onChange={(v) => set("acceptedAnswers", v)}
-      />
     </div>
   );
 }

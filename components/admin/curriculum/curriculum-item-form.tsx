@@ -19,12 +19,12 @@ import {
   updateItemAction,
 } from "@/app/(admin)/admin/curriculum/actions";
 import type { DictionaryOverridableField } from "@/db/schema";
-import type { AcceptedAnswerValue } from "./accepted-answers-editor";
 import {
   GrammarEditor,
   type GrammarEditorValue,
   type GrammarQuestionDirection,
 } from "./grammar-editor";
+import { toAcceptedAnswersPayload } from "./accepted-answers-value";
 import { REGISTER_UNSET, registerPayload } from "./register-value";
 import {
   VocabularyEditor,
@@ -64,7 +64,8 @@ const EMPTY_VOCAB: VocabularyEditorValue = {
   context: "",
   creatorNotes: "",
   register: REGISTER_UNSET,
-  acceptedAnswers: [],
+  synonyms: [],
+  variants: [],
 };
 
 const EMPTY_GRAMMAR: GrammarEditorValue = {
@@ -76,15 +77,11 @@ const EMPTY_GRAMMAR: GrammarEditorValue = {
   creatorNotes: "",
   register: REGISTER_UNSET,
   requiredDirections: ["targetToEnglish"],
-  acceptedAnswers: [],
+  synonyms: [],
 };
 
 function nullIfEmpty(value: string): string | null {
   return value.trim() === "" ? null : value;
-}
-
-function toAcceptedAnswersInput(answers: AcceptedAnswerValue[]) {
-  return answers.filter((a) => a.value.trim() !== "");
 }
 
 function vocabularyFieldsPayload(v: VocabularyEditorValue) {
@@ -100,7 +97,7 @@ function vocabularyFieldsPayload(v: VocabularyEditorValue) {
     context: nullIfEmpty(v.context),
     creatorNotes: nullIfEmpty(v.creatorNotes),
     register: registerPayload(v.register),
-    acceptedAnswers: toAcceptedAnswersInput(v.acceptedAnswers),
+    acceptedAnswers: toAcceptedAnswersPayload(v.synonyms, v.variants),
   };
 }
 
@@ -119,7 +116,7 @@ function grammarFieldsPayload(g: GrammarEditorValue) {
       }),
     ),
     register: registerPayload(g.register),
-    acceptedAnswers: toAcceptedAnswersInput(g.acceptedAnswers),
+    acceptedAnswers: toAcceptedAnswersPayload(g.synonyms, []),
   };
 }
 

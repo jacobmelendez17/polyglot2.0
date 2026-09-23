@@ -1583,6 +1583,67 @@ writing to real `user_item_progress` rows.
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
 
+- **Admin Synonyms/Variants: two explicit fields, not one generic
+  side-picker list** (2026-09-23, user-requested — not a numbered spec; no
+  real-browser check this entry, see below). User report: opened an item in
+  Admin Curriculum, didn't see synonym/variant fields "below Part of
+  speech/Primary meaning" and assumed they didn't exist there. Investigated
+  before building anything: `AcceptedAnswersEditor` did already exist and
+  was already correctly wired (verified the exact stored data for `hola`
+  loaded correctly) — it just rendered as one generic "Accepted answers"
+  list at the very bottom of a long form, each row picking its own Term/
+  Meaning side from a dropdown, easy to miss and not where the user expected
+  it. Rebuilt rather than just repositioned, since the generic shape was
+  itself part of the confusion:
+  - New `StringListEditor` (`string-list-editor.tsx`) — a plain labelled
+    list of text fields, no side picker. Used twice for vocabulary
+    ("Synonyms" = `side: "meaning"`, "Variants" = `side: "term"`) and once
+    for grammar ("Synonyms" only — grammar has no Variants field, since a
+    grammar structure has no "alternate spelling" concept: no Variations
+    card exists for grammar on the item page, and the 2026-09-23 Reviews
+    grading fix above deliberately never widens a grammar item's
+    English→target direction either. Adding one would be a control with no
+    effect anywhere, so it was left out rather than built and silently
+    inert).
+  - Both new fields positioned right after Term/Article/Translation/Part of
+    speech/Register, before Group/theme (vocabulary) or after that same
+    first block (grammar) — exactly where the user expected them, not at
+    the bottom.
+  - Pure conversions (`toAcceptedAnswersPayload`/`splitAcceptedAnswers`,
+    combining/splitting two string lists against the flat `{side,
+value}[]` shape the server stores) live in a new
+    `accepted-answers-value.ts`, outside `string-list-editor.tsx`'s
+    `"use client"` boundary — same reasoning as the existing
+    `register-value.ts` split, and caught for real: `lib/client-boundary.test.ts`
+    failed the first time these lived in the client file, exactly as
+    designed to.
+  - `VocabularyEditorValue`/`GrammarEditorValue` now hold `synonyms: string[]`
+    (+ `variants: string[]` for vocabulary) instead of a single
+    `acceptedAnswers: AcceptedAnswerValue[]` with an inline side. Updated
+    both places that build a form's initial values from stored data
+    (`admin/curriculum/items/[itemId]/page.tsx`, the learner item page's
+    `item-admin-slots.tsx` — spec 18 requires both surfaces share the exact
+    same form, and they do, confirmed by reading both) and the one place
+    that rebuilds the server payload (`curriculum-item-form.tsx`).
+  - Also renamed vocabulary's "Primary meaning" label to **"Translation"**
+    (direct user request) — grammar's equivalent field was already labelled
+    "Primary translation" and was left unchanged, since the user's report
+    and screenshot were both about the vocabulary editor specifically.
+  - Found and fixed the same class of stale-ignore-list issue a second time
+    in this session (see the E2E-fixture-reset entry below for the first):
+    `eslint.config.mjs` needed `playwright-report/**`/`test-results/**`
+    alongside the already-documented `.next-e2e/**`.
+  - `tsc`, `eslint`, full unit suite (1092/1092, including
+    `lib/client-boundary.test.ts` genuinely catching the client-boundary
+    violation described above before the fix), and `npm run build` all
+    clean. No live-browser check this entry — this session's environment
+    has real Vercel deploy access but no way to reach a real admin session
+    against the local dev server without the account's actual Clerk
+    credentials (the E2E Clerk identity's Playwright storage state
+    authenticates against the E2E database, not the real dev database this
+    server runs against, so it doesn't carry admin access here); flagging
+    honestly rather than skipping the caveat.
+
 - **Level 1 register classification, synonyms/variants, and a real Reviews
   grading gap fixed along the way** (2026-09-23, user-requested — not a
   numbered spec).
