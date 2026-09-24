@@ -13,6 +13,7 @@ import {
 import { getAcceptedAnswers } from "@/domains/curriculum/curriculum-mutation-repository";
 import type {
   CurriculumLanguage,
+  CurriculumExampleSentence,
   CurriculumLearningItem,
 } from "@/domains/curriculum/curriculum-db-types";
 import { getSynonyms } from "@/domains/learner-content/repository";
@@ -220,12 +221,24 @@ function resolveQuestionHint(
   return resolveReviewHint({ hintMode, hintOrder, item });
 }
 
+/** The sentence the summary shows for an item: the Cloze sentence the learner actually saw, else the item's first official example. */
+function pickSummarySentence(
+  examples: CurriculumExampleSentence[],
+  clozeSentenceId: string | undefined,
+): { targetText: string; translation: string } | null {
+  const sentence =
+    examples.find((example) => example.id === clozeSentenceId) ?? examples[0];
+  return sentence
+    ? { targetText: sentence.targetText, translation: sentence.translation }
+    : null;
+}
+
 /** Builds the post-miss study payload (`ReviewItemInfo`) from the item's published content. */
-async function buildReviewItemInfo(
-  db: DbClient,
+function buildReviewItemInfo(
   item: CurriculumLearningItem,
-): Promise<ReviewItemInfo> {
-  const examples = (await getLearningItemExamples(db, item.id))
+  allExamples: CurriculumExampleSentence[],
+): ReviewItemInfo {
+  const examples = allExamples
     .slice(0, 3)
     .map(({ targetText, translation }) => ({ targetText, translation }));
   if (item.type === "vocabulary") {
@@ -560,6 +573,7 @@ export async function submitReviewAnswer(
     throw new ReviewError("INVALID_REVIEW_STATE");
   }
 
+  const examples = await getLearningItemExamples(db, item.id);
   let isCorrect: boolean;
   let feedback: ReviewAnswerFeedback;
 
@@ -612,7 +626,7 @@ export async function submitReviewAnswer(
     if (result.isCorrect) {
       feedback = { kind: "correct" };
     } else {
-      const itemInfo = await buildReviewItemInfo(db, item);
+      const itemInfo = buildReviewItemInfo(item, examples);
       feedback =
         result.reason === "missing_article"
           ? {
@@ -640,7 +654,7 @@ export async function submitReviewAnswer(
       ? { kind: "correct" }
       : {
           kind: "self_graded_incorrect",
-          itemInfo: await buildReviewItemInfo(db, item),
+          itemInfo: buildReviewItemInfo(item, examples),
         };
   }
 
@@ -799,6 +813,7 @@ export async function submitReviewAnswer(
     feedback,
     answeredItem: {
       itemId: question.itemId,
+      sentence: pickSummarySentence(examples, clozeSentence?.sentenceId),
       title:
         item.type === "vocabulary"
           ? item.vocabulary.term

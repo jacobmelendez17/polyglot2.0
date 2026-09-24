@@ -533,6 +533,7 @@ html[data-font-scale="extra_large"] {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .graph-paper-surface,
   .animate-float,
     .animate-bob,
     .animate-marquee,

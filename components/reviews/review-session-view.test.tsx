@@ -5,6 +5,8 @@ import userEvent from "@testing-library/user-event";
 import { ReviewSessionView } from "@/components/reviews/review-session-view";
 import type { ReviewQuestionView, ReviewSessionResult } from "@/domains/srs";
 
+vi.mock("canvas-confetti", () => ({ default: vi.fn() }));
+
 const push = vi.fn();
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push }),
@@ -93,7 +95,15 @@ describe("ReviewSessionView", () => {
           questionsCorrect: 1,
         },
         feedback: { kind: "correct" },
-        answeredItem: { itemId: "gato", title: "gato", meaning: "cat" },
+        answeredItem: {
+          itemId: "gato",
+          title: "gato",
+          meaning: "cat",
+          sentence: {
+            targetText: "El gato duerme.",
+            translation: "The cat sleeps.",
+          },
+        },
       },
     });
 
@@ -112,8 +122,8 @@ describe("ReviewSessionView", () => {
     await user.click(screen.getByRole("button", { name: "End session" }));
 
     expect(screen.getByText("Session ended")).toBeInTheDocument();
-    expect(screen.getByText("gato")).toBeInTheDocument();
-    expect(screen.getByText("1/1 correct")).toBeInTheDocument();
+    expect(screen.getByText("El gato duerme.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Correct")).toBeInTheDocument();
   });
 
   it("keeps showing the just-answered question's feedback until the learner advances, instead of jumping to the next question immediately", async () => {
@@ -254,7 +264,7 @@ describe("ReviewSessionView", () => {
 
     await user.keyboard("{Enter}");
     await waitFor(() =>
-      expect(screen.getByText(/Session complete/i)).toBeInTheDocument(),
+      expect(screen.getByText(/You completed/i)).toBeInTheDocument(),
     );
   });
 
@@ -289,7 +299,7 @@ describe("ReviewSessionView", () => {
 
     await user.keyboard("{Enter}");
     await waitFor(() =>
-      expect(screen.getByText(/Session complete/i)).toBeInTheDocument(),
+      expect(screen.getByText(/You completed/i)).toBeInTheDocument(),
     );
     expect(screen.getByRole("link", { name: /dashboard/i })).toHaveAttribute(
       "href",

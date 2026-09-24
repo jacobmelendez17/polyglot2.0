@@ -253,6 +253,7 @@ export function ReviewSessionView({ initial }: ReviewSessionViewProps) {
         stats={state.stats}
         history={state.history}
         endedEarly={state.ended && state.phase !== "complete"}
+        languageCode={languageCode}
       />
     );
   }

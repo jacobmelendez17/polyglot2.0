@@ -166,7 +166,13 @@ export type ReviewSessionResult = {
   stats: ReviewSessionStats;
   feedback?: ReviewAnswerFeedback;
   /** The item this submit answered — what the session summary lists as "worked on". Never sent before the answer, since `title` is the target-language answer. */
-  answeredItem?: { itemId: string; title: string; meaning: string };
+  answeredItem?: {
+    itemId: string;
+    title: string;
+    meaning: string;
+    /** An official example sentence for the item (the Cloze sentence when one was shown), for the summary to display and pronounce. */
+    sentence: { targetText: string; translation: string } | null;
+  };
   /** Present only on the submit that just completed this item — one-shot, not resurfaced on later responses. */
   completedItem?: ReviewItemCompletionPreview;
   /**
