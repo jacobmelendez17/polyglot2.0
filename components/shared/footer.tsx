@@ -15,11 +15,12 @@ const PRODUCT_LINKS: readonly FooterLink[] = [
   { label: "Levels", href: "/levels/1" },
   { label: "Decks", href: "/decks" },
   { label: "Reviews", href: "/reviews" },
+  { label: "Practice", href: "/practice" },
 ];
 
-// Practice and Journey are deliberately omitted — neither route exists yet
-// (see progress-tracker.md). Spec 21 requires links only to routes that
-// actually resolve.
+// Journey is deliberately omitted — that route does not exist yet (see
+// progress-tracker.md). Spec 21 requires links only to routes that actually
+// resolve.
 const RESOURCE_LINKS: readonly FooterLink[] = [
   { label: "About", href: "/about" },
   { label: "Feedback", href: "/feedback" },

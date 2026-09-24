@@ -17,6 +17,10 @@
   --color-srs-intermediate: var(--srs-intermediate);
   --color-srs-master: var(--srs-master);
   --color-srs-fluent: var(--srs-fluent);
+  --color-practice-listening: var(--practice-listening);
+  --color-practice-speaking: var(--practice-speaking);
+  --color-practice-reading: var(--practice-reading);
+  --color-practice-writing: var(--practice-writing);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -81,6 +85,12 @@
   --srs-intermediate: #8cb5a4;
   --srs-master: #69947f;
   --srs-fluent: #405f50;
+  /* Practice hub skill identities (ui-context.md "Practice Skill Colors"). Fixed
+       regardless of Color Palette, like the learning-type tokens. */
+  --practice-listening: #8cb5a4;
+  --practice-speaking: #7fa69c;
+  --practice-reading: #d4a85f;
+  --practice-writing: #9b7061;
 
   /* RGB triplet of --bg-warm, for compositing at partial opacity */
   --bg-warm-rgb: 243 221 211;
@@ -162,6 +172,10 @@
   --srs-intermediate: #8cb5a4;
   --srs-master: #69947f;
   --srs-fluent: #405f50;
+  --practice-listening: #8cb5a4;
+  --practice-speaking: #8db5aa;
+  --practice-reading: #d8b371;
+  --practice-writing: #b58a7a;
 
   /* shadcn/ui contract, aliased to the Polyglot tokens above */
   --background: var(--bg-base);
@@ -571,6 +585,131 @@ html[data-font-scale="extra_large"] {
   .mobile-nav-sheet {
     transition: none !important;
     animation: none !important;
+  }
+}
+
+/*
+ * Practice hub (/practice). Hub-only styling, kept here because it is
+ * selector-driven (`:has`, sibling/nesting hovers) or keyframed — not
+ * expressible as utilities. Everything animates transform/opacity only and
+ * stops under reduced motion (see the block below).
+ *
+ * `data-practice-tone` sets `--c`, the one accent a section colors itself
+ * with. Color is never the only cue: every tone is paired with a label/icon.
+ */
+[data-practice-tone="listening"] {
+  --c: var(--practice-listening);
+}
+[data-practice-tone="speaking"] {
+  --c: var(--practice-speaking);
+}
+[data-practice-tone="reading"] {
+  --c: var(--practice-reading);
+}
+[data-practice-tone="writing"] {
+  --c: var(--practice-writing);
+}
+[data-practice-tone="grammar"] {
+  --c: var(--learning-grammar);
+}
+[data-practice-tone="progress"] {
+  --c: var(--srs-master);
+}
+
+@layer components {
+  .practice-sketch {
+    border: 1.5px solid
+      color-mix(in oklch, var(--text-primary) 50%, transparent);
+    border-radius: 14px 18px 13px 17px / 16px 13px 18px 14px;
+  }
+  .practice-blob {
+    border-radius: 42% 58% 55% 45% / 50% 45% 55% 50%;
+  }
+  .practice-planks {
+    background: repeating-linear-gradient(
+      90deg,
+      color-mix(in oklch, var(--bg-soft) 88%, var(--accent-peach)) 0 38px,
+      color-mix(in oklch, var(--bg-soft) 78%, var(--accent-peach)) 38px 40px
+    );
+  }
+  .practice-canopy {
+    background: linear-gradient(
+      180deg,
+      color-mix(in oklch, var(--accent-primary) 16%, var(--bg-base)) 0%,
+      var(--bg-base) 100%
+    );
+  }
+}
+
+/* Dim the other groves while one is hovered — pointer devices only. */
+@media (hover: hover) {
+  .practice-groves:has(.practice-grove:hover) .practice-grove:not(:hover) {
+    opacity: 0.55;
+  }
+}
+
+@layer utilities {
+  .animate-practice-rise {
+    animation: practice-rise var(--dur-slow) var(--ease-out) both;
+  }
+  .animate-practice-sway {
+    animation: practice-sway 1.6s ease-in-out infinite;
+  }
+  .animate-practice-fall {
+    animation: practice-fall linear infinite;
+  }
+}
+
+@keyframes practice-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes practice-sway {
+  0%,
+  100% {
+    transform: rotate(-2deg);
+  }
+  50% {
+    transform: rotate(2deg);
+  }
+}
+@keyframes practice-fall {
+  0% {
+    transform: translate(0, -20px) rotate(0);
+  }
+  25% {
+    transform: translate(18px, 60px) rotate(80deg);
+  }
+  50% {
+    transform: translate(-10px, 140px) rotate(160deg);
+  }
+  75% {
+    transform: translate(20px, 220px) rotate(250deg);
+  }
+  100% {
+    transform: translate(0, 300px) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+/* Reduced motion removes the movement, not the content: leaves are purely
+   decorative so they are hidden, everything else simply stops. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-practice-rise,
+  .animate-practice-sway {
+    animation: none !important;
+  }
+  .practice-leaf {
+    display: none;
+  }
+  .practice-groves .practice-grove {
+    transition: none;
   }
 }
 

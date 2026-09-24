@@ -46,11 +46,13 @@ describe("Footer", () => {
       "/terms",
     );
 
-    // Practice, Journey, and Demo have no route yet — spec 21 forbids
-    // linking to routes that don't resolve.
-    expect(
-      screen.queryByRole("link", { name: "Practice" }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Practice" })).toHaveAttribute(
+      "href",
+      "/practice",
+    );
+
+    // Journey and Demo have no route yet — spec 21 forbids linking to
+    // routes that don't resolve.
     expect(
       screen.queryByRole("link", { name: "Journey" }),
     ).not.toBeInTheDocument();

@@ -134,6 +134,19 @@ The core SRS progression has nine stages (Beginner 1-4, Familiar 1-2, Intermedia
 
 SRS color is supporting information. Text labels must remain present; color alone must never communicate stage.
 
+### Practice Skill Colors
+
+The Practice hub (`/practice`) is the one place the four practice skills need distinct identities, so it introduces four fixed tokens (user-supplied wireframe, 2026-09-23). This is the explicit design expansion the paragraph above says would be required; it does not extend to any other screen.
+
+| Skill     | CSS Variable           | Light     | Dark      |
+| --------- | ---------------------- | --------- | --------- |
+| Listening | `--practice-listening` | `#8CB5A4` | `#8CB5A4` |
+| Speaking  | `--practice-speaking`  | `#7FA69C` | `#8DB5AA` |
+| Reading   | `--practice-reading`   | `#D4A85F` | `#D8B371` |
+| Writing   | `--practice-writing`   | `#9B7061` | `#B58A7A` |
+
+Like the learning-type colors, these do not change with the Appearance Color Palette. Every use is paired with the skill's label and icon — color is never the only cue. The Grammar conjugations card uses `--learning-grammar`, and Tests/the walk use `--srs-master`, so no other practice invents a color.
+
 ### Skill Progress Labels
 
 Speaking, listening, and other skill-practice stages are displayed using the active language's translated stage labels (for example, Spanish terms) rather than the English SRS stage names, so learners never confuse a skill-practice stage with a core SRS stage.

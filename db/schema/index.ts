@@ -6,6 +6,7 @@ export * from "./idempotency";
 export * from "./languages";
 export * from "./learner-content";
 export * from "./lexicon";
+export * from "./practice";
 export * from "./progress";
 export * from "./reviews";
 export * from "./user-settings";
