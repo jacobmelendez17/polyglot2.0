@@ -27,11 +27,20 @@ import type { ReviewQuestionDirection } from "./review-types";
 export type ReviewQuestionPresentation =
   | { kind: "typed"; prompt: string }
   | { kind: "reveal"; prompt: string; revealAnswer: string }
-  | { kind: "cloze_typed"; sentenceBefore: string; sentenceAfter: string }
+  | {
+      kind: "cloze_typed";
+      sentenceBefore: string;
+      sentenceAfter: string;
+      /** English translation of the sentence, and the English meaning within it to bold. */
+      translation: string;
+      translationEmphasis: string;
+    }
   | {
       kind: "cloze_reveal";
       sentenceBefore: string;
       sentenceAfter: string;
+      translation: string;
+      translationEmphasis: string;
       revealAnswer: string;
     };
 
@@ -79,11 +88,15 @@ export function resolveReviewPresentation(input: {
           kind: "cloze_typed",
           sentenceBefore: clozeSentence.sentenceBefore,
           sentenceAfter: clozeSentence.sentenceAfter,
+          translation: clozeSentence.translation,
+          translationEmphasis: answerSpec.prompt,
         }
       : {
           kind: "cloze_reveal",
           sentenceBefore: clozeSentence.sentenceBefore,
           sentenceAfter: clozeSentence.sentenceAfter,
+          translation: clozeSentence.translation,
+          translationEmphasis: answerSpec.prompt,
           revealAnswer: clozeSentence.blankedWord,
         };
   }

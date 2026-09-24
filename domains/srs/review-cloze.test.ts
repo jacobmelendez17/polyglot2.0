@@ -19,6 +19,7 @@ describe("findCompatibleClozeSentence", () => {
       sentenceBefore: "El ",
       sentenceAfter: " duerme.",
       blankedWord: "gato",
+      translation: "The cat sleeps.",
     });
   });
 
@@ -60,6 +61,7 @@ describe("findCompatibleClozeSentence", () => {
       sentenceBefore: "Bebo agua todos los ",
       sentenceAfter: ".",
       blankedWord: "días",
+      translation: "I drink water every day.",
     });
   });
 

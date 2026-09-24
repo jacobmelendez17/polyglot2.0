@@ -35,6 +35,8 @@ const CLOZE_TYPED_QUESTION: ReviewQuestionViewData = {
     kind: "cloze_typed",
     sentenceBefore: "Yo tengo un ",
     sentenceAfter: " negro.",
+    translation: "I have a black cat.",
+    translationEmphasis: "cat",
   },
 };
 
@@ -44,6 +46,8 @@ const CLOZE_REVEAL_QUESTION: ReviewQuestionViewData = {
     kind: "cloze_reveal",
     sentenceBefore: "Yo tengo un ",
     sentenceAfter: " negro.",
+    translation: "I have a black cat.",
+    translationEmphasis: "cat",
     revealAnswer: "gato",
   },
 };

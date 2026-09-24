@@ -18,6 +18,7 @@ const CLOZE_SENTENCE = {
   sentenceBefore: "El ",
   sentenceAfter: " duerme.",
   blankedWord: "gato",
+  translation: "The cat sleeps.",
 };
 
 describe("resolveReviewPresentation", () => {
@@ -32,6 +33,8 @@ describe("resolveReviewPresentation", () => {
       kind: "cloze_typed",
       sentenceBefore: "El ",
       sentenceAfter: " duerme.",
+      translation: "The cat sleeps.",
+      translationEmphasis: "cat",
     });
   });
 
@@ -46,6 +49,8 @@ describe("resolveReviewPresentation", () => {
       kind: "cloze_reveal",
       sentenceBefore: "El ",
       sentenceAfter: " duerme.",
+      translation: "The cat sleeps.",
+      translationEmphasis: "cat",
       revealAnswer: "gato",
     });
   });
@@ -131,6 +136,8 @@ describe("isTypedPresentation", () => {
         kind: "cloze_typed",
         sentenceBefore: "",
         sentenceAfter: "",
+        translation: "",
+        translationEmphasis: "",
       }),
     ).toBe(true);
   });
@@ -148,6 +155,8 @@ describe("isTypedPresentation", () => {
         kind: "cloze_reveal",
         sentenceBefore: "",
         sentenceAfter: "",
+        translation: "",
+        translationEmphasis: "",
         revealAnswer: "gato",
       }),
     ).toBe(false);

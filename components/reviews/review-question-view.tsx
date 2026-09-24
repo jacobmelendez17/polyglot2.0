@@ -5,6 +5,7 @@ import { ReviewHint } from "@/components/reviews/review-hint";
 import { AccentHelpers } from "@/components/shared/accent-helpers";
 import { AnswerInput } from "@/components/shared/answer-input";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { highlightAnswerDiff } from "@/lib/answer-checking";
 import { SRS_STAGE_LABELS } from "@/domains/srs";
 import type {
@@ -42,7 +43,15 @@ type ReviewQuestionViewProps = {
  * the only surface. Rendered inside `ReviewSessionView`, below
  * `ReviewTopBar`.
  */
-export function ReviewQuestionView({
+export function ReviewQuestionView(props: ReviewQuestionViewProps) {
+  // Remounts per question so the typed answer (shared by the Cloze blank and
+  // the input) and the hint's local state reset naturally on advance.
+  return (
+    <ReviewQuestionBody key={props.question.questionId} {...props} />
+  );
+}
+
+function ReviewQuestionBody({
   question,
   feedback,
   awaitingAdvance,
@@ -54,6 +63,7 @@ export function ReviewQuestionView({
   onKnowsAnswer,
   onAdvance,
 }: ReviewQuestionViewProps) {
+  const [answer, setAnswer] = useState("");
   const inputState = !feedback
     ? "default"
     : feedback.kind === "incorrect"
@@ -78,6 +88,9 @@ export function ReviewQuestionView({
           <ClozeSentence
             sentenceBefore={presentation.sentenceBefore}
             sentenceAfter={presentation.sentenceAfter}
+            translation={presentation.translation}
+            translationEmphasis={presentation.translationEmphasis}
+            typedAnswer={presentation.kind === "cloze_typed" ? answer : ""}
           />
         ) : (
           <p className="font-heading text-4xl font-semibold text-foreground sm:text-5xl">
@@ -92,16 +105,15 @@ export function ReviewQuestionView({
       </div>
 
       <ReviewHint
-        key={question.questionId}
         hint={question.hint}
         autoExpand={autoExpandHint}
       />
 
       {isTyped ? (
         <AnswerField
-          // Remounts per question so its local input state resets naturally on
-          // advance, instead of resetting state imperatively inside an effect.
-          key={question.questionId}
+          answer={answer}
+          onAnswerChange={setAnswer}
+          className={isCloze ? "mt-16" : undefined}
           inputState={inputState}
           awaitingAdvance={awaitingAdvance}
           isPending={isPending}
@@ -112,7 +124,6 @@ export function ReviewQuestionView({
         />
       ) : (
         <RevealField
-          key={question.questionId}
           revealAnswer={presentation.revealAnswer}
           revealLabel={
             presentation.kind === "cloze_reveal" ? "Reveal" : "Reveal Answer"
@@ -139,25 +150,66 @@ export function ReviewQuestionView({
 function ClozeSentence({
   sentenceBefore,
   sentenceAfter,
+  translation,
+  translationEmphasis,
+  typedAnswer,
 }: {
   sentenceBefore: string;
   sentenceAfter: string;
+  translation: string;
+  translationEmphasis: string;
+  typedAnswer: string;
 }) {
   return (
-    <p className="font-heading text-2xl leading-relaxed font-semibold text-foreground sm:text-3xl">
-      {sentenceBefore}
-      <span
-        className="mx-1 inline-block min-w-16 border-b-2 border-foreground/40 align-bottom"
-        aria-hidden="true"
-      >
-        &nbsp;
-      </span>
-      {sentenceAfter}
-    </p>
+    <div className="flex max-w-3xl flex-col items-center gap-4">
+      <p className="font-heading text-2xl leading-relaxed font-semibold text-foreground sm:text-3xl">
+        {sentenceBefore}
+        <span
+          className="mx-1 inline-block min-w-16 border-b-2 border-foreground/40 px-1 text-center align-bottom whitespace-pre-wrap"
+          aria-hidden="true"
+        >
+          {typedAnswer || "\u00a0"}
+        </span>
+        {sentenceAfter}
+      </p>
+      <p className="text-base text-muted-foreground sm:text-lg">
+        <EmphasizedTranslation
+          translation={translation}
+          emphasis={translationEmphasis}
+        />
+      </p>
+    </div>
+  );
+}
+
+/** Bolds the first (case-insensitive) occurrence of the blanked word's English meaning; renders the translation plain if it isn't found. */
+function EmphasizedTranslation({
+  translation,
+  emphasis,
+}: {
+  translation: string;
+  emphasis: string;
+}) {
+  const index = emphasis
+    ? translation.toLowerCase().indexOf(emphasis.toLowerCase())
+    : -1;
+  if (index === -1) return <>{translation}</>;
+  const end = index + emphasis.length;
+  return (
+    <>
+      {translation.slice(0, index)}
+      <strong className="font-bold text-foreground">
+        {translation.slice(index, end)}
+      </strong>
+      {translation.slice(end)}
+    </>
   );
 }
 
 type AnswerFieldProps = {
+  answer: string;
+  onAnswerChange: React.Dispatch<React.SetStateAction<string>>;
+  className?: string;
   inputState: "default" | "correct" | "incorrect";
   awaitingAdvance: boolean;
   isPending: boolean;
@@ -168,6 +220,9 @@ type AnswerFieldProps = {
 };
 
 function AnswerField({
+  answer,
+  onAnswerChange: setAnswer,
+  className,
   inputState,
   awaitingAdvance,
   isPending,
@@ -176,7 +231,6 @@ function AnswerField({
   onSubmit,
   onAdvance,
 }: AnswerFieldProps) {
-  const [answer, setAnswer] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -227,7 +281,9 @@ function AnswerField({
   }
 
   return (
-    <div className="flex w-full flex-col items-center gap-4">
+    <div
+      className={cn("flex w-full flex-col items-center gap-4", className)}
+    >
       <div className="flex w-full flex-col items-center gap-3">
         <AnswerInput
           ref={inputRef}
@@ -281,7 +337,7 @@ type RevealFieldProps = {
 /**
  * Spec 20 Reviews — Flashcard/Cloze (Flashcard): Reveal, then a self-graded
  * Know/Don't Know in place of a typed, server-checked answer. Remounted per
- * question (`key={question.questionId}` at the call site) so `isRevealed`
+ * question (`ReviewQuestionView` keys its body by question) so `isRevealed`
  * always starts fresh, the same way `AnswerField`'s local input state does.
  */
 function RevealField({

@@ -9,6 +9,8 @@ export type ClozeSentence = {
   sentenceAfter: string;
   /** The exact substring that was blanked, in the sentence's own form/casing — the authoritative accepted answer, never re-derived from `targetWord`. */
   blankedWord: string;
+  /** The sentence's English translation, shown beneath the Cloze sentence. */
+  translation: string;
 };
 
 function escapeRegExp(value: string): string {
@@ -51,6 +53,7 @@ export function findCompatibleClozeSentence(
       sentenceBefore: example.targetText.slice(0, start),
       sentenceAfter: example.targetText.slice(end),
       blankedWord: example.targetText.slice(start, end),
+      translation: example.translation,
     };
   }
 
