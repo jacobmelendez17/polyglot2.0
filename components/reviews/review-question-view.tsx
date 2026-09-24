@@ -135,13 +135,20 @@ function ReviewQuestionBody({
         />
       )}
 
+      {/* Same treatment as the lesson quiz (`quiz-view.tsx`): fixed to the
+          viewport bottom and animated in, so feedback appearing never
+          re-centers or shifts the prompt/input above it. */}
       {feedback && feedback.kind !== "empty" ? (
-        <FeedbackRegion
-          feedback={feedback}
-          autoHighlightErrors={reviewUiPreferences.autoHighlightErrors}
-          showSrsStage={reviewUiPreferences.showSrsStage}
-          completedItem={completedItem}
-        />
+        <div className="fixed inset-x-0 bottom-0 z-10 flex justify-center px-4 pb-6 sm:pb-10">
+          <div className="animate-in fade-in slide-in-from-bottom-4 flex w-full max-w-2xl flex-col items-center duration-200">
+            <FeedbackRegion
+              feedback={feedback}
+              autoHighlightErrors={reviewUiPreferences.autoHighlightErrors}
+              showSrsStage={reviewUiPreferences.showSrsStage}
+              completedItem={completedItem}
+            />
+          </div>
+        </div>
       ) : null}
     </div>
   );
