@@ -66,9 +66,7 @@ export function InfoSummary({ view, languageCode }: InfoSummaryProps) {
               </dd>
             </div>
             <div>
-              <dt className="text-sm font-medium text-muted-foreground">
-                IPA
-              </dt>
+              <dt className="text-sm font-medium text-muted-foreground">IPA</dt>
               {/* Stored IPA already carries its own delimiters — do not add another pair. */}
               <dd className="mt-0.5 font-mono text-base text-foreground">
                 {view.pronunciation.ipa ?? EMPTY_FIELD}

@@ -6,7 +6,12 @@ import { ProgressCard } from "@/components/dashboard/progress-card";
 import type { DashboardData } from "@/domains/dashboard";
 
 const stageProgress: DashboardData["stageProgress"] = [
-  { stage: "beginner", label: "Beginner", vocabularyCount: 12, grammarCount: 3 },
+  {
+    stage: "beginner",
+    label: "Beginner",
+    vocabularyCount: 12,
+    grammarCount: 3,
+  },
   { stage: "familiar", label: "Familiar", vocabularyCount: 9, grammarCount: 2 },
   {
     stage: "intermediate",

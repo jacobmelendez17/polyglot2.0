@@ -1,7 +1,6 @@
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -15,10 +14,11 @@ type ReviewExitDialogProps = {
 };
 
 /**
- * Spec 09 §6/§11 — deliberately different wording from the lesson exit
- * dialog: completed items in this session have already saved
- * transactionally, so exiting never loses them. Only the item currently
- * in progress (not yet fully answered) remains due, unchanged.
+ * Spec 09 §6/§11 — completed items in this session have already saved
+ * transactionally, so ending never loses them; the item currently in
+ * progress simply remains due. Deliberately just the question, no
+ * explanatory paragraph (product direction) — confirming shows the session
+ * summary.
  */
 export function ReviewExitDialog({
   open,
@@ -29,12 +29,7 @@ export function ReviewExitDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Exit this review session?</DialogTitle>
-          <DialogDescription>
-            Every item you&apos;ve already completed is saved. The item
-            you&apos;re currently answering hasn&apos;t been fully completed
-            yet, so it will remain due for review — nothing about it changes.
-          </DialogDescription>
+          <DialogTitle className="text-2xl">End review session?</DialogTitle>
         </DialogHeader>
         <DialogFooter>
           <Button
@@ -45,7 +40,7 @@ export function ReviewExitDialog({
             Keep reviewing
           </Button>
           <Button type="button" variant="destructive" onClick={onConfirm}>
-            Exit review
+            End session
           </Button>
         </DialogFooter>
       </DialogContent>

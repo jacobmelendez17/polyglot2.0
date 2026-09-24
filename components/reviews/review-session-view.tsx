@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useReducer, useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 
 import { submitReviewAnswerAction } from "@/app/(focus)/reviews/actions";
 import { ReviewCompletionView } from "@/components/reviews/review-completion-view";
@@ -10,6 +9,7 @@ import { ReviewExitDialog } from "@/components/reviews/review-exit-dialog";
 import { ReviewQuestionView } from "@/components/reviews/review-question-view";
 import { ReviewTopBar } from "@/components/reviews/review-top-bar";
 import { DEFAULT_REVIEW_PREFERENCES } from "@/domains/srs";
+import type { ReviewSessionHistoryEntry } from "@/components/reviews/review-completion-view";
 import type {
   ReviewAnswerFeedback,
   ReviewItemCompletionPreview,
@@ -36,13 +36,48 @@ type SessionState = {
   staleNotice: { itemId: string } | null;
   /** Stable for the currently-displayed question; regenerated only when the question changes (spec 09 §12 — reused across retries of the same submission, not per attempt). */
   idempotencyKey: string;
+  /** Every item answered so far this session, in first-seen order — what the summary page lists. */
+  history: ReviewSessionHistoryEntry[];
+  /** The learner ended the session early; the summary replaces the question view. */
+  ended: boolean;
   error: ActionError | null;
 };
 
 type SessionAction =
   | { type: "ANSWER_SUBMITTED"; result: ReviewSessionResult }
   | { type: "ADVANCE_QUESTION" }
+  | { type: "END_SESSION" }
   | { type: "ERROR"; error: ActionError };
+
+function recordAnswer(
+  history: ReviewSessionHistoryEntry[],
+  answeredItem: ReviewSessionResult["answeredItem"],
+  isCorrect: boolean,
+): ReviewSessionHistoryEntry[] {
+  if (!answeredItem) return history;
+  const existing = history.find(
+    (entry) => entry.itemId === answeredItem.itemId,
+  );
+  if (!existing) {
+    return [
+      ...history,
+      {
+        ...answeredItem,
+        attempts: 1,
+        correct: isCorrect ? 1 : 0,
+      },
+    ];
+  }
+  return history.map((entry) =>
+    entry === existing
+      ? {
+          ...entry,
+          attempts: entry.attempts + 1,
+          correct: entry.correct + (isCorrect ? 1 : 0),
+        }
+      : entry,
+  );
+}
 
 function sessionReducer(
   state: SessionState,
@@ -64,8 +99,15 @@ function sessionReducer(
         feedback: action.result.feedback ?? null,
         completedItem: action.result.completedItem ?? null,
         staleNotice: action.result.staleItem ?? null,
+        history: recordAnswer(
+          state.history,
+          action.result.answeredItem,
+          action.result.feedback?.kind === "correct",
+        ),
       };
     }
+    case "END_SESSION":
+      return { ...state, ended: true };
     case "ADVANCE_QUESTION":
       return {
         ...state,
@@ -96,7 +138,6 @@ type ReviewSessionViewProps = {
  * they completed), and a half-completed item simply remains due.
  */
 export function ReviewSessionView({ initial }: ReviewSessionViewProps) {
-  const router = useRouter();
   // Resolved server-side once, at session start — same "only the initial
   // mount needs it" precedent `domains/lessons`' `languageCode`/
   // `autoPronounceLessons` established (spec 20 Lessons unit 9).
@@ -115,6 +156,8 @@ export function ReviewSessionView({ initial }: ReviewSessionViewProps) {
     completedItem: null,
     staleNotice: null,
     idempotencyKey: crypto.randomUUID(),
+    history: [],
+    ended: false,
     error: null,
   });
 
@@ -153,7 +196,7 @@ export function ReviewSessionView({ initial }: ReviewSessionViewProps) {
 
   function handleExitConfirm() {
     setExitDialogOpen(false);
-    router.push("/dashboard");
+    dispatch({ type: "END_SESSION" });
   }
 
   // Spec 20 Review UI — Autoplay Audio ("separate from Lesson auto-
@@ -202,11 +245,16 @@ export function ReviewSessionView({ initial }: ReviewSessionViewProps) {
     (state.feedback !== null && state.phase === "complete");
 
   if (
-    !state.currentQuestion &&
-    state.phase === "complete" &&
-    !awaitingAdvance
+    state.ended ||
+    (!state.currentQuestion && state.phase === "complete" && !awaitingAdvance)
   ) {
-    return <ReviewCompletionView stats={state.stats} />;
+    return (
+      <ReviewCompletionView
+        stats={state.stats}
+        history={state.history}
+        endedEarly={state.ended && state.phase !== "complete"}
+      />
+    );
   }
 
   const remaining = state.stats.itemsTotal - state.stats.itemsCompleted;

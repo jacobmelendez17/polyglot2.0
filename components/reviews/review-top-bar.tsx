@@ -25,16 +25,16 @@ export function ReviewTopBar({
   focusMode = false,
 }: ReviewTopBarProps) {
   return (
-    <div className="flex items-center gap-3">
-      <ExitFocusButton label="Exit review" onClick={onExit} />
+    <div className="flex items-center gap-4">
+      <ExitFocusButton label="Exit review" onClick={onExit} size="large" />
 
       <Progress
         value={progressPercent}
         aria-label="Review progress"
-        className="h-1.5 flex-1"
+        className="h-3 flex-1"
       />
 
-      <p className="shrink-0 text-xs whitespace-nowrap text-muted-foreground">
+      <p className="shrink-0 text-lg font-medium whitespace-nowrap text-muted-foreground">
         {remaining} left
         {!focusMode && accuracyPercent !== null ? ` · ${accuracyPercent}%` : ""}
       </p>

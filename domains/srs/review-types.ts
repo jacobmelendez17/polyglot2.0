@@ -165,6 +165,8 @@ export type ReviewSessionResult = {
   ghostReviews?: GhostReviewView[];
   stats: ReviewSessionStats;
   feedback?: ReviewAnswerFeedback;
+  /** The item this submit answered — what the session summary lists as "worked on". Never sent before the answer, since `title` is the target-language answer. */
+  answeredItem?: { itemId: string; title: string; meaning: string };
   /** Present only on the submit that just completed this item — one-shot, not resurfaced on later responses. */
   completedItem?: ReviewItemCompletionPreview;
   /**

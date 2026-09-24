@@ -77,6 +77,45 @@ describe("ReviewSessionView", () => {
     ).toBeInTheDocument();
   });
 
+  it("ends the session from the exit dialog and shows a summary of what was worked on", async () => {
+    submitReviewAnswerAction.mockResolvedValue({
+      ok: true,
+      data: {
+        token: "t2",
+        sessionId: "session-1",
+        phase: "in_progress",
+        currentQuestion: GATO_ENGLISH_TO_TARGET,
+        characterHelpers: ["ñ"],
+        stats: {
+          itemsTotal: 1,
+          itemsCompleted: 0,
+          questionsAttempted: 1,
+          questionsCorrect: 1,
+        },
+        feedback: { kind: "correct" },
+        answeredItem: { itemId: "gato", title: "gato", meaning: "cat" },
+      },
+    });
+
+    const user = userEvent.setup();
+    render(<ReviewSessionView initial={INITIAL} />);
+    await user.type(
+      screen.getByRole("textbox", { name: "Your answer" }),
+      "cat{Enter}",
+    );
+    await waitFor(() =>
+      expect(screen.getByText("Correct!")).toBeInTheDocument(),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Exit review" }));
+    expect(screen.getByText("End review session?")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "End session" }));
+
+    expect(screen.getByText("Session ended")).toBeInTheDocument();
+    expect(screen.getByText("gato")).toBeInTheDocument();
+    expect(screen.getByText("1/1 correct")).toBeInTheDocument();
+  });
+
   it("keeps showing the just-answered question's feedback until the learner advances, instead of jumping to the next question immediately", async () => {
     submitReviewAnswerAction.mockResolvedValue({
       ok: true,

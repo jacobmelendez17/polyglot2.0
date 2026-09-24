@@ -10,6 +10,8 @@ import {
 type ExitFocusButtonProps = {
   label: string;
   onClick: () => void;
+  /** `large` for sessions whose top bar is scaled up (reviews). */
+  size?: "default" | "large";
 };
 
 /**
@@ -19,7 +21,11 @@ type ExitFocusButtonProps = {
  * became a second consumer — `label` (e.g. "Exit lesson"/"Exit review")
  * keeps the copy feature-specific while the control itself stays shared.
  */
-export function ExitFocusButton({ label, onClick }: ExitFocusButtonProps) {
+export function ExitFocusButton({
+  label,
+  onClick,
+  size = "default",
+}: ExitFocusButtonProps) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -27,10 +33,14 @@ export function ExitFocusButton({ label, onClick }: ExitFocusButtonProps) {
           type="button"
           variant="ghost"
           size="icon"
+          className={size === "large" ? "size-12" : undefined}
           aria-label={label}
           onClick={onClick}
         >
-          <X aria-hidden="true" />
+          <X
+            aria-hidden="true"
+            className={size === "large" ? "size-7" : undefined}
+          />
         </Button>
       </TooltipTrigger>
       <TooltipContent>{label}</TooltipContent>

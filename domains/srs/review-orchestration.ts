@@ -562,7 +562,6 @@ export async function submitReviewAnswer(
 
   let isCorrect: boolean;
   let feedback: ReviewAnswerFeedback;
-  const itemInfo = await buildReviewItemInfo(db, item);
 
   if (input.kind === "typed") {
     const trimmedAnswer = input.answer.trim();
@@ -610,24 +609,28 @@ export async function submitReviewAnswer(
       articleRequirement,
     });
     isCorrect = result.isCorrect;
-    feedback = result.isCorrect
-      ? { kind: "correct" }
-      : result.reason === "missing_article"
-        ? {
-            kind: "incorrect",
-            reason: "missing_article",
-            article: result.article,
-            userAnswer: trimmedAnswer,
-            expectedAnswer: expectedAnswerDisplay,
-            itemInfo,
-          }
-        : {
-            kind: "incorrect",
-            reason: "no_match",
-            userAnswer: trimmedAnswer,
-            expectedAnswer: expectedAnswerDisplay,
-            itemInfo,
-          };
+    if (result.isCorrect) {
+      feedback = { kind: "correct" };
+    } else {
+      const itemInfo = await buildReviewItemInfo(db, item);
+      feedback =
+        result.reason === "missing_article"
+          ? {
+              kind: "incorrect",
+              reason: "missing_article",
+              article: result.article,
+              userAnswer: trimmedAnswer,
+              expectedAnswer: expectedAnswerDisplay,
+              itemInfo,
+            }
+          : {
+              kind: "incorrect",
+              reason: "no_match",
+              userAnswer: trimmedAnswer,
+              expectedAnswer: expectedAnswerDisplay,
+              itemInfo,
+            };
+    }
   } else {
     // Spec 20 Reviews — Flashcard/Cloze (Flashcard): "Know" is a correct SRS
     // outcome, "Don't Know" is incorrect. Self-reported after the client has
@@ -635,7 +638,10 @@ export async function submitReviewAnswer(
     isCorrect = input.knowsAnswer;
     feedback = isCorrect
       ? { kind: "correct" }
-      : { kind: "self_graded_incorrect", itemInfo };
+      : {
+          kind: "self_graded_incorrect",
+          itemInfo: await buildReviewItemInfo(db, item),
+        };
   }
 
   const restOfQueue = state.queue.slice(1);
@@ -791,6 +797,17 @@ export async function submitReviewAnswer(
     characterHelpers: getCharacterHelpers(language.code),
     stats: nextState.stats,
     feedback,
+    answeredItem: {
+      itemId: question.itemId,
+      title:
+        item.type === "vocabulary"
+          ? item.vocabulary.term
+          : item.grammar.structure,
+      meaning:
+        item.type === "vocabulary"
+          ? item.vocabulary.primaryMeaning
+          : item.grammar.primaryMeaning,
+    },
     completedItem,
     staleItem,
   };
