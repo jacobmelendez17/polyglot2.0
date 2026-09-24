@@ -743,3 +743,16 @@ html[data-font-scale="extra_large"] {
     @apply font-sans;
   }
 }
+
+/* The body's graph-paper grid, for surfaces that must paint over an opaque
+   ancestor (the focus layout's `main`) and still show it — the review
+   summary. Same lines, tile size and drift as `body`; `--graph-paper-line`
+   is inherited from it. */
+.graph-paper-surface {
+  background-color: var(--background);
+  background-image:
+    linear-gradient(to right, var(--graph-paper-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--graph-paper-line) 1px, transparent 1px);
+  background-size: 56px 56px;
+  animation: graph-paper-drift 16s linear infinite;
+}
