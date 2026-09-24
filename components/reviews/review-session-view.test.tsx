@@ -135,6 +135,15 @@ describe("ReviewSessionView", () => {
           reason: "no_match",
           userAnswer: "dog",
           expectedAnswer: "cat",
+          itemInfo: {
+            title: "cat",
+            meaning: "cat",
+            partOfSpeech: null,
+            pronunciation: null,
+            explanation: null,
+            note: null,
+            examples: [],
+          },
         },
       },
     });
@@ -450,6 +459,15 @@ describe("ReviewSessionView", () => {
             reason: "no_match",
             userAnswer: "dog",
             expectedAnswer: "cat",
+            itemInfo: {
+              title: "cat",
+              meaning: "cat",
+              partOfSpeech: null,
+              pronunciation: null,
+              explanation: null,
+              note: null,
+              examples: [],
+            },
           },
         },
       });

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Check, Undo2, X } from "lucide-react";
 
 import { ReviewHint } from "@/components/reviews/review-hint";
@@ -11,6 +11,7 @@ import { SRS_STAGE_LABELS } from "@/domains/srs";
 import type {
   ReviewAnswerFeedback,
   ReviewItemCompletionPreview,
+  ReviewItemInfo,
   ReviewQuestionView,
   ReviewUiPreferences,
 } from "@/domains/srs";
@@ -46,9 +47,7 @@ type ReviewQuestionViewProps = {
 export function ReviewQuestionView(props: ReviewQuestionViewProps) {
   // Remounts per question so the typed answer (shared by the Cloze blank and
   // the input) and the hint's local state reset naturally on advance.
-  return (
-    <ReviewQuestionBody key={props.question.questionId} {...props} />
-  );
+  return <ReviewQuestionBody key={props.question.questionId} {...props} />;
 }
 
 function ReviewQuestionBody({
@@ -81,9 +80,19 @@ function ReviewQuestionBody({
   const autoExpandHint =
     reviewUiPreferences.autoExpandInfo && feedback !== null;
 
+  const isMiss =
+    feedback?.kind === "incorrect" ||
+    feedback?.kind === "self_graded_incorrect";
+  const promptRef = useMissTransition<HTMLDivElement>(isMiss);
+
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-8 py-12">
-      <div className="text-center">
+    <div
+      className={cn(
+        "flex flex-1 flex-col items-center gap-8 py-12",
+        isMiss ? "justify-start pb-56 sm:pt-16" : "justify-center",
+      )}
+    >
+      <div ref={promptRef} className="text-center">
         {isCloze ? (
           <ClozeSentence
             sentenceBefore={presentation.sentenceBefore}
@@ -91,6 +100,7 @@ function ReviewQuestionBody({
             translation={presentation.translation}
             translationEmphasis={presentation.translationEmphasis}
             typedAnswer={presentation.kind === "cloze_typed" ? answer : ""}
+            isIncorrect={feedback?.kind === "incorrect"}
           />
         ) : (
           <p className="font-heading text-4xl font-semibold text-foreground sm:text-5xl">
@@ -104,52 +114,236 @@ function ReviewQuestionBody({
         ) : null}
       </div>
 
-      <ReviewHint
-        hint={question.hint}
-        autoExpand={autoExpandHint}
-      />
-
-      {isTyped ? (
-        <AnswerField
-          answer={answer}
-          onAnswerChange={setAnswer}
-          className={isCloze ? "mt-16" : undefined}
-          inputState={inputState}
-          awaitingAdvance={awaitingAdvance}
-          isPending={isPending}
-          characterHelpers={characterHelpers}
-          undoAction={reviewUiPreferences.undoAction}
-          onSubmit={onSubmit}
-          onAdvance={onAdvance}
-        />
+      {feedback && isMiss ? (
+        <ItemInfoPanel info={feedback.itemInfo} />
       ) : (
-        <RevealField
-          revealAnswer={presentation.revealAnswer}
-          revealLabel={
-            presentation.kind === "cloze_reveal" ? "Reveal" : "Reveal Answer"
-          }
-          awaitingAdvance={awaitingAdvance}
-          isPending={isPending}
-          onKnowsAnswer={onKnowsAnswer}
-          onAdvance={onAdvance}
-        />
+        <>
+          <ReviewHint hint={question.hint} autoExpand={autoExpandHint} />
+
+          {isTyped ? (
+            <AnswerField
+              answer={answer}
+              onAnswerChange={setAnswer}
+              className={isCloze ? "mt-16" : undefined}
+              inputState={inputState}
+              awaitingAdvance={awaitingAdvance}
+              isPending={isPending}
+              characterHelpers={characterHelpers}
+              undoAction={reviewUiPreferences.undoAction}
+              onSubmit={onSubmit}
+              onAdvance={onAdvance}
+            />
+          ) : (
+            <RevealField
+              revealAnswer={presentation.revealAnswer}
+              revealLabel={
+                presentation.kind === "cloze_reveal"
+                  ? "Reveal"
+                  : "Reveal Answer"
+              }
+              awaitingAdvance={awaitingAdvance}
+              isPending={isPending}
+              onKnowsAnswer={onKnowsAnswer}
+              onAdvance={onAdvance}
+            />
+          )}
+        </>
       )}
 
-      {/* Same treatment as the lesson quiz (`quiz-view.tsx`): fixed to the
-          viewport bottom and animated in, so feedback appearing never
-          re-centers or shifts the prompt/input above it. */}
-      {feedback && feedback.kind !== "empty" ? (
+      {/* Correct: same treatment as the lesson quiz (`quiz-view.tsx`) — fixed
+          to the viewport bottom and animated in, so it never shifts the
+          prompt/input above it. */}
+      {feedback?.kind === "correct" ? (
         <div className="fixed inset-x-0 bottom-0 z-10 flex justify-center px-4 pb-6 sm:pb-10">
           <div className="animate-in fade-in slide-in-from-bottom-4 flex w-full max-w-2xl flex-col items-center duration-200">
             <FeedbackRegion
-              feedback={feedback}
-              autoHighlightErrors={reviewUiPreferences.autoHighlightErrors}
               showSrsStage={reviewUiPreferences.showSrsStage}
               completedItem={completedItem}
             />
           </div>
         </div>
       ) : null}
+
+      {/* Miss: the prompt moves up, the item's info shows, and this footer
+          carries what was entered vs expected plus the way forward. */}
+      {feedback && isMiss ? (
+        <MissFooter
+          feedback={feedback}
+          expectedFallback={
+            presentation.kind === "reveal" ||
+            presentation.kind === "cloze_reveal"
+              ? presentation.revealAnswer
+              : ""
+          }
+          autoHighlightErrors={reviewUiPreferences.autoHighlightErrors}
+          onAdvance={onAdvance}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Animates the prompt block from where it sat (centered) to where it lands
+ * (top) when a miss flips the layout, since a `justify-center` →
+ * `justify-start` change can't transition on its own. FLIP: remember the
+ * last position, and after the layout changes play the delta back to zero.
+ */
+function useMissTransition<T extends HTMLElement>(isMiss: boolean) {
+  const ref = useRef<T>(null);
+  const last = useRef<{ top: number; isMiss: boolean } | null>(null);
+
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const top = element.getBoundingClientRect().top;
+    const previous = last.current;
+    last.current = { top, isMiss };
+    if (
+      previous &&
+      previous.isMiss !== isMiss &&
+      previous.top !== top &&
+      typeof element.animate === "function"
+    ) {
+      element.animate(
+        [
+          { transform: `translateY(${previous.top - top}px)` },
+          { transform: "none" },
+        ],
+        { duration: 350, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
+      );
+    }
+  });
+
+  return ref;
+}
+
+/** The missed item's content, shown under the prompt so the learner can study it before continuing. */
+function ItemInfoPanel({ info }: { info: ReviewItemInfo }) {
+  return (
+    <section
+      className="animate-in fade-in slide-in-from-bottom-2 flex w-full max-w-xl flex-col gap-4 text-left delay-150 duration-300 fill-mode-backwards"
+      aria-label="Item information"
+    >
+      <div>
+        <h2 className="font-heading text-2xl font-semibold text-foreground">
+          {info.title}
+        </h2>
+        <p className="text-base text-foreground">{info.meaning}</p>
+        {info.partOfSpeech || info.pronunciation ? (
+          <p className="mt-1 text-sm text-muted-foreground">
+            {[info.partOfSpeech, info.pronunciation]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        ) : null}
+      </div>
+
+      {info.explanation ? (
+        <p className="text-sm whitespace-pre-line text-foreground">
+          {info.explanation}
+        </p>
+      ) : null}
+
+      {info.note ? (
+        <p className="text-sm text-muted-foreground">{info.note}</p>
+      ) : null}
+
+      {info.examples.length > 0 ? (
+        <ul className="flex flex-col gap-2">
+          {info.examples.map((example) => (
+            <li key={example.targetText} className="text-sm">
+              <p className="text-foreground">{example.targetText}</p>
+              <p className="text-muted-foreground">{example.translation}</p>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </section>
+  );
+}
+
+function MissFooter({
+  feedback,
+  expectedFallback,
+  autoHighlightErrors,
+  onAdvance,
+}: {
+  feedback: Extract<
+    ReviewAnswerFeedback,
+    { kind: "incorrect" | "self_graded_incorrect" }
+  >;
+  /** Self-graded misses carry no server `expectedAnswer`; the revealed answer stands in. */
+  expectedFallback: string;
+  autoHighlightErrors: boolean;
+  onAdvance: () => void;
+}) {
+  // The answer input is gone on a miss, so Enter has to advance from here.
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      onAdvance();
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onAdvance]);
+
+  const isTypedMiss = feedback.kind === "incorrect";
+  const expected = isTypedMiss ? feedback.expectedAnswer : expectedFallback;
+  const highlighted =
+    isTypedMiss && autoHighlightErrors
+      ? highlightAnswerDiff(feedback.userAnswer, feedback.expectedAnswer)
+      : null;
+
+  return (
+    <div className="fixed inset-x-0 bottom-0 z-10 border-t border-border bg-background">
+      <div className="animate-in fade-in slide-in-from-bottom-8 mx-auto flex w-full max-w-2xl flex-col gap-4 px-4 py-5 duration-300 sm:flex-row sm:items-center sm:justify-between">
+        <div role="status" className="flex flex-col gap-2 text-sm">
+          <div className="flex items-center gap-2 text-destructive">
+            <X className="h-5 w-5" aria-hidden="true" />
+            <span className="font-medium">Not quite</span>
+          </div>
+          <dl className="flex flex-col gap-0.5">
+            {isTypedMiss ? (
+              <div className="flex gap-2">
+                <dt className="w-24 text-muted-foreground">You entered</dt>
+                <dd className="text-foreground">
+                  {highlighted
+                    ? highlighted.map((segment, index) => (
+                        <span
+                          key={index}
+                          className={
+                            segment.correct
+                              ? undefined
+                              : "font-semibold text-destructive underline decoration-wavy"
+                          }
+                        >
+                          {segment.text}
+                        </span>
+                      ))
+                    : feedback.userAnswer}
+                </dd>
+              </div>
+            ) : null}
+            {expected ? (
+              <div className="flex gap-2">
+                <dt className="w-24 text-muted-foreground">Expected</dt>
+                <dd className="font-medium text-foreground">{expected}</dd>
+              </div>
+            ) : null}
+          </dl>
+          {isTypedMiss && feedback.reason === "missing_article" ? (
+            <p className="text-xs text-muted-foreground">
+              This word requires the article &ldquo;{feedback.article}&rdquo;
+              when translating into the target language.
+            </p>
+          ) : null}
+        </div>
+        <Button type="button" onClick={onAdvance} autoFocus>
+          Continue
+        </Button>
+      </div>
     </div>
   );
 }
@@ -160,19 +354,26 @@ function ClozeSentence({
   translation,
   translationEmphasis,
   typedAnswer,
+  isIncorrect,
 }: {
   sentenceBefore: string;
   sentenceAfter: string;
   translation: string;
   translationEmphasis: string;
   typedAnswer: string;
+  isIncorrect: boolean;
 }) {
   return (
     <div className="flex max-w-3xl flex-col items-center gap-4">
       <p className="font-heading text-2xl leading-relaxed font-semibold text-foreground sm:text-3xl">
         {sentenceBefore}
         <span
-          className="mx-1 inline-block min-w-16 border-b-2 border-foreground/40 px-1 text-center align-bottom whitespace-pre-wrap"
+          className={cn(
+            "mx-1 inline-block min-w-16 border-b-2 px-1 text-center align-bottom whitespace-pre-wrap",
+            isIncorrect
+              ? "border-destructive text-destructive"
+              : "border-foreground/40",
+          )}
           aria-hidden="true"
         >
           {typedAnswer || "\u00a0"}
@@ -288,9 +489,7 @@ function AnswerField({
   }
 
   return (
-    <div
-      className={cn("flex w-full flex-col items-center gap-4", className)}
-    >
+    <div className={cn("flex w-full flex-col items-center gap-4", className)}>
       <div className="flex w-full flex-col items-center gap-3">
         <AnswerInput
           ref={inputRef}
@@ -409,111 +608,25 @@ function RevealField({
 }
 
 function FeedbackRegion({
-  feedback,
-  autoHighlightErrors,
   showSrsStage,
   completedItem,
 }: {
-  feedback: Exclude<ReviewAnswerFeedback, { kind: "empty" }>;
-  autoHighlightErrors: boolean;
   showSrsStage: boolean;
   completedItem?: ReviewItemCompletionPreview;
 }) {
-  if (feedback.kind === "correct") {
-    return (
-      <div className="flex flex-col items-center gap-1" role="status">
-        <div className="flex items-center gap-2 text-state-success">
-          <Check className="h-5 w-5" aria-hidden="true" />
-          <span className="text-sm font-medium">Correct!</span>
-        </div>
-        {/* Spec 20 Review UI — Show SRS Stage: presentation only, never the actual SRS result. */}
-        {showSrsStage && completedItem ? (
-          <p className="text-xs text-muted-foreground">
-            {SRS_STAGE_LABELS[completedItem.stageBefore]} →{" "}
-            {SRS_STAGE_LABELS[completedItem.stageAfter]}
-          </p>
-        ) : null}
-      </div>
-    );
-  }
-
-  if (feedback.kind === "self_graded_incorrect") {
-    return (
-      <div
-        className="flex flex-col items-center gap-2 text-center"
-        role="status"
-      >
-        <div className="flex items-center gap-2 text-destructive">
-          <X className="h-5 w-5" aria-hidden="true" />
-          <span className="text-sm font-medium">Not quite</span>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          This question will come back later in the session.
-        </p>
-      </div>
-    );
-  }
-
-  // Spec 20 Review UI — Auto Highlight Errors: the diff already refuses to
-  // render (`highlightAnswerDiff` returns null) rather than fabricate one
-  // when the two answers are mostly unrelated — the plain "You entered" line
-  // is the fallback for exactly that case, same as when the toggle is off.
-  const highlighted = autoHighlightErrors
-    ? highlightAnswerDiff(feedback.userAnswer, feedback.expectedAnswer)
-    : null;
-
   return (
-    <div
-      className="flex w-full max-w-sm flex-col items-center gap-2 text-center"
-      role="status"
-    >
-      <div className="flex items-center gap-2 text-destructive">
-        <X className="h-5 w-5" aria-hidden="true" />
-        <span className="text-sm font-medium">Not quite</span>
+    <div className="flex flex-col items-center gap-1" role="status">
+      <div className="flex items-center gap-2 text-state-success">
+        <Check className="h-5 w-5" aria-hidden="true" />
+        <span className="text-sm font-medium">Correct!</span>
       </div>
-
-      <dl className="w-full text-sm">
-        <div className="flex justify-between gap-2">
-          <dt className="text-muted-foreground">You entered</dt>
-          <dd className="text-foreground">
-            {highlighted ? (
-              <span>
-                {highlighted.map((segment, index) => (
-                  <span
-                    key={index}
-                    className={
-                      segment.correct
-                        ? undefined
-                        : "font-semibold text-destructive underline decoration-wavy"
-                    }
-                  >
-                    {segment.text}
-                  </span>
-                ))}
-              </span>
-            ) : (
-              feedback.userAnswer
-            )}
-          </dd>
-        </div>
-        <div className="flex justify-between gap-2">
-          <dt className="text-muted-foreground">Expected</dt>
-          <dd className="font-medium text-foreground">
-            {feedback.expectedAnswer}
-          </dd>
-        </div>
-      </dl>
-
-      {feedback.reason === "missing_article" ? (
+      {/* Spec 20 Review UI — Show SRS Stage: presentation only, never the actual SRS result. */}
+      {showSrsStage && completedItem ? (
         <p className="text-xs text-muted-foreground">
-          This word requires the article &ldquo;{feedback.article}&rdquo; when
-          translating into the target language.
+          {SRS_STAGE_LABELS[completedItem.stageBefore]} →{" "}
+          {SRS_STAGE_LABELS[completedItem.stageAfter]}
         </p>
       ) : null}
-
-      <p className="text-xs text-muted-foreground">
-        This question will come back later in the session.
-      </p>
     </div>
   );
 }

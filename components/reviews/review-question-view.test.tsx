@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { ReviewQuestionView } from "@/components/reviews/review-question-view";
 import { DEFAULT_REVIEW_PREFERENCES } from "@/domains/srs";
 import type {
+  ReviewItemInfo,
   ReviewQuestionView as ReviewQuestionViewData,
   ReviewUiPreferences,
 } from "@/domains/srs";
@@ -25,6 +26,16 @@ const QUESTION: ReviewQuestionViewData = {
 const REVEAL_QUESTION: ReviewQuestionViewData = {
   ...QUESTION,
   presentation: { kind: "reveal", prompt: "gato", revealAnswer: "cat" },
+};
+
+const ITEM_INFO: ReviewItemInfo = {
+  title: "el gato",
+  meaning: "cat",
+  partOfSpeech: "noun",
+  pronunciation: null,
+  explanation: "A small domesticated feline.",
+  note: null,
+  examples: [{ targetText: "El gato duerme.", translation: "The cat sleeps." }],
 };
 
 const CLOZE_TYPED_QUESTION: ReviewQuestionViewData = {
@@ -152,12 +163,43 @@ describe("ReviewQuestionView", () => {
         reason: "no_match",
         userAnswer: "dog",
         expectedAnswer: "cat",
+        itemInfo: ITEM_INFO,
       },
       awaitingAdvance: true,
     });
 
-    expect(screen.getByText("dog")).toBeInTheDocument();
-    expect(screen.getByText("cat")).toBeInTheDocument();
+    expect(screen.getByText("You entered").nextSibling).toHaveTextContent(
+      "dog",
+    );
+    expect(screen.getByText("Expected").nextSibling).toHaveTextContent("cat");
+  });
+
+  it("shows the missed item's info and a Continue footer instead of the answer field", async () => {
+    const user = userEvent.setup();
+    const onAdvance = vi.fn();
+    renderQuestion({
+      feedback: {
+        kind: "incorrect",
+        reason: "no_match",
+        userAnswer: "dog",
+        expectedAnswer: "cat",
+        itemInfo: ITEM_INFO,
+      },
+      awaitingAdvance: true,
+      onAdvance,
+    });
+
+    expect(
+      screen.getByText("A small domesticated feline."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("El gato duerme.")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("textbox", { name: "Your answer" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/come back later/i)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(onAdvance).toHaveBeenCalled();
   });
 
   it("explains a missing-article mistake specifically", () => {
@@ -168,6 +210,7 @@ describe("ReviewQuestionView", () => {
         article: "el",
         userAnswer: "gato",
         expectedAnswer: "el gato",
+        itemInfo: ITEM_INFO,
       },
       awaitingAdvance: true,
     });
@@ -251,7 +294,7 @@ describe("ReviewQuestionView", () => {
     it("shows self-graded incorrect feedback with no expected-answer breakdown (the learner already saw it via Reveal)", () => {
       renderQuestion({
         question: REVEAL_QUESTION,
-        feedback: { kind: "self_graded_incorrect" },
+        feedback: { kind: "self_graded_incorrect", itemInfo: ITEM_INFO },
         awaitingAdvance: true,
       });
 
@@ -351,6 +394,7 @@ describe("ReviewQuestionView", () => {
           reason: "no_match",
           userAnswer: "gata",
           expectedAnswer: "gato",
+          itemInfo: ITEM_INFO,
         },
         awaitingAdvance: true,
       });
@@ -367,6 +411,7 @@ describe("ReviewQuestionView", () => {
           reason: "no_match",
           userAnswer: "gata",
           expectedAnswer: "gato",
+          itemInfo: ITEM_INFO,
         },
         awaitingAdvance: true,
         reviewUiPreferences: {

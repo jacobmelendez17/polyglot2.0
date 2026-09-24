@@ -112,6 +112,7 @@ export {
 export type {
   GhostReviewView,
   ReviewAnswerFeedback,
+  ReviewItemInfo,
   ReviewItemSnapshot,
   ReviewItemType,
   ReviewItemCompletionPreview,

@@ -55,6 +55,7 @@ import { signReviewState, verifyReviewState } from "./review-token";
 import type {
   GhostReviewView,
   ReviewAnswerFeedback,
+  ReviewItemInfo,
   ReviewItemSnapshot,
   ReviewQuestionDirection,
   ReviewQuestionView,
@@ -217,6 +218,40 @@ function resolveQuestionHint(
           hintOrder: state.reviewPreferences.grammarHintOrder,
         };
   return resolveReviewHint({ hintMode, hintOrder, item });
+}
+
+/** Builds the post-miss study payload (`ReviewItemInfo`) from the item's published content. */
+async function buildReviewItemInfo(
+  db: DbClient,
+  item: CurriculumLearningItem,
+): Promise<ReviewItemInfo> {
+  const examples = (await getLearningItemExamples(db, item.id))
+    .slice(0, 3)
+    .map(({ targetText, translation }) => ({ targetText, translation }));
+  if (item.type === "vocabulary") {
+    const { vocabulary } = item;
+    return {
+      title: vocabulary.article
+        ? `${vocabulary.article} ${vocabulary.term}`
+        : vocabulary.term,
+      meaning: vocabulary.primaryMeaning,
+      partOfSpeech: vocabulary.partOfSpeech,
+      pronunciation: vocabulary.ipa ?? vocabulary.pronunciation,
+      explanation: vocabulary.definition,
+      note: vocabulary.context ?? vocabulary.creatorNotes,
+      examples,
+    };
+  }
+  const { grammar } = item;
+  return {
+    title: grammar.structure,
+    meaning: grammar.primaryMeaning,
+    partOfSpeech: null,
+    pronunciation: null,
+    explanation: grammar.explanation,
+    note: grammar.creatorNotes,
+    examples,
+  };
 }
 
 function requiredQuestionIdsForItem(
@@ -527,6 +562,7 @@ export async function submitReviewAnswer(
 
   let isCorrect: boolean;
   let feedback: ReviewAnswerFeedback;
+  const itemInfo = await buildReviewItemInfo(db, item);
 
   if (input.kind === "typed") {
     const trimmedAnswer = input.answer.trim();
@@ -583,12 +619,14 @@ export async function submitReviewAnswer(
             article: result.article,
             userAnswer: trimmedAnswer,
             expectedAnswer: expectedAnswerDisplay,
+            itemInfo,
           }
         : {
             kind: "incorrect",
             reason: "no_match",
             userAnswer: trimmedAnswer,
             expectedAnswer: expectedAnswerDisplay,
+            itemInfo,
           };
   } else {
     // Spec 20 Reviews — Flashcard/Cloze (Flashcard): "Know" is a correct SRS
@@ -597,7 +635,7 @@ export async function submitReviewAnswer(
     isCorrect = input.knowsAnswer;
     feedback = isCorrect
       ? { kind: "correct" }
-      : { kind: "self_graded_incorrect" };
+      : { kind: "self_graded_incorrect", itemInfo };
   }
 
   const restOfQueue = state.queue.slice(1);

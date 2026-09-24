@@ -87,6 +87,25 @@ export type ReviewUiPreferences = Omit<
   | "vocabularyMinimumLeechStage"
 >;
 
+/**
+ * What the learner sees about an item right after missing it, so they can
+ * study it before moving on. Built server-side from real, published item
+ * content only — nothing invented.
+ */
+export type ReviewItemInfo = {
+  /** The item's target-language word/structure. */
+  title: string;
+  meaning: string;
+  /** Vocabulary only, e.g. "noun". */
+  partOfSpeech: string | null;
+  pronunciation: string | null;
+  /** Vocabulary definition / grammar explanation. */
+  explanation: string | null;
+  /** The item's nuance/context note or creator notes. */
+  note: string | null;
+  examples: { targetText: string; translation: string }[];
+};
+
 export type ReviewAnswerFeedback =
   | { kind: "empty" }
   | { kind: "correct" }
@@ -96,9 +115,10 @@ export type ReviewAnswerFeedback =
       article?: string;
       userAnswer: string;
       expectedAnswer: string;
+      itemInfo: ReviewItemInfo;
     }
-  /** Spec 20 Reviews — Flashcard/Cloze (Flashcard): the learner self-reported "Don't Know" after revealing the answer. Nothing more to show — they already saw it via Reveal. */
-  | { kind: "self_graded_incorrect" };
+  /** Spec 20 Reviews — Flashcard/Cloze (Flashcard): the learner self-reported "Don't Know" after revealing the answer. */
+  | { kind: "self_graded_incorrect"; itemInfo: ReviewItemInfo };
 
 /**
  * The real, persisted SRS mutation a just-completed item received (spec 09
