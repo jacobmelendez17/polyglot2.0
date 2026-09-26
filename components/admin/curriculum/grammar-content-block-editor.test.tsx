@@ -1,19 +1,20 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { GrammarContentBlockEditor } from "@/components/admin/curriculum/grammar-content-block-editor";
-import { grammarContentBlockAction } from "@/app/(admin)/admin/curriculum/actions";
+import { saveGrammarContentBlocksAction } from "@/app/(admin)/admin/curriculum/actions";
 import type { GrammarContentBlockSource } from "@/domains/curriculum";
 
+const refresh = vi.fn();
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ refresh: () => {} }),
+  useRouter: () => ({ refresh }),
 }));
 vi.mock("@/app/(admin)/admin/curriculum/actions", () => ({
-  grammarContentBlockAction: vi.fn(),
+  saveGrammarContentBlocksAction: vi.fn(),
 }));
 
-const mockedAction = vi.mocked(grammarContentBlockAction);
+const mockedSave = vi.mocked(saveGrammarContentBlocksAction);
 
 const blocks: GrammarContentBlockSource[] = [
   { id: "block-1", position: 1, type: "text", body: "Use ser for identity." },
@@ -28,12 +29,13 @@ const blocks: GrammarContentBlockSource[] = [
 ];
 
 beforeEach(() => {
-  mockedAction.mockReset();
-  mockedAction.mockResolvedValue({ ok: true, data: { blockId: "block-4" } });
+  mockedSave.mockReset();
+  refresh.mockReset();
+  mockedSave.mockResolvedValue({ ok: true, data: { blocks } });
 });
 
 describe("GrammarContentBlockEditor", () => {
-  it("adds a text block", async () => {
+  it("shows an added block in the list straight away, marked New, without saving yet", async () => {
     const user = userEvent.setup();
     render(<GrammarContentBlockEditor learningItemId="item-1" blocks={[]} />);
 
@@ -43,139 +45,162 @@ describe("GrammarContentBlockEditor", () => {
     );
     await user.click(screen.getByRole("button", { name: /Add block/ }));
 
-    expect(mockedAction).toHaveBeenCalledWith(
-      expect.objectContaining({
-        mutation: {
-          kind: "create",
-          type: "text",
-          body: "Use ser for identity.",
-        },
-      }),
+    expect(screen.getByLabelText("Text for block 1")).toHaveValue(
+      "Use ser for identity.",
     );
+    expect(screen.getByText("New")).toBeInTheDocument();
+    expect(screen.getByLabelText("New block text")).toHaveValue("");
+    expect(mockedSave).not.toHaveBeenCalled();
   });
 
-  it("adds an example block as a sentence pair, not a body", async () => {
+  it("only offers Save once there is something to save", async () => {
     const user = userEvent.setup();
-    render(<GrammarContentBlockEditor learningItemId="item-1" blocks={[]} />);
+    render(
+      <GrammarContentBlockEditor learningItemId="item-1" blocks={blocks} />,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "Save changes" }),
+    ).not.toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("Text for block 1"), "!");
+    expect(screen.getByRole("button", { name: "Save changes" })).toBeEnabled();
+  });
+
+  it("saves the whole list in one call — new blocks without an id, existing ones with theirs", async () => {
+    const user = userEvent.setup();
+    render(
+      <GrammarContentBlockEditor learningItemId="item-1" blocks={blocks} />,
+    );
 
     await user.click(screen.getByRole("combobox", { name: "New block type" }));
     await user.click(screen.getByRole("option", { name: "Example sentence" }));
-    await user.type(screen.getByLabelText("New example sentence"), "Soy alto.");
+    await user.type(screen.getByLabelText("New example sentence"), "Es alta.");
     await user.type(
       screen.getByLabelText("New example translation"),
-      "I am tall.",
+      "She is tall.",
     );
     await user.click(screen.getByRole("button", { name: /Add block/ }));
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
 
-    expect(mockedAction).toHaveBeenCalledWith(
+    expect(mockedSave).toHaveBeenCalledTimes(1);
+    expect(mockedSave).toHaveBeenCalledWith(
       expect.objectContaining({
-        mutation: {
-          kind: "create",
-          type: "example",
-          targetText: "Soy alto.",
-          translation: "I am tall.",
-        },
+        learningItemId: "item-1",
+        blocks: [
+          { id: "block-1", type: "text", body: "Use ser for identity." },
+          {
+            id: "block-2",
+            type: "example",
+            targetText: "Soy alto.",
+            translation: "I am tall.",
+          },
+          { id: "block-3", type: "note", body: "Not estar." },
+          {
+            type: "example",
+            targetText: "Es alta.",
+            translation: "She is tall.",
+          },
+        ],
       }),
     );
   });
 
-  it("refuses to submit an empty block", async () => {
-    const user = userEvent.setup();
-    render(<GrammarContentBlockEditor learningItemId="item-1" blocks={[]} />);
-
-    await user.click(screen.getByRole("button", { name: /Add block/ }));
-
-    expect(mockedAction).not.toHaveBeenCalled();
-  });
-
-  it("keeps an example's other half when editing one of them", async () => {
+  it("confirms what was saved and refreshes the page behind the dialog", async () => {
     const user = userEvent.setup();
     render(
       <GrammarContentBlockEditor learningItemId="item-1" blocks={blocks} />,
     );
 
-    const translation = screen.getByLabelText("Translation for block 2");
-    await user.clear(translation);
-    await user.type(translation, "I'm tall.");
-    await user.tab();
+    await user.type(screen.getByLabelText("Text for block 1"), "!");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
 
-    // The update replaces the whole block, so the untouched half must be resent.
-    expect(mockedAction).toHaveBeenCalledWith(
-      expect.objectContaining({
-        mutation: {
-          kind: "update",
-          blockId: "block-2",
-          type: "example",
-          targetText: "Soy alto.",
-          translation: "I'm tall.",
-        },
-      }),
-    );
-  });
-
-  it("does not write when a field is blurred unchanged", async () => {
-    const user = userEvent.setup();
-    render(
-      <GrammarContentBlockEditor learningItemId="item-1" blocks={blocks} />,
-    );
-
-    await user.click(screen.getByLabelText("Text for block 1"));
-    await user.tab();
-
-    expect(mockedAction).not.toHaveBeenCalled();
-  });
-
-  it("reorders by sending the full new order", async () => {
-    const user = userEvent.setup();
-    render(
-      <GrammarContentBlockEditor learningItemId="item-1" blocks={blocks} />,
-    );
-
-    await user.click(
-      screen.getByRole("button", { name: "Move block 3 earlier" }),
-    );
-
-    expect(mockedAction).toHaveBeenCalledWith(
-      expect.objectContaining({
-        mutation: {
-          kind: "reorder",
-          orderedIds: ["block-1", "block-3", "block-2"],
-        },
-      }),
-    );
-  });
-
-  it("explains that blocks replace the original explanation field", () => {
-    render(<GrammarContentBlockEditor learningItemId="item-1" blocks={[]} />);
-    expect(screen.getByText(/Adding a block replaces it/)).toBeInTheDocument();
-  });
-
-  it("warns that changes are live even on a published item", () => {
-    render(
-      <GrammarContentBlockEditor learningItemId="item-1" blocks={blocks} />,
-    );
     expect(
-      screen.getByText(/live immediately, even on a published item/),
+      await screen.findByText("Saved — 3 blocks live"),
     ).toBeInTheDocument();
+    expect(refresh).toHaveBeenCalled();
+    expect(
+      screen.queryByRole("button", { name: "Save changes" }),
+    ).not.toBeInTheDocument();
   });
 
-  it("surfaces a rejected mutation", async () => {
-    mockedAction.mockResolvedValue({
+  it("keeps the staged changes and shows the error when saving fails", async () => {
+    mockedSave.mockResolvedValueOnce({
       ok: false,
-      error: {
-        code: "CURRICULUM_VALIDATION_FAILED",
-        message: "Archived items cannot be edited.",
-      },
+      error: { code: "UNKNOWN", message: "Something went wrong." },
     });
     const user = userEvent.setup();
     render(
       <GrammarContentBlockEditor learningItemId="item-1" blocks={blocks} />,
     );
 
-    await user.click(screen.getByRole("button", { name: "Delete block 1" }));
+    await user.type(screen.getByLabelText("Text for block 1"), "!");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Archived items cannot be edited.",
+      "Something went wrong.",
+    );
+    expect(screen.getByLabelText("Text for block 1")).toHaveValue(
+      "Use ser for identity.!",
+    );
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("reorders with the arrow buttons and saves the new order", async () => {
+    const user = userEvent.setup();
+    render(
+      <GrammarContentBlockEditor learningItemId="item-1" blocks={blocks} />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Move block 1 later" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => expect(mockedSave).toHaveBeenCalled());
+    const sent = mockedSave.mock.calls[0]![0].blocks.map((block) => block.id);
+    expect(sent).toEqual(["block-2", "block-1", "block-3"]);
+  });
+
+  it("deletes a block from the list and leaves it out of the save", async () => {
+    const user = userEvent.setup();
+    render(
+      <GrammarContentBlockEditor learningItemId="item-1" blocks={blocks} />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Delete block 2" }));
+    expect(screen.queryByLabelText("Sentence for block 2")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => expect(mockedSave).toHaveBeenCalled());
+    expect(
+      mockedSave.mock.calls[0]![0].blocks.map((block) => block.id),
+    ).toEqual(["block-1", "block-3"]);
+  });
+
+  it("won't save a block whose text has been cleared", async () => {
+    const user = userEvent.setup();
+    render(
+      <GrammarContentBlockEditor learningItemId="item-1" blocks={blocks} />,
+    );
+
+    await user.clear(screen.getByLabelText("Text for block 1"));
+
+    expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled();
+    expect(screen.getByText(/needs its text filled in/)).toBeInTheDocument();
+  });
+
+  it("discard puts the list back to what was saved", async () => {
+    const user = userEvent.setup();
+    render(
+      <GrammarContentBlockEditor learningItemId="item-1" blocks={blocks} />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Delete block 1" }));
+    await user.click(screen.getByRole("button", { name: "Discard" }));
+
+    expect(screen.getByLabelText("Text for block 1")).toHaveValue(
+      "Use ser for identity.",
     );
   });
 });

@@ -1417,6 +1417,73 @@ export async function deleteGrammarContentBlock(
     .where(eq(grammarContentBlocks.id, blockId));
 }
 
+/** A block in a whole-list save: `id` present means "this existing block", absent means "new". */
+export type GrammarContentBlockSaveInput = GrammarContentBlockInput & {
+  id?: string;
+};
+
+/**
+ * The ids of every block currently on an item, so a whole-list save can
+ * reject an id that belongs to some other item before writing anything.
+ */
+export async function getGrammarContentBlockIds(
+  db: DbClient,
+  learningItemId: string,
+): Promise<string[]> {
+  const rows = await db
+    .select({ id: grammarContentBlocks.id })
+    .from(grammarContentBlocks)
+    .where(eq(grammarContentBlocks.learningItemId, learningItemId));
+  return rows.map((row) => row.id);
+}
+
+/**
+ * Makes an item's About blocks exactly `blocks`, in that order: deletes the
+ * ones left out, rewrites the ones kept, inserts the new ones, then assigns
+ * positions 1..N. Meant to run inside one transaction — the content builder
+ * saves the whole list at once, so a partial result must never be visible.
+ * The caller has already checked every provided `id` belongs to this item.
+ */
+export async function replaceGrammarContentBlocks(
+  db: DbClient,
+  learningItemId: string,
+  blocks: GrammarContentBlockSaveInput[],
+): Promise<string[]> {
+  const keepIds = blocks.flatMap((block) => (block.id ? [block.id] : []));
+  const existingIds = await getGrammarContentBlockIds(db, learningItemId);
+  for (const id of existingIds) {
+    if (!keepIds.includes(id)) {
+      await db
+        .delete(grammarContentBlocks)
+        .where(eq(grammarContentBlocks.id, id));
+    }
+  }
+
+  const orderedIds: string[] = [];
+  for (const block of blocks) {
+    if (block.id) {
+      await db
+        .update(grammarContentBlocks)
+        .set({ ...contentBlockColumns(block), updatedAt: new Date() })
+        .where(
+          and(
+            eq(grammarContentBlocks.id, block.id),
+            eq(grammarContentBlocks.learningItemId, learningItemId),
+          ),
+        );
+      orderedIds.push(block.id);
+    } else {
+      // Lands at the end; the reorder below assigns its real position.
+      orderedIds.push(
+        await createGrammarContentBlock(db, learningItemId, block),
+      );
+    }
+  }
+
+  await reorderGrammarContentBlocks(db, learningItemId, orderedIds);
+  return orderedIds;
+}
+
 export async function reorderGrammarContentBlocks(
   db: DbClient,
   learningItemId: string,

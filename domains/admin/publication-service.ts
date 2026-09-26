@@ -26,6 +26,8 @@ import {
   updateItemResource,
   updateUsageContext,
   getDuplicateCandidateRows,
+  getGrammarContentBlockIds,
+  replaceGrammarContentBlocks,
   getNextPosition,
   lockLearningItemForEdit,
   moveLearningItem as repoMoveLearningItem,
@@ -39,10 +41,13 @@ import {
   updateVocabularyDictionaryFields,
   updateVocabularyGroup as repoUpdateVocabularyGroup,
 } from "@/domains/curriculum/curriculum-mutation-repository";
+import { getGrammarContentBlocks } from "@/domains/curriculum/curriculum-repository";
+import type { CurriculumGrammarContentBlock } from "@/domains/curriculum/curriculum-db-types";
 import { findDuplicateCandidates } from "@/domains/curriculum/curriculum-duplicate-detection";
 import type {
   DictionarySuppliedVocabularyFields,
   GrammarContentBlockInput,
+  GrammarContentBlockSaveInput,
 } from "@/domains/curriculum/curriculum-mutation-repository";
 import {
   DICTIONARY_OVERRIDABLE_FIELDS,
@@ -611,6 +616,75 @@ export async function mutateGrammarContentBlock(
       });
       invalidateCurriculumCache(locked.languageId);
       return { blockId };
+    },
+  );
+}
+
+export type SaveGrammarContentBlocksServiceInput = {
+  learningItemId: string;
+  actorUserId: string;
+  idempotencyKey: string;
+  blocks: GrammarContentBlockSaveInput[];
+};
+
+/**
+ * The content builder's Save (spec 18): replaces an item's whole About-block
+ * list — additions, edits, deletions, and order — in one transaction, so what
+ * the admin sees staged is exactly what is applied or nothing is. Returns the
+ * persisted list so the editor can show what actually landed.
+ */
+export async function saveGrammarContentBlocks(
+  db: DbClient,
+  input: SaveGrammarContentBlocksServiceInput,
+): Promise<{ blocks: CurriculumGrammarContentBlock[] }> {
+  return withIdempotency(
+    db,
+    {
+      userId: input.actorUserId,
+      operation: "admin.curriculum.grammar-content-blocks-save",
+      key: input.idempotencyKey,
+      payload: { learningItemId: input.learningItemId, blocks: input.blocks },
+    },
+    async (tx) => {
+      const locked = await lockLearningItemForEdit(tx, input.learningItemId);
+      if (!locked) throw new AdminError("CURRICULUM_ITEM_NOT_FOUND");
+      if (locked.type !== "grammar") {
+        throw new AdminError(
+          "CURRICULUM_VALIDATION_FAILED",
+          "Only grammar items have content blocks.",
+        );
+      }
+      if (locked.status === "archived") {
+        throw new AdminError(
+          "CURRICULUM_VALIDATION_FAILED",
+          "Archived items cannot be edited.",
+        );
+      }
+
+      const existingIds = new Set(
+        await getGrammarContentBlockIds(tx, input.learningItemId),
+      );
+      if (
+        input.blocks.some((block) => block.id && !existingIds.has(block.id))
+      ) {
+        throw new AdminError(
+          "CURRICULUM_VALIDATION_FAILED",
+          "One of those blocks no longer exists. Reload the page and try again.",
+        );
+      }
+
+      await replaceGrammarContentBlocks(tx, input.learningItemId, input.blocks);
+      const saved = await getGrammarContentBlocks(tx, input.learningItemId);
+
+      await recordAuditEvent(tx, {
+        actorUserId: input.actorUserId,
+        action: "GRAMMAR_CONTENT_BLOCKS_CHANGED",
+        resourceType: itemResourceType(locked.type),
+        resourceId: input.learningItemId,
+        afterData: { kind: "save", blocks: saved },
+      });
+      invalidateCurriculumCache(locked.languageId);
+      return { blocks: saved };
     },
   );
 }

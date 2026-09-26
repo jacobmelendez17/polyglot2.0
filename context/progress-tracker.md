@@ -1585,6 +1585,29 @@ writing to real `user_item_progress` rows.
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
 
+- **Grammar About-content builder: fixed the silent failure, rebuilt as
+  stage → reorder → Save** (2026-09-26, user report: adding text / example /
+  Polyglot note blocks "disappears and nothing is applied"). **Root cause:**
+  `grammarContentBlockMutationSchema` was a `z.discriminatedUnion("kind")`
+  with two `"create"` (and two `"update"`) members; Zod 4 throws `Duplicate
+  discriminator value "create"` on the *first parse*, not at definition, so
+  every block action failed before reaching the database (zero
+  `grammar_content_blocks` rows and zero idempotency rows for the operation,
+  ever). Now a plain `z.union`. The editor also cleared its inputs before the
+  result came back, which is why it looked like the block vanished.
+  **New behavior:** blocks added in the modal appear in the list above the
+  form marked "New"; drag (dnd-kit, new dependency; pointer + keyboard) or
+  arrow buttons reorder; one **Save changes** button (shown only when dirty,
+  with Discard) applies the whole list atomically through the new
+  `saveGrammarContentBlocks` service (delete/update/insert/reorder in one
+  transaction, audited as `GRAMMAR_CONTENT_BLOCKS_CHANGED`) and the editor
+  then shows the list the database actually returned plus a "Saved — N blocks
+  live" confirmation. Verified: service exercised against the real dev
+  database inside a rolled-back transaction (create, edit, delete, reorder),
+  editor tests rewritten (9), `tsc`/lint clean. Not verified in a browser.
+  The old per-change `grammarContentBlockAction` is left in place (now
+  working) but no longer used by the editor.
+
 - **Grammar items can now be filed under a vocabulary group** (2026-09-26,
   user request: put all Level 1 grammar in the Level 1 "Grammar" group).
   New nullable `grammar_items.vocabulary_group_id` (migration 0040,

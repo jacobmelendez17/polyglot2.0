@@ -22,6 +22,7 @@ import {
   reorderItems,
   reorderVocabularyGroups,
   resetDictionaryFieldOverride,
+  saveGrammarContentBlocks,
   updateItem,
   updateLevel,
   updateVocabularyGroup,
@@ -31,6 +32,7 @@ import { resolveConfirmedDictionaryFields } from "@/domains/lexicon";
 import { proposeUsageContexts } from "@/domains/curriculum/usage-context-seeding";
 import { getVocabularyMappingView } from "@/domains/lexicon/server";
 import { getUsageContexts } from "@/domains/curriculum/server";
+import type { GrammarContentBlockSource } from "@/domains/curriculum";
 import type { PolyglotUser } from "@/domains/users";
 import { requireUser } from "@/domains/users/server";
 import { AdminError } from "@/lib/errors/admin-errors";
@@ -334,7 +336,7 @@ export async function itemExampleAction(
  * rejected at the boundary rather than by a database error the learner-facing
  * layer would have to translate.
  */
-const grammarContentBlockMutationSchema = z.discriminatedUnion("kind", [
+const grammarContentBlockMutationSchema = z.union([
   z.object({
     kind: z.literal("create"),
     type: z.enum(["text", "note"]),
@@ -371,6 +373,46 @@ const grammarContentBlockActionSchema = z.object({
   idempotencyKey: z.string().min(1),
   mutation: grammarContentBlockMutationSchema,
 });
+
+const blockContentSchema = z.union([
+  z.object({
+    type: z.enum(["text", "note"]),
+    body: z.string().trim().min(1).max(4000),
+  }),
+  z.object({
+    type: z.literal("example"),
+    targetText: z.string().trim().min(1).max(500),
+    translation: z.string().trim().min(1).max(500),
+  }),
+]);
+
+const saveGrammarContentBlocksSchema = z.object({
+  learningItemId: z.string().min(1),
+  idempotencyKey: z.string().min(1),
+  blocks: z
+    .array(
+      z.intersection(
+        z.object({ id: z.string().min(1).optional() }),
+        blockContentSchema,
+      ),
+    )
+    .max(100),
+});
+
+/** Spec 18's content builder Save: the whole About-block list, in order, applied atomically; returns what was actually persisted. */
+export async function saveGrammarContentBlocksAction(
+  input: z.infer<typeof saveGrammarContentBlocksSchema>,
+): Promise<ActionResult<{ blocks: GrammarContentBlockSource[] }>> {
+  return runAdminAction(async () => {
+    const parsed = saveGrammarContentBlocksSchema.parse(input);
+    const user = await requireUser();
+    const result = await saveGrammarContentBlocks({
+      ...parsed,
+      actorUserId: user.id,
+    });
+    return result;
+  });
+}
 
 export async function grammarContentBlockAction(
   input: z.infer<typeof grammarContentBlockActionSchema>,

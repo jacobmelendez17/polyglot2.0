@@ -29,6 +29,7 @@ export {
   listCurriculumImportRowsForReview,
   moveItem,
   mutateGrammarContentBlock,
+  saveGrammarContentBlocks,
   mutateItemExample,
   mutateItemResource,
   mutateUsageContext,

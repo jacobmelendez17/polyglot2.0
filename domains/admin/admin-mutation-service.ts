@@ -27,6 +27,7 @@ import type {
   ApplyDictionaryFieldsServiceInput,
   ExampleServiceInput,
   GrammarContentBlockServiceInput,
+  SaveGrammarContentBlocksServiceInput,
   ItemResourceServiceInput,
   UsageContextServiceInput,
   ArchiveItemServiceInput,
@@ -118,6 +119,13 @@ export async function mutateGrammarContentBlock(
 ) {
   await checkRateLimit("admin-mutation", input.actorUserId);
   return publication.mutateGrammarContentBlock(db, input);
+}
+
+export async function saveGrammarContentBlocks(
+  input: SaveGrammarContentBlocksServiceInput,
+) {
+  await checkRateLimit("admin-mutation", input.actorUserId);
+  return publication.saveGrammarContentBlocks(db, input);
 }
 
 export async function mutateItemResource(input: ItemResourceServiceInput) {
