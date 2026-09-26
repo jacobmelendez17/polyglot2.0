@@ -1,7 +1,10 @@
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { cookies } from "next/headers";
+import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db/client";
+import { levels } from "@/db/schema";
+import { unlockLevel } from "@/domains/progress/repository";
 import { getRateLimiter } from "@/providers/rate-limit";
 import {
   SANDBOX_SESSION_COOKIE,
@@ -32,6 +35,7 @@ import {
   saveGrammarPlacement,
   saveLessonBatchSize,
   saveNotificationPreferences,
+  updateActiveLanguage as updateActiveLanguageInDb,
   updateDisplayName,
   updateTimezone as updateTimezoneInDb,
   updateUsername as updateUsernameInDb,
@@ -322,6 +326,55 @@ export async function updateTimezone(input: {
   }
 
   return updateTimezoneInDb(db, input.userId, input.timezone);
+}
+
+/**
+ * Spec 15/16 onboarding's language-choice step. Sets which language a
+ * learner is studying and, in the same transaction, unlocks Level 1 of it —
+ * mirroring the starting-state guarantee `provisionUser` gives the default
+ * language at account creation, so a language reached for the first time
+ * here is never left with no unlocked level. Ordinary "account-settings"
+ * rate limit, matching every other narrow account field save.
+ */
+export async function setActiveLanguage(input: {
+  userId: string;
+  languageId: string;
+}): Promise<PolyglotUser> {
+  const decision = await getRateLimiter().check({
+    policy: "account-settings",
+    subject: input.userId,
+  });
+  if (!decision.allowed) {
+    throw new AppError(
+      "RATE_LIMITED",
+      `Please slow down and try again in ${decision.retryAfterSeconds}s.`,
+    );
+  }
+
+  return db.transaction(async (tx) => {
+    const [level1] = await tx
+      .select({ id: levels.id })
+      .from(levels)
+      .where(
+        and(eq(levels.languageId, input.languageId), eq(levels.levelNumber, 1)),
+      )
+      .limit(1);
+    if (!level1) {
+      throw new AppError("ITEM_NOT_FOUND", "That language could not be found.");
+    }
+
+    const user = await updateActiveLanguageInDb(
+      tx,
+      input.userId,
+      input.languageId,
+    );
+    await unlockLevel(tx, {
+      userId: input.userId,
+      levelId: level1.id,
+      now: new Date(),
+    });
+    return user;
+  });
 }
 
 /**

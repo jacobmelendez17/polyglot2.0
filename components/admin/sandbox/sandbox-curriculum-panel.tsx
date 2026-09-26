@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Check } from "lucide-react";
@@ -19,9 +18,8 @@ type SandboxCurriculumPanelProps = {
 };
 
 /**
- * Spec 16's Sandbox section: replay the curriculum-choice screen, switch the
- * persona's mode, and see what the persona's next lesson would actually be
- * under each mode.
+ * Spec 16's Sandbox section: switch the persona's curriculum mode and see
+ * what the persona's next lesson would actually be under each mode.
  *
  * The preview comes from `domains/lessons`' real `selectLessonBatch` running
  * over the persona's real eligible curriculum (computed server-side in
@@ -31,7 +29,11 @@ type SandboxCurriculumPanelProps = {
  * separate sandbox implementation", taken literally in both halves.
  *
  * Every write here targets the persona. The admin's own preference is never
- * touched, and the replay link persists nothing at all.
+ * touched. Replaying the choice screen itself now lives one level up, in
+ * "Replay Onboarding" (`sandbox-controls.tsx`) — that single flow already
+ * walks through the slides, language choice, and this screen in one
+ * continuous preview (2026-09-26 decision), so a second, separate entry
+ * point into just this screen was redundant.
  */
 export function SandboxCurriculumPanel({
   languageId,
@@ -102,12 +104,6 @@ export function SandboxCurriculumPanel({
             onClick={handleApply}
           >
             Apply to persona
-          </Button>
-          <Button asChild variant="outline">
-            {/* A replay writes nothing — the route re-checks Admin access itself. */}
-            <Link href="/onboarding/curriculum?replay=1">
-              Replay choice screen
-            </Link>
           </Button>
           {saved ? (
             <span className="flex items-center gap-1 text-sm text-state-success">

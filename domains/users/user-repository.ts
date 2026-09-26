@@ -474,6 +474,30 @@ export async function updateTimezone(
   return toPolyglotUser(row);
 }
 
+/**
+ * Spec 15/16 onboarding's language-choice step (and later, Settings): sets
+ * which language a learner is studying. Just the `users` row write — the
+ * caller (`user-service.ts`'s `setActiveLanguage`) is responsible for
+ * unlocking Level 1 of the target language in the same transaction, the
+ * same starting-state guarantee `provisionUser` gives the default language
+ * at account creation.
+ */
+export async function updateActiveLanguage(
+  db: DbClient,
+  userId: string,
+  languageId: string,
+): Promise<PolyglotUser> {
+  const [row] = await db
+    .update(users)
+    .set({ activeLanguageId: languageId, updatedAt: new Date() })
+    .where(eq(users.id, userId))
+    .returning();
+  if (!row) {
+    throw new AppError("ITEM_NOT_FOUND", "That account could not be found.");
+  }
+  return toPolyglotUser(row);
+}
+
 export async function findUsersByIds(
   db: DbClient,
   ids: string[],

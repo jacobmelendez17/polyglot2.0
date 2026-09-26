@@ -27,6 +27,15 @@ type OnboardingFlowProps = {
    * 20's Settings "Replay" passes `/settings/account` instead.
    */
   returnTo?: string;
+  /**
+   * Replay only: where "Start Now!" navigates instead of straight to
+   * `returnTo` — the one giant preview (2026-09-26 decision) continues into
+   * the language-choice and curriculum-choice screens' own previews rather
+   * than ending after the slides. Omit to end here, exactly like before
+   * (`onboarding/page.tsx` only supplies this for an Admin preview — a
+   * plain learner's Settings replay still ends after the slideshow).
+   */
+  continueHref?: string;
 };
 
 /** How far a slide travels on entry/exit. Small on purpose: spec 15 asks for smooth transitions that never delay navigation. */
@@ -51,6 +60,7 @@ const SLIDE_OFFSET = 48;
 export function OnboardingFlow({
   isReplay,
   returnTo = "/admin/sandbox",
+  continueHref,
 }: OnboardingFlowProps) {
   const router = useRouter();
   const [index, setIndex] = useState(0);
@@ -76,9 +86,11 @@ export function OnboardingFlow({
     setError(null);
 
     if (isReplay) {
-      // Nothing is persisted for a replay — the preview ends by returning to
-      // where it was launched from.
-      router.replace(returnTo);
+      // Nothing is persisted for a replay. `continueHref`, when given,
+      // chains straight into the next screen's own preview instead of
+      // ending here (the one-giant-flow decision, 2026-09-26); otherwise
+      // the preview ends by returning to where it was launched from.
+      router.replace(continueHref ?? returnTo);
       return;
     }
 
@@ -88,12 +100,12 @@ export function OnboardingFlow({
         setError(result.error.message);
         return;
       }
-      // Onboarding's last step is the curriculum choice (spec 16), not the
-      // app: the learner picks how new words are introduced before their
-      // first lesson exists.
-      router.replace("/onboarding/curriculum");
+      // Onboarding's next step is choosing a language, then the curriculum
+      // choice (spec 16) — both before the app itself, since a lesson can't
+      // be built until the learner has answered both.
+      router.replace("/onboarding/language");
     });
-  }, [isReplay, returnTo, router]);
+  }, [isReplay, returnTo, continueHref, router]);
 
   // Arrow-key navigation, on top of the natively focusable Back/Next buttons.
   // Registered once and removed on unmount, so nothing outlives the flow.

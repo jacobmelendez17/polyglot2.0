@@ -15,6 +15,7 @@ export {
   getUsersByIds,
   resolveCurrentUser,
   requireUser,
+  setActiveLanguage,
   setCurriculumPreference,
   updateAutoPronounceLessons,
   updateContentPreferences,

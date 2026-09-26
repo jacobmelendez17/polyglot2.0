@@ -1585,6 +1585,46 @@ writing to real `user_item_progress` rows.
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
 
+- **Onboarding: language-choice step, and the Sandbox replay is now one
+  giant flow** (2026-09-26, user request: "Add language option before
+  curriculum option… make the 'replay onboarding' one giant flow where I
+  can view the slides, going into Spanish option, going into curriculum
+  option. Then it ends.") Verified with `tsc`, lint, and the onboarding /
+  admin-sandbox / users test suites only — **not** a real-browser pass, and
+  not `npm run build`.
+  - **Real flow is now** sign-up → slides → `/onboarding/language` (new) →
+    `/onboarding/curriculum` → dashboard. `OnboardingFlow`'s post-slides
+    redirect changed from `/onboarding/curriculum` to `/onboarding/language`.
+  - **Language step** (`LanguageChoiceView`, `onboarding/language/{page,
+    actions}.tsx`) lists every row of `languages` — data-driven per
+    architecture.md, so it is one card today and grows without code
+    changes. New `setActiveLanguage` (`user-service.ts`, over a new
+    `updateActiveLanguage` repository write) sets `users.active_language_id`
+    and unlocks Level 1 of the chosen language in the same transaction,
+    mirroring what `provisionUser` does for the default language. This is
+    the first writer of `activeLanguageId` after provisioning.
+  - **No new gate.** Unlike the curriculum step (required until
+    `getLanguageSettings` is non-null), language choice has no persisted
+    "done" signal — `activeLanguageId` is never null — so a learner could
+    skip the step by typing `/onboarding/curriculum` directly. Deliberate:
+    a `users` column + migration for a one-language app was out of scope.
+    Revisit when a second language ships.
+  - **Replay:** an Admin's `/onboarding?replay=1` now chains slides →
+    `/onboarding/language?replay=1` → `/onboarding/curriculum?replay=1` →
+    back to `returnTo`, via a new `continueHref` prop on `OnboardingFlow`
+    (the same "where next" meaning it already has on the choice views).
+    Each preview screen still re-checks `canAccessAdminArea`. A plain
+    learner's Settings "Onboarding Tour" is unchanged — slides only.
+    `returnTo` stays a closed set, now resolved by the shared
+    `resolveOnboardingReturnTo`.
+  - **Removed** the separate "Replay choice screen" button from
+    `SandboxCurriculumPanel`; "Replay Onboarding" in `SandboxControls`
+    covers it, and its copy now says so.
+  - Tests: new `language-choice-view.test.tsx`; `onboarding-flow.test.tsx`
+    gained the language redirect and the chained-`continueHref` cases plus
+    a `beforeEach` mock reset (the new cases exposed mocks leaking between
+    tests).
+
 - **Choose Group as You Go, third pass same day: the account-reset control
   itself left a stale selection behind, silently skipping the "What next?"
   prompt on what should have been a fresh start** (2026-09-23,

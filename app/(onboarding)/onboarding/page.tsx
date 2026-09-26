@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { OnboardingFlow } from "@/components/onboarding/onboarding-flow";
+import { resolveOnboardingReturnTo } from "@/components/onboarding/onboarding-return-to";
+import { canAccessAdminArea } from "@/domains/admin";
 import { isOnboardingRequired } from "@/domains/users";
 import { requireUser } from "@/domains/users/server";
 
@@ -33,6 +35,15 @@ type OnboardingPageProps = {
  * `returnTo` is a closed set (`"settings"` or the Sandbox default), never an
  * arbitrary client-supplied path — accepting one would be an open-redirect
  * hazard for zero benefit, since every real caller is one of these two.
+ *
+ * An Admin's preview is one giant flow (2026-09-26 decision): finishing the
+ * slides chains straight into the language-choice and curriculum-choice
+ * screens' own previews instead of ending here, so Sandbox's "Replay
+ * Onboarding" shows the whole first-run experience in one continuous pass
+ * rather than needing a separate "replay choice screen" entry point. A
+ * plain learner's Settings replay is unaffected — it still ends after the
+ * slideshow, matching today's authorization boundary (the choice screens'
+ * own previews stay Admin-only).
  */
 export default async function OnboardingPage({
   searchParams,
@@ -46,11 +57,15 @@ export default async function OnboardingPage({
   const user = await requireUser();
 
   if (isReplayRequested) {
+    const canChainFurther = canAccessAdminArea(user);
     return (
       <OnboardingFlow
         isReplay
-        returnTo={
-          returnTo === "settings" ? "/settings/account" : "/admin/sandbox"
+        returnTo={resolveOnboardingReturnTo(returnTo)}
+        continueHref={
+          canChainFurther
+            ? `/onboarding/language?replay=1${returnTo ? `&returnTo=${returnTo}` : ""}`
+            : undefined
         }
       />
     );

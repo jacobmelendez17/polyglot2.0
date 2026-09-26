@@ -110,14 +110,23 @@ function SuccessBadge({ show }: { show: boolean }) {
  * re-proved against the database on every request, never trusted from the
  * cookie.
  *
- * "Replay Onboarding" (spec 15) is a plain link rather than an action,
- * because a replay writes nothing at all: `/onboarding?replay=1` renders the
- * same production components in preview mode. This page still reaches it
- * only because `/admin/sandbox` itself is Admin-gated — the route no longer
- * re-checks Admin access on the query parameter alone, since spec 20 opened
- * the same preview to every learner from their own Settings ("Onboarding
- * Tour"). Not omitting `returnTo` is what sends this specific launch point
- * back to `/admin/sandbox` when finished, rather than Settings' default.
+ * "Replay Onboarding" (spec 15, extended 2026-09-26) is a plain link rather
+ * than an action, because a replay writes nothing at all: `/onboarding?
+ * replay=1` renders the same production components in preview mode. This
+ * page still reaches it only because `/admin/sandbox` itself is Admin-gated
+ * — the route no longer re-checks Admin access on the query parameter
+ * alone, since spec 20 opened the slideshow-only preview to every learner
+ * from their own Settings ("Onboarding Tour"). Not omitting `returnTo` is
+ * what sends this specific launch point back to `/admin/sandbox` when
+ * finished, rather than Settings' default.
+ *
+ * For an Admin launching it from here specifically, finishing the slides no
+ * longer ends the preview: it chains into the language-choice screen's own
+ * preview, then the curriculum-choice screen's (`onboarding/page.tsx`'s
+ * `continueHref`, gated on `canAccessAdminArea`), and *that* screen's
+ * "Continue" is what actually returns here. One continuous walkthrough of
+ * the whole first-run experience, replacing the separate "Replay choice
+ * screen" link `SandboxCurriculumPanel` used to have.
  */
 export function SandboxControls({
   languageId,
@@ -378,10 +387,11 @@ export function SandboxControls({
               Replay onboarding
             </h2>
             <p className="mb-3 text-xs text-muted-foreground">
-              Plays the real onboarding slideshow from slide 1, as many times as
-              you like, including the full Start Now flow. Nothing is saved:
-              your own onboarding status and every learner&apos;s progress are
-              left untouched.
+              Plays the whole first-run experience from slide 1, as many times
+              as you like — the slideshow, then Start Now into the language
+              choice, then the curriculum choice, then back here. Nothing is
+              saved: your own onboarding status, language, and every
+              learner&apos;s progress are left untouched.
             </p>
             <Button
               variant="outline"

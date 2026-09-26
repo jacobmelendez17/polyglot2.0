@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { forbidden, redirect } from "next/navigation";
 
 import { CurriculumChoiceView } from "@/components/curriculum/curriculum-choice-view";
+import { resolveOnboardingReturnTo } from "@/components/onboarding/onboarding-return-to";
 import { canAccessAdminArea } from "@/domains/admin";
 import { listAvailableThemes } from "@/domains/lessons/server";
 import { isOnboardingRequired } from "@/domains/users";
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
 };
 
 type CurriculumPreferencePageProps = {
-  searchParams: Promise<{ replay?: string }>;
+  searchParams: Promise<{ replay?: string; returnTo?: string }>;
 };
 
 /**
@@ -32,11 +33,16 @@ type CurriculumPreferencePageProps = {
  * `?replay=1` is the Sandbox preview, mirroring `/onboarding?replay=1`
  * exactly: same production component, nothing persisted, and Admin access
  * re-checked here so the parameter is a request rather than a permission.
+ * It is also the last screen of the one-giant-flow preview
+ * (2026-09-26 decision) that starts at `/onboarding?replay=1` and chains
+ * through `/onboarding/language?replay=1` — `returnTo` is threaded through
+ * from there rather than hardcoded, so finishing here returns to wherever
+ * the whole preview actually launched from.
  */
 export default async function CurriculumPreferencePage({
   searchParams,
 }: CurriculumPreferencePageProps) {
-  const { replay } = await searchParams;
+  const { replay, returnTo } = await searchParams;
   const user = await requireUser();
 
   if (replay === "1") {
@@ -50,7 +56,7 @@ export default async function CurriculumPreferencePage({
     return (
       <CurriculumChoiceView
         themes={themes}
-        continueHref="/admin/sandbox"
+        continueHref={resolveOnboardingReturnTo(returnTo)}
         isPreview
       />
     );
