@@ -359,6 +359,16 @@ export const grammarItems = pgTable("grammar_items", {
   primaryMeaning: text("primary_meaning").notNull(),
   explanation: text("explanation").notNull(),
   category: text("category"),
+  /**
+   * The vocabulary group this grammar item is filed under (e.g. a level's
+   * "Grammar" group), for admin browsing and filtering. Nullable: grammar
+   * historically had no group. Lesson selection derives its themes from
+   * vocabulary items only, so this never affects which lessons are built.
+   */
+  vocabularyGroupId: uuid("vocabulary_group_id").references(
+    () => vocabularyGroups.id,
+    { onDelete: "restrict" },
+  ),
   creatorNotes: text("creator_notes"),
   /** Spec 18's Details summary card — the same enum vocabulary uses, since register is a property of the item, not of its type. */
   register: registerEnum("register"),

@@ -1,0 +1,2 @@
+ALTER TABLE "grammar_items" ADD COLUMN "vocabulary_group_id" uuid;--> statement-breakpoint
+ALTER TABLE "grammar_items" ADD CONSTRAINT "grammar_items_vocabulary_group_id_vocabulary_groups_id_fk" FOREIGN KEY ("vocabulary_group_id") REFERENCES "public"."vocabulary_groups"("id") ON DELETE restrict ON UPDATE no action;

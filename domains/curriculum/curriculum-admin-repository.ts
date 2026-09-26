@@ -57,6 +57,11 @@ function computeMeaningLabel(row: {
   return row.vocabMeaning ?? row.grammarMeaning ?? "";
 }
 
+/** The group an item is filed under, whichever kind of item it is. */
+const ITEM_GROUP_ID = sql<
+  string | null
+>`coalesce(${vocabularyItems.vocabularyGroupId}, ${grammarItems.vocabularyGroupId})`;
+
 const SELECTION = {
   id: learningItems.id,
   type: learningItems.type,
@@ -69,7 +74,8 @@ const SELECTION = {
   vocabTerm: vocabularyItems.term,
   vocabArticle: vocabularyItems.article,
   vocabMeaning: vocabularyItems.primaryMeaning,
-  vocabGroupId: vocabularyItems.vocabularyGroupId,
+  // A vocabulary item's group, or the group a grammar item is filed under.
+  vocabGroupId: ITEM_GROUP_ID,
   groupName: vocabularyGroups.name,
   grammarStructure: grammarItems.structure,
   grammarMeaning: grammarItems.primaryMeaning,
@@ -166,7 +172,7 @@ export async function getAdminCurriculumItems(
   } else if (status) {
     conditions.push(eq(learningItems.status, status));
   }
-  if (groupId) conditions.push(eq(vocabularyItems.vocabularyGroupId, groupId));
+  if (groupId) conditions.push(eq(ITEM_GROUP_ID, groupId));
 
   if (search) {
     const pattern = `%${search}%`;
@@ -211,11 +217,8 @@ export async function getAdminCurriculumItems(
       vocabularyItems,
       eq(vocabularyItems.learningItemId, learningItems.id),
     )
-    .leftJoin(
-      vocabularyGroups,
-      eq(vocabularyGroups.id, vocabularyItems.vocabularyGroupId),
-    )
     .leftJoin(grammarItems, eq(grammarItems.learningItemId, learningItems.id))
+    .leftJoin(vocabularyGroups, eq(vocabularyGroups.id, ITEM_GROUP_ID))
     .leftJoin(
       curriculumItemDrafts,
       eq(curriculumItemDrafts.learningItemId, learningItems.id),
@@ -318,11 +321,8 @@ export async function getReviewQueue(
       vocabularyItems,
       eq(vocabularyItems.learningItemId, learningItems.id),
     )
-    .leftJoin(
-      vocabularyGroups,
-      eq(vocabularyGroups.id, vocabularyItems.vocabularyGroupId),
-    )
     .leftJoin(grammarItems, eq(grammarItems.learningItemId, learningItems.id))
+    .leftJoin(vocabularyGroups, eq(vocabularyGroups.id, ITEM_GROUP_ID))
     .leftJoin(
       curriculumItemDrafts,
       eq(curriculumItemDrafts.learningItemId, learningItems.id),

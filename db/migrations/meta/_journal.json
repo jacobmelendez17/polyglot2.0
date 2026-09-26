@@ -281,6 +281,13 @@
       "when": 1790226559235,
       "tag": "0039_next_dragon_lord",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1790459658621,
+      "tag": "0040_good_norman_osborn",
+      "breakpoints": true
     }
   ]
 }

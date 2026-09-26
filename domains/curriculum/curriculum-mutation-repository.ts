@@ -994,12 +994,27 @@ export async function moveLearningItem(
       .update(learningItems)
       .set({ levelId: input.levelId, position: maxPosition + 1 })
       .where(eq(learningItems.id, input.learningItemId));
+    // A grammar item's group belongs to its old level; without a new group
+    // it becomes ungrouped rather than keeping another level's group.
+    if (input.type === "grammar" && !input.vocabularyGroupId) {
+      await db
+        .update(grammarItems)
+        .set({ vocabularyGroupId: null })
+        .where(eq(grammarItems.learningItemId, input.learningItemId));
+    }
   }
   if (input.vocabularyGroupId) {
-    await db
-      .update(vocabularyItems)
-      .set({ vocabularyGroupId: input.vocabularyGroupId })
-      .where(eq(vocabularyItems.learningItemId, input.learningItemId));
+    if (input.type === "grammar") {
+      await db
+        .update(grammarItems)
+        .set({ vocabularyGroupId: input.vocabularyGroupId })
+        .where(eq(grammarItems.learningItemId, input.learningItemId));
+    } else {
+      await db
+        .update(vocabularyItems)
+        .set({ vocabularyGroupId: input.vocabularyGroupId })
+        .where(eq(vocabularyItems.learningItemId, input.learningItemId));
+    }
   }
 }
 

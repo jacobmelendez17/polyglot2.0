@@ -1585,6 +1585,20 @@ writing to real `user_item_progress` rows.
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
 
+- **Grammar items can now be filed under a vocabulary group** (2026-09-26,
+  user request: put all Level 1 grammar in the Level 1 "Grammar" group).
+  New nullable `grammar_items.vocabulary_group_id` (migration 0040,
+  additive), applied to the dev database; the 11 Level 1 grammar items
+  were backfilled to the Level 1 "Grammar" group. The admin curriculum list
+  and Group filter now use the item's group whichever kind it is, and
+  moving a grammar item to a group sets it (moving level without a group
+  clears it). Lesson selection is untouched — it derives themes from
+  vocabulary items only. **Not done:** the grammar editor/create form has
+  no group selector, so newly created grammar items are ungrouped until one
+  is added; draft-publish and bulk import don't carry the field. Verified
+  with `tsc`, lint, a live repo query against the dev data, and the
+  curriculum/admin-component suites; not a browser pass.
+
 - **Onboarding: language-choice step, and the Sandbox replay is now one
   giant flow** (2026-09-26, user request: "Add language option before
   curriculum option… make the 'replay onboarding' one giant flow where I
