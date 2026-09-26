@@ -50,6 +50,7 @@ const grammarFieldsSchema = z.object({
   primaryMeaning: z.string().trim().min(1),
   explanation: z.string().trim().min(1),
   category: z.string().trim().min(1).nullish(),
+  vocabularyGroupId: uuidLike.nullish(),
   creatorNotes: z.string().trim().min(1).nullish(),
   requiredQuestions: z.array(grammarQuestionRequirementSchema).min(1),
   register: registerSchema.nullish(),

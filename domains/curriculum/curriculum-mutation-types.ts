@@ -30,6 +30,8 @@ export type GrammarFieldsInput = {
   primaryMeaning: string;
   explanation: string;
   category?: string | null;
+  /** The vocabulary group this grammar item is filed under (e.g. a level's "Grammar" group); `null`/omitted leaves it ungrouped. */
+  vocabularyGroupId?: string | null;
   creatorNotes?: string | null;
   requiredQuestions: CurriculumGrammarQuestionRequirement[];
   /** Spec 18 — the same enum vocabulary uses; register is a property of the item, not of its type. */

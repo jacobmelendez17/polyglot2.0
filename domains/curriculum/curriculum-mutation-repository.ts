@@ -180,6 +180,7 @@ export async function createLearningItem(
       primaryMeaning: f.primaryMeaning,
       explanation: f.explanation,
       category: f.category ?? null,
+      vocabularyGroupId: f.vocabularyGroupId ?? null,
       creatorNotes: f.creatorNotes ?? null,
       register: f.register ?? null,
       requiredQuestions: f.requiredQuestions,
@@ -225,6 +226,10 @@ export async function updateLearningItemDirect(
         primaryMeaning: f.primaryMeaning,
         explanation: f.explanation,
         category: f.category ?? null,
+        // Omitted means "leave the group as is", not "clear it" — the editor has no group field yet.
+        ...(f.vocabularyGroupId !== undefined
+          ? { vocabularyGroupId: f.vocabularyGroupId }
+          : {}),
         creatorNotes: f.creatorNotes ?? null,
         register: f.register ?? null,
         requiredQuestions: f.requiredQuestions,
