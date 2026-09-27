@@ -55,4 +55,27 @@ describe("AuthoredText", () => {
 
     expect(screen.getByText("<b>x</b>").tagName).toBe("STRONG");
   });
+
+  it("drops double quotes and makes the word bold and blue", () => {
+    renderText('Use "también" before the verb.');
+
+    const word = screen.getByText("también");
+    expect(word.tagName).toBe("STRONG");
+    expect(word).toHaveClass("font-bold", "text-learning-vocabulary");
+    expect(screen.getByTestId("out")).toHaveTextContent(
+      "Use también before the verb.",
+    );
+  });
+
+  it("renders single- and double-quoted emphasis in the same text, in order", () => {
+    renderText("'Yo' quiero \"comer\" ahora.");
+
+    expect(screen.getByText("Yo").tagName).toBe("STRONG");
+    expect(screen.getByText("Yo")).toHaveClass("text-state-success");
+    expect(screen.getByText("comer").tagName).toBe("STRONG");
+    expect(screen.getByText("comer")).toHaveClass("text-learning-vocabulary");
+    expect(screen.getByTestId("out")).toHaveTextContent(
+      "Yo quiero comer ahora.",
+    );
+  });
 });

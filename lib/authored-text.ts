@@ -10,7 +10,17 @@
 export const EMPHASIS_PATTERN =
   /(?<![\p{L}\p{N}])'([^'\n]+?)'(?![\p{L}\p{N}])/gu;
 
-/** The text as it should be spoken or compared: the ticks gone, the words kept. */
+/**
+ * The second admin "word" emphasis shortcut — a run inside straight double
+ * quotes marks a word or phrase for the second highlight color. Unlike `'`,
+ * prose never uses `"` inside a word, so this needs no apostrophe-style
+ * exclusion around it.
+ */
+export const DOUBLE_QUOTE_EMPHASIS_PATTERN = /"([^"\n]+?)"/gu;
+
+/** The text as it should be spoken or compared: the quote marks gone, the words kept. */
 export function stripEmphasisMarks(text: string): string {
-  return text.replace(EMPHASIS_PATTERN, "$1");
+  return text
+    .replace(EMPHASIS_PATTERN, "$1")
+    .replace(DOUBLE_QUOTE_EMPHASIS_PATTERN, "$1");
 }

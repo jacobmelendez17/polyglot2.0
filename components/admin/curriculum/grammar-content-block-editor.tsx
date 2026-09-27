@@ -542,8 +542,11 @@ function SortableBlock({
 }
 
 /**
- * Shows how the 'word' emphasis shortcut will render, only when a block
- * actually uses it — the inputs have to stay raw text to be editable.
+ * Shows how the 'word'/"word" emphasis shortcuts will render, only when a
+ * block actually uses one — the inputs have to stay raw text to be editable.
+ * `whitespace-pre-line` preserves the author's own line breaks, including a
+ * blank line as a paragraph break, matching how the same text renders on the
+ * learner-facing item page (`grammar-content-blocks.tsx`).
  */
 function EmphasisPreview({ texts }: { texts: string[] }) {
   const used = texts.filter((text) => stripEmphasisMarks(text) !== text);
@@ -554,7 +557,7 @@ function EmphasisPreview({ texts }: { texts: string[] }) {
         Preview
       </p>
       {used.map((text, index) => (
-        <p key={index} className="text-foreground">
+        <p key={index} className="whitespace-pre-line text-foreground">
           <AuthoredText text={text} />
         </p>
       ))}

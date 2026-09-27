@@ -217,4 +217,29 @@ describe("GrammarContentBlockEditor", () => {
     expect(screen.getByText("Preview")).toBeInTheDocument();
     expect(screen.getByText("ser").tagName).toBe("STRONG");
   });
+
+  it('previews the "word" double-quote emphasis shortcut too', async () => {
+    const user = userEvent.setup();
+    render(
+      <GrammarContentBlockEditor learningItemId="item-1" blocks={blocks} />,
+    );
+
+    await user.type(screen.getByLabelText("Text for block 1"), ' "ser" here');
+
+    expect(screen.getByText("ser").tagName).toBe("STRONG");
+    expect(screen.getByText("ser")).toHaveClass("text-learning-vocabulary");
+  });
+
+  it("preserves a blank line in the preview as a paragraph break, not one run-on line", async () => {
+    const user = userEvent.setup();
+    render(
+      <GrammarContentBlockEditor learningItemId="item-1" blocks={blocks} />,
+    );
+
+    await user.type(screen.getByLabelText("Text for block 1"), " 'ser' here");
+
+    expect(screen.getByText("ser").closest("p")).toHaveClass(
+      "whitespace-pre-line",
+    );
+  });
 });

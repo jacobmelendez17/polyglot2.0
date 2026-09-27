@@ -61,7 +61,7 @@ export function GrammarContentBlocks({
               <p className="text-sm font-semibold tracking-wide text-state-warning uppercase">
                 Polyglot note
               </p>
-              <p className="mt-1 text-base text-foreground">
+              <p className="mt-1 text-base whitespace-pre-line text-foreground">
                 <AuthoredText text={block.body} />
               </p>
             </div>
@@ -69,7 +69,10 @@ export function GrammarContentBlocks({
         }
 
         return (
-          <p key={block.id} className="text-lg leading-relaxed text-foreground">
+          <p
+            key={block.id}
+            className="text-lg leading-relaxed whitespace-pre-line text-foreground"
+          >
             <AuthoredText text={block.body} />
           </p>
         );

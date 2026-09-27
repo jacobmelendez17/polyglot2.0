@@ -31,7 +31,7 @@ export function AboutDefinition({ about, languageCode }: AboutDefinitionProps) {
 
       <div className="mt-3 flex flex-col gap-4">
         {about.body ? (
-          <p className="text-lg leading-relaxed text-foreground">
+          <p className="text-lg leading-relaxed whitespace-pre-line text-foreground">
             <AuthoredText text={about.body} />
           </p>
         ) : null}
