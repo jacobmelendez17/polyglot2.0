@@ -2,7 +2,16 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { ArrowDown, ArrowUp, Plus, Sparkles, Trash2 } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  Check,
+  Pencil,
+  Plus,
+  Sparkles,
+  Trash2,
+  X,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -112,6 +121,26 @@ export function UsageContextEditor({
       );
       router.refresh();
     });
+  }
+
+  /** Rewrites an existing example's sentence, translation, and tab in place — the same sentence row, so nothing that references it (Ghost reviews) is orphaned. */
+  function saveExample(
+    exampleId: string,
+    changes: {
+      targetText: string;
+      translation: string;
+      usageContextId: string | null;
+    },
+  ) {
+    run(
+      () =>
+        itemExampleAction({
+          learningItemId,
+          idempotencyKey: key(),
+          mutation: { kind: "update", exampleId, ...changes },
+        }),
+      "Example saved.",
+    );
   }
 
   function moveContext(index: number, direction: -1 | 1) {
@@ -261,7 +290,9 @@ export function UsageContextEditor({
             </div>
             <ExampleList
               examples={examplesFor(context.id)}
+              contexts={contexts}
               isPending={isPending}
+              onSave={saveExample}
               onDelete={(exampleId) =>
                 run(() =>
                   itemExampleAction({
@@ -310,7 +341,9 @@ export function UsageContextEditor({
         <h3 className="text-sm font-medium text-foreground">General</h3>
         <ExampleList
           examples={examplesFor(null)}
+          contexts={contexts}
           isPending={isPending}
+          onSave={saveExample}
           onDelete={(exampleId) =>
             run(() =>
               itemExampleAction({
@@ -413,11 +446,22 @@ export function UsageContextEditor({
 
 function ExampleList({
   examples,
+  contexts,
   isPending,
+  onSave,
   onDelete,
 }: {
   examples: ExampleValue[];
+  contexts: UsageContextValue[];
   isPending: boolean;
+  onSave: (
+    exampleId: string,
+    changes: {
+      targetText: string;
+      translation: string;
+      usageContextId: string | null;
+    },
+  ) => void;
   onDelete: (exampleId: string) => void;
 }) {
   if (examples.length === 0)
@@ -425,25 +469,167 @@ function ExampleList({
       <p className="mt-2 text-sm text-muted-foreground">No examples yet.</p>
     );
   return (
-    <ul className="mt-2 flex flex-col gap-1">
+    <ul className="mt-2 flex flex-col gap-2">
       {examples.map((example) => (
-        <li key={example.id} className="flex items-center gap-3 text-sm">
-          <span className="flex-1 text-foreground">{example.targetText}</span>
-          <span className="flex-1 text-muted-foreground">
-            {example.translation}
-          </span>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label={`Delete example ${example.targetText}`}
-            disabled={isPending}
-            onClick={() => onDelete(example.id)}
-          >
-            <Trash2 className="h-4 w-4" aria-hidden="true" />
-          </Button>
-        </li>
+        <ExampleRow
+          key={example.id}
+          example={example}
+          contexts={contexts}
+          isPending={isPending}
+          onSave={onSave}
+          onDelete={onDelete}
+        />
       ))}
     </ul>
+  );
+}
+
+/** One example: read-only with Edit / Delete, or inline inputs (sentence, translation, tab) with Save / Cancel. */
+function ExampleRow({
+  example,
+  contexts,
+  isPending,
+  onSave,
+  onDelete,
+}: {
+  example: ExampleValue;
+  contexts: UsageContextValue[];
+  isPending: boolean;
+  onSave: (
+    exampleId: string,
+    changes: {
+      targetText: string;
+      translation: string;
+      usageContextId: string | null;
+    },
+  ) => void;
+  onDelete: (exampleId: string) => void;
+}) {
+  const [isEditing, setEditing] = useState(false);
+  const [draft, setDraft] = useState({
+    targetText: example.targetText,
+    translation: example.translation,
+    contextId: example.usageContextId ?? GENERAL,
+  });
+
+  function startEditing() {
+    // Always start from what is saved now, not from an abandoned earlier edit.
+    setDraft({
+      targetText: example.targetText,
+      translation: example.translation,
+      contextId: example.usageContextId ?? GENERAL,
+    });
+    setEditing(true);
+  }
+
+  const targetText = draft.targetText.trim();
+  const translation = draft.translation.trim();
+  const usageContextId = draft.contextId === GENERAL ? null : draft.contextId;
+  const isChanged =
+    targetText !== example.targetText ||
+    translation !== example.translation ||
+    usageContextId !== example.usageContextId;
+  const canSave = targetText !== "" && translation !== "" && isChanged;
+
+  if (!isEditing) {
+    return (
+      <li className="flex items-center gap-3 text-sm">
+        <span className="flex-1 text-foreground">{example.targetText}</span>
+        <span className="flex-1 text-muted-foreground">
+          {example.translation}
+        </span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label={`Edit example ${example.targetText}`}
+          disabled={isPending}
+          onClick={startEditing}
+        >
+          <Pencil className="h-4 w-4" aria-hidden="true" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label={`Delete example ${example.targetText}`}
+          disabled={isPending}
+          onClick={() => onDelete(example.id)}
+        >
+          <Trash2 className="h-4 w-4" aria-hidden="true" />
+        </Button>
+      </li>
+    );
+  }
+
+  return (
+    <li className="flex flex-col gap-2 rounded-lg border border-border p-2 text-sm">
+      <Input
+        value={draft.targetText}
+        aria-label="Example sentence"
+        disabled={isPending}
+        onChange={(event) =>
+          setDraft((previous) => ({
+            ...previous,
+            targetText: event.target.value,
+          }))
+        }
+      />
+      <Input
+        value={draft.translation}
+        aria-label="Example translation"
+        disabled={isPending}
+        onChange={(event) =>
+          setDraft((previous) => ({
+            ...previous,
+            translation: event.target.value,
+          }))
+        }
+      />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Select
+          value={draft.contextId}
+          onValueChange={(value) =>
+            setDraft((previous) => ({ ...previous, contextId: value }))
+          }
+        >
+          <SelectTrigger className="w-44" aria-label="Example tab">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={GENERAL}>General</SelectItem>
+            {contexts.map((context) => (
+              <SelectItem key={context.id} value={context.id}>
+                {context.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <div className="flex items-center gap-1">
+          <Button
+            type="button"
+            size="sm"
+            disabled={isPending || !canSave}
+            onClick={() => {
+              onSave(example.id, { targetText, translation, usageContextId });
+              setEditing(false);
+            }}
+          >
+            <Check className="h-4 w-4" aria-hidden="true" />
+            Save
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            disabled={isPending}
+            onClick={() => setEditing(false)}
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+            Cancel
+          </Button>
+        </div>
+      </div>
+    </li>
   );
 }
