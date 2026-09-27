@@ -136,7 +136,7 @@ SRS color is supporting information. Text labels must remain present; color alon
 
 ### Onboarding Illustration Colors
 
-The onboarding slideshow (`components/onboarding/`, v2 — 2026-09-27) follows the token rule for everything that is UI: its `--ob-*` variables in `onboarding.css` are aliases of the tokens above, so light/dark mode and the accent palette apply automatically. Three things are deliberately fixed in both themes because they are illustration, not interface: the marigold finale background and its dark text, the postcard artwork (`components/onboarding/lib/content.ts`), and the postcard paper. The slide-1 tower colors its nine plates with a card → accent → ink gradient rather than the per-stage `--srs-*` tokens; every plate is labelled with its stage name, so color still never carries stage on its own.
+The onboarding slideshow (`components/onboarding/`, v2 — 2026-09-27) follows the token rule for everything that is UI: its `--ob-*` variables in `onboarding.css` are aliases of the tokens above, so light/dark mode and the accent palette apply automatically. Four things are deliberately fixed in both themes because they are illustration, not interface: the marigold finale background and its dark text, the welcome slide's blue background and its light text, the postcard artwork (`components/onboarding/lib/content.ts`), and the postcard paper. The welcome and finale tones are otherwise-flat illustration panels, so neither uses `.ob-grid`. The slide-1 tower colors its nine plates with a card → accent → ink gradient rather than the per-stage `--srs-*` tokens; every plate is labelled with its stage name, so color still never carries stage on its own.
 
 ### Practice Skill Colors
 

@@ -26,6 +26,10 @@
   --ob-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ob-inout: cubic-bezier(0.65, 0, 0.35, 1);
   --ob-pop: cubic-bezier(0.34, 1.45, 0.64, 1);
+  /* Space reserved at the slide's bottom edge for the absolutely-positioned
+     .ob-nav (dots + Back/Next). Shared with .ob-pfield so the particle field
+     can stop above the nav instead of drawing underneath it. */
+  --ob-nav-space: 150px;
 
   /* Fixed in both themes, by design (handoff: "the last slide's colours are intentionally fixed"). */
   --ob-on-accent: #1f2e29;
@@ -75,7 +79,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 28px 20px 150px;
+  padding: 28px 20px var(--ob-nav-space);
 }
 .ob-grid {
   background-image:
@@ -565,12 +569,26 @@
 /* ---------- slide 3 · particles ---------- */
 /* Full-bleed background layer, same layering pattern as `.ob-cards` on the
    finale: absolutely fills the slide behind `.ob-col` (z-index 2) rather
-   than sharing space in the flex column above the copy. */
+   than sharing space in the flex column above the copy. Stops above the nav
+   (shared --ob-nav-space) rather than drawing underneath the dots/buttons,
+   and is masked clear behind the centred copy/controls column so particles
+   never sit on top of the text — a soft vignette rather than a hard box, so
+   it still reads as one continuous field. */
 .ob-pfield {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: var(--ob-nav-space);
   z-index: 1;
   touch-action: none;
+  --ob-pfield-mask: radial-gradient(
+    ellipse clamp(260px, 48vw, 560px) clamp(260px, 54vh, 460px) at 50% 50%,
+    transparent 58%,
+    black 100%
+  );
+  -webkit-mask-image: var(--ob-pfield-mask);
+  mask-image: var(--ob-pfield-mask);
 }
 .ob-pfield canvas {
   display: block;
@@ -936,7 +954,8 @@
 
 @media (max-width: 720px) {
   .ob-slide {
-    padding: 18px 16px 136px;
+    --ob-nav-space: 136px;
+    padding: 18px 16px var(--ob-nav-space);
   }
   .ob-col {
     gap: 16px;

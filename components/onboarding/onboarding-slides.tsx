@@ -43,7 +43,7 @@ const CHARACTERS = 2;
 const CUSTOMIZE = 3;
 const FINALE = 4;
 const TONES = [
-  "ob-tone-blue ob-grid",
+  "ob-tone-blue",
   "ob-tone-bg ob-grid",
   "ob-tone-pink ob-grid",
   "ob-tone-green ob-grid ob-slide-particles",

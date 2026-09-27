@@ -1670,6 +1670,50 @@ Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real
   for a dedicated visual on the slide itself, since none was described; flag
   if a visual was actually wanted there.
 
+- **Onboarding slideshow v2, visual bugfixes** (2026-09-27, user-reported from
+  screenshots) — two background/layering issues introduced by the v2 and
+  follow-up work above, both visual-only:
+  - **Welcome slide's grid clashed with its fixed blue background.**
+    `TONES[0]` was `"ob-tone-blue ob-grid"` — the low-contrast `.ob-grid`
+    lines (designed to sit quietly on `--bg-base`) read as harsh white bars
+    across a saturated illustration-blue background and cut through the
+    "Welcome to Polyglot" heading. Fix: dropped `ob-grid` from the welcome
+    tone (`components/onboarding/onboarding-slides.tsx`), matching the
+    finale's own marigold tone, which already omits the grid for the
+    documented reason both fixed-color slides share ("an illustrated cover,
+    not UI chrome" — see `onboarding.css`'s comment on `--ob-welcome-blue`).
+  - **Customization slide's particle field drew underneath the copy,
+    controls card, dots, and Back/Next.** `.ob-pfield` was `inset: 0`, and an
+    absolutely-positioned child's offsets resolve against the parent's
+    padding box — so it ignored `.ob-slide`'s own `150px`/`136px` bottom
+    padding (reserved for `.ob-nav`) entirely, and had no clearance at all
+    behind the centred `.ob-col`. Fix, `components/onboarding/onboarding.css`:
+    extracted that padding into a shared `--ob-nav-space` custom property
+    (`.ob` root: `150px`; overridden to `136px` in the existing
+    `max-width:720px` block), used it for both `.ob-slide`'s
+    `padding-bottom` and `.ob-pfield`'s new `bottom` inset (replacing
+    `inset:0`) so the canvas stops above the nav instead of drawing under
+    it, and added a `mask-image`/`-webkit-mask-image` radial-gradient
+    vignette on `.ob-pfield` (`clamp(260px,48vw,560px)` ×
+    `clamp(260px,54vh,460px)` ellipse, transparent to 58% of its radius then
+    fading to opaque by 100%) so particles clear out behind the text/card
+    while staying full-bleed at the edges/corners — no change to the
+    particle simulation itself (`lib/particles.ts`), no dynamic
+    measurement, and no re-litigating the "full-bleed background layer"
+    decision from the entry above.
+  - **Verified**: `tsc`, `eslint` on the changed file, and the onboarding
+    Vitest suite (7 files, 58 tests) all clean — no test asserted on the
+    tone class list or `.ob-pfield`'s CSS, so nothing needed updating.
+    **Real-browser pass done**: started the isolated E2E server
+    (`npm run e2e:server`, port 3100) and drove it with a throwaway
+    Playwright script using the E2E admin's stored auth state (never
+    completes onboarding, so `/onboarding` renders the real non-replay
+    flow); screenshotted all of slides 1, 2, and 4 at 1440×900 and
+    confirmed visually — no console errors, no regression on the untouched
+    Foundation/Characters slides (their own `ob-grid` tones are unaffected;
+    `--ob-nav-space` resolves to the same pixel values as the padding it
+    replaced). Script and screenshots were scratch-only, never committed.
+
 - **Onboarding slideshow v2** (2026-09-27, from the design handoff
   `HANDOFF.md` + reference implementation + prototype) — replaces the old
   five-slide slideshow with the approved four slides: **SRS tower**
