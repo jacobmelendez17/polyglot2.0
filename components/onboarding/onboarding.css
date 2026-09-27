@@ -3,8 +3,9 @@
  * Every colour is an alias of one of the app's own theme tokens (ui-context.md),
  * so light/dark mode and the accent palette follow automatically — nothing here
  * is a second theme. The only literal colours are the fixed illustration
- * colours the design calls for in both themes: the marigold finale, its dark
- * text, and the postcard paper.
+ * colours the design calls for in both themes: the welcome slide's blue and
+ * its light text, the marigold finale and its dark text, and the postcard
+ * paper.
  */
 .ob {
   --ob-bg: var(--bg-base);
@@ -34,6 +35,9 @@
   --ob-paper: #fffdf8;
   --ob-card-ink: #2b2b2b;
   --ob-rule: #d9cfbf;
+  /* The welcome slide's blue (2026-09-27), fixed for the same reason the
+     finale's marigold is: an illustrated cover, not UI chrome. */
+  --ob-welcome-blue: #2d6cb5;
 
   position: relative;
   height: 100dvh;
@@ -99,6 +103,14 @@
 .ob-tone-gold {
   background-color: var(--ob-marigold);
   color: var(--ob-fixed-ink);
+}
+/* The welcome slide is fixed blue with light text in both themes. */
+.ob-tone-blue {
+  background-color: var(--ob-welcome-blue);
+  color: var(--ob-fixed-paper);
+}
+.ob-tone-blue .ob-copy p {
+  color: color-mix(in srgb, var(--ob-fixed-paper) 85%, transparent);
 }
 
 .ob-col {
@@ -169,6 +181,9 @@
 .ob-nav.is-last {
   color: var(--ob-fixed-ink);
 }
+.ob-nav.is-welcome {
+  color: var(--ob-fixed-paper);
+}
 .ob-dots {
   display: flex;
   gap: 8px;
@@ -191,8 +206,14 @@
   width: 100%;
   max-width: 720px;
   display: flex;
-  justify-content: space-between;
+  /* Back is omitted outright on the welcome slide (not just disabled), so the
+     forward button is pushed right by margin rather than space-between,
+     which would otherwise re-centre it as the row's only child. */
+  justify-content: flex-start;
   align-items: center;
+}
+.ob-row > :last-child {
+  margin-left: auto;
 }
 .ob-back {
   background: none;
@@ -242,6 +263,10 @@
   transform: translateY(2px) scale(0.98);
   box-shadow: 0 1px 0 color-mix(in srgb, var(--ob-ink) 22%, transparent);
 }
+.ob-next:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
 .ob-next::before {
   content: "";
   position: absolute;
@@ -279,6 +304,12 @@
 .ob-skip:hover {
   color: var(--ob-ink);
   text-decoration: underline;
+}
+.ob-skip.is-on-blue {
+  color: color-mix(in srgb, var(--ob-fixed-paper) 85%, transparent);
+}
+.ob-skip.is-on-blue:hover {
+  color: var(--ob-fixed-paper);
 }
 .ob-error {
   margin: 0;
@@ -532,14 +563,13 @@
 }
 
 /* ---------- slide 3 · particles ---------- */
-.ob-slide-particles {
-  justify-content: flex-end;
-}
+/* Full-bleed background layer, same layering pattern as `.ob-cards` on the
+   finale: absolutely fills the slide behind `.ob-col` (z-index 2) rather
+   than sharing space in the flex column above the copy. */
 .ob-pfield {
-  align-self: stretch;
-  margin: -28px -20px 0;
-  flex: 1 1 auto;
-  min-height: 120px;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
   touch-action: none;
 }
 .ob-pfield canvas {
@@ -550,7 +580,6 @@
 .ob-slide-particles .ob-col {
   gap: 18px;
   max-width: 860px;
-  flex: none;
 }
 .ob-ctrls {
   display: flex;
@@ -563,7 +592,7 @@
   border-radius: 20px;
   box-shadow: 0 2px 0 var(--ob-dash);
   padding: 12px 20px;
-  text-align: left;
+  text-align: center;
 }
 .ob-ctrl {
   display: flex;
@@ -679,37 +708,6 @@
   font-variant-numeric: tabular-nums;
   text-align: center;
 }
-.ob-switch {
-  appearance: none;
-  width: 48px;
-  height: 28px;
-  border-radius: 99px;
-  background: var(--ob-dash);
-  position: relative;
-  cursor: pointer;
-  flex: none;
-  transition: background-color 0.3s;
-  margin: 0;
-}
-.ob-switch::after {
-  content: "";
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: var(--ob-card);
-  box-shadow: 0 1px 3px rgb(0 0 0 / 0.2);
-  transition: transform 0.4s var(--ob-pop);
-}
-.ob-switch:checked {
-  background: var(--ob-accent);
-}
-.ob-switch:checked::after {
-  transform: translateX(20px);
-}
-
 /* ---------- slide 4 · postcards ---------- */
 .ob-tone-gold .ob-copy p,
 .ob-tone-gold .ob-kicker {
@@ -739,9 +737,22 @@
   align-items: center;
   box-shadow: 0 5px 0 rgb(0 0 0 / 0.25);
   animation: ob-breathe 2.6s var(--ob-inout) infinite;
+  transition:
+    transform 0.18s var(--ob-out),
+    box-shadow 0.18s;
 }
-.ob-cta:active {
+/* Float on hover, press down on click — the breathing animation pauses for
+   both, since a running CSS animation on `transform` would otherwise keep
+   overriding these every frame. */
+.ob-cta:hover:not(:disabled) {
+  animation-play-state: paused;
+  transform: translateY(-4px);
+  box-shadow: 0 8px 0 rgb(0 0 0 / 0.25);
+}
+.ob-cta:active:not(:disabled) {
+  animation-play-state: paused;
   transform: translateY(3px) scale(0.98);
+  box-shadow: 0 1px 0 rgb(0 0 0 / 0.25);
 }
 .ob-cta:disabled {
   opacity: 0.7;
@@ -926,9 +937,6 @@
 @media (max-width: 720px) {
   .ob-slide {
     padding: 18px 16px 136px;
-  }
-  .ob-pfield {
-    margin: -18px -16px 0;
   }
   .ob-col {
     gap: 16px;

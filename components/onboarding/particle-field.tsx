@@ -1,8 +1,12 @@
 "use client";
 
-// Slide 3 visual: a canvas of particles that drift around their home positions,
-// scatter away from the pointer, and spring back. The physics lives in
-// lib/particles.ts; this component owns the canvas, sizing and the frame loop.
+// Slide 3 visual: a full-bleed canvas of particles that drift around their
+// home positions, scatter away from the pointer, and spring back. Always
+// rendered as glyphs from many writing systems (2026-09-27: the "letters from
+// everywhere" toggle was removed and this became the only look, rather than
+// a default that still needed the dead branch kept around). The physics
+// lives in lib/particles.ts; this component owns the canvas, sizing and the
+// frame loop.
 
 import { useEffect, useRef } from "react";
 import { useReducedMotion } from "motion/react";
@@ -20,10 +24,9 @@ type ParticleFieldProps = {
   /** Any CSS colour. */
   color: string;
   size: number;
-  letters: boolean;
 };
 
-export function ParticleField({ color, size, letters }: ParticleFieldProps) {
+export function ParticleField({ color, size }: ParticleFieldProps) {
   const reduce = useReducedMotion();
   const wrap = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -31,16 +34,16 @@ export function ParticleField({ color, size, letters }: ParticleFieldProps) {
   const pointer = useRef<Pointer | null>(null);
   const dims = useRef({ w: 0, h: 0 });
   // latest props, read inside the frame loop without restarting it
-  const look = useRef({ color, size, letters });
+  const look = useRef({ color, size });
   useEffect(() => {
-    look.current = { color, size, letters };
+    look.current = { color, size };
   });
 
   function draw() {
     const ctx = canvas.current?.getContext("2d");
     if (!ctx) return;
     const { w, h } = dims.current;
-    const { color: fill, size: sz, letters: asLetters } = look.current;
+    const { color: fill, size: sz } = look.current;
     ctx.clearRect(0, 0, w, h);
     ctx.fillStyle = fill;
     ctx.textAlign = "center";
@@ -48,17 +51,11 @@ export function ParticleField({ color, size, letters }: ParticleFieldProps) {
     let lastScale = 0;
     for (const p of parts.current) {
       ctx.globalAlpha = p.alpha * edgeFade(p.y, h);
-      if (asLetters) {
-        if (p.scale !== lastScale) {
-          lastScale = p.scale;
-          ctx.font = `700 ${Math.round((sz * 3.4 + 7) * p.scale)}px system-ui, sans-serif`;
-        }
-        ctx.fillText(p.glyph, p.x, p.y);
-      } else {
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, sz * p.scale, 0, Math.PI * 2);
-        ctx.fill();
+      if (p.scale !== lastScale) {
+        lastScale = p.scale;
+        ctx.font = `700 ${Math.round((sz * 3.4 + 7) * p.scale)}px system-ui, sans-serif`;
       }
+      ctx.fillText(p.glyph, p.x, p.y);
     }
     ctx.globalAlpha = 1;
   }
@@ -102,18 +99,17 @@ export function ParticleField({ color, size, letters }: ParticleFieldProps) {
     return () => cancelAnimationFrame(raf);
   }, [reduce]);
 
-  // a little burst when the look changes, so the swap feels physical
-  const prev = useRef({ color, letters });
+  // a little burst when the colour changes, so the swap feels physical
+  const prev = useRef({ color });
   useEffect(() => {
     if (reduce) {
       draw();
       return;
     }
-    if (prev.current.letters !== letters) scatterKick(parts.current);
-    else if (prev.current.color !== color)
+    if (prev.current.color !== color)
       scatterKick(parts.current, Math.random, true);
-    prev.current = { color, letters };
-  }, [color, letters, size, reduce]);
+    prev.current = { color };
+  }, [color, size, reduce]);
 
   return (
     <div

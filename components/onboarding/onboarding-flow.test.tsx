@@ -56,7 +56,7 @@ describe("OnboardingFlow replay", () => {
     render(<OnboardingFlow isReplay returnTo="/settings/account" />);
 
     await goToLastSlide(user);
-    await user.click(screen.getByRole("button", FINISH));
+    await user.click(screen.getAllByRole("button", FINISH)[0]!);
 
     expect(mockReplace).toHaveBeenCalledWith("/settings/account");
     expect(mockCompleteOnboardingAction).not.toHaveBeenCalled();
@@ -67,7 +67,7 @@ describe("OnboardingFlow replay", () => {
     render(<OnboardingFlow isReplay />);
 
     await goToLastSlide(user);
-    await user.click(screen.getByRole("button", FINISH));
+    await user.click(screen.getAllByRole("button", FINISH)[0]!);
 
     expect(mockReplace).toHaveBeenCalledWith("/admin/sandbox");
   });
@@ -92,7 +92,7 @@ describe("OnboardingFlow replay", () => {
     render(<OnboardingFlow isReplay={false} />);
 
     await goToLastSlide(user);
-    await user.click(screen.getByRole("button", FINISH));
+    await user.click(screen.getAllByRole("button", FINISH)[0]!);
 
     expect(mockCompleteOnboardingAction).toHaveBeenCalled();
   });
@@ -106,7 +106,7 @@ describe("OnboardingFlow replay", () => {
     render(<OnboardingFlow isReplay={false} />);
 
     await goToLastSlide(user);
-    await user.click(screen.getByRole("button", FINISH));
+    await user.click(screen.getAllByRole("button", FINISH)[0]!);
 
     expect(mockReplace).toHaveBeenCalledWith("/onboarding/language");
   });
@@ -122,7 +122,7 @@ describe("OnboardingFlow replay", () => {
     );
 
     await goToLastSlide(user);
-    await user.click(screen.getByRole("button", FINISH));
+    await user.click(screen.getAllByRole("button", FINISH)[0]!);
 
     expect(mockReplace).toHaveBeenCalledWith("/onboarding/language?replay=1");
     expect(mockCompleteOnboardingAction).not.toHaveBeenCalled();

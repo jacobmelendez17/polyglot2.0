@@ -184,12 +184,15 @@ export const POSTCARDS: Postcard[] = [
   },
 ];
 
-/** Copy for the four slides, verbatim from the approved prototype. */
+/** Copy for the five slides (2026-09-27: added the welcome slide; dropped the "Step N" kickers on Foundation/Customization per the same user pass). */
 export const SLIDE_COPY = {
+  welcome: {
+    title: "Welcome to Polyglot",
+    body: "Learn any language with fundamentals, immersion, and vast resources.",
+  },
   foundation: {
-    kicker: "Step 1 · Spaced repetition",
     title: "Establish a foundation",
-    body: "Using a Spaced Repetition system, build a foundation of vocabulary and grammar where reviews are scheduled right before your brain forgets the word.",
+    body: "Using a Spaced Repetition System, build a foundation of vocabulary and grammar where reviews are scheduled right before your brain forgets the word.",
   },
   immerse: {
     hint: "Tap a character to hear them",
@@ -197,7 +200,6 @@ export const SLIDE_COPY = {
     body: "Learn all the aspects of a language with listening, speaking, reading, and many other practices all in one place to start using your skills in the real world.",
   },
   customize: {
-    kicker: "Step 3 · Your way",
     title: "Customization",
     body: "What makes us different is the flexibility to learn at your pace and preference. Choose the perfect structure of learning whether that’s theme, curriculum style, and so much more.",
   },

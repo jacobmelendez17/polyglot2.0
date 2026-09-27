@@ -1,7 +1,8 @@
 "use client";
 
-// Slide 3 controls: colour listbox (4 palette colours), size slider, and a
-// switch that turns particles into letters from many writing systems.
+// Slide 3 controls: colour listbox (4 palette colours) and a size slider.
+// (2026-09-27: the "letters from everywhere" switch was removed — particles
+// are always letters now, so there was nothing left for it to toggle.)
 // The listbox follows the WAI-ARIA listbox pattern: arrows move, Enter/Space
 // selects, Escape closes and returns focus to the button.
 
@@ -22,13 +23,10 @@ type ParticleControlsProps = {
   swatch: (id: ParticleColorId) => string;
   size: number;
   onSize: (n: number) => void;
-  letters: boolean;
-  onLetters: (on: boolean) => void;
 };
 
 export function ParticleControls(p: ParticleControlsProps) {
   const sizeId = useId();
-  const lettersId = useId();
   const fill = ((p.size - SIZE_MIN) / (SIZE_MAX - SIZE_MIN)) * 100;
   return (
     <div className="ob-ctrls" role="group" aria-label="Particle settings">
@@ -48,17 +46,6 @@ export function ParticleControls(p: ParticleControlsProps) {
           />
           <output htmlFor={sizeId}>{p.size}</output>
         </span>
-      </div>
-      <div className="ob-ctrl">
-        <label htmlFor={lettersId}>Letters from everywhere</label>
-        <input
-          id={lettersId}
-          type="checkbox"
-          role="switch"
-          className="ob-switch"
-          checked={p.letters}
-          onChange={(e) => p.onLetters(e.target.checked)}
-        />
       </div>
     </div>
   );

@@ -1,7 +1,11 @@
 // Onboarding slide transitions (spec §14, §35).
 //
 // Which transition plays is a pure function of (from, to, reduced motion), so it
-// can be unit tested without rendering anything:
+// can be unit tested without rendering anything. Five slides as of 2026-09-27
+// (0 welcome, 1 foundation, 2 characters, 3 customize, 4 finale):
+//   welcome -> foundation  horizontal block slide — the welcome slide's own
+//     "transition with motion graphics" ask, same real motion as every other
+//     non-special-cased move rather than a second transition kind for one pair
 //   slide 1 <-> 2  vertical block slide (the next page rises from the bottom)
 //   slide 3  -> 4  "marigold melt": liquid blobs pour out of the Next button
 //   everything else  horizontal block slide (the whole page, background included)
@@ -30,8 +34,8 @@ export function transitionKind(
   reduced: boolean,
 ): TransitionKind {
   if (reduced) return "fade";
-  if (from === 2 && to === 3) return "melt";
-  if (Math.abs(from - to) === 1 && Math.max(from, to) === 1) return "vertical";
+  if (from === 3 && to === 4) return "melt";
+  if (Math.abs(from - to) === 1 && Math.min(from, to) === 1) return "vertical";
   return "horizontal";
 }
 

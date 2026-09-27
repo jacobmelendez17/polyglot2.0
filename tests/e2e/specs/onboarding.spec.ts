@@ -25,23 +25,31 @@ test.describe("New Learner flow", () => {
     await resetLearnerToNewAccountState();
   });
 
-  test("walks all four slides, then language and curriculum, and reaches the dashboard", async ({
+  test("walks all five slides, then language and curriculum, and reaches the dashboard", async ({
     page,
   }) => {
     await page.goto("/onboarding");
-    await expect(heading(page, "Establish a foundation")).toBeVisible();
+    await expect(heading(page, "Welcome to Polyglot")).toBeVisible();
 
     // `exact: true` — Next.js's own dev-tools button is also named "Open
     // Next.js Dev Tools", which otherwise matches "Next" as a substring.
-    for (const title of ["Immerse yourself", "Customization", "Have fun!"]) {
+    for (const title of [
+      "Establish a foundation",
+      "Immerse yourself",
+      "Customization",
+      "Have fun!",
+    ]) {
       await page.getByRole("button", { name: "Next", exact: true }).click();
       await expect(heading(page, title)).toBeVisible();
       await page.waitForTimeout(TRANSITION_MS);
     }
 
-    // The finish button gently "breathes", so skip Playwright's stability wait.
+    // The finale shows the CTA twice (a big centred one and a smaller one in
+    // the Next slot); either finishes. The finish button gently "breathes",
+    // so skip Playwright's stability wait.
     await page
       .getByRole("button", { name: "Start learning" })
+      .first()
       .click({ force: true });
 
     // Completion continues into the language choice (Spanish preselected),
@@ -64,12 +72,14 @@ test.describe("New Learner flow", () => {
     await expect(page.getByText(/lesson/i).first()).toBeVisible();
   });
 
-  test("keyboard only: arrows navigate, Skip jumps to the finale", async ({
+  test("keyboard only: no Back on the welcome slide, arrows navigate, Skip jumps to the finale", async ({
     page,
   }) => {
     await page.goto("/onboarding");
+    await expect(page.getByRole("button", { name: "Back" })).toHaveCount(0);
     await page.keyboard.press("ArrowRight");
-    await expect(heading(page, "Immerse yourself")).toBeVisible();
+    await expect(heading(page, "Establish a foundation")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Back" })).toBeVisible();
     await page.getByRole("button", { name: "Skip" }).focus();
     await page.keyboard.press("Enter");
     await expect(heading(page, "Have fun!")).toBeVisible();
@@ -84,7 +94,12 @@ test.describe("New Learner flow", () => {
     });
     const page = await context.newPage();
     await page.goto("/onboarding");
-    for (const title of ["Immerse yourself", "Customization", "Have fun!"]) {
+    for (const title of [
+      "Establish a foundation",
+      "Immerse yourself",
+      "Customization",
+      "Have fun!",
+    ]) {
       await page.getByRole("button", { name: "Next", exact: true }).click();
       await expect(heading(page, title)).toBeVisible();
       await page.waitForTimeout(400);

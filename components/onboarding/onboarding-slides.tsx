@@ -1,7 +1,8 @@
 "use client";
 
-// Onboarding slideshow (spec 15, v2): four slides, block-slide transitions, a
-// liquid "melt" into the finale, full keyboard support and a reduced-motion
+// Onboarding slideshow (spec 15, v2, 2026-09-27): five slides — a welcome
+// cover, then the original four — with block-slide transitions, a liquid
+// "melt" into the finale, full keyboard support and a reduced-motion
 // fallback (every transition becomes a 200ms crossfade; idle loops stop).
 //
 // Wiring is left to the caller: pass onFinish (mark onboarding complete, route
@@ -34,8 +35,15 @@ import { Postcards } from "./postcards";
 import { SrsTower } from "./srs-tower";
 import "./onboarding.css";
 
-const SLIDE_COUNT = 4;
+const SLIDE_COUNT = 5;
+/** Index of each slide, named so the render switch and TONES stay obviously in sync. */
+const WELCOME = 0;
+const FOUNDATION = 1;
+const CHARACTERS = 2;
+const CUSTOMIZE = 3;
+const FINALE = 4;
 const TONES = [
+  "ob-tone-blue ob-grid",
   "ob-tone-bg ob-grid",
   "ob-tone-pink ob-grid",
   "ob-tone-green ob-grid ob-slide-particles",
@@ -72,10 +80,9 @@ export function OnboardingSlides({
   const [melt, setMelt] = useState<MeltOrigin | null>(null);
   const busy = useRef(false);
 
-  // slide 3 settings live here so they survive going back and forth
+  // customization settings live here so they survive going back and forth
   const [colorId, setColorId] = useState<ParticleColorId>("sage");
   const [size, setSize] = useState(SIZE_DEFAULT);
-  const [letters, setLetters] = useState(false);
   const colorOf = (id: ParticleColorId): string => {
     const c = PARTICLE_COLORS.find((x) => x.id === id) ?? PARTICLE_COLORS[0];
     const base = read(c.token);
@@ -141,7 +148,7 @@ export function OnboardingSlides({
       {!last && (
         <button
           type="button"
-          className="ob-skip"
+          className={`ob-skip${index === WELCOME ? " is-on-blue" : ""}`}
           onClick={() => go(SLIDE_COUNT - 1)}
         >
           Skip
@@ -163,21 +170,26 @@ export function OnboardingSlides({
           aria-roledescription="slide"
           aria-label={`Step ${index + 1} of ${SLIDE_COUNT}`}
         >
-          {index === 0 && (
+          {index === WELCOME && (
+            <div className="ob-col">
+              <div className="ob-copy">
+                <h1 className="ob-title">{SLIDE_COPY.welcome.title}</h1>
+                <p>{SLIDE_COPY.welcome.body}</p>
+              </div>
+            </div>
+          )}
+          {index === FOUNDATION && (
             <div className="ob-col">
               <div className="ob-visual">
                 <SrsTower />
               </div>
               <div className="ob-copy">
-                <span className="ob-kicker">
-                  {SLIDE_COPY.foundation.kicker}
-                </span>
                 <h1 className="ob-title">{SLIDE_COPY.foundation.title}</h1>
                 <p>{SLIDE_COPY.foundation.body}</p>
               </div>
             </div>
           )}
-          {index === 1 && (
+          {index === CHARACTERS && (
             <div className="ob-col">
               <div className="ob-visual">
                 <CharacterCast cast={cast} speech={speech} />
@@ -189,18 +201,11 @@ export function OnboardingSlides({
               </div>
             </div>
           )}
-          {index === 2 && (
+          {index === CUSTOMIZE && (
             <>
-              <ParticleField
-                color={colorOf(colorId)}
-                size={size}
-                letters={letters}
-              />
+              <ParticleField color={colorOf(colorId)} size={size} />
               <div className="ob-col">
                 <div className="ob-copy">
-                  <span className="ob-kicker">
-                    {SLIDE_COPY.customize.kicker}
-                  </span>
                   <h1 className="ob-title">{SLIDE_COPY.customize.title}</h1>
                   <p>{SLIDE_COPY.customize.body}</p>
                 </div>
@@ -210,13 +215,11 @@ export function OnboardingSlides({
                   swatch={colorOf}
                   size={size}
                   onSize={setSize}
-                  letters={letters}
-                  onLetters={setLetters}
                 />
               </div>
             </>
           )}
-          {index === 3 && (
+          {index === FINALE && (
             <Finale
               delay={arrivedByMelt && !reduce ? MELT_MS / 1000 : 0}
               onFinish={onFinish}
@@ -230,7 +233,7 @@ export function OnboardingSlides({
       {melt && <MeltOverlay {...melt} />}
 
       <nav
-        className={`ob-nav${last ? " is-last" : ""}`}
+        className={`ob-nav${last ? " is-last" : ""}${index === WELCOME ? " is-welcome" : ""}`}
         aria-label="Onboarding"
       >
         <div className="ob-dots" aria-hidden="true">
@@ -239,25 +242,49 @@ export function OnboardingSlides({
           ))}
         </div>
         <div className="ob-row">
-          <button
-            type="button"
-            className="ob-back"
-            onClick={() => go(index - 1)}
-            disabled={index === 0}
-          >
-            <svg viewBox="0 0 16 16" aria-hidden="true">
-              <path
-                d="M13 8H3.5M7.5 4l-4 4 4 4"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.9"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            Back
-          </button>
-          {!last && (
+          {/* No Back at all on the welcome slide — there is nowhere to go
+              back to — rather than a disabled control with nothing behind it. */}
+          {index > WELCOME && (
+            <button
+              type="button"
+              className="ob-back"
+              onClick={() => go(index - 1)}
+            >
+              <svg viewBox="0 0 16 16" aria-hidden="true">
+                <path
+                  d="M13 8H3.5M7.5 4l-4 4 4 4"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.9"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              Back
+            </button>
+          )}
+          {last ? (
+            // A smaller "Start learning" in the Next slot, alongside the
+            // big centred one in the slide itself — both finish onboarding.
+            <button
+              type="button"
+              className="ob-next"
+              onClick={onFinish}
+              disabled={isFinishing}
+            >
+              {isFinishing ? "Saving…" : "Start learning"}
+              <svg viewBox="0 0 16 16" aria-hidden="true">
+                <path
+                  d="M3 8h9.5M8.5 4l4 4-4 4"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.9"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          ) : (
             <button
               type="button"
               className="ob-next"

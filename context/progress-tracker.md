@@ -1585,6 +1585,36 @@ writing to real `user_item_progress` rows.
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
 
+- **Onboarding slideshow v2, follow-up fixes** (2026-09-27, same-day user
+  pass after the initial build below): a new **welcome slide** (blue, fixed
+  in both themes like the finale's marigold — `--ob-welcome-blue`) before
+  Establish a Foundation, with a horizontal block-slide transition into it
+  (real motion, not a cut); Foundation's body now reads "Spaced Repetition
+  **System**" (capitalized) and its "Step 1 · Spaced repetition" kicker is
+  gone, as is Customization's "Step 3 · Your way" kicker; the particle field
+  is now a full-bleed background layer behind the customization copy (same
+  absolute-layering pattern the finale's postcards already used) instead of
+  a band above it, defaults to letters (the "Letters from everywhere" switch
+  is gone — there is no dot mode left to toggle into), and the controls card
+  is centered; the welcome slide has no Back button at all (not merely
+  disabled — the row's layout no longer assumes Back is always present); the
+  finale now shows "Start learning" twice — the original big centered CTA
+  plus a smaller one in the Next slot — either finishes, and both hover-float
+  (`transform: translateY(-4px)`) and press down on click (the breathing
+  keyframe pauses via `animation-play-state` for both states, since a running
+  CSS animation on `transform` otherwise wins over a hover rule every frame).
+  `SLIDE_COUNT` is 5 now; `transitionKind`'s vertical/melt pairs shifted to
+  match (1↔2, 3→4). Verified with `tsc`, lint, and the full suite (172 files,
+  1183 tests, including the rewritten onboarding unit/component tests); the
+  Playwright spec was updated for the new slide order and the doubled "Start
+  learning" button (Playwright throws on an ambiguous locator match, same as
+  RTL) but not run. **Not resolved: the welcome slide has no illustration**,
+  just the title and subtext on the blue background — the request's "transition
+  with motion graphics to the next slide" was read as being about the
+  transition (satisfied by the real block-slide motion) rather than asking
+  for a dedicated visual on the slide itself, since none was described; flag
+  if a visual was actually wanted there.
+
 - **Onboarding slideshow v2** (2026-09-27, from the design handoff
   `HANDOFF.md` + reference implementation + prototype) — replaces the old
   five-slide slideshow with the approved four slides: **SRS tower**
