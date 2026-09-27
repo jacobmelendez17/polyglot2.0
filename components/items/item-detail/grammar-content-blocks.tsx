@@ -1,3 +1,5 @@
+import { AuthoredText } from "@/components/shared/authored-text";
+import { stripEmphasisMarks } from "@/lib/authored-text";
 import { PronunciationButton } from "@/components/shared/pronunciation-button";
 import type { GrammarContentBlockSource } from "@/domains/curriculum";
 
@@ -33,15 +35,17 @@ export function GrammarContentBlocks({
               {/* Balances the voice button so the text is truly centered. */}
               <span className="h-8 w-8 shrink-0" aria-hidden="true" />
               <div className="min-w-0 flex-1 text-center">
-                <p className="text-lg text-foreground">{block.targetText}</p>
+                <p className="text-lg text-foreground">
+                  <AuthoredText text={block.targetText} />
+                </p>
                 <p className="mt-1 text-base text-muted-foreground">
-                  {block.translation}
+                  <AuthoredText text={block.translation} />
                 </p>
               </div>
               <PronunciationButton
-                text={block.targetText}
+                text={stripEmphasisMarks(block.targetText)}
                 languageCode={languageCode}
-                label={block.targetText}
+                label={stripEmphasisMarks(block.targetText)}
                 size="sm"
               />
             </div>
@@ -57,14 +61,16 @@ export function GrammarContentBlocks({
               <p className="text-sm font-semibold tracking-wide text-state-warning uppercase">
                 Polyglot note
               </p>
-              <p className="mt-1 text-base text-foreground">{block.body}</p>
+              <p className="mt-1 text-base text-foreground">
+                <AuthoredText text={block.body} />
+              </p>
             </div>
           );
         }
 
         return (
           <p key={block.id} className="text-lg leading-relaxed text-foreground">
-            {block.body}
+            <AuthoredText text={block.body} />
           </p>
         );
       })}

@@ -248,6 +248,8 @@ export function GrammarContentBlockEditor({
         <p className="mt-1 text-sm text-muted-foreground">
           Add blocks, drag them into order, then save. Nothing changes until you
           save, and saved blocks are live immediately, even on a published item.
+          Put a word in single quotes, like &apos;también&apos;, to show it bold and
+          green.
         </p>
       </div>
 

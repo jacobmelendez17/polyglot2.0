@@ -1,3 +1,4 @@
+import { stripEmphasisMarks } from "@/lib/authored-text";
 import type { GrammaticalGender } from "@/domains/lexicon";
 import type { CefrLevel, Register } from "@/db/schema";
 
@@ -229,7 +230,7 @@ function toExampleView(
     id: example.id,
     targetText: example.targetText,
     translation: example.translation,
-    spokenText: example.targetText,
+    spokenText: stripEmphasisMarks(example.targetText),
   };
 }
 

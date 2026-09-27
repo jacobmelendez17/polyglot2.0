@@ -1,5 +1,8 @@
 "use client";
 
+import { AuthoredText } from "@/components/shared/authored-text";
+import { stripEmphasisMarks } from "@/lib/authored-text";
+
 import { useState } from "react";
 
 import { PronunciationButton } from "@/components/shared/pronunciation-button";
@@ -113,16 +116,16 @@ export function ContextSection({
                   <span className="h-8 w-8 shrink-0" aria-hidden="true" />
                   <div className="min-w-0 flex-1 text-center">
                     <p className="text-base text-foreground">
-                      {example.targetText}
+                      <AuthoredText text={example.targetText} />
                     </p>
                     <p className="text-base text-muted-foreground">
-                      {example.translation}
+                      <AuthoredText text={example.translation} />
                     </p>
                   </div>
                   <PronunciationButton
                     text={example.spokenText}
                     languageCode={languageCode}
-                    label={example.targetText}
+                    label={stripEmphasisMarks(example.targetText)}
                     size="sm"
                   />
                 </li>

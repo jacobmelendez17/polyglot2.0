@@ -1,3 +1,5 @@
+import { AuthoredText } from "@/components/shared/authored-text";
+import { stripEmphasisMarks } from "@/lib/authored-text";
 import { PronunciationButton } from "@/components/shared/pronunciation-button";
 import type { ItemDetailExampleView } from "@/domains/curriculum";
 
@@ -37,15 +39,17 @@ export function ExamplesSection({
           {/* Balances the voice button so the text is truly centered. */}
           <span className="h-8 w-8 shrink-0" aria-hidden="true" />
           <div className="min-w-0 flex-1 text-center">
-            <p className="text-lg text-foreground">{example.targetText}</p>
+            <p className="text-lg text-foreground">
+              <AuthoredText text={example.targetText} />
+            </p>
             <p className="mt-1 text-base text-muted-foreground">
-              {example.translation}
+              <AuthoredText text={example.translation} />
             </p>
           </div>
           <PronunciationButton
             text={example.spokenText}
             languageCode={languageCode}
-            label={example.targetText}
+            label={stripEmphasisMarks(example.targetText)}
             size="sm"
           />
         </li>

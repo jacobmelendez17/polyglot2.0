@@ -1,3 +1,4 @@
+import { AuthoredText } from "@/components/shared/authored-text";
 import { GrammarContentBlocks } from "./grammar-content-blocks";
 import type { ItemDetailAboutView } from "@/domains/curriculum";
 
@@ -31,7 +32,7 @@ export function AboutDefinition({ about, languageCode }: AboutDefinitionProps) {
       <div className="mt-3 flex flex-col gap-4">
         {about.body ? (
           <p className="text-lg leading-relaxed text-foreground">
-            {about.body}
+            <AuthoredText text={about.body} />
           </p>
         ) : null}
 
