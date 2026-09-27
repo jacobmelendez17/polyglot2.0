@@ -2,12 +2,12 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Check } from "lucide-react";
 
 import { setActiveLanguageAction } from "@/app/(onboarding)/onboarding/language/actions";
 import { ONBOARDING_CONTENT_WIDTH } from "@/components/onboarding/onboarding-layout";
 import { Button } from "@/components/ui/button";
 import type { CurriculumLanguage } from "@/domains/curriculum";
+import { regionFlagEmoji } from "@/lib/language-flag";
 import { cn } from "@/lib/utils";
 
 type LanguageChoiceViewProps = {
@@ -26,15 +26,17 @@ type LanguageChoiceViewProps = {
 };
 
 /**
- * The language-choice step (2026-09-26), shown once right after the
- * onboarding slideshow and before the curriculum choice — the first
- * question the app asks about content itself, since curriculum, levels,
- * and lessons are all scoped to a language (architecture.md's "every
- * official curriculum object must be scoped to a language").
+ * The language-choice step (2026-09-26, restyled as flag cards 2026-09-27),
+ * shown once right after the onboarding slideshow and before the curriculum
+ * choice — the first question the app asks about content itself, since
+ * curriculum, levels, and lessons are all scoped to a language
+ * (architecture.md's "every official curriculum object must be scoped to a
+ * language").
  *
  * Data-driven, per architecture.md: this never assumes any one language —
- * with only one configured today it renders as a single card, and grows
- * automatically as more languages ship.
+ * it renders one card per configured language and grows automatically as
+ * more ship, with a flag (a placeholder for real artwork "for now") and the
+ * language's name underneath.
  */
 export function LanguageChoiceView({
   languages,
@@ -82,7 +84,7 @@ export function LanguageChoiceView({
       >
         <div className="flex flex-col gap-2 text-center">
           <h1 className="font-heading text-3xl font-semibold text-balance text-foreground sm:text-4xl">
-            What are you learning?
+            What language are you learning?
           </h1>
           <p className="text-base text-pretty text-muted-foreground sm:text-lg">
             You can change this later — nothing you learn is lost when you
@@ -90,7 +92,10 @@ export function LanguageChoiceView({
           </p>
         </div>
 
-        <fieldset disabled={isSaving} className="flex flex-col gap-3">
+        <fieldset
+          disabled={isSaving}
+          className="grid grid-cols-2 gap-3 sm:grid-cols-3"
+        >
           <legend className="sr-only">Which language are you learning?</legend>
           {languages.map((language) => {
             const isSelected = languageId === language.id;
@@ -98,33 +103,29 @@ export function LanguageChoiceView({
               <label
                 key={language.id}
                 className={cn(
-                  "flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-4 text-left transition-colors",
-                  "hover:border-accent-primary/60 focus-within:ring-2 focus-within:ring-ring",
+                  "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border bg-card p-6 text-center transition-[border-color,border-width,transform] duration-150",
+                  "hover:border-accent-primary/60 focus-within:ring-2 focus-within:ring-ring active:scale-[0.97]",
                   isSelected
-                    ? "border-accent-primary bg-accent-primary/10"
-                    : "border-border bg-card",
+                    ? "border-[3px] border-state-success"
+                    : "border-border",
                   isSaving && "cursor-not-allowed opacity-60",
                 )}
               >
-                <span className="flex items-center gap-3">
-                  <input
-                    type="radio"
-                    name="active-language"
-                    value={language.id}
-                    checked={isSelected}
-                    onChange={() => setLanguageId(language.id)}
-                    className="sr-only"
-                  />
-                  <span className="font-medium text-foreground">
-                    {language.name}
-                  </span>
+                <input
+                  type="radio"
+                  name="active-language"
+                  value={language.id}
+                  checked={isSelected}
+                  onChange={() => setLanguageId(language.id)}
+                  aria-label={language.name}
+                  className="sr-only"
+                />
+                <span className="text-4xl" aria-hidden="true">
+                  {regionFlagEmoji(language.code)}
                 </span>
-                {isSelected ? (
-                  <Check
-                    className="h-5 w-5 text-accent-primary"
-                    aria-hidden="true"
-                  />
-                ) : null}
+                <span className="font-medium text-foreground">
+                  {language.name}
+                </span>
               </label>
             );
           })}

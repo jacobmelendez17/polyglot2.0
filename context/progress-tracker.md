@@ -1585,6 +1585,61 @@ writing to real `user_item_progress` rows.
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
 
+- **Tagalog added as a second language; language and curriculum onboarding
+  screens restyled and re-copied** (2026-09-27, user request). Verified
+  with `tsc`, lint, and the full suite (173 files, 1186 tests); not a
+  browser pass, not `npm run build`.
+  - **Tagalog:** a real `languages` row (`tl-PH` / `tagalog` / "Tagalog")
+    plus a Level 1 (`draft`, no content yet) in the dev database, added by a
+    one-off script through the real domain functions — `createLevel`
+    (`domains/admin/publication-service.ts`, audited as `LEVEL_CREATED`) —
+    not raw SQL for the level; the language insert itself has no admin
+    surface to go through yet (only `db/seed/e2e-fixtures.ts` inserts a
+    language directly today), so that part is a plain insert. Level 1 was
+    required: `setActiveLanguage` looks one up when saving a language choice
+    and throws `ITEM_NOT_FOUND` otherwise. **Not done:** no vocabulary/
+    grammar content, so Tagalog is selectable but has nothing to lesson on
+    yet — expected, matches how Spanish's own fixture levels started empty.
+  - **Language-choice screen:** heading is now "What language are you
+    learning?"; each language is an opaque card (no `/10`-opacity tint) with
+    a flag and the name underneath instead of a radio row with a checkmark.
+    The flag is algorithmic (`lib/language-flag.ts`'s `regionFlagEmoji`,
+    derived from the code's region subtag via Unicode regional-indicator
+    symbols) rather than a hardcoded per-language table, so a third language
+    needs no lookup entry to get one — explicitly "for now" per the user,
+    real artwork later. Selecting a card thickens its border to
+    `border-state-success` (solid, no colour wash) instead of tinting the
+    background, and every card presses down on click
+    (`active:scale-[0.97]`).
+  - **Curriculum-choice screen:** heading is now "Choose your learning
+    curriculum", subtext "This gives you new words and lessons based on
+    your learning preference. Change it any time." Theme Selection
+    (`choose_group`) no longer shows its group list here — that's deferred
+    to the dashboard, when a lesson is actually started, per the user's
+    "that will be done in the dashboard when they choose a lesson." Implemented
+    as a new `showThemeSelection` prop on the shared `CurriculumModePicker`
+    (default `true`, so Settings' `/settings/lessons` and the Sandbox
+    preview — the picker's other two callers — are unaffected); `themes`/
+    `selectedThemeId`/`onSelectTheme` are now optional on the picker for the
+    same reason. `CurriculumChoiceView` dropped its `themes`/`initialThemeId`
+    props entirely and the page stopped fetching them
+    (`listAvailableThemes` is no longer called from
+    `onboarding/curriculum/page.tsx`); every save now sends
+    `selectedVocabularyGroupId: null`. The three mode cards got the same
+    solid-card / thick-green-border / press-down treatment as the language
+    cards.
+  - **Mode copy:** `CURRICULUM_MODE_OPTIONS` — Default Order: "The Polyglot
+    way. Learn your grammar lessons and then vocabulary groups after."
+    Choose Group as You Go is relabeled **Theme Selection**: "Choose the
+    theme you'd like to learn next every time you start new lessons."
+    Variety: "Randomized selection of all the words in a level. Grammar
+    will still be taught in order." The old label "Choose Group as You Go"
+    still appears in code comments and the domain's own internal vocabulary
+    (`CurriculumMode`'s `"choose_group"` value is unchanged) — only the
+    other user-visible instance, Settings' Grammar Placement description,
+    was updated to say "Theme Selection" too, so the app doesn't show two
+    names for the same mode.
+
 - **Onboarding slideshow v2, follow-up fixes** (2026-09-27, same-day user
   pass after the initial build below): a new **welcome slide** (blue, fixed
   in both themes like the finale's marigold — `--ob-welcome-blue`) before

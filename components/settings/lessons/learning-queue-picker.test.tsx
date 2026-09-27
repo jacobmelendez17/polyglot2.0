@@ -47,7 +47,7 @@ describe("LearningQueuePicker", () => {
     expect(await screen.findByText("Saved")).toBeInTheDocument();
   });
 
-  it("does not save Choose Group as You Go until a group is picked", async () => {
+  it("does not save Theme Selection until a group is picked", async () => {
     const user = userEvent.setup();
     render(
       <LearningQueuePicker
@@ -57,9 +57,7 @@ describe("LearningQueuePicker", () => {
       />,
     );
 
-    await user.click(
-      screen.getByRole("radio", { name: /choose group as you go/i }),
-    );
+    await user.click(screen.getByRole("radio", { name: /theme selection/i }));
     expect(mockAction).not.toHaveBeenCalled();
 
     mockAction.mockResolvedValueOnce({
@@ -78,7 +76,7 @@ describe("LearningQueuePicker", () => {
     expect(await screen.findByText("Saved")).toBeInTheDocument();
   });
 
-  it("saves immediately when re-entering Choose Group as You Go with a group already selected", async () => {
+  it("saves immediately when re-entering Theme Selection with a group already selected", async () => {
     mockAction.mockResolvedValueOnce({
       ok: true,
       data: {
@@ -95,9 +93,7 @@ describe("LearningQueuePicker", () => {
       />,
     );
 
-    await user.click(
-      screen.getByRole("radio", { name: /choose group as you go/i }),
-    );
+    await user.click(screen.getByRole("radio", { name: /theme selection/i }));
 
     expect(mockAction).toHaveBeenCalledWith({
       curriculumMode: "choose_group",

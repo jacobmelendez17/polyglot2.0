@@ -7,15 +7,12 @@ import { setCurriculumPreferenceAction } from "@/app/(onboarding)/onboarding/cur
 import { CurriculumModePicker } from "@/components/curriculum/curriculum-mode-picker";
 import { ONBOARDING_CONTENT_WIDTH } from "@/components/onboarding/onboarding-layout";
 import { Button } from "@/components/ui/button";
-import type { LessonThemeChoice } from "@/domains/lessons";
 import type { CurriculumMode } from "@/domains/users";
 import { cn } from "@/lib/utils";
 
 type CurriculumChoiceViewProps = {
-  themes: LessonThemeChoice[];
   /** The learner's stored choice, when they are revisiting rather than deciding for the first time. */
   initialMode?: CurriculumMode | null;
-  initialThemeId?: string | null;
   /** Where to go once the choice is saved. */
   continueHref: string;
   /**
@@ -34,29 +31,25 @@ type CurriculumChoiceViewProps = {
  * Nothing is preselected on a first visit. A default would answer the
  * question on the learner's behalf, and the whole point of this screen is
  * that the application does not decide this for them.
+ *
+ * Only the mode is chosen here (2026-09-27 decision): Theme Selection's
+ * specific group is picked later, at the dashboard, when a lesson is
+ * actually started — showing that list here duplicates a decision the
+ * learner hasn't reached yet, so `CurriculumModePicker` renders with
+ * `showThemeSelection={false}` and every save carries a `null` group.
  */
 export function CurriculumChoiceView({
-  themes,
   initialMode = null,
-  initialThemeId = null,
   continueHref,
   isPreview = false,
 }: CurriculumChoiceViewProps) {
   const router = useRouter();
   const [mode, setMode] = useState<CurriculumMode | null>(initialMode);
-  const [themeId, setThemeId] = useState<string | null>(initialThemeId);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, startSaving] = useTransition();
 
-  // Choose Group as You Go with groups available needs one picked; with
-  // none available the learner picks at their first lesson instead, so the
-  // button stays usable rather than trapping them on a screen with nothing
-  // to choose.
-  const needsTheme = mode === "choose_group" && themes.length > 0 && !themeId;
-  const canContinue = mode !== null && !needsTheme;
-
   function handleContinue() {
-    if (!mode || needsTheme) return;
+    if (!mode) return;
     setError(null);
 
     if (isPreview) {
@@ -68,7 +61,7 @@ export function CurriculumChoiceView({
     startSaving(async () => {
       const result = await setCurriculumPreferenceAction({
         curriculumMode: mode,
-        selectedVocabularyGroupId: mode === "choose_group" ? themeId : null,
+        selectedVocabularyGroupId: null,
       });
       if (!result.ok) {
         setError(result.error.message);
@@ -91,24 +84,19 @@ export function CurriculumChoiceView({
       >
         <div className="flex flex-col gap-2 text-center">
           <h1 className="font-heading text-3xl font-semibold text-balance text-foreground sm:text-4xl">
-            How would you like to learn?
+            Choose your learning curriculum
           </h1>
           <p className="text-base text-pretty text-muted-foreground sm:text-lg">
-            This only changes how new words are chosen for your lessons —
-            nothing you have already learned is affected.
+            This gives you new words and lessons based on your learning
+            preference. Change it any time.
           </p>
         </div>
 
         <CurriculumModePicker
           selectedMode={mode}
-          onSelectMode={(next) => {
-            setMode(next);
-            if (next !== "choose_group") setThemeId(null);
-          }}
-          themes={themes}
-          selectedThemeId={themeId}
-          onSelectTheme={setThemeId}
+          onSelectMode={setMode}
           disabled={isSaving}
+          showThemeSelection={false}
         />
 
         {error ? (
@@ -122,7 +110,7 @@ export function CurriculumChoiceView({
             type="button"
             size="lg"
             className="cursor-pointer"
-            disabled={!canContinue || isSaving}
+            disabled={!mode || isSaving}
             onClick={handleContinue}
           >
             {isSaving ? "Saving…" : "Start learning"}

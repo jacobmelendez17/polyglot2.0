@@ -30,8 +30,8 @@ describe("LanguageChoiceView", () => {
   it("lists every language it is given, so a second language needs no code change", () => {
     render(<LanguageChoiceView languages={LANGUAGES} continueHref="/next" />);
 
-    expect(screen.getByLabelText("Spanish")).toBeInTheDocument();
-    expect(screen.getByLabelText("French")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Spanish" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "French" })).toBeInTheDocument();
   });
 
   it("keeps Continue disabled until a language is chosen when none is preselected", async () => {
@@ -41,7 +41,7 @@ describe("LanguageChoiceView", () => {
     const continueButton = screen.getByRole("button", { name: "Continue" });
     expect(continueButton).toBeDisabled();
 
-    await user.click(screen.getByLabelText("Spanish"));
+    await user.click(screen.getByRole("radio", { name: "Spanish" }));
     expect(continueButton).toBeEnabled();
   });
 
@@ -54,7 +54,7 @@ describe("LanguageChoiceView", () => {
       />,
     );
 
-    expect(screen.getByLabelText("French")).toBeChecked();
+    expect(screen.getByRole("radio", { name: "French" })).toBeChecked();
     expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
   });
 

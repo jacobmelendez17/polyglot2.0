@@ -4,7 +4,6 @@ import { forbidden, redirect } from "next/navigation";
 import { CurriculumChoiceView } from "@/components/curriculum/curriculum-choice-view";
 import { resolveOnboardingReturnTo } from "@/components/onboarding/onboarding-return-to";
 import { canAccessAdminArea } from "@/domains/admin";
-import { listAvailableThemes } from "@/domains/lessons/server";
 import { isOnboardingRequired } from "@/domains/users";
 import { getLanguageSettings, requireUser } from "@/domains/users/server";
 
@@ -49,13 +48,8 @@ export default async function CurriculumPreferencePage({
     if (!canAccessAdminArea(user)) {
       forbidden();
     }
-    const themes = await listAvailableThemes({
-      userId: user.id,
-      languageId: user.activeLanguageId,
-    });
     return (
       <CurriculumChoiceView
-        themes={themes}
         continueHref={resolveOnboardingReturnTo(returnTo)}
         isPreview
       />
@@ -69,16 +63,11 @@ export default async function CurriculumPreferencePage({
     redirect("/onboarding");
   }
 
-  const [themes, settings] = await Promise.all([
-    listAvailableThemes({ userId: user.id, languageId: user.activeLanguageId }),
-    getLanguageSettings(user.id, user.activeLanguageId),
-  ]);
+  const settings = await getLanguageSettings(user.id, user.activeLanguageId);
 
   return (
     <CurriculumChoiceView
-      themes={themes}
       initialMode={settings?.curriculumMode ?? null}
-      initialThemeId={settings?.selectedVocabularyGroupId ?? null}
       continueHref="/dashboard"
     />
   );

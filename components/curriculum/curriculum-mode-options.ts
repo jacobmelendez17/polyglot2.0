@@ -19,19 +19,19 @@ export const CURRICULUM_MODE_OPTIONS: readonly CurriculumModeOption[] = [
     mode: "default_order",
     label: "Default Order",
     description:
-      "Follow the authored curriculum sequence — grammar first, then each vocabulary group in order.",
+      "The Polyglot way. Learn your grammar lessons and then vocabulary groups after.",
   },
   {
     mode: "choose_group",
-    label: "Choose Group as You Go",
+    label: "Theme Selection",
     description:
-      "Work through a single vocabulary group — numbers, greetings, family — before choosing the next.",
+      "Choose the theme you'd like to learn next every time you start new lessons.",
   },
   {
     mode: "variety",
     label: "Variety",
     description:
-      "Each lesson draws a little from every available vocabulary group.",
+      "Randomized selection of all the words in a level. Grammar will still be taught in order.",
   },
 ] as const;
 

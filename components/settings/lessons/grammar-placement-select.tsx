@@ -28,7 +28,7 @@ export function GrammarPlacementSelect({
   return (
     <InlineSelectSettingField
       label="Grammar Placement"
-      description="Only applies to Variety — Default Order and Choose Group as You Go set grammar's position on their own."
+      description="Only applies to Variety — Default Order and Theme Selection set grammar's position on their own."
       initialValue={initialValue}
       options={OPTIONS}
       onSave={async (grammarPlacement) => {

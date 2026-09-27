@@ -29,7 +29,7 @@ describe("CurriculumModePicker", () => {
   it("offers all three Learning Queue modes as one radio group", () => {
     renderPicker();
     const modes = screen.getAllByRole("radio", {
-      name: /default order|choose group|variety/i,
+      name: /default order|theme selection|variety/i,
     });
     expect(modes).toHaveLength(3);
     expect(
@@ -47,12 +47,12 @@ describe("CurriculumModePicker", () => {
   it("reports the chosen mode", async () => {
     const { onSelectMode } = renderPicker();
     await userEvent.click(
-      screen.getByRole("radio", { name: /choose group as you go/i }),
+      screen.getByRole("radio", { name: /theme selection/i }),
     );
     expect(onSelectMode).toHaveBeenCalledWith("choose_group");
   });
 
-  it("asks which group only in Choose Group as You Go", () => {
+  it("asks which group only in Theme Selection, and only when told to show it", () => {
     renderPicker({ selectedMode: "variety" });
     expect(
       screen.queryByRole("radio", { name: /Numbers/ }),
@@ -73,5 +73,15 @@ describe("CurriculumModePicker", () => {
         /pick your first theme when your first lesson is ready/i,
       ),
     ).toBeInTheDocument();
+  });
+
+  it("hides the group picker entirely when showThemeSelection is off, even with themes available (onboarding, 2026-09-27)", () => {
+    renderPicker({ selectedMode: "choose_group", showThemeSelection: false });
+    expect(screen.queryByRole("radio", { name: /Numbers/ })).toBeNull();
+    expect(
+      screen.queryByText(
+        /pick your first theme when your first lesson is ready/i,
+      ),
+    ).toBeNull();
   });
 });

@@ -11,10 +11,18 @@ type CurriculumModePickerProps = {
   selectedMode: CurriculumMode | null;
   onSelectMode: (mode: CurriculumMode) => void;
   /** Themes the learner may study right now. Empty is a real state — a level with nothing published yet — and the theme step simply doesn't appear. */
-  themes: LessonThemeChoice[];
-  selectedThemeId: string | null;
-  onSelectTheme: (themeId: string) => void;
+  themes?: LessonThemeChoice[];
+  selectedThemeId?: string | null;
+  onSelectTheme?: (themeId: string) => void;
   disabled?: boolean;
+  /**
+   * Whether Theme Selection's own group picker renders below the mode
+   * list. Onboarding turns this off (2026-09-27 decision): the specific
+   * theme is chosen later, at the dashboard, when a lesson is actually
+   * started — here the learner only picks a mode. Settings and the Sandbox
+   * preview, the picker's other two callers, keep it on.
+   */
+  showThemeSelection?: boolean;
 };
 
 /**
@@ -32,10 +40,11 @@ type CurriculumModePickerProps = {
 export function CurriculumModePicker({
   selectedMode,
   onSelectMode,
-  themes,
-  selectedThemeId,
-  onSelectTheme,
+  themes = [],
+  selectedThemeId = null,
+  onSelectTheme = () => {},
   disabled = false,
+  showThemeSelection = true,
 }: CurriculumModePickerProps) {
   return (
     <div className="flex w-full flex-col gap-6">
@@ -47,11 +56,11 @@ export function CurriculumModePicker({
             <label
               key={option.mode}
               className={cn(
-                "flex cursor-pointer items-start gap-3 rounded-xl border p-4 text-left transition-colors",
-                "hover:border-accent-primary/60 focus-within:ring-2 focus-within:ring-ring",
+                "flex cursor-pointer items-start gap-3 rounded-xl border bg-card p-4 text-left transition-[border-color,border-width,transform] duration-150",
+                "hover:border-accent-primary/60 focus-within:ring-2 focus-within:ring-ring active:scale-[0.99]",
                 isSelected
-                  ? "border-accent-primary bg-accent-primary/10"
-                  : "border-border bg-card",
+                  ? "border-[3px] border-state-success"
+                  : "border-border",
                 disabled && "cursor-not-allowed opacity-60",
               )}
             >
@@ -68,7 +77,7 @@ export function CurriculumModePicker({
                 className={cn(
                   "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border",
                   isSelected
-                    ? "border-accent-primary bg-accent-primary text-accent-foreground"
+                    ? "border-state-success bg-state-success text-accent-foreground"
                     : "border-border",
                 )}
               >
@@ -87,7 +96,9 @@ export function CurriculumModePicker({
         })}
       </fieldset>
 
-      {selectedMode === "choose_group" && themes.length > 0 ? (
+      {showThemeSelection &&
+      selectedMode === "choose_group" &&
+      themes.length > 0 ? (
         <fieldset disabled={disabled} className="flex flex-col gap-3">
           <legend className="mb-1 font-medium text-foreground">
             Which theme first?
@@ -126,7 +137,9 @@ export function CurriculumModePicker({
         </fieldset>
       ) : null}
 
-      {selectedMode === "choose_group" && themes.length === 0 ? (
+      {showThemeSelection &&
+      selectedMode === "choose_group" &&
+      themes.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           You&apos;ll pick your first theme when your first lesson is ready.
         </p>
