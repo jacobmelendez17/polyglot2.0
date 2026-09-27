@@ -56,11 +56,9 @@ export function CurriculumModePicker({
             <label
               key={option.mode}
               className={cn(
-                "flex cursor-pointer items-start gap-3 rounded-xl border bg-card p-4 text-left transition-[border-color,border-width,transform] duration-150",
+                "flex cursor-pointer items-start gap-3 rounded-xl border bg-card p-4 text-left transition-[border-color,transform] duration-150",
                 "hover:border-accent-primary/60 focus-within:ring-2 focus-within:ring-ring active:scale-[0.99]",
-                isSelected
-                  ? "border-[3px] border-state-success"
-                  : "border-border",
+                isSelected ? "border-state-success" : "border-border",
                 disabled && "cursor-not-allowed opacity-60",
               )}
             >
