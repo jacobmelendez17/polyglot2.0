@@ -34,7 +34,9 @@ export function ExamplesSection({
           key={example.id}
           className="flex items-start justify-between gap-3 rounded-xl bg-muted/30 px-4 py-3 ring-1 ring-foreground/5"
         >
-          <div className="min-w-0">
+          {/* Balances the voice button so the text is truly centered. */}
+          <span className="h-8 w-8 shrink-0" aria-hidden="true" />
+          <div className="min-w-0 flex-1 text-center">
             <p className="text-lg text-foreground">{example.targetText}</p>
             <p className="mt-1 text-base text-muted-foreground">
               {example.translation}

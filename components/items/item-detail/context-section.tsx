@@ -109,7 +109,9 @@ export function ContextSection({
                   key={example.id}
                   className="flex items-start justify-between gap-3"
                 >
-                  <div className="min-w-0">
+                  {/* Balances the voice button so the text is truly centered. */}
+                  <span className="h-8 w-8 shrink-0" aria-hidden="true" />
+                  <div className="min-w-0 flex-1 text-center">
                     <p className="text-base text-foreground">
                       {example.targetText}
                     </p>

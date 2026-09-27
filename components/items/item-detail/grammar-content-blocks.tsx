@@ -28,9 +28,11 @@ export function GrammarContentBlocks({
           return (
             <div
               key={block.id}
-              className="flex items-start justify-between gap-3 rounded-lg border border-border px-4 py-3"
+              className="flex items-start justify-between gap-3 rounded-lg border-2 border-foreground/70 px-4 py-3"
             >
-              <div className="min-w-0">
+              {/* Balances the voice button so the text is truly centered. */}
+              <span className="h-8 w-8 shrink-0" aria-hidden="true" />
+              <div className="min-w-0 flex-1 text-center">
                 <p className="text-lg text-foreground">{block.targetText}</p>
                 <p className="mt-1 text-base text-muted-foreground">
                   {block.translation}
