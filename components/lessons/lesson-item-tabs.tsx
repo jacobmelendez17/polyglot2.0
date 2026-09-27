@@ -1,3 +1,4 @@
+import { AuthoredText } from "@/components/shared/authored-text";
 import { PronunciationButton } from "@/components/shared/pronunciation-button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { LearningItem } from "@/domains/curriculum";
@@ -56,7 +57,9 @@ function VocabularyDetails({
           <h3 className="text-sm font-medium text-muted-foreground">
             Definition
           </h3>
-          <p className="mt-1 text-sm text-foreground">{item.definition}</p>
+          <p className="mt-1 text-sm text-foreground">
+            <AuthoredText text={item.definition} />
+          </p>
         </section>
       ) : null}
 
@@ -124,7 +127,9 @@ function VocabularyDetails({
           <h3 className="text-sm font-medium text-muted-foreground">
             Creator notes
           </h3>
-          <p className="mt-1 text-sm text-foreground">{item.creatorNotes}</p>
+          <p className="mt-1 text-sm text-foreground">
+            <AuthoredText text={item.creatorNotes} />
+          </p>
         </section>
       ) : null}
 
@@ -226,7 +231,9 @@ function GrammarDetails({
         <h3 className="text-sm font-medium text-muted-foreground">
           Explanation
         </h3>
-        <p className="mt-1 text-sm text-foreground">{item.explanation}</p>
+        <p className="mt-1 text-sm text-foreground">
+          <AuthoredText text={item.explanation} />
+        </p>
       </section>
 
       <section className="rounded-lg bg-card p-4 ring-1 ring-foreground/10">
@@ -246,7 +253,9 @@ function GrammarDetails({
           <h3 className="text-sm font-medium text-muted-foreground">
             Creator notes
           </h3>
-          <p className="mt-1 text-sm text-foreground">{item.creatorNotes}</p>
+          <p className="mt-1 text-sm text-foreground">
+            <AuthoredText text={item.creatorNotes} />
+          </p>
         </section>
       ) : null}
     </div>
@@ -269,9 +278,11 @@ function ExamplesList({ examples }: { examples: LearningItem["examples"] }) {
           key={index}
           className="rounded-lg bg-card p-4 ring-1 ring-foreground/10"
         >
-          <p className="text-sm text-foreground">{example.targetText}</p>
+          <p className="text-sm text-foreground">
+            <AuthoredText text={example.targetText} />
+          </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            {example.englishText}
+            <AuthoredText text={example.englishText} />
           </p>
         </li>
       ))}

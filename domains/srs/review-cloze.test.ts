@@ -107,4 +107,24 @@ describe("findCompatibleClozeSentence", () => {
   it("returns null for an empty example list", () => {
     expect(findCompatibleClozeSentence([], "gato")).toBeNull();
   });
+
+  it("ignores the admin 'word' emphasis ticks so the blank has no stray quotes around it", () => {
+    const result = findCompatibleClozeSentence(
+      [
+        {
+          id: "s",
+          targetText: "El 'gato' duerme.",
+          translation: "The 'cat' sleeps.",
+        },
+      ],
+      "gato",
+    );
+    expect(result).toEqual({
+      sentenceId: "s",
+      sentenceBefore: "El ",
+      sentenceAfter: " duerme.",
+      blankedWord: "gato",
+      translation: "The cat sleeps.",
+    });
+  });
 });

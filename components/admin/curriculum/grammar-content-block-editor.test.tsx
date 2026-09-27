@@ -203,4 +203,18 @@ describe("GrammarContentBlockEditor", () => {
       "Use ser for identity.",
     );
   });
+
+  it("previews the 'word' emphasis shortcut only for blocks that use it", async () => {
+    const user = userEvent.setup();
+    render(
+      <GrammarContentBlockEditor learningItemId="item-1" blocks={blocks} />,
+    );
+
+    expect(screen.queryByText("Preview")).not.toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("Text for block 1"), " 'ser' here");
+
+    expect(screen.getByText("Preview")).toBeInTheDocument();
+    expect(screen.getByText("ser").tagName).toBe("STRONG");
+  });
 });

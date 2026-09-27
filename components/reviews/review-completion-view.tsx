@@ -1,5 +1,7 @@
 "use client";
 
+import { AuthoredText } from "@/components/shared/authored-text";
+import { stripEmphasisMarks } from "@/lib/authored-text";
 import { useEffect } from "react";
 import Link from "next/link";
 import confetti from "canvas-confetti";
@@ -172,16 +174,18 @@ function ItemResultCard({
         />
       )}
       <PronunciationButton
-        text={targetText}
+        text={stripEmphasisMarks(targetText)}
         languageCode={languageCode}
-        label={targetText}
+        label={stripEmphasisMarks(targetText)}
         size="sm"
       />
       <div className="min-w-0 flex-1 text-center">
         <p className="font-heading text-lg font-semibold text-foreground">
-          {targetText}
+          <AuthoredText text={targetText} />
         </p>
-        <p className="text-sm text-muted-foreground">{translation}</p>
+        <p className="text-sm text-muted-foreground">
+          <AuthoredText text={translation} />
+        </p>
       </div>
       <Button asChild variant="ghost" size="sm" className="shrink-0">
         <Link

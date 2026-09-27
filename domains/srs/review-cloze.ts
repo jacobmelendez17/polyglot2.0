@@ -1,4 +1,5 @@
 import type { CurriculumExampleSentence } from "@/domains/curriculum";
+import { stripEmphasisMarks } from "@/lib/authored-text";
 
 export type ClozeSentence = {
   /** The underlying `sentences.id` — spec 20 Ghost Reviews needs to know exactly which sentence a missed question showed. */
@@ -43,17 +44,20 @@ export function findCompatibleClozeSentence(
   );
 
   for (const example of examples) {
-    const match = pattern.exec(example.targetText);
+    // The admin 'word' emphasis ticks are display markup; left in, they'd
+    // land in the sentence halves around the blank ("El '___' duerme").
+    const targetText = stripEmphasisMarks(example.targetText);
+    const match = pattern.exec(targetText);
     if (!match) continue;
 
     const start = match.index;
     const end = start + match[1].length;
     return {
       sentenceId: example.id,
-      sentenceBefore: example.targetText.slice(0, start),
-      sentenceAfter: example.targetText.slice(end),
-      blankedWord: example.targetText.slice(start, end),
-      translation: example.translation,
+      sentenceBefore: targetText.slice(0, start),
+      sentenceAfter: targetText.slice(end),
+      blankedWord: targetText.slice(start, end),
+      translation: stripEmphasisMarks(example.translation),
     };
   }
 

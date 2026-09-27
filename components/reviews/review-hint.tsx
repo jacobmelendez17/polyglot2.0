@@ -1,3 +1,4 @@
+import { AuthoredText } from "@/components/shared/authored-text";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -47,7 +48,7 @@ export function ReviewHint({ hint, autoExpand }: ReviewHintProps) {
 function NuanceText({ nuance }: { nuance: string }) {
   return (
     <p className="max-w-sm text-center text-sm text-muted-foreground">
-      {nuance}
+      <AuthoredText text={nuance} />
     </p>
   );
 }

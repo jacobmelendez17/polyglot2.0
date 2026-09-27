@@ -38,6 +38,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { AuthoredText } from "@/components/shared/authored-text";
+import { stripEmphasisMarks } from "@/lib/authored-text";
 import { cn } from "@/lib/utils";
 
 import { saveGrammarContentBlocksAction } from "@/app/(admin)/admin/curriculum/actions";
@@ -248,8 +250,8 @@ export function GrammarContentBlockEditor({
         <p className="mt-1 text-sm text-muted-foreground">
           Add blocks, drag them into order, then save. Nothing changes until you
           save, and saved blocks are live immediately, even on a published item.
-          Put a word in single quotes, like &apos;también&apos;, to show it bold and
-          green.
+          Put a word in single quotes, like &apos;también&apos;, to show it bold
+          and green.
         </p>
       </div>
 
@@ -528,6 +530,34 @@ function SortableBlock({
           onChange={(event) => onChange({ body: event.target.value })}
         />
       )}
+      <EmphasisPreview
+        texts={
+          block.type === "example"
+            ? [block.targetText, block.translation]
+            : [block.body]
+        }
+      />
     </li>
+  );
+}
+
+/**
+ * Shows how the 'word' emphasis shortcut will render, only when a block
+ * actually uses it — the inputs have to stay raw text to be editable.
+ */
+function EmphasisPreview({ texts }: { texts: string[] }) {
+  const used = texts.filter((text) => stripEmphasisMarks(text) !== text);
+  if (used.length === 0) return null;
+  return (
+    <div className="mt-2 rounded-lg bg-muted/40 px-3 py-2 text-sm">
+      <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+        Preview
+      </p>
+      {used.map((text, index) => (
+        <p key={index} className="text-foreground">
+          <AuthoredText text={text} />
+        </p>
+      ))}
+    </div>
   );
 }

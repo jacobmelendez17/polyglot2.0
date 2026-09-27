@@ -1,3 +1,4 @@
+import { AuthoredText } from "@/components/shared/authored-text";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Check, Undo2, X } from "lucide-react";
 
@@ -241,20 +242,26 @@ function ItemInfoPanel({ info }: { info: ReviewItemInfo }) {
 
       {info.explanation ? (
         <p className="text-sm whitespace-pre-line text-foreground">
-          {info.explanation}
+          <AuthoredText text={info.explanation} />
         </p>
       ) : null}
 
       {info.note ? (
-        <p className="text-sm text-muted-foreground">{info.note}</p>
+        <p className="text-sm text-muted-foreground">
+          <AuthoredText text={info.note} />
+        </p>
       ) : null}
 
       {info.examples.length > 0 ? (
         <ul className="flex flex-col gap-2">
           {info.examples.map((example) => (
             <li key={example.targetText} className="text-sm">
-              <p className="text-foreground">{example.targetText}</p>
-              <p className="text-muted-foreground">{example.translation}</p>
+              <p className="text-foreground">
+                <AuthoredText text={example.targetText} />
+              </p>
+              <p className="text-muted-foreground">
+                <AuthoredText text={example.translation} />
+              </p>
             </li>
           ))}
         </ul>
