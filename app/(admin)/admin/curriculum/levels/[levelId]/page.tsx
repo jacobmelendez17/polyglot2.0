@@ -79,7 +79,16 @@ export default async function LevelDetailPage({
         />
       </div>
 
+      {/* `key` forces a remount when navigating to a different level — same
+          fix, same reason, as GroupReorderList's own key (see that
+          component's render site for the full explanation). Next's App
+          Router reuses this same page component across two `[levelId]`
+          routes rather than remounting it, so without the key,
+          LevelItemBoard's nested per-type reorder state would keep the
+          previous level's item ids and silently render every row as null
+          for the level actually being viewed. */}
       <LevelItemBoard
+        key={level.id}
         levelId={level.id}
         items={itemsPage.items}
         levels={levels.map((option) => ({

@@ -195,7 +195,15 @@ export default async function AdminCurriculumPage({
       ) : null}
 
       {reorderMode ? (
+        // `key` forces a remount when the level/type scope changes — same
+        // fix, same reason, as GroupReorderList's own key (see that
+        // component's render site for the full explanation): without it, a
+        // link that changes `level`/`type` while staying in reorder mode
+        // would leave ItemReorderList's own `order` state pointing at the
+        // previous scope's item ids, which are missing from the new scope's
+        // id→item map, silently rendering every row as null.
         <ItemReorderList
+          key={`${params.level}-${type}`}
           levelId={params.level!}
           type={type!}
           items={page.items}

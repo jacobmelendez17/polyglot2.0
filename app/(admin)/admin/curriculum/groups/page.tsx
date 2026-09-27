@@ -102,7 +102,18 @@ export default async function AdminGroupsPage({
         />
       </div>
 
+      {/* `key={levelId}` forces a remount when the level filter changes.
+          Without it, switching levels sends GroupReorderList fresh `groups`
+          props but React reuses the same instance, so its own `order` state
+          (a lazy `useState` initializer that only ever runs once) keeps the
+          previous level's group ids — every one of which is then missing
+          from the new level's id→group map, so every row silently renders
+          as null and the list looks empty even though the new level's
+          groups are real and published. Found 2026-09-27 from a user report
+          of exactly this: newly created, published Level 2 groups not
+          appearing after having viewed a different level first. */}
       <GroupReorderList
+        key={levelId}
         levelId={levelId}
         groups={groupsForLevel.map((g) => ({
           id: g.id,
