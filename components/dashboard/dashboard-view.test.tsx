@@ -1,8 +1,37 @@
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 
 import { DashboardView } from "@/components/dashboard/dashboard-view";
 import type { DashboardData } from "@/domains/dashboard";
+import { AppearanceProvider } from "@/lib/appearance/appearance-context";
+
+// jsdom has no matchMedia at all; AppearanceProvider's effect calls it
+// unconditionally to resolve `system` theme. Same per-file convention as
+// components/onboarding/onboarding-flow.test.tsx.
+beforeAll(() => {
+  window.matchMedia = ((query: string) => ({
+    matches: false,
+    media: query,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    addListener: () => {},
+    removeListener: () => {},
+    onchange: null,
+    dispatchEvent: () => false,
+  })) as unknown as typeof window.matchMedia;
+});
+
+// The Chart.js-backed forecast/history charts read theme/color-blind
+// settings via `useAppearance()`
+// (`components/dashboard/charts/chart-colors.ts`) — in the real app this is
+// always available from the root layout's provider.
+function renderDashboard(data: DashboardData) {
+  return render(
+    <AppearanceProvider>
+      <DashboardView data={data} />
+    </AppearanceProvider>,
+  );
+}
 
 const STREAK = [
   { date: "2026-08-24", label: "Mon", isActive: true, isToday: false },
@@ -129,7 +158,7 @@ const NEW_USER_DASHBOARD: DashboardData = {
 
 describe("DashboardView", () => {
   it("renders every required section for a populated dashboard", () => {
-    render(<DashboardView data={POPULATED_DASHBOARD} />);
+    renderDashboard(POPULATED_DASHBOARD);
 
     expect(
       screen.getByRole("heading", { name: "Lessons" }),
@@ -163,7 +192,7 @@ describe("DashboardView", () => {
   });
 
   it("renders the new-user empty states instead of populated data", () => {
-    render(<DashboardView data={NEW_USER_DASHBOARD} />);
+    renderDashboard(NEW_USER_DASHBOARD);
 
     expect(screen.getByText("No reviews due yet")).toBeInTheDocument();
     expect(screen.getByText("No reviews forecasted")).toBeInTheDocument();

@@ -291,15 +291,12 @@ html[data-font-scale="extra_large"] {
  * review feedback region's Correct/Incorrect icon+text, both a pre-spec-20
  * baseline rule). `stacked-bar-chart.tsx`'s Vocabulary/Grammar segments are
  * a real exception — two adjacent color fills with no per-segment label —
- * so this is where the toggle adds a genuine non-color cue: a border-style
- * difference between the two, on top of the color that's always there.
+ * so this is where the toggle adds a genuine non-color cue. Since the
+ * 2026-09-27 Chart.js migration that chart paints to `<canvas>` instead of
+ * DOM elements, so the cue moved from a CSS border-style rule here to a
+ * diagonal-stripe canvas fill pattern applied directly in
+ * `components/dashboard/charts/canvas-patterns.ts`.
  */
-[data-color-blind="true"] .chart-bar-vocabulary {
-  border: 2px solid var(--learning-vocabulary);
-}
-[data-color-blind="true"] .chart-bar-grammar {
-  border: 2px dashed var(--learning-grammar);
-}
 
 /* --nav-h grows at the `md` breakpoint — see context/feature-specs/02-landing-page.md */
 @media (min-width: 768px) {

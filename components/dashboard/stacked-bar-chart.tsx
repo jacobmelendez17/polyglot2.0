@@ -1,68 +1,111 @@
 "use client";
 
-import { motion } from "motion/react";
+import dynamic from "next/dynamic";
+import { useMemo } from "react";
+import type { ChartData, ChartOptions } from "chart.js";
 
+import { Skeleton } from "@/components/ui/skeleton";
 import type { ForecastBucket } from "@/domains/dashboard";
 
+import "@/components/dashboard/charts/register-chart-js";
+import { createStripePattern } from "@/components/dashboard/charts/canvas-patterns";
+import { useDashboardChartColors } from "@/components/dashboard/charts/chart-colors";
+import {
+  buildChartAriaLabel,
+  buildTooltipOptions,
+} from "@/components/dashboard/charts/chart-options";
+
 const CHART_HEIGHT_PX = 128;
-const BAR_SPRING = { type: "spring", bounce: 0.15, duration: 0.5 } as const;
+
+// Chart.js/react-chartjs-2 must not sit in the initial dashboard bundle —
+// only these two chart widgets need it (`code-standards.md`: "Dynamically
+// import heavy client-only libraries").
+const Bar = dynamic(() => import("react-chartjs-2").then((mod) => mod.Bar), {
+  ssr: false,
+  loading: () => (
+    <Skeleton style={{ height: CHART_HEIGHT_PX }} className="w-full" />
+  ),
+});
 
 type StackedBarChartProps = {
   buckets: ForecastBucket[];
 };
 
 export function StackedBarChart({ buckets }: StackedBarChartProps) {
-  const maxCount = Math.max(
-    1,
-    ...buckets.map((bucket) => bucket.vocabularyCount + bucket.grammarCount),
+  const colors = useDashboardChartColors();
+
+  const ariaLabel = buildChartAriaLabel(
+    "Upcoming review items by time.",
+    buckets,
+    (bucket) =>
+      `${bucket.label}: ${bucket.vocabularyCount + bucket.grammarCount} items`,
+  );
+
+  const data: ChartData<"bar"> = useMemo(
+    () => ({
+      labels: buckets.map((bucket) => bucket.label),
+      datasets: [
+        {
+          label: "Vocabulary",
+          data: buckets.map((bucket) => bucket.vocabularyCount),
+          backgroundColor: colors.vocabulary,
+          borderRadius: 0,
+          borderSkipped: false,
+        },
+        {
+          label: "Grammar",
+          data: buckets.map((bucket) => bucket.grammarCount),
+          backgroundColor: colors.colorBlindAssistance
+            ? (context) => {
+                const { ctx } = context.chart;
+                return createStripePattern(ctx, colors.grammar);
+              }
+            : colors.grammar,
+          borderRadius: {
+            topLeft: 3,
+            topRight: 3,
+            bottomLeft: 0,
+            bottomRight: 0,
+          },
+          borderSkipped: false,
+        },
+      ],
+    }),
+    [buckets, colors],
+  );
+
+  const options: ChartOptions<"bar"> = useMemo(
+    () => ({
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 400, easing: "easeOutQuart" },
+      scales: {
+        x: { stacked: true, display: false },
+        y: { stacked: true, display: false, beginAtZero: true },
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          ...buildTooltipOptions(colors),
+          mode: "index",
+          intersect: false,
+        },
+      },
+      font: { family: colors.fontFamily },
+    }),
+    [colors],
   );
 
   return (
     <div className="flex flex-col gap-2">
       <div
-        className="flex items-end gap-2 sm:gap-3"
-        style={{ height: CHART_HEIGHT_PX }}
         role="img"
-        aria-label={`Upcoming review items by time. ${buckets
-          .map(
-            (bucket) =>
-              `${bucket.label}: ${bucket.vocabularyCount + bucket.grammarCount} items`,
-          )
-          .join(", ")}`}
+        aria-label={ariaLabel}
+        style={{ height: CHART_HEIGHT_PX }}
       >
-        {buckets.map((bucket, index) => {
-          const vocabHeight =
-            (bucket.vocabularyCount / maxCount) * CHART_HEIGHT_PX;
-          const grammarHeight =
-            (bucket.grammarCount / maxCount) * CHART_HEIGHT_PX;
-
-          return (
-            <div
-              // Keyed by slot position, not timestamp/label, so switching ranges
-              // (which changes both the bucket count and every label) reuses the
-              // same DOM nodes and springs to the new heights instead of
-              // unmounting and remounting at their final size.
-              key={`bar-slot-${index}`}
-              aria-hidden="true"
-              className="flex flex-1 flex-col-reverse items-stretch gap-0.5"
-              style={{ height: CHART_HEIGHT_PX }}
-            >
-              {/* Spec 20 Appearance — Color-Blind Assistance: these two segments are otherwise color-only (the chart itself is `aria-hidden`, and neither bar carries its own visible label). `chart-bar-vocabulary`/`chart-bar-grammar` are `globals.css`'s `[data-color-blind="true"]` hook — a border-style difference, not a second color. */}
-              <motion.div
-                className="chart-bar-vocabulary min-h-0 rounded-t-sm bg-learning-vocabulary last:rounded-t-none"
-                initial={false}
-                animate={{ height: vocabHeight }}
-                transition={BAR_SPRING}
-              />
-              <motion.div
-                className="chart-bar-grammar min-h-0 rounded-t-sm bg-learning-grammar"
-                initial={false}
-                animate={{ height: grammarHeight }}
-                transition={BAR_SPRING}
-              />
-            </div>
-          );
-        })}
+        <div aria-hidden="true" className="h-full w-full">
+          <Bar data={data} options={options} />
+        </div>
       </div>
 
       <div className="flex gap-2 sm:gap-3" aria-hidden="true">
