@@ -1,15 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { AnimatePresence, motion } from "motion/react";
 
 import { completeOnboardingAction } from "@/app/(onboarding)/onboarding/actions";
-import { OnboardingNavigation } from "@/components/onboarding/onboarding-navigation";
-import { OnboardingProgress } from "@/components/onboarding/onboarding-progress";
-import { ONBOARDING_CONTENT_WIDTH } from "@/components/onboarding/onboarding-layout";
-import { ONBOARDING_SLIDES } from "@/components/onboarding/onboarding-slides";
-import { cn } from "@/lib/utils";
+import { OnboardingSlides } from "@/components/onboarding/onboarding-slides";
 
 type OnboardingFlowProps = {
   /**
@@ -28,7 +23,7 @@ type OnboardingFlowProps = {
    */
   returnTo?: string;
   /**
-   * Replay only: where "Start Now!" navigates instead of straight to
+   * Replay only: where "Start learning" navigates instead of straight to
    * `returnTo` — the one giant preview (2026-09-26 decision) continues into
    * the language-choice and curriculum-choice screens' own previews rather
    * than ending after the slides. Omit to end here, exactly like before
@@ -38,24 +33,11 @@ type OnboardingFlowProps = {
   continueHref?: string;
 };
 
-/** How far a slide travels on entry/exit. Small on purpose: spec 15 asks for smooth transitions that never delay navigation. */
-const SLIDE_OFFSET = 48;
-
 /**
- * The onboarding slideshow (spec 15). This component owns exactly what the
- * spec says it should — the current slide, navigation, transition direction,
- * completion, and progress dots — and nothing about how any individual slide
- * looks. Slide visuals come from `ONBOARDING_SLIDES`, so replacing one
- * changes nothing here.
- *
- * No timers drive anything. The looping demonstrations are CSS animations
- * owned by the slide components, so this holds no interval to clear and
- * re-renders only when the learner actually navigates — never per animation
- * frame.
- *
- * Transitions never gate navigation: `AnimatePresence mode="popLayout"` lets
- * the next slide mount immediately, so a learner pressing Next repeatedly
- * moves at their own speed rather than the animation's.
+ * The onboarding route's client boundary (spec 15). The slideshow itself —
+ * slides, transitions, controls — is `OnboardingSlides` (v2, 2026-09-27);
+ * this owns only what happens when it finishes: writing completion (or, for
+ * a replay, writing nothing), and where the learner goes next.
  */
 export function OnboardingFlow({
   isReplay,
@@ -63,24 +45,8 @@ export function OnboardingFlow({
   continueHref,
 }: OnboardingFlowProps) {
   const router = useRouter();
-  const [index, setIndex] = useState(0);
-  const [direction, setDirection] = useState<1 | -1>(1);
   const [isCompleting, startCompleting] = useTransition();
   const [error, setError] = useState<string | null>(null);
-
-  const isFirstSlide = index === 0;
-  const isLastSlide = index === ONBOARDING_SLIDES.length - 1;
-  const slide = ONBOARDING_SLIDES[index];
-
-  const goBack = useCallback(() => {
-    setDirection(-1);
-    setIndex((current) => Math.max(0, current - 1));
-  }, []);
-
-  const goNext = useCallback(() => {
-    setDirection(1);
-    setIndex((current) => Math.min(ONBOARDING_SLIDES.length - 1, current + 1));
-  }, []);
 
   const finish = useCallback(() => {
     setError(null);
@@ -107,89 +73,18 @@ export function OnboardingFlow({
     });
   }, [isReplay, returnTo, continueHref, router]);
 
-  // Arrow-key navigation, on top of the natively focusable Back/Next buttons.
-  // Registered once and removed on unmount, so nothing outlives the flow.
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "ArrowRight" && !isLastSlide) goNext();
-      if (event.key === "ArrowLeft" && !isFirstSlide) goBack();
-    }
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [goBack, goNext, isFirstSlide, isLastSlide]);
-
-  const Demonstration = slide.Demonstration;
-
   return (
-    <div
-      className={cn(
-        "relative flex min-h-svh flex-col overflow-hidden transition-colors duration-(--dur-slow) ease-(--ease-soft) motion-reduce:transition-none",
-        slide.theme,
-      )}
-    >
+    <>
       {isReplay ? (
-        <p className="bg-foreground/85 px-4 py-1.5 text-center text-xs font-medium text-background">
+        <p className="pointer-events-none fixed top-2 left-1/2 z-50 -translate-x-1/2 rounded-full bg-foreground/85 px-4 py-1.5 text-center text-xs font-medium whitespace-nowrap text-background">
           Preview — finishing here will not change your onboarding status.
         </p>
       ) : null}
-
-      {/* pb-28 keeps the last content clear of the sticky controls, so nothing
-          is ever hidden behind them or requires scrolling to reach. */}
-      <div className="flex flex-1 items-center justify-center px-5 pt-10 pb-28 sm:px-8">
-        <AnimatePresence mode="popLayout" custom={direction} initial={false}>
-          <motion.section
-            key={slide.id}
-            custom={direction}
-            initial={{ opacity: 0, x: direction * SLIDE_OFFSET }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: direction * -SLIDE_OFFSET }}
-            transition={{ duration: 0.28, ease: [0.22, 0.61, 0.36, 1] }}
-            aria-labelledby={`onboarding-heading-${slide.id}`}
-            className={cn(
-              "flex w-full flex-col items-center gap-6 text-center",
-              ONBOARDING_CONTENT_WIDTH,
-            )}
-          >
-            <Demonstration />
-
-            <div className="flex flex-col gap-2">
-              <h1
-                id={`onboarding-heading-${slide.id}`}
-                className="font-heading text-3xl font-semibold text-balance text-foreground sm:text-4xl"
-              >
-                {slide.heading}
-              </h1>
-              <p className="text-base text-pretty text-muted-foreground sm:text-lg">
-                {slide.copy}
-              </p>
-            </div>
-          </motion.section>
-        </AnimatePresence>
-      </div>
-
-      <div className="pointer-events-none fixed inset-x-0 bottom-20 flex flex-col items-center gap-2 px-4 sm:bottom-24">
-        {error ? (
-          <p
-            role="alert"
-            className="pointer-events-auto rounded-lg bg-card px-3 py-1.5 text-sm text-state-error"
-          >
-            {error}
-          </p>
-        ) : null}
-        <OnboardingProgress
-          currentIndex={index}
-          total={ONBOARDING_SLIDES.length}
-        />
-      </div>
-
-      <OnboardingNavigation
-        isFirstSlide={isFirstSlide}
-        isLastSlide={isLastSlide}
-        isCompleting={isCompleting}
-        onBack={goBack}
-        onNext={goNext}
+      <OnboardingSlides
         onFinish={finish}
+        isFinishing={isCompleting}
+        error={error}
       />
-    </div>
+    </>
   );
 }

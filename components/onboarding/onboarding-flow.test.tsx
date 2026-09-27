@@ -1,9 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { OnboardingFlow } from "./onboarding-flow";
-import { ONBOARDING_SLIDES } from "./onboarding-slides";
 import { completeOnboardingAction } from "@/app/(onboarding)/onboarding/actions";
 
 const mockReplace = vi.fn();
@@ -22,11 +21,34 @@ beforeEach(() => {
   mockCompleteOnboardingAction.mockReset();
 });
 
+// jsdom has none of these; reduced motion keeps every move a short crossfade.
+beforeAll(() => {
+  window.matchMedia = ((query: string) => ({
+    matches: query.includes("prefers-reduced-motion"),
+    media: query,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    addListener: () => {},
+    removeListener: () => {},
+    onchange: null,
+    dispatchEvent: () => false,
+  })) as unknown as typeof window.matchMedia;
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+  HTMLCanvasElement.prototype.getContext = (() =>
+    null) as unknown as HTMLCanvasElement["getContext"];
+});
+
+/** Skip is the approved shortcut to the finale (it does not finish). */
 async function goToLastSlide(user: ReturnType<typeof userEvent.setup>) {
-  for (let i = 0; i < ONBOARDING_SLIDES.length - 1; i++) {
-    await user.click(screen.getByRole("button", { name: "Next" }));
-  }
+  await user.click(screen.getByRole("button", { name: "Skip" }));
+  await screen.findByRole("heading", { level: 1, name: "Have fun!" });
 }
+
+const FINISH = { name: "Start learning" };
 
 describe("OnboardingFlow replay", () => {
   it("finishing a replay returns to the given returnTo path and never writes completion (spec 20 Tours)", async () => {
@@ -34,7 +56,7 @@ describe("OnboardingFlow replay", () => {
     render(<OnboardingFlow isReplay returnTo="/settings/account" />);
 
     await goToLastSlide(user);
-    await user.click(screen.getByRole("button", { name: "Start Now!" }));
+    await user.click(screen.getByRole("button", FINISH));
 
     expect(mockReplace).toHaveBeenCalledWith("/settings/account");
     expect(mockCompleteOnboardingAction).not.toHaveBeenCalled();
@@ -45,7 +67,7 @@ describe("OnboardingFlow replay", () => {
     render(<OnboardingFlow isReplay />);
 
     await goToLastSlide(user);
-    await user.click(screen.getByRole("button", { name: "Start Now!" }));
+    await user.click(screen.getByRole("button", FINISH));
 
     expect(mockReplace).toHaveBeenCalledWith("/admin/sandbox");
   });
@@ -70,7 +92,7 @@ describe("OnboardingFlow replay", () => {
     render(<OnboardingFlow isReplay={false} />);
 
     await goToLastSlide(user);
-    await user.click(screen.getByRole("button", { name: "Start Now!" }));
+    await user.click(screen.getByRole("button", FINISH));
 
     expect(mockCompleteOnboardingAction).toHaveBeenCalled();
   });
@@ -84,7 +106,7 @@ describe("OnboardingFlow replay", () => {
     render(<OnboardingFlow isReplay={false} />);
 
     await goToLastSlide(user);
-    await user.click(screen.getByRole("button", { name: "Start Now!" }));
+    await user.click(screen.getByRole("button", FINISH));
 
     expect(mockReplace).toHaveBeenCalledWith("/onboarding/language");
   });
@@ -100,7 +122,7 @@ describe("OnboardingFlow replay", () => {
     );
 
     await goToLastSlide(user);
-    await user.click(screen.getByRole("button", { name: "Start Now!" }));
+    await user.click(screen.getByRole("button", FINISH));
 
     expect(mockReplace).toHaveBeenCalledWith("/onboarding/language?replay=1");
     expect(mockCompleteOnboardingAction).not.toHaveBeenCalled();

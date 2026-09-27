@@ -1585,6 +1585,68 @@ writing to real `user_item_progress` rows.
 
 Every unit below passed `tsc`, lint, `npm run test`, `npm run build`, and a real-browser check at desktop and mobile viewports unless noted.
 
+- **Onboarding slideshow v2** (2026-09-27, from the design handoff
+  `HANDOFF.md` + reference implementation + prototype) — replaces the old
+  five-slide slideshow with the approved four slides: **SRS tower**
+  (Beginner 1 → Fluent, plates drop and land with no overshoot), **three
+  tappable characters** (Tagalog / Español / Français, speech bubbles + speech),
+  **customization** (interactive particle field with color listbox, size
+  slider, "letters from everywhere" switch), and a **marigold finale** reached
+  by a liquid "melt", with ten flippable postcards. Block-slide transitions
+  (vertical 1↔2, horizontal elsewhere), crossfade + no idle loops under
+  reduced motion, arrow keys, Skip, an `aria-live` step announcement. Lives in
+  `components/onboarding/` (`onboarding-slides.tsx` shell; `srs-tower`,
+  `character-cast`, `particle-field`/`particle-controls`, `postcards`,
+  `melt-overlay`; pure logic and content in `lib/`). `OnboardingFlow` is now
+  only the completion/replay wrapper: write completion (or nothing, for a
+  replay), then continue to `/onboarding/language`; the replay banner,
+  `returnTo`, and the Admin `continueHref` chain are unchanged. Removed the
+  old `slides/`, `onboarding-slides.ts`, `onboarding-navigation`, and
+  `onboarding-progress`. Verified with `tsc`, lint, and 57 onboarding unit /
+  component tests (the reference's 27 unit tests ported to Vitest, plus a
+  new component suite and the rewritten flow tests). **Not verified:** a
+  real-browser visual comparison against the prototype, the rewritten
+  Playwright spec (`tests/e2e/specs/onboarding.spec.ts` — needs the E2E
+  infra; it was already stale, still describing the pre-language-step flow).
+  `npm run build` passes.
+  **Handoff-vs-context conflicts and how each was resolved** (per the
+  handoff's own rule: context files win, except approved behavior, copy,
+  timings, and visuals):
+  - **Stage names** — handoff hard-coded "Advanced" for stage 8; the app's
+    stage is "Master" (`SRS_STAGE_LABELS`). The tower now reads the app's own
+    labels, so it can't drift.
+  - **Colors** — handoff shipped literal Terraza hex triplets (`--ob-*`);
+    `ui-context.md` forbids hardcoded hex in components. `--ob-*` are now
+    aliases of the app tokens (`--bg-base`, `--accent-primary`, …), resolved to
+    RGB for canvas/SVG through a probe element, so dark mode and the accent
+    palette follow. The only literals left are the fixed finale/postcard
+    colors, documented in `ui-context.md` ("Onboarding Illustration Colors").
+  - **Tower gradient vs per-stage SRS tokens** — kept the approved 9-step
+    card → accent → ink gradient (approved visual) over the `--srs-*` stage
+    colors (ui-context: color grouped by stage name). Every plate is labelled,
+    so color isn't the only signal. Flagged in case you'd rather the tower use
+    the real stage colors.
+  - **Test tooling** — handoff tests were Jest; the repo is Vitest. Ported.
+    The handoff's component test file wasn't included, so that suite is new.
+  - **`motion`** — already a dependency (^13.1.1 vs the handoff's ^12);
+    identical `motion/react` API, nothing to install.
+  - **Speech** — the app already has `providers/speech`; the character cast
+    uses it through a small promise-shaped adapter (`lib/speech.ts`) instead
+    of the handoff's second browser-speech implementation. A recorded clip
+    (`audioUrl`) still wins when a character has one.
+  - **Copy** — "Start Now!" is now "Start learning", per the handoff.
+  - **Onboarding route / completion** — unchanged: `/onboarding`, completion
+    stored in `users.onboarding_completed_at`, finishing goes to
+    `/onboarding/language` → `/onboarding/curriculum` → dashboard. This matches
+    the handoff's open question 2 (finish goes where onboarding already goes).
+  **Open questions carried over from the handoff:** Skip currently *jumps to
+  the finale* (as approved in the prototype) rather than finishing
+  onboarding — confirm that's what you want; the Tagalog voice source is still
+  undecided (many browsers have no Tagalog voice, so the bubble shows and
+  speech is skipped); character artwork is still dashed placeholders until
+  images exist at `public/onboarding/characters/{tagalog,spanish,french}.png`
+  and `image` is set in `lib/content.ts`.
+
 - **Grammar About-content builder: fixed the silent failure, rebuilt as
   stage → reorder → Save** (2026-09-26, user report: adding text / example /
   Polyglot note blocks "disappears and nothing is applied"). **Root cause:**

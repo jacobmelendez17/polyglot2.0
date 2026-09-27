@@ -134,6 +134,10 @@ The core SRS progression has nine stages (Beginner 1-4, Familiar 1-2, Intermedia
 
 SRS color is supporting information. Text labels must remain present; color alone must never communicate stage.
 
+### Onboarding Illustration Colors
+
+The onboarding slideshow (`components/onboarding/`, v2 — 2026-09-27) follows the token rule for everything that is UI: its `--ob-*` variables in `onboarding.css` are aliases of the tokens above, so light/dark mode and the accent palette apply automatically. Three things are deliberately fixed in both themes because they are illustration, not interface: the marigold finale background and its dark text, the postcard artwork (`components/onboarding/lib/content.ts`), and the postcard paper. The slide-1 tower colors its nine plates with a card → accent → ink gradient rather than the per-stage `--srs-*` tokens; every plate is labelled with its stage name, so color still never carries stage on its own.
+
 ### Practice Skill Colors
 
 The Practice hub (`/practice`) is the one place the four practice skills need distinct identities, so it introduces four fixed tokens (user-supplied wireframe, 2026-09-23). This is the explicit design expansion the paragraph above says would be required; it does not extend to any other screen.
