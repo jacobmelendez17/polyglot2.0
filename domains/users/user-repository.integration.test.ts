@@ -11,8 +11,10 @@ import {
 } from "@/db/test/with-test-transaction";
 import { AppError } from "@/lib/errors/app-error";
 
+import { GRAMMAR_THEME_ID } from "./curriculum-preference";
 import { getDefaultLanguageCode } from "./provisioning-config";
 import {
+  findLanguageSettings,
   findUserById,
   findUserByClerkUserId,
   findUsersByIds,
@@ -657,6 +659,60 @@ describe("saveLessonBatchSize / saveAutoPronounceLessons (spec 20 Lessons)", () 
           autoPronounceLessons: false,
         }),
       ).rejects.toThrow(AppError);
+    });
+  });
+});
+
+describe("saveCurriculumPreference — Grammar pseudo-theme (2026-09-27)", () => {
+  it("round-trips GRAMMAR_THEME_ID through the real selected_theme_is_grammar column", async () => {
+    await withTestTransaction(async (tx) => {
+      const { language } = await seedDefaultLanguageAndLevel1(tx);
+      const user = await provisionUser(tx, "clerk-grammar-theme-round-trip");
+
+      const saved = await saveCurriculumPreference(tx, {
+        userId: user.id,
+        languageId: language.id,
+        curriculumMode: "choose_group",
+        selectedVocabularyGroupId: GRAMMAR_THEME_ID,
+      });
+      expect(saved.selectedVocabularyGroupId).toBe(GRAMMAR_THEME_ID);
+
+      const reloaded = await findLanguageSettings(tx, user.id, language.id);
+      expect(reloaded?.selectedVocabularyGroupId).toBe(GRAMMAR_THEME_ID);
+    });
+  });
+
+  it("switching away from Choose Group as You Go clears the grammar flag along with the group id", async () => {
+    await withTestTransaction(async (tx) => {
+      const { language } = await seedDefaultLanguageAndLevel1(tx);
+      const user = await provisionUser(tx, "clerk-grammar-theme-switch");
+
+      await saveCurriculumPreference(tx, {
+        userId: user.id,
+        languageId: language.id,
+        curriculumMode: "choose_group",
+        selectedVocabularyGroupId: GRAMMAR_THEME_ID,
+      });
+
+      const afterSwitch = await saveCurriculumPreference(tx, {
+        userId: user.id,
+        languageId: language.id,
+        curriculumMode: "variety",
+      });
+      // Every mode other than `choose_group` stores `null` for the
+      // selection regardless — this confirms the grammar flag is cleared
+      // along with the group id, not left dangling underneath (which the
+      // `user_language_settings_grammar_theme_consistency` check constraint
+      // would otherwise reject on the next write anyway).
+      expect(afterSwitch.selectedVocabularyGroupId).toBeNull();
+
+      const backToGrammar = await saveCurriculumPreference(tx, {
+        userId: user.id,
+        languageId: language.id,
+        curriculumMode: "choose_group",
+        selectedVocabularyGroupId: GRAMMAR_THEME_ID,
+      });
+      expect(backToGrammar.selectedVocabularyGroupId).toBe(GRAMMAR_THEME_ID);
     });
   });
 });

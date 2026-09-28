@@ -6,7 +6,13 @@ import type {
   VocabularyItem,
 } from "@/domains/curriculum";
 
-import { getAvailableThemes, selectLessonBatch } from "./lesson-batch";
+import { GRAMMAR_THEME_ID } from "@/domains/users";
+
+import {
+  getAvailableThemes,
+  getRemainingGrammarCount,
+  selectLessonBatch,
+} from "./lesson-batch";
 
 const NUMBERS = { id: "theme-numbers", name: "Numbers", position: 1 };
 const GREETINGS = { id: "theme-greetings", name: "Greetings", position: 2 };
@@ -299,6 +305,55 @@ describe("selectLessonBatch", () => {
         0,
       );
     });
+
+    describe("Grammar pseudo-theme", () => {
+      it("fills the batch entirely from grammar, with no vocabulary at all, when GRAMMAR_THEME_ID is selected", () => {
+        const batch = selectLessonBatch({
+          eligibleItems: makeLevel(),
+          batchSize: 3,
+          mode: "choose_group",
+          selectedThemeId: GRAMMAR_THEME_ID,
+        });
+        expect(batch.map((item) => item.id)).toEqual([
+          "grammar-0",
+          "grammar-1",
+          "grammar-2",
+        ]);
+      });
+
+      it("is capped by however much grammar remains, not padded with vocabulary", () => {
+        const batch = selectLessonBatch({
+          eligibleItems: makeLevel(),
+          batchSize: 20,
+          mode: "choose_group",
+          selectedThemeId: GRAMMAR_THEME_ID,
+        });
+        expect(batch).toHaveLength(4);
+        expect(batch.every((item) => item.type === "grammar")).toBe(true);
+      });
+
+      it("ignores the vocabulary-pacing ceiling that ordinary group selection is subject to", () => {
+        // A single word plus eleven grammar points would ordinarily cap
+        // grammar at one slot short of the batch (see "scales the grammar
+        // share..." above) so the word isn't starved. That ceiling is a
+        // pacing rule for when vocabulary is what's being taught; it doesn't
+        // apply when grammar itself was explicitly requested.
+        const grammarHeavy = [
+          makeItem({ id: "solo-word", theme: NUMBERS, lessonPriority: 1 }),
+          ...Array.from({ length: 11 }, (_, i) =>
+            makeGrammar({ id: `g-${i}`, lessonPriority: i + 1 }),
+          ),
+        ];
+        const batch = selectLessonBatch({
+          eligibleItems: grammarHeavy,
+          batchSize: 6,
+          mode: "choose_group",
+          selectedThemeId: GRAMMAR_THEME_ID,
+        });
+        expect(batch).toHaveLength(6);
+        expect(batch.every((item) => item.type === "grammar")).toBe(true);
+      });
+    });
   });
 
   describe("variety mode", () => {
@@ -480,5 +535,23 @@ describe("getAvailableThemes", () => {
     expect(getAvailableThemes([makeGrammar({ id: "grammar-only" })])).toEqual(
       [],
     );
+  });
+});
+
+describe("getRemainingGrammarCount", () => {
+  it("counts grammar items in the current level only", () => {
+    expect(getRemainingGrammarCount(makeLevel())).toBe(4);
+  });
+
+  it("ignores grammar in a higher level", () => {
+    const eligibleItems = [
+      makeItem({ id: "level-1-word", levelNumber: 1 }),
+      makeGrammar({ id: "level-2-grammar", levelNumber: 2 }),
+    ];
+    expect(getRemainingGrammarCount(eligibleItems)).toBe(0);
+  });
+
+  it("is zero when nothing is eligible", () => {
+    expect(getRemainingGrammarCount([])).toBe(0);
   });
 });

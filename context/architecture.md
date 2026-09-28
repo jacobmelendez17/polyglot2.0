@@ -1109,7 +1109,19 @@ with anything left to teach):
   padded from another group. When the chosen group is finished, or none is
   chosen yet, the learner is asked to choose rather than being given one.
   Grammar Placement does not affect this mode either — grammar always
-  follows the grammar curriculum's own authored order.
+  follows the grammar curriculum's own authored order. As of 2026-09-27, the
+  choice is not limited to vocabulary groups: a "Grammar" pseudo-theme
+  (`GRAMMAR_THEME_ID` in `domains/users/curriculum-preference.ts`) is offered
+  alongside them whenever the current level still has grammar left, and
+  selecting it fills the batch entirely from remaining grammar with no
+  vocabulary at all — the pacing reservation described below is specific to
+  *not* picking grammar explicitly, so it doesn't apply here. Stored as a
+  second boolean column (`selected_theme_is_grammar`) rather than inside
+  `selected_vocabulary_group_id` itself, since that column is a real foreign
+  key into `vocabulary_groups` and has no "Grammar" row to reference; the two
+  columns are combined into one opaque selection value only at
+  `domains/users/user-repository.ts`'s read/write boundary; see
+  progress-tracker.md's 2026-09-27 entry for the full design.
 - **Variety** — both old `balanced` _and_ old `random` migrate here (a real,
   spec-mandated behavior change for anyone previously in `random`: there is
   no longer a true-arbitrary-interleave option). The vocabulary portion is

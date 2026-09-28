@@ -6,6 +6,7 @@ import { z } from "zod";
 import {
   CURRICULUM_MODES,
   GRAMMAR_PLACEMENTS,
+  GRAMMAR_THEME_ID,
   MAX_LESSON_BATCH_SIZE,
   MIN_LESSON_BATCH_SIZE,
 } from "@/domains/users";
@@ -38,7 +39,9 @@ const uuidLike = z
 
 const curriculumPreferenceInputSchema = z.object({
   curriculumMode: z.enum(CURRICULUM_MODES),
-  selectedVocabularyGroupId: uuidLike.nullish(),
+  selectedVocabularyGroupId: z
+    .union([uuidLike, z.literal(GRAMMAR_THEME_ID)])
+    .nullish(),
 });
 
 /**

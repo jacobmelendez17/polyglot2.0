@@ -108,6 +108,8 @@ export type LessonThemeChoice = {
   id: string;
   name: string;
   remainingCount: number;
+  /** `"grammar"` is the one `GRAMMAR_THEME_ID` entry (`domains/users`); every other choice is a real vocabulary group. UI copy uses this to say "N grammar points left" vs "N words left" without comparing against the id directly. */
+  kind: "vocabulary" | "grammar";
 };
 
 export type LessonStartResult =

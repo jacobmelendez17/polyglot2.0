@@ -28,6 +28,24 @@ export const CURRICULUM_MODES = [
 export type CurriculumMode = (typeof CURRICULUM_MODES)[number];
 
 /**
+ * Choose Group as You Go's "Grammar" pseudo-theme (2026-09-27 user request —
+ * "why can't I choose grammar batch in my lessons?"). `selectedVocabularyGroupId`
+ * otherwise always names a real `vocabulary_groups.id`; this sentinel is the
+ * one value it can hold that isn't one, meaning "study grammar only" instead
+ * of a vocabulary group. Chosen and re-validated the same way any other
+ * theme choice is (`domains/lessons/lesson-service.ts`'s `toThemeChoices`
+ * offers it as one more entry in the same list), so every existing rule
+ * about an *active* selection — asking again once it's cleared or no longer
+ * available, auto-proceeding when it's the only option — applies to it
+ * unchanged. The database itself never stores this string: it has its own
+ * `selected_theme_is_grammar` boolean column, translated to and from this
+ * sentinel only at `domains/users/user-repository.ts`'s read/write boundary,
+ * since `selected_vocabulary_group_id` is a real foreign key and can't hold
+ * a value that isn't a real group.
+ */
+export const GRAMMAR_THEME_ID = "grammar";
+
+/**
  * Spec 20 Lessons — Grammar Placement. Meaningful only in `variety` mode;
  * `default_order` always teaches grammar first and `choose_group` follows
  * the grammar curriculum's own authored order regardless, both regardless
@@ -75,7 +93,7 @@ export type LanguageSettings = {
   userId: string;
   languageId: string;
   curriculumMode: CurriculumMode;
-  /** Choose Group as You Go only, and `null` until a group is picked or after one is finished. Every other mode stores `null` — the database enforces it. */
+  /** Choose Group as You Go only, and `null` until a theme is picked or after one is finished. Every other mode stores `null` — the database enforces it. May be `GRAMMAR_THEME_ID` rather than a real group id — see that constant. */
   selectedVocabularyGroupId: string | null;
   /** Meaningful only in `variety` mode — see `GrammarPlacement`'s docstring. */
   grammarPlacement: GrammarPlacement;

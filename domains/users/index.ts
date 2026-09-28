@@ -17,6 +17,7 @@ export {
   DEFAULT_AUTO_PRONOUNCE_LESSONS,
   DEFAULT_LESSON_BATCH_SIZE,
   GRAMMAR_PLACEMENTS,
+  GRAMMAR_THEME_ID,
   isCurriculumChoiceRequired,
   isCurriculumMode,
   isGrammarPlacement,

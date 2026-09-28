@@ -1,3 +1,4 @@
+import type { LessonThemeChoice } from "@/domains/lessons";
 import type { SrsStage } from "@/domains/srs";
 import type { CurriculumMode } from "@/domains/users";
 
@@ -54,7 +55,7 @@ export type SandboxCurriculumPreviewItem = {
 export type SandboxCurriculumPreview = {
   currentMode: CurriculumMode | null;
   selectedThemeId: string | null;
-  themes: { id: string; name: string; remainingCount: number }[];
+  themes: LessonThemeChoice[];
   batchesByMode: {
     mode: CurriculumMode;
     items: SandboxCurriculumPreviewItem[];

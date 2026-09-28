@@ -3,6 +3,7 @@ import type { CurriculumMode, LanguageSettings } from "@/domains/users";
 import {
   DEFAULT_AUTO_PRONOUNCE_LESSONS,
   DEFAULT_LESSON_BATCH_SIZE,
+  GRAMMAR_THEME_ID,
   isThemeSelectionRequired,
 } from "@/domains/users";
 import { checkAnswer } from "@/lib/answer-checking";
@@ -10,6 +11,7 @@ import { LessonError } from "@/lib/errors/lesson-errors";
 
 import {
   getAvailableThemes,
+  getRemainingGrammarCount,
   selectLessonBatch,
   toLessonBatchItems,
 } from "./lesson-batch";
@@ -158,6 +160,13 @@ function computeItemStates(
  * The themes a learner can choose between right now, with how much is left
  * in each. Shared by `startLesson`'s `choose-theme` result and the
  * curriculum preference screen, so the two can never offer different lists.
+ *
+ * "Grammar" (`GRAMMAR_THEME_ID`) is appended as one more choice whenever the
+ * current level still has grammar left — the same pseudo-theme
+ * `selectLessonBatch` special-cases in `choose_group` mode. Real vocabulary
+ * groups come first, matching `getAvailableThemes`' curriculum-position
+ * order; Grammar is appended after rather than given a position of its own,
+ * since it isn't part of that ordering (2026-09-27 user request).
  */
 export function toThemeChoices(
   eligibleItems: LearningItem[],
@@ -170,11 +179,27 @@ export function toThemeChoices(
       (remainingByTheme.get(item.theme.id) ?? 0) + 1,
     );
   }
-  return getAvailableThemes(eligibleItems).map((theme) => ({
+  const vocabularyChoices: LessonThemeChoice[] = getAvailableThemes(
+    eligibleItems,
+  ).map((theme) => ({
     id: theme.id,
     name: theme.name,
     remainingCount: remainingByTheme.get(theme.id) ?? 0,
+    kind: "vocabulary",
   }));
+
+  const grammarRemaining = getRemainingGrammarCount(eligibleItems);
+  if (grammarRemaining === 0) return vocabularyChoices;
+
+  return [
+    ...vocabularyChoices,
+    {
+      id: GRAMMAR_THEME_ID,
+      name: "Grammar",
+      remainingCount: grammarRemaining,
+      kind: "grammar",
+    },
+  ];
 }
 
 /** Every theme this learner could still study in their current level (spec 16) — the preference screen's own list. */
@@ -248,11 +273,24 @@ export async function startLesson({
     ) {
       return { kind: "choose-theme", themes };
     }
-    // Exactly one group has anything left — nothing to choose between, so
-    // proceed with it directly rather than trusting `selectedThemeId` to
-    // already agree: it may be stale (pointing at a group that has since
-    // emptied into this exact state) or never set at all.
-    selectedThemeId = themes[0]!.id;
+    // `isThemeSelectionRequired` returning false means one of two different
+    // things, and only one of them calls for overriding `selectedThemeId`:
+    //
+    // - Exactly one theme has anything left — nothing to choose between, so
+    //   proceed with it directly rather than trusting `selectedThemeId` to
+    //   already agree: it may be stale (pointing at a theme that has since
+    //   emptied into this exact state) or never set at all.
+    // - More than one theme remains, but the stored `selectedThemeId` (set
+    //   above, before this block) is itself a real, currently-available
+    //   selection — nothing to resolve, and overwriting it with `themes[0]`
+    //   would silently switch the learner onto a different theme than the
+    //   one they're actively studying (caught 2026-09-27 while adding the
+    //   Grammar pseudo-theme: every prior test's "active selection among
+    //   several themes" fixture happened to have that selection sort first,
+    //   which is what let this go unnoticed).
+    if (themes.length === 1) {
+      selectedThemeId = themes[0]!.id;
+    }
   }
 
   const selected = selectLessonBatch({

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  GRAMMAR_THEME_ID,
   isCurriculumChoiceRequired,
   isCurriculumMode,
   isGrammarPlacement,
@@ -158,6 +159,29 @@ describe("isThemeSelectionRequired", () => {
         [],
       ),
     ).toBe(false);
+  });
+
+  // GRAMMAR_THEME_ID (2026-09-27) is just one more value this function's
+  // `availableThemeIds` list can contain — it needs no dedicated handling
+  // here to behave correctly, which these tests confirm rather than assume.
+  it("treats an active Grammar selection the same as an active group selection", () => {
+    const chosenGrammar = settings({
+      curriculumMode: "choose_group",
+      selectedVocabularyGroupId: GRAMMAR_THEME_ID,
+    });
+    expect(
+      isThemeSelectionRequired(chosenGrammar, ["theme-1", GRAMMAR_THEME_ID]),
+    ).toBe(false);
+  });
+
+  it("asks again once Grammar is no longer offered (all grammar learned), same as a finished group", () => {
+    const chosenGrammar = settings({
+      curriculumMode: "choose_group",
+      selectedVocabularyGroupId: GRAMMAR_THEME_ID,
+    });
+    expect(isThemeSelectionRequired(chosenGrammar, ["theme-1", "theme-2"])).toBe(
+      true,
+    );
   });
 });
 

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { CURRICULUM_MODES } from "@/domains/users";
+import { CURRICULUM_MODES, GRAMMAR_THEME_ID } from "@/domains/users";
 import { listAvailableThemes } from "@/domains/lessons/server";
 import { requireUser, setCurriculumPreference } from "@/domains/users/server";
 import { AppError } from "@/lib/errors/app-error";
@@ -41,7 +41,9 @@ const uuidLike = z
 
 const inputSchema = z.object({
   curriculumMode: z.enum(CURRICULUM_MODES),
-  selectedVocabularyGroupId: uuidLike.nullish(),
+  selectedVocabularyGroupId: z
+    .union([uuidLike, z.literal(GRAMMAR_THEME_ID)])
+    .nullish(),
 });
 
 export async function setCurriculumPreferenceAction(

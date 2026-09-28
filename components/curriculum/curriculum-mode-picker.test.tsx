@@ -6,8 +6,8 @@ import { CurriculumModePicker } from "@/components/curriculum/curriculum-mode-pi
 import type { LessonThemeChoice } from "@/domains/lessons";
 
 const THEMES: LessonThemeChoice[] = [
-  { id: "theme-numbers", name: "Numbers", remainingCount: 11 },
-  { id: "theme-colors", name: "Colors", remainingCount: 8 },
+  { id: "theme-numbers", name: "Numbers", remainingCount: 11, kind: "vocabulary" },
+  { id: "theme-colors", name: "Colors", remainingCount: 8, kind: "vocabulary" },
 ];
 
 function renderPicker(

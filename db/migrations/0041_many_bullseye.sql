@@ -1,0 +1,3 @@
+ALTER TABLE "user_language_settings" ADD COLUMN "selected_theme_is_grammar" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "user_language_settings" ADD CONSTRAINT "user_language_settings_grammar_theme_consistency" CHECK (NOT "user_language_settings"."selected_theme_is_grammar" OR "user_language_settings"."curriculum_mode" IN ('theme', 'choose_group'));--> statement-breakpoint
+ALTER TABLE "user_language_settings" ADD CONSTRAINT "user_language_settings_grammar_group_exclusive" CHECK (NOT ("user_language_settings"."selected_theme_is_grammar" AND "user_language_settings"."selected_vocabulary_group_id" IS NOT NULL));

@@ -90,6 +90,7 @@ export function StackedBarChart({ buckets }: StackedBarChartProps) {
           ...buildTooltipOptions(colors),
           mode: "index",
           intersect: true,
+          position: "stackCenter",
         },
       },
       font: { family: colors.fontFamily },

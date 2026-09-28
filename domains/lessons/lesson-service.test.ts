@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import { FIXTURE_LANGUAGE_ID } from "@/domains/curriculum";
 import { fixtureCurriculumReader } from "@/domains/curriculum/curriculum-service";
-import type { LearningItem, VocabularyItem } from "@/domains/curriculum";
+import type {
+  GrammarItem,
+  LearningItem,
+  VocabularyItem,
+} from "@/domains/curriculum";
+import { GRAMMAR_THEME_ID } from "@/domains/users";
 import type { LanguageSettings } from "@/domains/users";
 
 import {
@@ -10,6 +15,7 @@ import {
   startLesson,
   startQuiz,
   submitQuizAnswer,
+  toThemeChoices,
 } from "./lesson-service";
 import type { LessonCurriculumReader } from "./lesson-curriculum-reader";
 import { verifyLessonState } from "./lesson-token";
@@ -36,6 +42,26 @@ function makeThemedItem(
     pronunciation: { guide: "placeholder" },
     examples: [],
     resources: [],
+    ...overrides,
+  };
+}
+
+function makeGrammarItem(
+  overrides: Partial<GrammarItem> & { id: string },
+): GrammarItem {
+  return {
+    type: "grammar",
+    languageId: FIXTURE_LANGUAGE_ID,
+    levelNumber: 1,
+    lessonPriority: 1,
+    structure: overrides.id,
+    meaning: "placeholder",
+    explanation: "placeholder",
+    examples: [],
+    resources: [],
+    requiredQuestions: [
+      { format: "translation", direction: "targetToEnglish" },
+    ],
     ...overrides,
   };
 }
@@ -163,6 +189,45 @@ describe("startLesson", () => {
       }
     });
 
+    // Regression, found 2026-09-27 while adding the Grammar pseudo-theme:
+    // the code below used to overwrite `selectedThemeId` with `themes[0]`
+    // whenever `isThemeSelectionRequired` returned false, without checking
+    // *why* it returned false. That's correct when there's only one theme
+    // left (nothing to choose), but wrong when it's false because an active
+    // selection already matches one of several themes — every prior test
+    // for that second case happened to pick the theme that also sorts
+    // first, which is exactly what let this slip through unnoticed. This
+    // test picks the one that sorts *second* (Colors), so a reintroduced
+    // bug would silently switch it back to Numbers instead.
+    it("honors an active selection even when it isn't the first theme in curriculum order", async () => {
+      const curriculum = themedCurriculumReader([
+        ...Array.from({ length: 6 }, (_, i) =>
+          makeThemedItem({ id: `numbers-${i}`, theme: NUMBERS_THEME }),
+        ),
+        ...Array.from({ length: 3 }, (_, i) =>
+          makeThemedItem({ id: `colors-${i}`, theme: COLORS_THEME }),
+        ),
+      ]);
+
+      const result = await startLesson({
+        curriculum,
+        userId: USER_ID,
+        languageId: FIXTURE_LANGUAGE_ID,
+        languageCode: "es-MX",
+        settings: chooseGroupSettings({
+          selectedVocabularyGroupId: COLORS_THEME.id,
+        }),
+        now: NOW,
+      });
+
+      expect(result.kind).toBe("session");
+      if (result.kind === "session") {
+        expect(
+          result.batch.every((item) => item.itemId.startsWith("colors-")),
+        ).toBe(true);
+      }
+    });
+
     // 2026-09-23 user report, reproduced exactly: finishing a lesson out
     // of a group that still has items left, then starting another lesson,
     // must ask again rather than silently continuing in the same group.
@@ -251,6 +316,66 @@ describe("startLesson", () => {
       });
       expect(result.kind).toBe("empty");
     });
+
+    it("builds a grammar-only batch when the Grammar pseudo-theme is the active selection", async () => {
+      const curriculum = themedCurriculumReader([
+        ...Array.from({ length: 6 }, (_, i) =>
+          makeThemedItem({ id: `numbers-${i}`, theme: NUMBERS_THEME }),
+        ),
+        makeGrammarItem({ id: "grammar-0" }),
+        makeGrammarItem({ id: "grammar-1" }),
+      ]);
+
+      const result = await startLesson({
+        curriculum,
+        userId: USER_ID,
+        languageId: FIXTURE_LANGUAGE_ID,
+        languageCode: "es-MX",
+        settings: chooseGroupSettings({
+          selectedVocabularyGroupId: GRAMMAR_THEME_ID,
+        }),
+        now: NOW,
+      });
+
+      expect(result.kind).toBe("session");
+      if (result.kind === "session") {
+        expect(result.batch.map((item) => item.itemId).sort()).toEqual(
+          ["grammar-0", "grammar-1"].sort(),
+        );
+      }
+    });
+  });
+});
+
+describe("toThemeChoices", () => {
+  it("appends a Grammar choice after the vocabulary groups when grammar remains", () => {
+    const choices = toThemeChoices([
+      makeThemedItem({ id: "numbers-0", theme: NUMBERS_THEME }),
+      makeGrammarItem({ id: "grammar-0" }),
+      makeGrammarItem({ id: "grammar-1" }),
+    ]);
+    expect(choices.map((choice) => ({ id: choice.id, kind: choice.kind }))).toEqual([
+      { id: NUMBERS_THEME.id, kind: "vocabulary" },
+      { id: GRAMMAR_THEME_ID, kind: "grammar" },
+    ]);
+    const grammarChoice = choices.find((choice) => choice.id === GRAMMAR_THEME_ID);
+    expect(grammarChoice?.remainingCount).toBe(2);
+  });
+
+  it("omits Grammar entirely once no grammar remains", () => {
+    const choices = toThemeChoices([
+      makeThemedItem({ id: "numbers-0", theme: NUMBERS_THEME }),
+    ]);
+    expect(choices.some((choice) => choice.id === GRAMMAR_THEME_ID)).toBe(
+      false,
+    );
+  });
+
+  it("offers only Grammar when no vocabulary remains", () => {
+    const choices = toThemeChoices([makeGrammarItem({ id: "grammar-0" })]);
+    expect(choices).toEqual([
+      { id: GRAMMAR_THEME_ID, name: "Grammar", remainingCount: 1, kind: "grammar" },
+    ]);
   });
 });
 

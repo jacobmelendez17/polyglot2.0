@@ -4,6 +4,7 @@ import type {
   VocabularyTheme,
 } from "@/domains/curriculum";
 import type { CurriculumMode, GrammarPlacement } from "@/domains/users";
+import { GRAMMAR_THEME_ID } from "@/domains/users";
 
 import type { LessonBatchItem } from "./lesson-types";
 
@@ -29,7 +30,7 @@ export type SelectLessonBatchInput = {
   eligibleItems: LearningItem[];
   batchSize: number;
   mode: CurriculumMode;
-  /** Choose Group as You Go's chosen vocabulary group. A batch is empty when this is absent or has nothing left — the caller asks the learner to choose instead of silently picking one. */
+  /** Choose Group as You Go's chosen theme — a vocabulary group id, or `GRAMMAR_THEME_ID` for its "Grammar" pseudo-theme. A batch is empty when this is absent or has nothing left — the caller asks the learner to choose instead of silently picking one. */
   selectedThemeId?: string | null;
   /** Meaningful only in `variety` mode (spec 20 Lessons — Grammar Placement). Defaults to "no_preference", matching the stored default. */
   grammarPlacement?: GrammarPlacement;
@@ -68,6 +69,18 @@ function currentLevelItems(eligibleItems: LearningItem[]): LearningItem[] {
     ...eligibleItems.map((item) => item.levelNumber),
   );
   return eligibleItems.filter((item) => item.levelNumber === currentLevel);
+}
+
+/**
+ * How much grammar is left to teach in the current level — the same scoping
+ * `selectLessonBatch` uses internally, exposed so `lesson-service.ts` can
+ * decide whether "Grammar" belongs in the Choose Group as You Go theme list
+ * (`GRAMMAR_THEME_ID`) without duplicating the level-scoping rule.
+ */
+export function getRemainingGrammarCount(eligibleItems: LearningItem[]): number {
+  return currentLevelItems(eligibleItems).filter(
+    (item) => item.type === "grammar",
+  ).length;
 }
 
 /**
@@ -198,6 +211,13 @@ function interleaveEvenly<T>(primary: T[], secondary: T[]): T[] {
  * mostly grammar. The one exception is a level whose vocabulary is entirely
  * learned: with no vocabulary left to pace against, grammar fills the whole
  * batch rather than trickling out one item per lesson.
+ *
+ * `choose_group` with `GRAMMAR_THEME_ID` selected is a third, simpler case:
+ * an explicit "study grammar only" request, so it skips the pacing reservation
+ * entirely and fills the batch straight from remaining grammar, with no
+ * vocabulary at all — the pacing logic above exists to keep grammar from
+ * crowding out vocabulary the learner didn't ask to set aside, which doesn't
+ * apply once they've asked for grammar specifically.
  */
 export function selectLessonBatch({
   eligibleItems,
@@ -218,6 +238,10 @@ export function selectLessonBatch({
   if (mode === "default_order") {
     const ordered = [...grammar, ...[...vocabulary].sort(byGroupThenPriority)];
     return ordered.slice(0, batchSize);
+  }
+
+  if (mode === "choose_group" && selectedThemeId === GRAMMAR_THEME_ID) {
+    return grammar.slice(0, batchSize);
   }
 
   // Capped at one slot short of the batch whenever vocabulary is available:

@@ -81,7 +81,8 @@ export function LessonThemePicker({ themes }: { themes: LessonThemeChoice[] }) {
                   {theme.name}
                 </span>
                 <span className="text-sm text-muted-foreground">
-                  {theme.remainingCount} word
+                  {theme.remainingCount}{" "}
+                  {theme.kind === "grammar" ? "point" : "word"}
                   {theme.remainingCount === 1 ? "" : "s"} left
                 </span>
               </label>

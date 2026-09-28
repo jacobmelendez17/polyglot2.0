@@ -20,6 +20,7 @@ import type {
   GrammarPlacement,
   LanguageSettings,
 } from "./curriculum-preference";
+import { GRAMMAR_THEME_ID } from "./curriculum-preference";
 import type { NotificationPreferences } from "./notification-preferences";
 import { DEFAULT_NOTIFICATION_PREFERENCES } from "./notification-preferences";
 import { getDefaultLanguageCode } from "./provisioning-config";
@@ -110,6 +111,7 @@ const LANGUAGE_SETTINGS_COLUMNS = {
   languageId: userLanguageSettings.languageId,
   curriculumMode: userLanguageSettings.curriculumMode,
   selectedVocabularyGroupId: userLanguageSettings.selectedVocabularyGroupId,
+  selectedThemeIsGrammar: userLanguageSettings.selectedThemeIsGrammar,
   grammarPlacement: userLanguageSettings.grammarPlacement,
   lessonBatchSize: userLanguageSettings.lessonBatchSize,
   autoPronounceLessons: userLanguageSettings.autoPronounceLessons,
@@ -120,6 +122,7 @@ type LanguageSettingsRow = {
   languageId: string;
   curriculumMode: typeof userLanguageSettings.$inferSelect.curriculumMode;
   selectedVocabularyGroupId: string | null;
+  selectedThemeIsGrammar: boolean;
   grammarPlacement: GrammarPlacement;
   lessonBatchSize: number;
   autoPronounceLessons: boolean;
@@ -143,10 +146,24 @@ function normalizeLegacyCurriculumMode(
   return mode;
 }
 
+/**
+ * Combines the two physical columns behind a theme selection into the one
+ * opaque value `LanguageSettings` and everything downstream of it deals
+ * with — a real group id, `GRAMMAR_THEME_ID`, or `null` — so nothing outside
+ * this repository needs to know `selected_theme_is_grammar` exists. See
+ * `GRAMMAR_THEME_ID`'s docstring for why the split is here at all.
+ */
 function toLanguageSettings(row: LanguageSettingsRow): LanguageSettings {
   return {
-    ...row,
+    userId: row.userId,
+    languageId: row.languageId,
     curriculumMode: normalizeLegacyCurriculumMode(row.curriculumMode),
+    selectedVocabularyGroupId: row.selectedThemeIsGrammar
+      ? GRAMMAR_THEME_ID
+      : row.selectedVocabularyGroupId,
+    grammarPlacement: row.grammarPlacement,
+    lessonBatchSize: row.lessonBatchSize,
+    autoPronounceLessons: row.autoPronounceLessons,
   };
 }
 
@@ -191,10 +208,14 @@ export async function saveCurriculumPreference(
     selectedVocabularyGroupId?: string | null;
   },
 ): Promise<LanguageSettings> {
-  const selectedVocabularyGroupId =
+  const requestedThemeId =
     input.curriculumMode === "choose_group"
       ? (input.selectedVocabularyGroupId ?? null)
       : null;
+  const selectedThemeIsGrammar = requestedThemeId === GRAMMAR_THEME_ID;
+  const selectedVocabularyGroupId = selectedThemeIsGrammar
+    ? null
+    : requestedThemeId;
 
   const [row] = await db
     .insert(userLanguageSettings)
@@ -203,12 +224,14 @@ export async function saveCurriculumPreference(
       languageId: input.languageId,
       curriculumMode: input.curriculumMode,
       selectedVocabularyGroupId,
+      selectedThemeIsGrammar,
     })
     .onConflictDoUpdate({
       target: [userLanguageSettings.userId, userLanguageSettings.languageId],
       set: {
         curriculumMode: input.curriculumMode,
         selectedVocabularyGroupId,
+        selectedThemeIsGrammar,
         updatedAt: new Date(),
       },
     })

@@ -3,10 +3,8 @@ import { recordAuditEvent } from "@/domains/admin/audit-repository";
 import { getLevelByLanguageAndNumber } from "@/domains/curriculum/curriculum-repository";
 import { withIdempotency } from "@/domains/idempotency";
 import { getEligibleLessonItems } from "@/domains/curriculum/lesson-curriculum-repository";
-import {
-  getAvailableThemes,
-  selectLessonBatch,
-} from "@/domains/lessons/lesson-batch";
+import { selectLessonBatch } from "@/domains/lessons/lesson-batch";
+import { toThemeChoices } from "@/domains/lessons/lesson-service";
 import { CURRICULUM_MODES, DEFAULT_LESSON_BATCH_SIZE } from "@/domains/users";
 import type { CurriculumMode } from "@/domains/users";
 import {
@@ -400,28 +398,16 @@ export async function previewSandboxCurriculum(
     getEligibleLessonItems(db, account.sandboxUserId, languageId),
   ]);
 
-  const availableThemes = getAvailableThemes(eligibleItems);
-  const remainingByTheme = new Map<string, number>();
-  for (const item of eligibleItems) {
-    if (item.type !== "vocabulary" || !item.theme) continue;
-    remainingByTheme.set(
-      item.theme.id,
-      (remainingByTheme.get(item.theme.id) ?? 0) + 1,
-    );
-  }
+  const themeChoices = toThemeChoices(eligibleItems);
 
   const previewThemeId =
-    settings?.selectedVocabularyGroupId ?? availableThemes[0]?.id ?? null;
+    settings?.selectedVocabularyGroupId ?? themeChoices[0]?.id ?? null;
   const batchSize = settings?.lessonBatchSize ?? DEFAULT_LESSON_BATCH_SIZE;
 
   return {
     currentMode: settings?.curriculumMode ?? null,
     selectedThemeId: settings?.selectedVocabularyGroupId ?? null,
-    themes: availableThemes.map((theme) => ({
-      id: theme.id,
-      name: theme.name,
-      remainingCount: remainingByTheme.get(theme.id) ?? 0,
-    })),
+    themes: themeChoices,
     batchesByMode: CURRICULUM_MODES.map((mode) => ({
       mode,
       items: selectLessonBatch({

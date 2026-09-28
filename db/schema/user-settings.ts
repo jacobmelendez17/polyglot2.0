@@ -118,6 +118,21 @@ export const userLanguageSettings = pgTable(
      */
     selectedVocabularyGroupId: uuid("selected_vocabulary_group_id"),
     /**
+     * Choose Group as You Go's "Grammar" pseudo-theme (2026-09-27 user
+     * request), mutually exclusive with `selectedVocabularyGroupId` by the
+     * check constraint below. `selectedVocabularyGroupId` can't represent
+     * this itself — it's a real foreign key into `vocabulary_groups`, which
+     * has no "Grammar" row to point at. The application layer
+     * (`domains/users/user-repository.ts`) combines this column and
+     * `selectedVocabularyGroupId` into the single `GRAMMAR_THEME_ID`-or-real-id
+     * value every other part of the codebase (including this row's own
+     * `selectedVocabularyGroupId IS NULL` "undecided" rule) already treats as
+     * one opaque selection.
+     */
+    selectedThemeIsGrammar: boolean("selected_theme_is_grammar")
+      .notNull()
+      .default(false),
+    /**
      * Spec 20 Lessons — Grammar Placement. `no_preference` default matches
      * the spec's stated default exactly. Every mode stores a value even
      * though only `variety` reads it — there is no "row exists but this
@@ -158,6 +173,17 @@ export const userLanguageSettings = pgTable(
     check(
       "user_language_settings_theme_selection_consistency",
       sql`${t.selectedVocabularyGroupId} IS NULL OR ${t.curriculumMode} IN ('theme', 'choose_group')`,
+    ),
+    check(
+      "user_language_settings_grammar_theme_consistency",
+      sql`NOT ${t.selectedThemeIsGrammar} OR ${t.curriculumMode} IN ('theme', 'choose_group')`,
+    ),
+    // A theme selection is either a real vocabulary group or "Grammar",
+    // never both at once — the same rule the application layer maintains by
+    // always writing one column and clearing the other together.
+    check(
+      "user_language_settings_grammar_group_exclusive",
+      sql`NOT (${t.selectedThemeIsGrammar} AND ${t.selectedVocabularyGroupId} IS NOT NULL)`,
     ),
     check(
       "user_language_settings_batch_size_range",

@@ -29,6 +29,7 @@ import {
 import type { LessonSessionResult } from "@/domains/lessons";
 import type { LessonCompletionResult } from "@/domains/lessons/server";
 import { listAvailableThemes } from "@/domains/lessons/server";
+import { GRAMMAR_THEME_ID } from "@/domains/users";
 import { requireUser, setCurriculumPreference } from "@/domains/users/server";
 import { AppError } from "@/lib/errors/app-error";
 import { LessonError } from "@/lib/errors/lesson-errors";
@@ -155,7 +156,9 @@ export async function completeLessonAction(
   });
 }
 
-const chooseThemeInputSchema = z.object({ themeId: uuidLike });
+const chooseThemeInputSchema = z.object({
+  themeId: z.union([uuidLike, z.literal(GRAMMAR_THEME_ID)]),
+});
 
 /**
  * Spec 16 — the Theme-mode learner picking which theme to study next, from

@@ -12,8 +12,8 @@ vi.mock("@/app/(app)/settings/lessons/actions", () => ({
 const mockAction = vi.mocked(updateCurriculumPreferenceAction);
 
 const THEMES = [
-  { id: "group-numbers", name: "Numbers", remainingCount: 4 },
-  { id: "group-colors", name: "Colors", remainingCount: 8 },
+  { id: "group-numbers", name: "Numbers", remainingCount: 4, kind: "vocabulary" as const },
+  { id: "group-colors", name: "Colors", remainingCount: 8, kind: "vocabulary" as const },
 ];
 
 beforeEach(() => {
