@@ -1233,9 +1233,9 @@ describe("re-importing words that already exist (spec 17)", () => {
     });
   });
 
-  it("reports a different level or group as a move, and applies it to the same item", async () => {
+  it("reports a different level or group as a move, refuses to apply it unapproved (spec 25 §10.3), then applies it once approved", async () => {
     await withTestTransaction(async (tx) => {
-      const { languageId, level2Id } = await seedTestFixtures(tx);
+      const { languageId, level1Id, level2Id } = await seedTestFixtures(tx);
 
       const moved = vocabFields({
         term: "gato",
@@ -1262,13 +1262,34 @@ describe("re-importing words that already exist (spec 17)", () => {
         toLevelNumber: LEVEL_2_NUMBER,
       });
 
-      const result = await bulkImportVocabulary(tx, {
+      // A move is never applied silently — a plain "import" decision with
+      // no explicit approval is treated exactly like a blocked row.
+      const unapproved = await bulkImportVocabulary(tx, {
         languageId,
         actorUserId: DEVELOPER_ID,
         idempotencyKey: crypto.randomUUID(),
         rows: [importRow(moved)],
       });
-      expect(result.movedItemIds).toEqual([ITEM_GATO_ID]);
+      expect(unapproved.movedItemIds).toEqual([]);
+      expect(unapproved.blocked).toEqual([
+        {
+          displayForm: "gato",
+          reason:
+            "Structural move requires approval. Approve the move and re-import.",
+        },
+      ]);
+      // The unapproved move never happened — the item is still in Level 1.
+      expect((await lockLearningItemForEdit(tx, ITEM_GATO_ID))?.levelId).toBe(
+        level1Id,
+      );
+
+      const approved = await bulkImportVocabulary(tx, {
+        languageId,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+        rows: [{ fields: moved, decision: "import", approvedMove: true }],
+      });
+      expect(approved.movedItemIds).toEqual([ITEM_GATO_ID]);
       expect((await lockLearningItemForEdit(tx, ITEM_GATO_ID))?.levelId).toBe(
         level2Id,
       );

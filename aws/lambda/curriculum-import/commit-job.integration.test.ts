@@ -5,6 +5,7 @@ import {
   DEVELOPER_ID,
   FIXTURE_LEVEL_NUMBER,
   seedTestFixtures,
+  VOCAB_GROUP_2_ID,
 } from "@/db/seed/test-fixtures";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
 import {
@@ -151,7 +152,10 @@ describe("runCommitJob (spec 19 §11/§12/§14/§15)", () => {
         (row) => row.classification === "blocked",
       );
       expect(blockedRow).toBeDefined();
-      await resolveCurriculumImportRow(tx, { rowId: blockedRow!.id });
+      await resolveCurriculumImportRow(tx, {
+        rowId: blockedRow!.id,
+        disposition: "skip",
+      });
 
       await confirmCurriculumImport(tx, {
         importId,
@@ -176,6 +180,51 @@ describe("runCommitJob (spec 19 §11/§12/§14/§15)", () => {
         .from(vocabularyItems)
         .where(eq(vocabularyItems.term, "commitskip"));
       expect(skipped).toHaveLength(0);
+    });
+  });
+
+  it("refuses to confirm an unapproved structural move, then commits it once approved (spec 25 §10.3)", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      // gato is fixture-seeded in Level 1 / group 1 — this re-imports it
+      // into group 2 of the same level, a real, existing-structure move.
+      const csv =
+        `word,translation,level,group\n` + `gato,cat,${LEVEL_NUMBER},2\n`;
+      const { importId, storage } = await createAndPreview(tx, languageId, csv);
+
+      const rows = await listCurriculumImportRows(tx, { importId, limit: 10 });
+      const moveRow = rows.items.find((row) => row.classification === "move");
+      expect(moveRow).toBeDefined();
+
+      await expect(
+        confirmCurriculumImport(tx, {
+          importId,
+          actorUserId: DEVELOPER_ID,
+        }),
+      ).rejects.toMatchObject({ code: "CURRICULUM_VALIDATION_FAILED" });
+
+      await resolveCurriculumImportRow(tx, {
+        rowId: moveRow!.id,
+        disposition: "approve_move",
+      });
+      await confirmCurriculumImport(tx, {
+        importId,
+        actorUserId: DEVELOPER_ID,
+      });
+      await runCommitJob(tx, () => storage(), {
+        importId,
+        actorUserId: DEVELOPER_ID,
+      });
+
+      const after = await getCurriculumImportById(tx, importId);
+      expect(after?.status).toBe("completed");
+      expect(after?.moveCount).toBe(1);
+
+      const [moved] = await tx
+        .select({ vocabularyGroupId: vocabularyItems.vocabularyGroupId })
+        .from(vocabularyItems)
+        .where(eq(vocabularyItems.term, "gato"));
+      expect(moved?.vocabularyGroupId).toBe(VOCAB_GROUP_2_ID);
     });
   });
 

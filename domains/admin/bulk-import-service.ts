@@ -754,6 +754,15 @@ export type ImportRowDecision = {
   fields: ParsedImportFields;
   /** The admin's call for this row, from the preview — every row needs one, even a clean row (defaults to "import" client-side). Skipped rows are simply omitted, never an error. */
   decision: "import" | "skip";
+  /**
+   * Spec 25 §10.3 — required (`true`) for a row that resolves to a
+   * structural `move`; ignored for every other action. A move without this
+   * is never silently applied — it is treated exactly like a `blocked` row
+   * (reported in `result.blocked`, nothing written) until an admin
+   * explicitly approves it, the same "must have a disposition" shape a
+   * `blocked` row already has via `skip`.
+   */
+  approvedMove?: boolean;
 };
 
 export type BulkImportVocabularyServiceInput = {
@@ -856,6 +865,19 @@ export async function bulkImportVocabulary(
 
         if (resolved.action === "unchanged") {
           result.unchangedCount += 1;
+          continue;
+        }
+
+        // Spec 25 §10.3 — a structural move is never applied silently. It
+        // is treated exactly like a blocked row until this specific row's
+        // own decision explicitly approves it — a blanket "import" is not
+        // enough, and never was for a `blocked` row either.
+        if (resolved.action === "move" && !row.approvedMove) {
+          result.blocked.push({
+            displayForm,
+            reason:
+              "Structural move requires approval. Approve the move and re-import.",
+          });
           continue;
         }
 

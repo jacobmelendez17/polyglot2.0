@@ -55,14 +55,18 @@ export const curriculumImportRowClassificationEnum = pgEnum(
 );
 
 /**
- * Version 1's only resolution for a blocked/needs-review row (spec 19 §9).
- * A single-value enum reads oddly today, but the column exists so a future
- * disposition (e.g. an explicit homonym approval) is an enum value, not a
- * schema change.
+ * How an admin resolved a row the resolver alone couldn't apply outright
+ * (spec 19 §9). `skip` was v1's only value. `approve_move` is spec 25 §10.3's
+ * explicit sign-off on a structural move — a `move`-classified row is never
+ * applied without it (see `domains/admin/bulk-import-service.ts`'s
+ * `bulkImportVocabulary`), exactly the same "must have a disposition before
+ * a `blocked` row can be applied" shape `skip` already established, just for
+ * a different classification. The column existed ahead of this precisely so
+ * adding it is an enum value, not a schema change.
  */
 export const curriculumImportRowDispositionEnum = pgEnum(
   "curriculum_import_row_disposition",
-  ["skip"],
+  ["skip", "approve_move"],
 );
 
 /**

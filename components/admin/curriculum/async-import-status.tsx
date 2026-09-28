@@ -65,7 +65,20 @@ function classificationLabel(row: CurriculumImportRowRecord): {
     case "update":
       return { text: "Update", className: "text-foreground" };
     case "move":
-      return { text: "Move", className: "text-state-warning" };
+      return {
+        // Spec 25 §10.3 — a move is never applied silently, so its label
+        // reflects whether it still needs an explicit approval the same way
+        // a blocked row's label already reflects its own disposition.
+        text:
+          row.adminDisposition === "approve_move"
+            ? "Move Approved"
+            : row.adminDisposition === "skip"
+              ? "Move Skipped"
+              : "Move — Needs Approval",
+        className: row.adminDisposition
+          ? "text-muted-foreground"
+          : "text-state-warning",
+      };
     case "unchanged":
       return { text: "Unchanged", className: "text-muted-foreground" };
     case "blocked":
@@ -134,10 +147,16 @@ export function AsyncImportStatus({
     }
   }, [record.status, rowsLoaded, loadRows]);
 
-  async function handleResolve(rowId: string) {
+  async function handleResolve(
+    rowId: string,
+    disposition: "skip" | "approve_move",
+  ) {
     setPendingRowId(rowId);
     setError(null);
-    const result = await resolveCurriculumImportRowAction({ rowId });
+    const result = await resolveCurriculumImportRowAction({
+      rowId,
+      disposition,
+    });
     setPendingRowId(null);
     if (!result.ok) {
       setError(result.error.message);
@@ -145,7 +164,7 @@ export function AsyncImportStatus({
     }
     setRows((prev) =>
       prev.map((row) =>
-        row.id === rowId ? { ...row, adminDisposition: "skip" } : row,
+        row.id === rowId ? { ...row, adminDisposition: disposition } : row,
       ),
     );
   }
@@ -177,7 +196,9 @@ export function AsyncImportStatus({
   }
 
   const unresolvedCount = rows.filter(
-    (row) => row.classification === "blocked" && !row.adminDisposition,
+    (row) =>
+      (row.classification === "blocked" || row.classification === "move") &&
+      !row.adminDisposition,
   ).length;
   const message = statusMessage(record.status);
 
@@ -276,7 +297,9 @@ export function AsyncImportStatus({
                   {rows.map((row) => {
                     const label = classificationLabel(row);
                     const needsDisposition =
-                      row.classification === "blocked" && !row.adminDisposition;
+                      (row.classification === "blocked" ||
+                        row.classification === "move") &&
+                      !row.adminDisposition;
                     return (
                       <tr
                         key={row.id}
@@ -300,14 +323,27 @@ export function AsyncImportStatus({
                         </td>
                         <td className="px-3 py-2">
                           {needsDisposition ? (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={pendingRowId === row.id}
-                              onClick={() => handleResolve(row.id)}
-                            >
-                              Skip
-                            </Button>
+                            <div className="flex gap-2">
+                              {row.classification === "move" ? (
+                                <Button
+                                  size="sm"
+                                  disabled={pendingRowId === row.id}
+                                  onClick={() =>
+                                    handleResolve(row.id, "approve_move")
+                                  }
+                                >
+                                  Approve Move
+                                </Button>
+                              ) : null}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={pendingRowId === row.id}
+                                onClick={() => handleResolve(row.id, "skip")}
+                              >
+                                Skip
+                              </Button>
+                            </div>
                           ) : null}
                         </td>
                       </tr>

@@ -18,6 +18,7 @@ import type {
   CreateCurriculumImportInput,
   CurriculumImportRecord,
   CurriculumImportRowClassification,
+  CurriculumImportRowDisposition,
   CurriculumImportRowPreviewInput,
   CurriculumImportRowRecord,
   CurriculumImportRowsPage,
@@ -292,7 +293,13 @@ export async function listCurriculumImportRows(
   };
 }
 
-/** Every row still needing an explicit disposition before the import can be confirmed (spec 19 §9) — a blocked row with no admin call yet. */
+/**
+ * Every row still needing an explicit disposition before the import can be
+ * confirmed (spec 19 §9): a `blocked` row with no admin call yet, or —
+ * spec 25 §10.3 — a `move` row nobody has approved or skipped. A structural
+ * move is exactly as "must not proceed silently" as a blocked row is; it
+ * just starts from a different classification.
+ */
 export async function countUnresolvedRows(
   db: DbClient,
   importId: string,
@@ -303,7 +310,10 @@ export async function countUnresolvedRows(
     .where(
       and(
         eq(curriculumImportRows.importId, importId),
-        eq(curriculumImportRows.classification, "blocked"),
+        or(
+          eq(curriculumImportRows.classification, "blocked"),
+          eq(curriculumImportRows.classification, "move"),
+        ),
         isNull(curriculumImportRows.adminDisposition),
       ),
     );
@@ -381,8 +391,15 @@ function countsFromRows(
   for (const row of rows) {
     if (row.classification === "create") counts.createCount += 1;
     else if (row.classification === "update") counts.updateCount += 1;
-    else if (row.classification === "move") counts.moveCount += 1;
-    else if (row.classification === "unchanged") counts.unchangedCount += 1;
+    else if (row.classification === "move") {
+      counts.moveCount += 1;
+      // Spec 25 §10.3 — a structural move needs an explicit disposition
+      // exactly like a blocked row does, so it also counts toward
+      // `reviewCount` (the sole input to "does this import still need
+      // review" below) even though it's tracked separately in `moveCount`
+      // too, for its own informational stat.
+      counts.reviewCount += 1;
+    } else if (row.classification === "unchanged") counts.unchangedCount += 1;
     else counts.reviewCount += 1;
   }
   return counts;
@@ -462,7 +479,7 @@ export async function recordPreviewResult(
 export async function setRowDisposition(
   db: DbClient,
   rowId: string,
-  disposition: "skip",
+  disposition: CurriculumImportRowDisposition,
 ): Promise<void> {
   await db
     .update(curriculumImportRows)

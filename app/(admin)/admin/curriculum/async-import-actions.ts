@@ -139,15 +139,22 @@ export async function listCurriculumImportRowsAction(
   });
 }
 
-const resolveRowInputSchema = z.object({ rowId: z.string().uuid() });
+const resolveRowInputSchema = z.object({
+  rowId: z.string().uuid(),
+  // Spec 19 §9's "skip", and spec 25 §10.3's explicit structural-move
+  // sign-off — the only two dispositions that exist, kept as an explicit
+  // literal union here (not just re-exporting the schema enum's values)
+  // since this is the one public, client-facing input boundary for it.
+  disposition: z.enum(["skip", "approve_move"]),
+});
 
-/** V1's only per-row disposition (spec 19 §9): skip a blocked row so it stops blocking confirmation. */
+/** Records an admin's disposition for one row (spec 19 §9 `skip`; spec 25 §10.3 `approve_move`) — either stops it from blocking confirmation. */
 export async function resolveCurriculumImportRowAction(
   input: z.infer<typeof resolveRowInputSchema>,
 ): Promise<ActionResult<void>> {
   return runAsyncImportAction(async (actorUserId) => {
-    const { rowId } = resolveRowInputSchema.parse(input);
-    await resolveCurriculumImportRow({ rowId, actorUserId });
+    const { rowId, disposition } = resolveRowInputSchema.parse(input);
+    await resolveCurriculumImportRow({ rowId, disposition, actorUserId });
   });
 }
 

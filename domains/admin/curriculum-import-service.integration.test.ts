@@ -69,6 +69,20 @@ const blockedRow: CurriculumImportRowPreviewInput = {
   reviewReason: "Level 7 has no Group 3.",
 };
 
+/** Spec 25 §10.3 — a structural move needs an explicit disposition (`approve_move` or `skip`) exactly like a blocked row needs one. */
+const moveRow: CurriculumImportRowPreviewInput = {
+  rowNumber: 3,
+  itemType: "vocabulary",
+  displayTerm: "gato",
+  levelNumber: 2,
+  groupNumber: 1,
+  classification: "move",
+  resolvedLearningItemId: null,
+  changedFields: [{ field: "level", from: "1", to: "2" }],
+  reviewReasonCode: null,
+  reviewReason: null,
+};
+
 describe("curriculum import service (spec 19)", () => {
   it("creates an import in the uploading status", async () => {
     await withTestTransaction(async (tx) => {
@@ -150,7 +164,10 @@ describe("curriculum import service (spec 19)", () => {
         (row) => row.classification === "blocked",
       );
       expect(theBlockedRow).toBeDefined();
-      await resolveCurriculumImportRow(tx, { rowId: theBlockedRow!.id });
+      await resolveCurriculumImportRow(tx, {
+        rowId: theBlockedRow!.id,
+        disposition: "skip",
+      });
 
       const confirmed = await confirmCurriculumImport(tx, {
         importId: record.id,
@@ -169,6 +186,50 @@ describe("curriculum import service (spec 19)", () => {
       expect(
         events.items.some((e) => e.action === "CURRICULUM_IMPORT_CONFIRMED"),
       ).toBe(true);
+    });
+  });
+
+  it("a preview with an unapproved move lands on needs_review, and confirmation is refused until it's approved (spec 25 §10.3)", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      const record = await createImport(tx, languageId);
+      await markCurriculumImportUploaded(tx, record.id);
+      await markCurriculumImportPreviewStarted(tx, record.id);
+      await recordCurriculumImportPreview(tx, {
+        importId: record.id,
+        rows: [cleanRow, moveRow],
+      });
+
+      const needsReview = await getCurriculumImportById(tx, record.id);
+      expect(needsReview?.status).toBe("needs_review");
+      expect(needsReview?.moveCount).toBe(1);
+      expect(needsReview?.reviewCount).toBe(1);
+
+      await expect(
+        confirmCurriculumImport(tx, {
+          importId: record.id,
+          actorUserId: DEVELOPER_ID,
+        }),
+      ).rejects.toMatchObject({ code: "CURRICULUM_VALIDATION_FAILED" });
+
+      const rows = await listCurriculumImportRows(tx, {
+        importId: record.id,
+        limit: 10,
+      });
+      const theMoveRow = rows.items.find(
+        (row) => row.classification === "move",
+      );
+      expect(theMoveRow).toBeDefined();
+      await resolveCurriculumImportRow(tx, {
+        rowId: theMoveRow!.id,
+        disposition: "approve_move",
+      });
+
+      const confirmed = await confirmCurriculumImport(tx, {
+        importId: record.id,
+        actorUserId: DEVELOPER_ID,
+      });
+      expect(confirmed.confirmedPreviewVersion).toBe(1);
     });
   });
 

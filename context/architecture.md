@@ -870,6 +870,24 @@ The approval must be deliberate and auditable.
 > create time, which already worked from Unit 2) remains unimplemented —
 > recorded as a specific, scoped follow-up in `progress-tracker.md` rather
 > than attempted piecemeal alongside this unit's other changes.
+>
+> Spec 25 Unit 5 (2026-09-28), first slice — **structural move approval**
+> (spec §10.3): a row resolving to `move` is never applied on a plain
+> "import" decision alone. `ImportRowDecision` gained `approvedMove?: boolean`,
+> checked in `bulkImportVocabulary` immediately after the existing
+> blocked/unchanged checks — an unapproved move is reported in
+> `result.blocked` exactly like a genuinely blocked row, with nothing
+> written. The async pipeline records the admin's approval the same way it
+> already recorded `skip` — `curriculum_import_row_disposition` gained
+> `approve_move` as a second enum value (additive migration, the column
+> existed ahead of time for exactly this) — and `countUnresolvedRows`
+> (`confirmCurriculumImport`'s gate) now also refuses to confirm while any
+> `move`-classified row still has no disposition, not just a `blocked` one.
+> The existing async-import review UI (`components/admin/curriculum/async-import-status.tsx`)
+> gained an "Approve Move" button alongside "Skip" for exactly these rows.
+> Spec 25 Unit 5's larger remaining pieces — staged row editing with
+> immediate re-validation (§10.2), and an explicit CSV-driven homonym
+> approval (§10.1) — are still open; see `progress-tracker.md`.
 
 ---
 

@@ -18,6 +18,7 @@ import {
 import type {
   CreateCurriculumImportInput,
   CurriculumImportRecord,
+  CurriculumImportRowDisposition,
   CurriculumImportRowPreviewInput,
 } from "./curriculum-import-types";
 
@@ -229,12 +230,21 @@ export async function confirmCurriculumImport(
   return { confirmedPreviewVersion: current.previewVersion };
 }
 
-/** V1's only row resolution (spec 19 §9): skip a blocked row so it never blocks confirmation. */
+/**
+ * Records an admin's disposition for one row (spec 19 §9; `approve_move`
+ * added spec 25 §10.3). `disposition` is caller-supplied rather than always
+ * `"skip"` now that a second value exists — `approve_move` only has any
+ * effect on a row `bulkImportVocabulary` actually resolves to `move` (see
+ * that function), so setting it on any other row is inert, not unsafe.
+ */
 export async function resolveCurriculumImportRow(
   db: DbClient,
-  { rowId }: { rowId: string },
+  {
+    rowId,
+    disposition,
+  }: { rowId: string; disposition: CurriculumImportRowDisposition },
 ): Promise<void> {
-  await setRowDisposition(db, rowId, "skip");
+  await setRowDisposition(db, rowId, disposition);
 }
 
 export async function markCurriculumImportStarted(

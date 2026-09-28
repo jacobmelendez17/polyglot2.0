@@ -117,11 +117,25 @@ export async function runCommitJob(
         .filter((row) => row.adminDisposition === "skip")
         .map((row) => row.rowNumber),
     );
+    // Spec 25 §10.3 — the admin's explicit sign-off on a structural move,
+    // recorded the same way `skip` already is (an `adminDisposition` on the
+    // stored row). `bulkImportVocabulary` still refuses to apply an
+    // unapproved move even if it somehow reached here; this just carries
+    // that approval through so a genuinely approved one isn't blocked too.
+    const approvedMoveRowNumbers = new Set(
+      storedRows
+        .filter((row) => row.adminDisposition === "approve_move")
+        .map((row) => row.rowNumber),
+    );
     const decisions: ImportRowDecision[] = previews
       .filter(
         (row) => row.fields !== null && !skippedRowNumbers.has(row.rowNumber),
       )
-      .map((row) => ({ fields: row.fields!, decision: "import" as const }));
+      .map((row) => ({
+        fields: row.fields!,
+        decision: "import" as const,
+        approvedMove: approvedMoveRowNumbers.has(row.rowNumber),
+      }));
 
     if (decisions.length > 0) {
       // One commit = one idempotency scope. `importId` is already a stable

@@ -316,6 +316,13 @@
       "when": 1790566478888,
       "tag": "0044_add_curriculum_key_not_null",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1790608128808,
+      "tag": "0045_add_approve_move_disposition",
+      "breakpoints": true
     }
   ]
 }

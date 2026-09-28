@@ -296,11 +296,13 @@ export async function listCurriculumImportRowsForReview(input: {
 
 export async function resolveCurriculumImportRow(input: {
   rowId: string;
+  disposition: "skip" | "approve_move";
   actorUserId: string;
 }) {
   await checkRateLimit("admin-mutation", input.actorUserId);
   return curriculumImport.resolveCurriculumImportRow(db, {
     rowId: input.rowId,
+    disposition: input.disposition,
   });
 }
 

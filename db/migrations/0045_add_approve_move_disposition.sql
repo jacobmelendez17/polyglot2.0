@@ -1,0 +1,1 @@
+ALTER TYPE "public"."curriculum_import_row_disposition" ADD VALUE 'approve_move';
