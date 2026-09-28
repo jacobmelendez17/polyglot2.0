@@ -839,7 +839,19 @@ The approval must be deliberate and auditable.
 > `domains/curriculum/vocabulary-import-parsing.ts`'s own docstring for the
 > full column list (`item_type`, `curriculum_key`, `language`, `level_name`,
 > `batch_name`, `synonyms`, `variations`) and exactly what each one does and
-> doesn't do yet.
+> doesn't do yet. Spec 25 Unit 3 (2026-09-28) then made `level_name`/`batch_name`
+> load-bearing: `resolveImportRow` now proposes creating a Level/vocabulary
+> group when the target doesn't exist and a name was supplied
+> (`ResolvedLevel`/`ResolvedGroup`'s `toCreate` case), and `bulkImportVocabulary`
+> materializes it — reusing `domains/curriculum`'s own `createLevel`/
+> `createVocabularyGroup` (so a CSV-created Level/group gets a curriculum key
+> and starts `draft`, exactly like one created by hand), and reusing anything
+> already created earlier in the _same_ commit rather than creating it twice.
+> An existing Level/group named differently than the file says is never
+> silently renamed (spec §9.1) — it blocks the row as a reviewable conflict
+> instead. `createVocabularyGroup` itself gained an optional explicit
+> `position` for this (a CSV row's `batch_number` names an authored position,
+> not "append at the end").
 
 ---
 

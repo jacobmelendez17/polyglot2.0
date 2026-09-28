@@ -18,6 +18,10 @@ import {
   setDictionaryFieldOverrides,
   updateVocabularyFieldsFromImport,
 } from "@/domains/curriculum/curriculum-mutation-repository";
+import {
+  getLevelsByLanguage,
+  getVocabularyGroupsByLanguage,
+} from "@/domains/curriculum/curriculum-repository";
 import { GRAMMAR_GROUP_NUMBER } from "@/domains/curriculum/vocabulary-import-parsing";
 import type {
   ParsedGrammarFields,
@@ -216,7 +220,7 @@ describe("previewVocabularyImport", () => {
       expect(preview[0]!.fieldIssues).toEqual([
         {
           field: "level",
-          message: `Level ${NONEXISTENT_LEVEL_NUMBER} doesn't exist yet.`,
+          message: `Level ${NONEXISTENT_LEVEL_NUMBER} doesn't exist yet. Provide level_name to create it.`,
         },
       ]);
     });
@@ -305,9 +309,233 @@ describe("previewVocabularyImport", () => {
       expect(preview[0]!.fieldIssues).toEqual([
         {
           field: "group",
-          message: `Level ${LEVEL_2_NUMBER} has no group 1 yet.`,
+          message: `Level ${LEVEL_2_NUMBER} has no group 1 yet. Provide batch_name to create it.`,
         },
       ]);
+    });
+  });
+
+  describe("spec 25 Unit 3 — automatic Level/group creation", () => {
+    it("proposes creating a new Level when level_name is supplied for a nonexistent level", async () => {
+      await withTestTransaction(async (tx) => {
+        const { languageId } = await seedTestFixtures(tx);
+        const row: ValidatedImportRow = {
+          rowNumber: 2,
+          raw: {
+            word: "por vs para",
+            translation: "for",
+            level: String(NONEXISTENT_LEVEL_NUMBER),
+            group: String(GRAMMAR_GROUP_NUMBER),
+            level_name: "Everyday Life",
+          },
+          fields: grammarFields({
+            structure: "por vs para",
+            primaryMeaning: "for",
+            levelNumber: NONEXISTENT_LEVEL_NUMBER,
+            levelName: "Everyday Life",
+          }),
+          fieldIssues: [],
+        };
+        const preview = await previewVocabularyImport(tx, {
+          languageId,
+          validatedRows: [row],
+        });
+
+        expect(preview[0]!.fieldIssues).toEqual([]);
+        expect(preview[0]!.action).toBe("create");
+        expect(preview[0]!.levelToCreate).toEqual({
+          levelNumber: NONEXISTENT_LEVEL_NUMBER,
+          name: "Everyday Life",
+        });
+      });
+    });
+
+    it("proposes creating a new group within an existing Level when batch_name is supplied", async () => {
+      await withTestTransaction(async (tx) => {
+        const { languageId } = await seedTestFixtures(tx);
+        const row: ValidatedImportRow = {
+          rowNumber: 2,
+          raw: {
+            word: "perro",
+            translation: "dog",
+            level: String(LEVEL_2_NUMBER),
+            group: "1",
+            batch_name: "Animals",
+          },
+          fields: vocabFields({
+            term: "perro",
+            primaryMeaning: "dog",
+            levelNumber: LEVEL_2_NUMBER,
+            groupNumber: 1,
+            groupName: "Animals",
+          }),
+          fieldIssues: [],
+        };
+        const preview = await previewVocabularyImport(tx, {
+          languageId,
+          validatedRows: [row],
+        });
+
+        expect(preview[0]!.fieldIssues).toEqual([]);
+        expect(preview[0]!.action).toBe("create");
+        expect(preview[0]!.levelToCreate).toBeNull();
+        expect(preview[0]!.groupToCreate).toEqual({
+          groupNumber: 1,
+          name: "Animals",
+        });
+      });
+    });
+
+    it("proposes creating both the Level and its group when neither exists yet", async () => {
+      await withTestTransaction(async (tx) => {
+        const { languageId } = await seedTestFixtures(tx);
+        const row: ValidatedImportRow = {
+          rowNumber: 2,
+          raw: {
+            word: "perro",
+            translation: "dog",
+            level: String(NONEXISTENT_LEVEL_NUMBER),
+            group: "2",
+            level_name: "Everyday Life",
+            batch_name: "Food & Drinks",
+          },
+          fields: vocabFields({
+            term: "perro",
+            primaryMeaning: "dog",
+            levelNumber: NONEXISTENT_LEVEL_NUMBER,
+            groupNumber: 2,
+            levelName: "Everyday Life",
+            groupName: "Food & Drinks",
+          }),
+          fieldIssues: [],
+        };
+        const preview = await previewVocabularyImport(tx, {
+          languageId,
+          validatedRows: [row],
+        });
+
+        expect(preview[0]!.fieldIssues).toEqual([]);
+        expect(preview[0]!.levelToCreate).toEqual({
+          levelNumber: NONEXISTENT_LEVEL_NUMBER,
+          name: "Everyday Life",
+        });
+        expect(preview[0]!.groupToCreate).toEqual({
+          groupNumber: 2,
+          name: "Food & Drinks",
+        });
+      });
+    });
+
+    it("blocks a row whose level_name conflicts with the existing Level's name, rather than silently renaming it (spec §9.1)", async () => {
+      await withTestTransaction(async (tx) => {
+        const { languageId } = await seedTestFixtures(tx);
+        const row: ValidatedImportRow = {
+          rowNumber: 2,
+          raw: {
+            word: "perro",
+            translation: "dog",
+            level: String(LEVEL_1_NUMBER),
+            group: "1",
+            level_name: "A Completely Different Name",
+          },
+          fields: vocabFields({
+            term: "perro",
+            primaryMeaning: "dog",
+            levelName: "A Completely Different Name",
+          }),
+          fieldIssues: [],
+        };
+        const preview = await previewVocabularyImport(tx, {
+          languageId,
+          validatedRows: [row],
+        });
+
+        expect(preview[0]!.action).toBe("blocked");
+        expect(preview[0]!.blockedReason).toContain(
+          `Level ${LEVEL_1_NUMBER} is named "Fixture level"`,
+        );
+        expect(preview[0]!.blockedReason).toContain(
+          "A Completely Different Name",
+        );
+      });
+    });
+
+    it("blocks a row whose batch_name conflicts with the existing group's name", async () => {
+      await withTestTransaction(async (tx) => {
+        const { languageId } = await seedTestFixtures(tx);
+        const row: ValidatedImportRow = {
+          rowNumber: 2,
+          raw: {
+            word: "perro",
+            translation: "dog",
+            level: String(LEVEL_1_NUMBER),
+            group: String(LEVEL_1_GROUP_1),
+            batch_name: "A Completely Different Name",
+          },
+          fields: vocabFields({
+            term: "perro",
+            primaryMeaning: "dog",
+            groupName: "A Completely Different Name",
+          }),
+          fieldIssues: [],
+        };
+        const preview = await previewVocabularyImport(tx, {
+          languageId,
+          validatedRows: [row],
+        });
+
+        expect(preview[0]!.action).toBe("blocked");
+        expect(preview[0]!.blockedReason).toContain('is named "Home & Basics"');
+        expect(preview[0]!.blockedReason).toContain(
+          "A Completely Different Name",
+        );
+      });
+    });
+
+    it("reuses the existing Level/group silently when level_name/batch_name are omitted, per spec §5.2", async () => {
+      await withTestTransaction(async (tx) => {
+        const { languageId } = await seedTestFixtures(tx);
+        const preview = await previewVocabularyImport(tx, {
+          languageId,
+          validatedRows: [validRow(2, "perro", "dog")],
+        });
+
+        expect(preview[0]!.fieldIssues).toEqual([]);
+        expect(preview[0]!.action).toBe("create");
+        expect(preview[0]!.levelToCreate).toBeNull();
+        expect(preview[0]!.groupToCreate).toBeNull();
+      });
+    });
+
+    it("does not treat a matching level_name/batch_name as a conflict", async () => {
+      await withTestTransaction(async (tx) => {
+        const { languageId } = await seedTestFixtures(tx);
+        const row: ValidatedImportRow = {
+          rowNumber: 2,
+          raw: {
+            word: "perro",
+            translation: "dog",
+            level: String(LEVEL_1_NUMBER),
+            group: String(LEVEL_1_GROUP_1),
+            level_name: "Fixture level",
+            batch_name: "Home & Basics",
+          },
+          fields: vocabFields({
+            term: "perro",
+            primaryMeaning: "dog",
+            levelName: "Fixture level",
+            groupName: "Home & Basics",
+          }),
+          fieldIssues: [],
+        };
+        const preview = await previewVocabularyImport(tx, {
+          languageId,
+          validatedRows: [row],
+        });
+
+        expect(preview[0]!.action).toBe("create");
+        expect(preview[0]!.blockedReason).toBeNull();
+      });
     });
   });
 
@@ -455,6 +683,177 @@ describe("bulkImportVocabulary", () => {
           { side: "term", value: "gatto" },
         ]),
       );
+    });
+  });
+
+  describe("spec 25 Unit 3 — automatic Level/group creation", () => {
+    it("creates a new Level and group, then the item, when neither exists yet", async () => {
+      await withTestTransaction(async (tx) => {
+        const { languageId } = await seedTestFixtures(tx);
+        const result = await bulkImportVocabulary(tx, {
+          languageId,
+          actorUserId: DEVELOPER_ID,
+          idempotencyKey: crypto.randomUUID(),
+          rows: [
+            {
+              decision: "import",
+              fields: vocabFields({
+                term: "nueva_estructura_perro",
+                primaryMeaning: "dog",
+                levelNumber: NONEXISTENT_LEVEL_NUMBER,
+                groupNumber: 2,
+                levelName: "Everyday Life",
+                groupName: "Food & Drinks",
+              }),
+            },
+          ],
+        });
+
+        expect(result.createdVocabularyItemIds).toHaveLength(1);
+        const levels = await getLevelsByLanguage(tx, languageId);
+        const newLevel = levels.find(
+          (l) => l.levelNumber === NONEXISTENT_LEVEL_NUMBER,
+        );
+        expect(newLevel?.name).toBe("Everyday Life");
+        expect(newLevel?.status).toBe("draft");
+
+        const groups = await getVocabularyGroupsByLanguage(tx, languageId);
+        const newGroup = groups.find(
+          (g) => g.levelId === newLevel!.id && g.position === 2,
+        );
+        expect(newGroup?.name).toBe("Food & Drinks");
+        expect(newGroup?.status).toBe("draft");
+
+        const item = await lockLearningItemForEdit(
+          tx,
+          result.createdVocabularyItemIds[0]!,
+        );
+        expect(item?.levelId).toBe(newLevel!.id);
+      });
+    });
+
+    it("creates a Level/group only once even when two rows in the same import both need it", async () => {
+      await withTestTransaction(async (tx) => {
+        const { languageId } = await seedTestFixtures(tx);
+        const result = await bulkImportVocabulary(tx, {
+          languageId,
+          actorUserId: DEVELOPER_ID,
+          idempotencyKey: crypto.randomUUID(),
+          rows: [
+            {
+              decision: "import",
+              fields: vocabFields({
+                term: "primero_shared_level",
+                primaryMeaning: "first",
+                levelNumber: NONEXISTENT_LEVEL_NUMBER,
+                groupNumber: 3,
+                levelName: "Everyday Life",
+                groupName: "Shared Batch",
+              }),
+            },
+            {
+              decision: "import",
+              fields: vocabFields({
+                term: "segundo_shared_level",
+                primaryMeaning: "second",
+                levelNumber: NONEXISTENT_LEVEL_NUMBER,
+                groupNumber: 3,
+                // level_name/batch_name omitted — this row relies on the
+                // first row (processed just before it) having already
+                // created the structure within this same commit.
+              }),
+            },
+          ],
+        });
+
+        expect(result.createdVocabularyItemIds).toHaveLength(2);
+        const levels = await getLevelsByLanguage(tx, languageId);
+        const matchingLevels = levels.filter(
+          (l) => l.levelNumber === NONEXISTENT_LEVEL_NUMBER,
+        );
+        expect(matchingLevels).toHaveLength(1);
+
+        const groups = await getVocabularyGroupsByLanguage(tx, languageId);
+        const matchingGroups = groups.filter(
+          (g) => g.levelId === matchingLevels[0]!.id && g.position === 3,
+        );
+        expect(matchingGroups).toHaveLength(1);
+
+        const [firstItem, secondItem] = await Promise.all(
+          result.createdVocabularyItemIds.map((id) =>
+            lockLearningItemForEdit(tx, id),
+          ),
+        );
+        expect(firstItem?.levelId).toBe(matchingLevels[0]!.id);
+        expect(secondItem?.levelId).toBe(matchingLevels[0]!.id);
+      });
+    });
+
+    it("records LEVEL_CREATED/GROUP_CREATED audit events sharing the import's correlationId", async () => {
+      await withTestTransaction(async (tx) => {
+        const { languageId } = await seedTestFixtures(tx);
+        const idempotencyKey = crypto.randomUUID();
+        await bulkImportVocabulary(tx, {
+          languageId,
+          actorUserId: DEVELOPER_ID,
+          idempotencyKey,
+          rows: [
+            {
+              decision: "import",
+              fields: vocabFields({
+                term: "audited_new_structure",
+                primaryMeaning: "dog",
+                levelNumber: NONEXISTENT_LEVEL_NUMBER,
+                groupNumber: 4,
+                levelName: "Everyday Life",
+                groupName: "Audited Batch",
+              }),
+            },
+          ],
+        });
+
+        const levelEvents = await getAuditEvents(tx, {
+          action: "LEVEL_CREATED",
+          limit: 10,
+        });
+        const groupEvents = await getAuditEvents(tx, {
+          action: "GROUP_CREATED",
+          limit: 10,
+        });
+        expect(
+          levelEvents.items.some((e) => e.correlationId === idempotencyKey),
+        ).toBe(true);
+        expect(
+          groupEvents.items.some((e) => e.correlationId === idempotencyKey),
+        ).toBe(true);
+      });
+    });
+
+    it("blocks the row and creates nothing when level_name conflicts with the existing Level's name", async () => {
+      await withTestTransaction(async (tx) => {
+        const { languageId } = await seedTestFixtures(tx);
+        const result = await bulkImportVocabulary(tx, {
+          languageId,
+          actorUserId: DEVELOPER_ID,
+          idempotencyKey: crypto.randomUUID(),
+          rows: [
+            {
+              decision: "import",
+              fields: vocabFields({
+                term: "conflicting_level_name_row",
+                primaryMeaning: "dog",
+                levelName: "A Completely Different Name",
+              }),
+            },
+          ],
+        });
+
+        expect(result.createdVocabularyItemIds).toHaveLength(0);
+        expect(result.blocked).toHaveLength(1);
+        expect(result.blocked[0]!.reason).toContain(
+          `Level ${LEVEL_1_NUMBER} is named "Fixture level"`,
+        );
+      });
     });
   });
 

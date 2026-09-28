@@ -1310,15 +1310,30 @@ export async function getLevelContentCounts(
 
 export async function createVocabularyGroup(
   db: DbClient,
-  input: { levelId: string; languageId: string; name: string },
+  input: {
+    levelId: string;
+    languageId: string;
+    name: string;
+    /**
+     * An explicit position to create the group at (spec 25 Unit 3 — a CSV
+     * row's `batch_number` names the exact position an admin authored, not
+     * "wherever's next"). Omitted, the default append-at-the-end behavior
+     * every other caller (the single-item admin form) already relies on.
+     */
+    position?: number;
+  },
 ): Promise<string> {
   const languageCode = await getLanguageCodeOrThrow(db, input.languageId);
-  const [{ maxPosition }] = await db
-    .select({
-      maxPosition: sql<number>`coalesce(max(${vocabularyGroups.position}), 0)`,
-    })
-    .from(vocabularyGroups)
-    .where(eq(vocabularyGroups.levelId, input.levelId));
+  let position = input.position;
+  if (position === undefined) {
+    const [{ maxPosition }] = await db
+      .select({
+        maxPosition: sql<number>`coalesce(max(${vocabularyGroups.position}), 0)`,
+      })
+      .from(vocabularyGroups)
+      .where(eq(vocabularyGroups.levelId, input.levelId));
+    position = maxPosition + 1;
+  }
   return withGeneratedCurriculumKey(
     languageCode,
     "group",
@@ -1330,7 +1345,7 @@ export async function createVocabularyGroup(
           levelId: input.levelId,
           languageId: input.languageId,
           name: input.name,
-          position: maxPosition + 1,
+          position,
           curriculumKey,
         })
         .returning({ id: vocabularyGroups.id });

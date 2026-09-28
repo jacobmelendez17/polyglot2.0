@@ -409,6 +409,64 @@ describe("move and reorder", () => {
   });
 });
 
+describe("createVocabularyGroup — explicit position (spec 25 unit 3)", () => {
+  it("creates the group at the given position instead of appending, when position is supplied", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      const levelId = await createLevel(tx, {
+        languageId,
+        levelNumber: 65,
+        name: "Explicit position fixture level",
+      });
+
+      const groupId = await createVocabularyGroup(tx, {
+        levelId,
+        languageId,
+        name: "Food & Drinks",
+        position: 2,
+      });
+
+      const [row] = await tx
+        .select({ position: vocabularyGroups.position })
+        .from(vocabularyGroups)
+        .where(eq(vocabularyGroups.id, groupId));
+      expect(row?.position).toBe(2);
+    });
+  });
+
+  it("still appends at the end when position is omitted, unchanged from before", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      const levelId = await createLevel(tx, {
+        languageId,
+        levelNumber: 66,
+        name: "Append fixture level",
+      });
+
+      const firstId = await createVocabularyGroup(tx, {
+        levelId,
+        languageId,
+        name: "First",
+      });
+      const secondId = await createVocabularyGroup(tx, {
+        levelId,
+        languageId,
+        name: "Second",
+      });
+
+      const rows = await tx
+        .select({
+          id: vocabularyGroups.id,
+          position: vocabularyGroups.position,
+        })
+        .from(vocabularyGroups)
+        .where(eq(vocabularyGroups.levelId, levelId));
+      expect(rows.find((r) => r.id === firstId)?.position).toBe(1);
+      expect(rows.find((r) => r.id === secondId)?.position).toBe(2);
+    });
+  });
+});
+
 describe("curriculum keys (spec 25 unit 1)", () => {
   async function getLevelCurriculumKey(tx: TestTx, levelId: string) {
     const [row] = await tx

@@ -65,7 +65,7 @@ function describeParseError(error: {
   return error.message ?? "This file could not be parsed.";
 }
 
-/** Maps `bulk-import-service.ts`'s preview output onto the persisted row shape (spec 19 §20) — placement is folded into `changedFields` as synthetic level/group entries rather than adding dedicated columns, reusing the existing `{field, from, to}` shape. */
+/** Maps `bulk-import-service.ts`'s preview output onto the persisted row shape (spec 19 §20) — placement, and spec 25 §9's proposed Level/group creation, are folded into `changedFields` as synthetic entries rather than adding dedicated columns, reusing the existing `{field, from, to}` shape. */
 export function toRowPreviewInput(
   row: ImportRowPreview,
 ): CurriculumImportRowPreviewInput {
@@ -98,6 +98,20 @@ export function toRowPreviewInput(
             : String(row.placement.toGroupNumber),
       });
     }
+  }
+  if (row.levelToCreate) {
+    changedFields.push({
+      field: "level_name",
+      from: null,
+      to: row.levelToCreate.name,
+    });
+  }
+  if (row.groupToCreate) {
+    changedFields.push({
+      field: "group_name",
+      from: null,
+      to: row.groupToCreate.name,
+    });
   }
 
   const reviewReasonCode =

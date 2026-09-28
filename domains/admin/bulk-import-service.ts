@@ -2,6 +2,8 @@ import type { DbClient } from "@/db/client";
 import { findDuplicateCandidates } from "@/domains/curriculum/curriculum-duplicate-detection";
 import {
   createLearningItem as repoCreateLearningItem,
+  createLevel as repoCreateLevel,
+  createVocabularyGroup as repoCreateVocabularyGroup,
   getAcceptedAnswers,
   getDuplicateCandidateRows,
   getImportMatchTargets,
@@ -100,24 +102,34 @@ export type ImportRowPreview = {
   existingDuplicates: DuplicateCandidate[];
   /** The row number of the *first* row in this same file with the same normalized term/structure, if any — never itself. Vocabulary and grammar are compared separately, since they're different tables. */
   duplicateOfEarlierRow: number | null;
+  /** Spec 25 §9 — set when this row's Level doesn't exist yet and would be created alongside it. `null` when the Level already exists (or the row couldn't be resolved at all). */
+  levelToCreate: { levelNumber: number; name: string } | null;
+  /** Spec 25 §9 — set when this row's vocabulary group doesn't exist yet and would be created alongside it. Always `null` for grammar (grammar has no group). */
+  groupToCreate: { groupNumber: number; name: string } | null;
 };
 
-/** `level 1` -> that level's real id, and `(levelId, position)` -> that group's real id — both batched once per import, never per row. */
+type LevelLookupEntry = { id: string; name: string | null };
+type GroupLookupEntry = { id: string; name: string };
+
+/** `level 1` -> that level's real id+name, and `(levelId, position)` -> that group's real id+name — both batched once per import, never per row. Mutated in place as `materializeStructure` creates new Levels/groups mid-commit (spec 25 §9), so a later row in the same file sees them without a fresh query. */
 async function loadLevelAndGroupLookups(db: DbClient, languageId: string) {
   const [levelsForLanguage, groupsForLanguage] = await Promise.all([
     getLevelsByLanguage(db, languageId),
     getVocabularyGroupsByLanguage(db, languageId),
   ]);
-  const levelIdByNumber = new Map(
-    levelsForLanguage.map((level) => [level.levelNumber, level.id]),
-  );
-  const groupIdByLevelAndPosition = new Map(
-    groupsForLanguage.map((group) => [
-      `${group.levelId}:${group.position}`,
-      group.id,
+  const levelByNumber = new Map<number, LevelLookupEntry>(
+    levelsForLanguage.map((level) => [
+      level.levelNumber,
+      { id: level.id, name: level.name },
     ]),
   );
-  return { levelIdByNumber, groupIdByLevelAndPosition };
+  const groupByLevelAndPosition = new Map<string, GroupLookupEntry>(
+    groupsForLanguage.map((group) => [
+      `${group.levelId}:${group.position}`,
+      { id: group.id, name: group.name },
+    ]),
+  );
+  return { levelByNumber, groupByLevelAndPosition };
 }
 
 /** The term/structure a row's duplicate-detection and display revolve around, regardless of item type. */
@@ -180,13 +192,43 @@ function importedValues(
   };
 }
 
+/**
+ * Spec 25 §9 — a row's target Level, resolved three ways: it already exists
+ * (`existing`), it doesn't and this row supplies enough to create it
+ * (`toCreate`), or it exists under a *different* name than this row
+ * supplies (`nameConflict` — §9.1's "never silently rename"). A blank/absent
+ * `level_name` on a row targeting an existing Level is never a conflict —
+ * it simply means "don't redefine the name" (spec §5.2).
+ */
+type ResolvedLevel =
+  | { kind: "existing"; id: string }
+  | { kind: "toCreate"; levelNumber: number; name: string }
+  | {
+      kind: "nameConflict";
+      id: string;
+      existingName: string | null;
+      suppliedName: string;
+    };
+
+/** Same three-way shape as `ResolvedLevel`, plus `none` for a grammar row (grammar has no group at all). */
+type ResolvedGroup =
+  | { kind: "none" }
+  | { kind: "existing"; id: string }
+  | { kind: "toCreate"; groupNumber: number; name: string }
+  | {
+      kind: "nameConflict";
+      id: string;
+      existingName: string;
+      suppliedName: string;
+    };
+
 type ResolvedImportRow =
   | { kind: "invalid"; fieldIssues: ImportRowFieldIssue[] }
   | {
       kind: "resolved";
       fields: ParsedImportFields;
-      levelId: string;
-      groupId: string | null;
+      level: ResolvedLevel;
+      group: ResolvedGroup;
       target: ImportMatchTarget | null;
       action: ImportRowAction;
       blockedReason: string | null;
@@ -196,8 +238,8 @@ type ResolvedImportRow =
     };
 
 type ImportLookups = {
-  levelIdByNumber: Map<number, string>;
-  groupIdByLevelAndPosition: Map<string, string>;
+  levelByNumber: Map<number, LevelLookupEntry>;
+  groupByLevelAndPosition: Map<string, GroupLookupEntry>;
   /**
    * Every item sharing a term, not just one — a term can legitimately belong
    * to several rows: an archived item the curriculum has moved past, or two
@@ -217,6 +259,81 @@ type ImportLookups = {
    */
   expectedLanguageCode: string;
 };
+
+/**
+ * Resolves a row's target Level against `lookups.levelByNumber` (spec 25
+ * §9). Returns an `ImportRowFieldIssue` directly (rather than a `ResolvedLevel`)
+ * only when the Level doesn't exist and nothing was supplied to create it —
+ * every other case, including a name conflict, is a `ResolvedLevel` the
+ * caller decides what to do with.
+ */
+function resolveLevelStructure(
+  levelNumber: number,
+  suppliedName: string | null,
+  lookups: ImportLookups,
+): ResolvedLevel | ImportRowFieldIssue {
+  const existing = lookups.levelByNumber.get(levelNumber);
+  if (!existing) {
+    if (!suppliedName) {
+      return {
+        field: "level",
+        message: `Level ${levelNumber} doesn't exist yet. Provide level_name to create it.`,
+      };
+    }
+    return { kind: "toCreate", levelNumber, name: suppliedName };
+  }
+  if (suppliedName && existing.name && suppliedName !== existing.name) {
+    return {
+      kind: "nameConflict",
+      id: existing.id,
+      existingName: existing.name,
+      suppliedName,
+    };
+  }
+  return { kind: "existing", id: existing.id };
+}
+
+/**
+ * Resolves a vocabulary row's target group against `lookups.groupByLevelAndPosition`
+ * — `levelId` is `null` when the Level itself is still only `toCreate`, in
+ * which case the group can't possibly exist yet either. Same three-way
+ * shape and same field-issue-vs-resolved split as `resolveLevelStructure`.
+ */
+function resolveGroupStructure(
+  levelId: string | null,
+  levelNumber: number,
+  groupNumber: number,
+  suppliedName: string | null,
+  lookups: ImportLookups,
+): ResolvedGroup | ImportRowFieldIssue {
+  const existing = levelId
+    ? lookups.groupByLevelAndPosition.get(`${levelId}:${groupNumber}`)
+    : undefined;
+  if (!existing) {
+    if (!suppliedName) {
+      return {
+        field: "group",
+        message: `Level ${levelNumber} has no group ${groupNumber} yet. Provide batch_name to create it.`,
+      };
+    }
+    return { kind: "toCreate", groupNumber, name: suppliedName };
+  }
+  if (suppliedName && suppliedName !== existing.name) {
+    return {
+      kind: "nameConflict",
+      id: existing.id,
+      existingName: existing.name,
+      suppliedName,
+    };
+  }
+  return { kind: "existing", id: existing.id };
+}
+
+function isFieldIssue(
+  value: ResolvedLevel | ResolvedGroup | ImportRowFieldIssue,
+): value is ImportRowFieldIssue {
+  return "field" in value;
+}
 
 /**
  * Picks the item a row updates when several share its term.
@@ -280,48 +397,56 @@ function resolveImportRow(
     };
   }
 
-  const levelId = lookups.levelIdByNumber.get(row.fields.levelNumber);
-  if (!levelId) {
-    return {
-      kind: "invalid",
-      fieldIssues: [
-        {
-          field: "level",
-          message: `Level ${row.fields.levelNumber} doesn't exist yet.`,
-        },
-      ],
-    };
+  const levelResult = resolveLevelStructure(
+    row.fields.levelNumber,
+    row.fields.levelName,
+    lookups,
+  );
+  if (isFieldIssue(levelResult)) {
+    return { kind: "invalid", fieldIssues: [levelResult] };
   }
+  const level = levelResult;
 
-  let groupId: string | null = null;
+  let group: ResolvedGroup = { kind: "none" };
   if (row.fields.itemType === "vocabulary") {
-    groupId =
-      lookups.groupIdByLevelAndPosition.get(
-        `${levelId}:${row.fields.groupNumber}`,
-      ) ?? null;
-    if (!groupId) {
-      return {
-        kind: "invalid",
-        fieldIssues: [
-          {
-            field: "group",
-            message: `Level ${row.fields.levelNumber} has no group ${row.fields.groupNumber} yet.`,
-          },
-        ],
-      };
+    const levelIdForGroupLookup = level.kind === "toCreate" ? null : level.id;
+    const groupResult = resolveGroupStructure(
+      levelIdForGroupLookup,
+      row.fields.levelNumber,
+      row.fields.groupNumber,
+      row.fields.groupName,
+      lookups,
+    );
+    if (isFieldIssue(groupResult)) {
+      return { kind: "invalid", fieldIssues: [groupResult] };
     }
+    group = groupResult;
   }
 
   const matches =
     lookups.targetsByType[row.fields.itemType].get(
       normalizeForComparison(displayFormOf(row.fields)),
     ) ?? [];
-  const { target, blockedReason } = chooseMatchTarget(matches);
+  const { target, blockedReason: matchBlockedReason } =
+    chooseMatchTarget(matches);
+
+  // Spec 25 §9.1 — an existing Level/group named differently than this row
+  // says is a reviewable conflict, never a silent rename. Checked after
+  // matching (not instead of it) so the row's *other* problems, if any,
+  // still resolve normally — this conflict just wins if present.
+  const structuralConflictReason =
+    level.kind === "nameConflict"
+      ? `Level ${row.fields.levelNumber} is named "${level.existingName ?? "(no name)"}" in the curriculum, but this file says "${level.suppliedName}". Correct one of them, or leave level_name blank to keep the existing name.`
+      : group.kind === "nameConflict"
+        ? `Batch ${row.fields.itemType === "vocabulary" ? row.fields.groupNumber : ""} in Level ${row.fields.levelNumber} is named "${group.existingName}" in the curriculum, but this file says "${group.suppliedName}". Correct one of them, or leave batch_name blank to keep the existing name.`
+        : null;
+  const blockedReason = matchBlockedReason ?? structuralConflictReason;
+
   const base = {
     kind: "resolved" as const,
     fields: row.fields,
-    levelId,
-    groupId,
+    level,
+    group,
     target,
   };
 
@@ -405,7 +530,7 @@ async function loadImportLookups(
   languageId: string,
 ): Promise<ImportLookups> {
   const [
-    { levelIdByNumber, groupIdByLevelAndPosition },
+    { levelByNumber, groupByLevelAndPosition },
     vocabularyTargets,
     grammarTargets,
     language,
@@ -422,8 +547,8 @@ async function loadImportLookups(
     );
   }
   return {
-    levelIdByNumber,
-    groupIdByLevelAndPosition,
+    levelByNumber,
+    groupByLevelAndPosition,
     targetsByType: {
       vocabulary: groupByTerm(vocabularyTargets),
       grammar: groupByTerm(grammarTargets),
@@ -459,6 +584,8 @@ export async function previewVocabularyImport(
       savesAsDraft: false,
       existingDuplicates: [],
       duplicateOfEarlierRow: null,
+      levelToCreate: null,
+      groupToCreate: null,
     };
 
     const resolved = resolveImportRow(row, lookups);
@@ -503,6 +630,20 @@ export async function previewVocabularyImport(
       savesAsDraft: resolved.savesAsDraft,
       existingDuplicates,
       duplicateOfEarlierRow,
+      levelToCreate:
+        resolved.level.kind === "toCreate"
+          ? {
+              levelNumber: resolved.level.levelNumber,
+              name: resolved.level.name,
+            }
+          : null,
+      groupToCreate:
+        resolved.group.kind === "toCreate"
+          ? {
+              groupNumber: resolved.group.groupNumber,
+              name: resolved.group.name,
+            }
+          : null,
     };
   });
 }
@@ -616,9 +757,20 @@ export async function bulkImportVocabulary(
           continue;
         }
 
+        const { levelId, groupId } = await materializeStructure(
+          tx,
+          resolved,
+          lookups,
+          input.languageId,
+          input.actorUserId,
+          input.idempotencyKey,
+        );
+
         if (resolved.target) {
           await applyImportUpdate(tx, {
             resolved,
+            levelId,
+            groupId,
             target: resolved.target,
             actorUserId: input.actorUserId,
             correlationId: input.idempotencyKey,
@@ -629,6 +781,8 @@ export async function bulkImportVocabulary(
 
         await applyImportCreate(tx, {
           resolved,
+          levelId,
+          groupId,
           languageId: input.languageId,
           actorUserId: input.actorUserId,
           correlationId: input.idempotencyKey,
@@ -643,8 +797,87 @@ export async function bulkImportVocabulary(
   );
 }
 
+/**
+ * Materializes whatever Level/vocabulary group a resolved row still needs
+ * before its item can be written (spec 25 §9) — reusing anything already
+ * created by an *earlier* row in this same commit via `lookups`' own maps,
+ * which this function mutates in place so the next row sees it without a
+ * fresh query.
+ *
+ * Never called for a row already classified `blocked` (see
+ * `bulkImportVocabulary`'s loop) — a `nameConflict` reaching here would be a
+ * real bug in `resolveImportRow`'s classification above, not a normal
+ * outcome, so the thrown errors are defensive/internal, never user-facing.
+ */
+async function materializeStructure(
+  tx: DbClient,
+  resolved: Extract<ResolvedImportRow, { kind: "resolved" }>,
+  lookups: ImportLookups,
+  languageId: string,
+  actorUserId: string,
+  correlationId: string,
+): Promise<{ levelId: string; groupId: string | null }> {
+  let levelId: string;
+  if (resolved.level.kind === "existing") {
+    levelId = resolved.level.id;
+  } else if (resolved.level.kind === "toCreate") {
+    const { levelNumber, name } = resolved.level;
+    const already = lookups.levelByNumber.get(levelNumber);
+    if (already) {
+      levelId = already.id;
+    } else {
+      levelId = await repoCreateLevel(tx, { languageId, levelNumber, name });
+      await recordAuditEvent(tx, {
+        actorUserId,
+        action: "LEVEL_CREATED",
+        resourceType: "level",
+        resourceId: levelId,
+        afterData: { languageId, levelNumber, name },
+        correlationId,
+      });
+      lookups.levelByNumber.set(levelNumber, { id: levelId, name });
+    }
+  } else {
+    throw new Error(
+      `materializeStructure: unexpected level name conflict for Level ${resolved.fields.levelNumber} — this row should have been classified "blocked".`,
+    );
+  }
+
+  if (resolved.group.kind === "none") return { levelId, groupId: null };
+  if (resolved.group.kind === "existing") {
+    return { levelId, groupId: resolved.group.id };
+  }
+  if (resolved.group.kind === "toCreate") {
+    const { groupNumber, name } = resolved.group;
+    const key = `${levelId}:${groupNumber}`;
+    const already = lookups.groupByLevelAndPosition.get(key);
+    if (already) return { levelId, groupId: already.id };
+    const groupId = await repoCreateVocabularyGroup(tx, {
+      levelId,
+      languageId,
+      name,
+      position: groupNumber,
+    });
+    await recordAuditEvent(tx, {
+      actorUserId,
+      action: "GROUP_CREATED",
+      resourceType: "vocabulary_group",
+      resourceId: groupId,
+      afterData: { levelId, groupNumber, name },
+      correlationId,
+    });
+    lookups.groupByLevelAndPosition.set(key, { id: groupId, name });
+    return { levelId, groupId };
+  }
+  throw new Error(
+    `materializeStructure: unexpected group name conflict for a group in Level ${resolved.fields.levelNumber} — this row should have been classified "blocked".`,
+  );
+}
+
 type ApplyContext = {
   resolved: Extract<ResolvedImportRow, { kind: "resolved" }>;
+  levelId: string;
+  groupId: string | null;
   actorUserId: string;
   correlationId: string;
   result: BulkImportVocabularyResult;
@@ -664,6 +897,8 @@ async function applyImportCreate(
   tx: DbClient,
   {
     resolved,
+    levelId,
+    groupId,
     languageId,
     actorUserId,
     correlationId,
@@ -671,7 +906,7 @@ async function applyImportCreate(
     result,
   }: ApplyContext & { languageId: string; lookups: ImportLookups },
 ): Promise<void> {
-  const { fields, levelId, groupId } = resolved;
+  const { fields } = resolved;
   const position = await getNextPosition(tx, levelId, fields.itemType);
 
   let learningItemId: string;
@@ -779,14 +1014,15 @@ async function applyImportUpdate(
   tx: DbClient,
   {
     resolved,
+    levelId,
+    groupId,
     target,
     actorUserId,
     correlationId,
     result,
   }: ApplyContext & { target: ImportMatchTarget },
 ): Promise<void> {
-  const { fields, levelId, groupId, placement, changes, savesAsDraft } =
-    resolved;
+  const { fields, placement, changes, savesAsDraft } = resolved;
   const learningItemId = target.learningItemId;
   const changed = Object.fromEntries(
     changes.map((change) => [change.field, change.to]),
