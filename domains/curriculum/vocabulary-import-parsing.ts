@@ -93,6 +93,16 @@ import type {
  *   `curriculum_key` can be the match (see below), a row can rename the word
  *   itself, so `term`/`structure` need to be diffable like any other field —
  *   see `bulk-import-service.ts`'s `IMPORTABLE_FIELDS`.
+ *
+ * Spec 25 Unit 5 (2026-09-28) adds one more `curriculum_key` behavior, also
+ * database-free: a cell holding exactly `NEW_HOMONYM_SENTINEL` parses to
+ * `forceNewHomonym: true` (and `curriculumKey: null`, never both) — spec
+ * §10.1's explicit, auditable "create a legitimate separate homonym" escape
+ * hatch, consumed by `bulk-import-service.ts`'s `resolveImportRow`. This is
+ * never present in an admin's own authored file; it only ever arrives via a
+ * `curriculum_import_row_corrections` correction overlaid onto the raw row
+ * before this function ever sees it (see `import-resolution.ts`'s
+ * `resolveFreshImport`).
  */
 
 export const REQUIRED_IMPORT_COLUMNS = [
@@ -217,6 +227,7 @@ export type ParsedVocabularyFields = Omit<
   curriculumKey: string | null;
   levelName: string | null;
   groupName: string | null;
+  forceNewHomonym: boolean;
 };
 
 /** Grammar has no group at all — only `levelNumber` needs later resolution. */
@@ -225,6 +236,7 @@ export type ParsedGrammarFields = GrammarFieldsInput & {
   levelNumber: number;
   curriculumKey: string | null;
   levelName: string | null;
+  forceNewHomonym: boolean;
 };
 
 export type ParsedImportFields = ParsedVocabularyFields | ParsedGrammarFields;
@@ -277,6 +289,23 @@ function emptyToUndefined(value: string | undefined): string | undefined {
 
 /** Spec 25 §7.4's literal sentinel for explicitly clearing a field, distinct from an absent/blank cell. */
 export const CLEAR_SENTINEL = "__CLEAR__";
+
+/**
+ * Spec 25 §10.1's "Explicitly create a legitimate separate homonym" — a
+ * `curriculum_key` cell holding exactly this sentinel (case-insensitive)
+ * means the opposite of a real key: skip matching entirely (by key *and* by
+ * spelling) and create a brand-new item even though one with the same term
+ * already exists. `resolveImportRow` (`bulk-import-service.ts`) is the only
+ * reader; a row's *real* `curriculumKey` is never set alongside this — see
+ * `forceNewHomonym` on `ParsedImportFields`.
+ *
+ * This is an intentionally narrow escape hatch, not a general "always
+ * create" flag: an ordinary re-import still treats one live exact-term match
+ * as an update (spec 17's settled behavior — a plain file cannot express a
+ * deliberate homonym, only this explicit per-row admin correction can, via
+ * `curriculum_import_row_corrections`).
+ */
+export const NEW_HOMONYM_SENTINEL = "__NEW_HOMONYM__";
 
 /**
  * Distinguishes "no info supplied" (blank/absent/N-A -> `undefined`, meaning
@@ -379,7 +408,10 @@ export function validateVocabularyImportRow(
   // value already returned above via `fieldIssues.length > 0`.
   const definiteWord = word!;
   const definiteTranslation = translation!;
-  const curriculumKey = emptyToUndefined(raw.curriculum_key) ?? null;
+  const rawCurriculumKey = emptyToUndefined(raw.curriculum_key) ?? null;
+  const forceNewHomonym =
+    rawCurriculumKey?.toUpperCase() === NEW_HOMONYM_SENTINEL;
+  const curriculumKey = forceNewHomonym ? null : rawCurriculumKey;
   const levelName = emptyToUndefined(raw.level_name) ?? null;
 
   const itemType =
@@ -392,6 +424,7 @@ export function validateVocabularyImportRow(
       levelNumber,
       curriculumKey,
       levelName,
+      forceNewHomonym,
       title: null,
       structure: definiteWord,
       primaryMeaning: definiteTranslation,
@@ -428,6 +461,7 @@ export function validateVocabularyImportRow(
     groupNumber,
     curriculumKey,
     levelName,
+    forceNewHomonym,
     groupName: emptyToUndefined(raw.group_name) ?? null,
     term: definiteWord,
     primaryMeaning: definiteTranslation,

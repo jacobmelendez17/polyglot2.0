@@ -6,7 +6,10 @@ import {
   seedTestFixtures,
 } from "@/db/seed/test-fixtures";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
-import { createCurriculumImport } from "@/domains/admin/curriculum-import-service";
+import {
+  createCurriculumImport,
+  reviseCurriculumImportRow,
+} from "@/domains/admin/curriculum-import-service";
 import {
   getCurriculumImportById,
   listCurriculumImportRows,
@@ -174,6 +177,54 @@ describe("runPreviewJob (spec 19 §7/§10)", () => {
 
       const after = await getCurriculumImportById(tx, record.id);
       expect(after?.status).toBe("failed");
+    });
+  });
+
+  it("a row correction (spec 25 §10.2) reclassifies on the next preview run, no new upload", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      const { record, key } = await createTestImport(
+        tx,
+        languageId,
+        "level-2.csv",
+      );
+
+      const objects = new Map([
+        [key, `word,translation,level,group\nbanco,bank,${LEVEL_NUMBER},99\n`],
+      ]);
+      const storage = new FakeCurriculumImportStorage(objects);
+
+      await runPreviewJob(tx, storage, { bucket: "fake-bucket", key });
+      const blockedRows = await listCurriculumImportRows(tx, {
+        importId: record.id,
+        limit: 10,
+      });
+      expect(blockedRows.items[0]).toMatchObject({ classification: "blocked" });
+
+      // The admin fixes the invalid group number without touching the CSV.
+      await reviseCurriculumImportRow(tx, {
+        rowId: blockedRows.items[0]!.id,
+        corrections: { group: String(GROUP_NUMBER) },
+      });
+
+      // The retrigger message carries only {bucket, key} — identical to what
+      // `admin-mutation-service.ts`'s `reviseCurriculumImportRow` sends.
+      await runPreviewJob(tx, storage, { bucket: "fake-bucket", key });
+
+      const after = await getCurriculumImportById(tx, record.id);
+      expect(after?.status).toBe("ready_to_import");
+      expect(after?.previewVersion).toBe(2);
+
+      const rows = await listCurriculumImportRows(tx, {
+        importId: record.id,
+        limit: 10,
+      });
+      expect(rows.items[0]).toMatchObject({
+        classification: "create",
+        previousClassification: "blocked",
+        changedSincePreview: true,
+        displayTerm: "banco",
+      });
     });
   });
 

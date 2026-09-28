@@ -13,7 +13,9 @@ import { resolveDictionaryMatch } from "./lexicon-matching";
 import {
   confirmMapping,
   findMatchCandidates,
+  getConfirmedDictionaryDataForItems,
   getDictionaryEntrySummary,
+  getKnownNormalizedLemmas,
   getLexicalSourceByCode,
   getMapping,
   getMatchableVocabularyItem,
@@ -28,7 +30,10 @@ import {
   setPreferredPronunciation,
   upsertAutomaticMapping,
 } from "./lexicon-repository";
-import type { VocabularyDictionaryMapping } from "./lexicon-types";
+import type {
+  ConfirmedLessonDictionaryData,
+  VocabularyDictionaryMapping,
+} from "./lexicon-types";
 
 /**
  * Spec 12's mapping workflow: run the deterministic matcher, and let an
@@ -192,6 +197,31 @@ export async function matchImportedVocabularyItems(
   }
 
   return { processed: vocabularyItemIds.length, skippedLocked, byStatus };
+}
+
+/**
+ * Spec 25 §13 — the CSV import pipeline's read-only entry point into
+ * confirmed dictionary data (`domains/admin/bulk-import-service.ts`'s
+ * enrichment gap-filling), the same `DbClient`-injectable shape every other
+ * cross-domain call into this file already uses. Thin re-export: this file,
+ * not `lexicon-repository.ts`, is the domain's public surface for
+ * `db`-injected callers outside `domains/lexicon` (see
+ * `matchImportedVocabularyItems` above, called the same way from
+ * `aws/lambda/curriculum-import/commit-job.ts`).
+ */
+export async function getConfirmedDictionaryFieldsForImport(
+  db: DbClient,
+  vocabularyItemIds: string[],
+): Promise<Map<string, ConfirmedLessonDictionaryData>> {
+  return getConfirmedDictionaryDataForItems(db, vocabularyItemIds);
+}
+
+/** Spec 25 §12 — the known-word corpus a bulk-import spelling suggestion is checked against; see `domains/curriculum/spellcheck.ts`. */
+export async function getKnownVocabularyLemmas(
+  db: DbClient,
+  languageId: string,
+): Promise<string[]> {
+  return getKnownNormalizedLemmas(db, languageId);
 }
 
 export interface MappingMutationInput {

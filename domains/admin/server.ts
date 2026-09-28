@@ -41,6 +41,7 @@ export {
   resetDictionaryFieldOverride,
   resetOwnAccountProgress,
   resolveCurriculumImportRow,
+  reviseCurriculumImportRow,
   retryCurriculumImport,
   unarchiveCurriculumImport,
   updateItem,

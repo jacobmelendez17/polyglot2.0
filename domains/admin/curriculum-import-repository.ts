@@ -12,7 +12,12 @@ import {
 } from "drizzle-orm";
 
 import type { DbClient } from "@/db/client";
-import { curriculumImportRows, curriculumImports } from "@/db/schema";
+import {
+  curriculumImportRowCorrections,
+  curriculumImportRows,
+  curriculumImports,
+} from "@/db/schema";
+import { AdminError } from "@/lib/errors/admin-errors";
 
 import type {
   CreateCurriculumImportInput,
@@ -99,6 +104,8 @@ function toCurriculumImportRowRecord(
       row.changedFields as CurriculumImportRowRecord["changedFields"],
     reviewReasonCode: row.reviewReasonCode,
     reviewReason: row.reviewReason,
+    spellingWarning:
+      row.spellingWarning as CurriculumImportRowRecord["spellingWarning"],
     adminDisposition: row.adminDisposition,
     changedSincePreview: row.changedSincePreview,
     createdAt: row.createdAt,
@@ -448,6 +455,7 @@ export async function recordPreviewResult(
           changedFields: row.changedFields,
           reviewReasonCode: row.reviewReasonCode,
           reviewReason: row.reviewReason,
+          spellingWarning: row.spellingWarning,
           changedSincePreview:
             previous !== null && previous !== row.classification,
         };
@@ -514,4 +522,113 @@ export async function deleteCurriculumImport(
   importId: string,
 ): Promise<void> {
   await db.delete(curriculumImports).where(eq(curriculumImports.id, importId));
+}
+
+/**
+ * Spec 25 §10.2 — every durable row correction for one import, by row
+ * number. Lives in its own table precisely so it survives
+ * `recordPreviewResult`'s delete-and-reinsert of `curriculum_import_rows` on
+ * every (re)preview — see `curriculum-imports.ts`'s schema docstring. Read by
+ * `resolveFreshImport` (`aws/lambda/curriculum-import/import-resolution.ts`)
+ * on every parse, never paginated: bounded by the same 5,000-row import cap
+ * as `getCurrentRowClassifications`.
+ */
+export async function getRowCorrections(
+  db: DbClient,
+  importId: string,
+): Promise<Map<number, Record<string, string>>> {
+  const rows = await db
+    .select({
+      rowNumber: curriculumImportRowCorrections.rowNumber,
+      corrections: curriculumImportRowCorrections.corrections,
+    })
+    .from(curriculumImportRowCorrections)
+    .where(eq(curriculumImportRowCorrections.importId, importId));
+  return new Map(
+    rows.map((row) => [
+      row.rowNumber,
+      row.corrections as Record<string, string>,
+    ]),
+  );
+}
+
+/**
+ * Merges a patch into one row's durable corrections (spec 25 §10.2) —
+ * upserted on `(import_id, row_number)`, and a patch field holding only
+ * whitespace *removes* that key rather than storing a blank override, so an
+ * admin can revert a single field back to the source file's own value
+ * without clearing every other correction already made to the same row.
+ * Returns the import id, so the caller (`curriculum-import-service.ts`) can
+ * re-trigger preview without a second lookup.
+ */
+export async function mergeRowCorrections(
+  db: DbClient,
+  {
+    importId,
+    rowNumber,
+    patch,
+  }: {
+    importId: string;
+    rowNumber: number;
+    patch: Partial<Record<string, string>>;
+  },
+): Promise<void> {
+  const [existing] = await db
+    .select({ corrections: curriculumImportRowCorrections.corrections })
+    .from(curriculumImportRowCorrections)
+    .where(
+      and(
+        eq(curriculumImportRowCorrections.importId, importId),
+        eq(curriculumImportRowCorrections.rowNumber, rowNumber),
+      ),
+    )
+    .limit(1);
+
+  const merged: Record<string, string> = {
+    ...((existing?.corrections as Record<string, string> | undefined) ?? {}),
+  };
+  for (const [field, value] of Object.entries(patch)) {
+    if (!value || value.trim() === "") delete merged[field];
+    else merged[field] = value;
+  }
+
+  if (existing) {
+    await db
+      .update(curriculumImportRowCorrections)
+      .set({ corrections: merged })
+      .where(
+        and(
+          eq(curriculumImportRowCorrections.importId, importId),
+          eq(curriculumImportRowCorrections.rowNumber, rowNumber),
+        ),
+      );
+    return;
+  }
+  if (Object.keys(merged).length === 0) return; // Nothing to store — every patched field was blank.
+  await db.insert(curriculumImportRowCorrections).values({
+    importId,
+    rowNumber,
+    corrections: merged,
+  });
+}
+
+/** The one row a correction targets, by its `curriculum_import_rows.id` — resolves the row number `mergeRowCorrections` actually keys on, and refuses a row from an import that no longer exists. */
+export async function getRowNumberForRowId(
+  db: DbClient,
+  rowId: string,
+): Promise<{ importId: string; rowNumber: number }> {
+  const [row] = await db
+    .select({
+      importId: curriculumImportRows.importId,
+      rowNumber: curriculumImportRows.rowNumber,
+    })
+    .from(curriculumImportRows)
+    .where(eq(curriculumImportRows.id, rowId))
+    .limit(1);
+  if (!row)
+    throw new AdminError(
+      "CURRICULUM_ITEM_NOT_FOUND",
+      "This row no longer exists.",
+    );
+  return row;
 }

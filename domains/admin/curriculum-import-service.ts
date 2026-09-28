@@ -8,8 +8,11 @@ import {
   createCurriculumImport as repoCreateCurriculumImport,
   deleteCurriculumImport,
   getCurrentRowClassifications,
+  getCurriculumImportById,
+  getRowNumberForRowId,
   incrementAttemptCount,
   lockCurriculumImportForUpdate,
+  mergeRowCorrections,
   recordPreviewResult as repoRecordPreviewResult,
   setRowDisposition,
   setStatus,
@@ -245,6 +248,55 @@ export async function resolveCurriculumImportRow(
   }: { rowId: string; disposition: CurriculumImportRowDisposition },
 ): Promise<void> {
   await setRowDisposition(db, rowId, disposition);
+}
+
+export type ReviseCurriculumImportRowResult = {
+  importId: string;
+  s3Bucket: string;
+  s3Key: string;
+};
+
+/**
+ * Spec 25 §10.2's "admin changes value → normalize → validate →
+ * resolveImportRow → reclassify," no new CSV upload required. Only legal
+ * while the import is actually showing rows for review — mid-preview or
+ * mid-commit, a correction would race whatever else is reading/writing this
+ * import's rows right now. The correction itself is durable the moment this
+ * returns (`mergeRowCorrections`); the caller
+ * (`admin-mutation-service.ts`) still owns re-triggering the async preview
+ * that actually applies it, the same "domain write, then enqueue" split
+ * `confirmCurriculumImport`/`retryCurriculumImport` already use.
+ */
+export async function reviseCurriculumImportRow(
+  db: DbClient,
+  {
+    rowId,
+    corrections,
+  }: { rowId: string; corrections: Partial<Record<string, string>> },
+): Promise<ReviseCurriculumImportRowResult> {
+  const { importId, rowNumber } = await getRowNumberForRowId(db, rowId);
+  const importRecord = await getCurriculumImportById(db, importId);
+  if (!importRecord)
+    throw new AdminError(
+      "CURRICULUM_ITEM_NOT_FOUND",
+      "This import no longer exists.",
+    );
+  if (
+    importRecord.status !== "needs_review" &&
+    importRecord.status !== "ready_to_import"
+  ) {
+    throw new AdminError(
+      "CURRICULUM_VALIDATION_FAILED",
+      `Cannot revise a row while the import is "${importRecord.status}".`,
+    );
+  }
+
+  await mergeRowCorrections(db, { importId, rowNumber, patch: corrections });
+  return {
+    importId,
+    s3Bucket: importRecord.s3Bucket,
+    s3Key: importRecord.s3Key,
+  };
 }
 
 export async function markCurriculumImportStarted(

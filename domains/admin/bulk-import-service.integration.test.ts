@@ -9,7 +9,15 @@ import {
 } from "@/db/seed/test-fixtures";
 import type { TestTx } from "@/db/test/with-test-transaction";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
-import { learningItems } from "@/db/schema";
+import {
+  dictionaryEntries,
+  dictionaryPronunciations,
+  dictionarySenses,
+  learningItems,
+  lexicalSources,
+  vocabularyDictionaryMappings,
+  vocabularySelectedSenses,
+} from "@/db/schema";
 import {
   archiveLearningItem,
   createVocabularyGroup as repoCreateVocabularyGroup,
@@ -61,6 +69,7 @@ function vocabFields(
     curriculumKey: null,
     levelName: null,
     groupName: null,
+    forceNewHomonym: false,
     partOfSpeech: "noun",
     // `undefined`, not `null` — this factory's "not specified" default has
     // to match the real parser's (`vocabulary-import-parsing.ts`), where
@@ -87,6 +96,7 @@ function grammarFields(
     levelNumber: LEVEL_1_NUMBER,
     curriculumKey: null,
     levelName: null,
+    forceNewHomonym: false,
     title: null,
     explanation: "",
     category: null,
@@ -916,6 +926,44 @@ describe("bulkImportVocabulary", () => {
     });
   });
 
+  it("spec 25 §10.1 — creates a deliberate second item when forceNewHomonym overrides the term match, auditing DUPLICATE_APPROVED", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      const idempotencyKey = crypto.randomUUID();
+
+      const result = await bulkImportVocabulary(tx, {
+        languageId,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey,
+        rows: [
+          {
+            fields: vocabFields({
+              term: "gato",
+              primaryMeaning: "cat (a deliberate second sense)",
+              forceNewHomonym: true,
+            }),
+            decision: "import",
+          },
+        ],
+      });
+
+      expect(result.createdVocabularyItemIds).toHaveLength(1);
+      const newItemId = result.createdVocabularyItemIds[0]!;
+      expect(newItemId).not.toBe(ITEM_GATO_ID);
+
+      const audit = await getAuditEvents(tx, {
+        action: "DUPLICATE_APPROVED",
+        resourceId: newItemId,
+        limit: 10,
+      });
+      expect(audit.items).toHaveLength(1);
+      expect(audit.items[0]?.correlationId).toBe(idempotencyKey);
+      expect(audit.items[0]?.afterData).toEqual({
+        approvedAsHomonymOf: [ITEM_GATO_ID],
+      });
+    });
+  });
+
   it("refuses to run when every row was skipped", async () => {
     await withTestTransaction(async (tx) => {
       const { languageId } = await seedTestFixtures(tx);
@@ -1007,6 +1055,280 @@ describe("bulkImportVocabulary", () => {
         ),
       );
       expect(second!.position).toBe(first!.position + 1);
+    });
+  });
+});
+
+describe("spec 25 Unit 6 — metadata enrichment and spellcheck", () => {
+  it("proposes filling a missing definition/ipa from a confirmed dictionary match, tagged with dictionary provenance, and actually writes it on commit", async () => {
+    await withTestTransaction(async (tx: TestTx) => {
+      const { languageId } = await seedTestFixtures(tx);
+
+      const [source] = await tx
+        .insert(lexicalSources)
+        .values({
+          code: "test-source",
+          provider: "test-provider",
+          sourceType: "dictionary",
+          sourceLanguage: "es",
+          entryLanguage: "en",
+          licenseMetadata: {},
+          attributionText: "From Test, CC BY-SA 4.0",
+        })
+        .returning();
+      const [entry] = await tx
+        .insert(dictionaryEntries)
+        .values({
+          languageId,
+          sourceId: source!.id,
+          lemma: "gato",
+          normalizedLemma: "gato",
+          partOfSpeech: "noun",
+          sourceEntryKey: "gato#noun#1",
+        })
+        .returning();
+      const [sense] = await tx
+        .insert(dictionarySenses)
+        .values({
+          dictionaryEntryId: entry!.id,
+          sourceSenseKey: "s1",
+          sourceFingerprint: "f1",
+          senseOrder: 0,
+          gloss: "a small domesticated feline",
+        })
+        .returning();
+      const [pronunciation] = await tx
+        .insert(dictionaryPronunciations)
+        .values({
+          dictionaryEntryId: entry!.id,
+          ipa: "/ˈɡato/",
+          regionCode: "es-MX",
+          sourceFingerprint: "p1",
+        })
+        .returning();
+      await tx.insert(vocabularyDictionaryMappings).values({
+        vocabularyItemId: ITEM_GATO_ID,
+        dictionaryEntryId: entry!.id,
+        lookupForm: "gato",
+        matchStatus: "manual",
+        confidence: "high",
+        preferredPronunciationId: pronunciation!.id,
+      });
+      await tx.insert(vocabularySelectedSenses).values({
+        vocabularyItemId: ITEM_GATO_ID,
+        dictionarySenseId: sense!.id,
+        position: 0,
+      });
+
+      // The row itself says nothing about definition/ipa/pronunciation — an
+      // ordinary re-import that would otherwise classify as "unchanged".
+      const validatedRows: ValidatedImportRow[] = [
+        {
+          rowNumber: 2,
+          raw: {},
+          fieldIssues: [],
+          fields: vocabFields({ term: "gato", primaryMeaning: "cat" }),
+        },
+      ];
+      const [preview] = await previewVocabularyImport(tx, {
+        languageId,
+        validatedRows,
+      });
+
+      expect(preview?.action).toBe("update");
+      expect(preview?.changes).toEqual(
+        expect.arrayContaining([
+          {
+            field: "definition",
+            from: null,
+            to: "a small domesticated feline",
+            source: "dictionary",
+          },
+          { field: "ipa", from: null, to: "/ˈɡato/", source: "dictionary" },
+        ]),
+      );
+
+      const result = await bulkImportVocabulary(tx, {
+        languageId,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+        rows: [{ fields: preview!.fields!, decision: "import" }],
+      });
+
+      // gato is `published` in the fixtures — an enrichment fill is content
+      // like any other, so it lands in the draft, never live (spec 25 §14.2).
+      expect(result.draftedItemIds).toEqual([ITEM_GATO_ID]);
+      const draft = await getDraft(tx, ITEM_GATO_ID);
+      expect(draft?.data).toMatchObject({
+        type: "vocabulary",
+        fields: {
+          definition: "a small domesticated feline",
+          ipa: "/ˈɡato/",
+        },
+      });
+    });
+  });
+
+  it("never proposes enrichment for a field the CSV row already supplied, or one the admin already overrode", async () => {
+    await withTestTransaction(async (tx: TestTx) => {
+      const { languageId } = await seedTestFixtures(tx);
+
+      const [source] = await tx
+        .insert(lexicalSources)
+        .values({
+          code: "test-source-2",
+          provider: "test-provider",
+          sourceType: "dictionary",
+          sourceLanguage: "es",
+          entryLanguage: "en",
+          licenseMetadata: {},
+          attributionText: "From Test, CC BY-SA 4.0",
+        })
+        .returning();
+      const [entry] = await tx
+        .insert(dictionaryEntries)
+        .values({
+          languageId,
+          sourceId: source!.id,
+          lemma: "gato",
+          normalizedLemma: "gato",
+          partOfSpeech: "noun",
+          sourceEntryKey: "gato#noun#2",
+        })
+        .returning();
+      const [sense] = await tx
+        .insert(dictionarySenses)
+        .values({
+          dictionaryEntryId: entry!.id,
+          sourceSenseKey: "s1",
+          sourceFingerprint: "f1",
+          senseOrder: 0,
+          gloss: "dictionary gloss",
+        })
+        .returning();
+      await tx.insert(vocabularyDictionaryMappings).values({
+        vocabularyItemId: ITEM_GATO_ID,
+        dictionaryEntryId: entry!.id,
+        lookupForm: "gato",
+        matchStatus: "manual",
+        confidence: "high",
+      });
+      await tx.insert(vocabularySelectedSenses).values({
+        vocabularyItemId: ITEM_GATO_ID,
+        dictionarySenseId: sense!.id,
+        position: 0,
+      });
+
+      // definition already overridden by an author — must never be replaced.
+      await setDictionaryFieldOverrides(tx, ITEM_GATO_ID, ["definition"]);
+
+      const validatedRows: ValidatedImportRow[] = [
+        {
+          rowNumber: 2,
+          raw: {},
+          fieldIssues: [],
+          // The CSV supplies its own ipa — that always wins over enrichment.
+          fields: vocabFields({
+            term: "gato",
+            primaryMeaning: "cat",
+            ipa: "/csv-authored/",
+          }),
+        },
+      ];
+      const [preview] = await previewVocabularyImport(tx, {
+        languageId,
+        validatedRows,
+      });
+
+      expect(preview?.changes).toEqual([
+        { field: "ipa", from: null, to: "/csv-authored/" },
+      ]);
+    });
+  });
+
+  it("suggests the nearest known dictionary lemma for a new item's likely-misspelled term", async () => {
+    await withTestTransaction(async (tx: TestTx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      const [source] = await tx
+        .insert(lexicalSources)
+        .values({
+          code: "test-source-3",
+          provider: "test-provider",
+          sourceType: "dictionary",
+          sourceLanguage: "es",
+          entryLanguage: "en",
+          licenseMetadata: {},
+          attributionText: "From Test, CC BY-SA 4.0",
+        })
+        .returning();
+      await tx.insert(dictionaryEntries).values({
+        languageId,
+        sourceId: source!.id,
+        lemma: "biblioteca",
+        normalizedLemma: "biblioteca",
+        partOfSpeech: "noun",
+        sourceEntryKey: "biblioteca#noun#1",
+      });
+
+      const validatedRows: ValidatedImportRow[] = [
+        {
+          rowNumber: 2,
+          raw: {},
+          fieldIssues: [],
+          fields: vocabFields({ term: "bibloteca", primaryMeaning: "library" }),
+        },
+      ];
+      const [preview] = await previewVocabularyImport(tx, {
+        languageId,
+        validatedRows,
+      });
+
+      expect(preview?.action).toBe("create");
+      expect(preview?.spellingWarning).toEqual({
+        field: "term",
+        original: "bibloteca",
+        suggested: "biblioteca",
+      });
+    });
+  });
+
+  it("never warns when the term is already a known word", async () => {
+    await withTestTransaction(async (tx: TestTx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      const [source] = await tx
+        .insert(lexicalSources)
+        .values({
+          code: "test-source-4",
+          provider: "test-provider",
+          sourceType: "dictionary",
+          sourceLanguage: "es",
+          entryLanguage: "en",
+          licenseMetadata: {},
+          attributionText: "From Test, CC BY-SA 4.0",
+        })
+        .returning();
+      await tx.insert(dictionaryEntries).values({
+        languageId,
+        sourceId: source!.id,
+        lemma: "perro",
+        normalizedLemma: "perro",
+        partOfSpeech: "noun",
+        sourceEntryKey: "perro#noun#1",
+      });
+
+      const validatedRows: ValidatedImportRow[] = [
+        {
+          rowNumber: 2,
+          raw: {},
+          fieldIssues: [],
+          fields: vocabFields({ term: "perro", primaryMeaning: "dog" }),
+        },
+      ];
+      const [preview] = await previewVocabularyImport(tx, {
+        languageId,
+        validatedRows,
+      });
+      expect(preview?.spellingWarning).toBeNull();
     });
   });
 });

@@ -29,7 +29,12 @@ import type {
   ParsedImportFields,
   ValidatedImportRow,
 } from "@/domains/curriculum/vocabulary-import-parsing";
+import { suggestSpellingCorrection } from "@/domains/curriculum/spellcheck";
 import { withIdempotency } from "@/domains/idempotency";
+import {
+  getConfirmedDictionaryFieldsForImport,
+  getKnownVocabularyLemmas,
+} from "@/domains/lexicon/lexicon-mapping-service";
 import { AdminError } from "@/lib/errors/admin-errors";
 import { normalizeForComparison } from "@/lib/answer-checking/normalize";
 
@@ -74,6 +79,8 @@ export type ImportFieldChange = {
   field: string;
   from: string | null;
   to: string | null;
+  /** Spec 25 §13.1 — provenance for a proposed change the CSV row itself never authored (an enrichment gap-fill). Absent/undefined means the ordinary case: this row's own cell proposed it. */
+  source?: "dictionary";
 };
 
 export type ImportRowPlacementChange = {
@@ -106,6 +113,14 @@ export type ImportRowPreview = {
   levelToCreate: { levelNumber: number; name: string } | null;
   /** Spec 25 §9 — set when this row's vocabulary group doesn't exist yet and would be created alongside it. Always `null` for grammar (grammar has no group). */
   groupToCreate: { groupNumber: number; name: string } | null;
+  /** Spec 25 §10.1 — true when a `NEW_HOMONYM_SENTINEL` correction forced this row to `create` despite a live term match. */
+  explicitHomonym: boolean;
+  /** Spec 25 §12 — advisory only; `null` unless this row's own term looks like a typo of an already-known dictionary lemma. Vocabulary only (a grammar row's `structure` is typically a multi-word label, not a single dictionary-checkable lemma). */
+  spellingWarning: {
+    field: "term";
+    original: string;
+    suggested: string;
+  } | null;
 };
 
 type LevelLookupEntry = { id: string; name: string | null };
@@ -272,6 +287,8 @@ type ResolvedImportRow =
       changes: ImportFieldChange[];
       placement: ImportRowPlacementChange | null;
       savesAsDraft: boolean;
+      /** Spec 25 §10.1 — this row's `curriculum_key` cell was the `NEW_HOMONYM_SENTINEL` correction, so `target` is `null` (a forced `create`) even though a live item with the same term exists. */
+      explicitHomonym: boolean;
     };
 
 type ImportLookups = {
@@ -307,6 +324,19 @@ type ImportLookups = {
    * the whole import, per the upload screen).
    */
   expectedLanguageCode: string;
+  /**
+   * Spec 25 §13 — a *confirmed* dictionary match's `definition`/`ipa`, by
+   * `learningItemId`, for every vocabulary target this import might update.
+   * Only fields the pipeline is already trusted to promote
+   * (`DICTIONARY_OVERRIDABLE_FIELDS`) — `partOfSpeech` enrichment-fill is a
+   * deliberately deferred follow-up (recorded in `progress-tracker.md`), not
+   * silently dropped. Consulted by `resolveImportRow`'s diff step exactly
+   * like `target.dictionaryFieldOverrides` already is.
+   */
+  confirmedDictionaryFields: Map<
+    string,
+    { definition: string | null; ipa: string | null }
+  >;
 };
 
 /**
@@ -482,7 +512,13 @@ function resolveImportRow(
   // exactly as every pre-Unit-4 file already relies on.
   let target: ImportMatchTarget | null;
   let matchBlockedReason: string | null;
-  if (row.fields.curriculumKey) {
+  if (row.fields.forceNewHomonym) {
+    // Spec 25 §10.1 — the admin's explicit correction overrides both key and
+    // spelling matching outright: this row creates a new item even though a
+    // live one shares its term. See `NEW_HOMONYM_SENTINEL`'s own docstring.
+    target = null;
+    matchBlockedReason = null;
+  } else if (row.fields.curriculumKey) {
     const keyMatch = lookups.targetsByKey[row.fields.itemType].get(
       row.fields.curriculumKey,
     );
@@ -532,6 +568,7 @@ function resolveImportRow(
     level,
     group,
     target,
+    explicitHomonym: row.fields.forceNewHomonym,
   };
 
   if (blockedReason) {
@@ -560,7 +597,7 @@ function resolveImportRow(
   // exactly as it is never rewritten by the dictionary.
   const overridden = new Set<string>(target.dictionaryFieldOverrides);
   const values = importedValues(row.fields);
-  const changes = IMPORTABLE_FIELDS[row.fields.itemType]
+  const csvChanges = IMPORTABLE_FIELDS[row.fields.itemType]
     .filter((field) => !overridden.has(field))
     .flatMap((field): ImportFieldChange[] => {
       const to = values[field];
@@ -572,6 +609,33 @@ function resolveImportRow(
       if (to === from) return [];
       return [{ field, from, to }];
     });
+
+  // Spec 25 §13 — enrichment gap-filling. Only for a field the CSV row said
+  // nothing about (`values[field] === undefined` — a row that *did* supply a
+  // value already went through `csvChanges` above, and CSV authorship always
+  // wins over enrichment), only genuinely missing on the target (never
+  // overwrites an existing value, dictionary-sourced or not), and only from
+  // a *confirmed* mapping (`loadImportLookups`' own `matchStatus === "manual"`
+  // filter) — an auto-matched or still-under-review candidate is not
+  // reliable enough to write, exactly as `applyDictionaryFieldsToItem`'s
+  // single-item equivalent already requires.
+  const enrichmentChanges: ImportFieldChange[] =
+    row.fields.itemType === "vocabulary"
+      ? (["definition", "ipa"] as const).flatMap(
+          (field): ImportFieldChange[] => {
+            if (overridden.has(field)) return [];
+            if (values[field] !== undefined) return [];
+            const from = target.current[field] ?? null;
+            if (from) return [];
+            const suggested = lookups.confirmedDictionaryFields.get(
+              target.learningItemId,
+            )?.[field];
+            if (!suggested) return [];
+            return [{ field, from, to: suggested, source: "dictionary" }];
+          },
+        )
+      : [];
+  const changes = [...csvChanges, ...enrichmentChanges];
 
   const groupNumber =
     row.fields.itemType === "vocabulary" ? row.fields.groupNumber : null;
@@ -644,6 +708,19 @@ async function loadImportLookups(
       "This import's language no longer exists.",
     );
   }
+  // Spec 25 §13 — batched once for the whole import, over every vocabulary
+  // item a row might update; empty input is a cheap no-op
+  // (`getConfirmedDictionaryFieldsForImport`'s own early return).
+  const confirmedDictionary = await getConfirmedDictionaryFieldsForImport(
+    db,
+    vocabularyTargets.map((target) => target.learningItemId),
+  );
+  const confirmedDictionaryFields = new Map(
+    [...confirmedDictionary.entries()].map(([itemId, data]) => [
+      itemId,
+      { definition: data.definition, ipa: data.ipa },
+    ]),
+  );
   return {
     levelByNumber,
     groupByLevelAndPosition,
@@ -656,7 +733,32 @@ async function loadImportLookups(
       grammar: groupByKey(grammarTargets),
     },
     expectedLanguageCode: language.code,
+    confirmedDictionaryFields,
   };
+}
+
+/**
+ * Spec 25 §12 — advisory only, and only for a term this row is actually
+ * proposing as *new* spelling: a plain `create`, or any row whose own
+ * `term`/`structure` changed (a rename, spec 25 Unit 4). An `update` that
+ * leaves the spelling untouched has nothing new to check — the existing
+ * item's spelling was already accepted whenever it was first created.
+ */
+function computeSpellingWarning(
+  fields: ParsedImportFields,
+  action: ImportRowAction,
+  changes: ImportFieldChange[],
+  knownLemmas: readonly string[],
+): ImportRowPreview["spellingWarning"] {
+  if (fields.itemType !== "vocabulary") return null;
+  const isNewSpelling =
+    action === "create" || changes.some((change) => change.field === "term");
+  if (!isNewSpelling) return null;
+
+  const normalized = normalizeForComparison(fields.term);
+  const suggestion = suggestSpellingCorrection(normalized, knownLemmas);
+  if (!suggestion) return null;
+  return { field: "term", original: fields.term, suggested: suggestion };
 }
 
 export async function previewVocabularyImport(
@@ -666,13 +768,13 @@ export async function previewVocabularyImport(
     validatedRows,
   }: { languageId: string; validatedRows: ValidatedImportRow[] },
 ): Promise<ImportRowPreview[]> {
-  const [candidateVocabRows, candidateGrammarRows, lookups] = await Promise.all(
-    [
+  const [candidateVocabRows, candidateGrammarRows, lookups, knownLemmas] =
+    await Promise.all([
       getDuplicateCandidateRows(db, languageId, "vocabulary"),
       getDuplicateCandidateRows(db, languageId, "grammar"),
       loadImportLookups(db, languageId),
-    ],
-  );
+      getKnownVocabularyLemmas(db, languageId),
+    ]);
   const firstRowNumberByKey = new Map<string, number>();
 
   return validatedRows.map((row): ImportRowPreview => {
@@ -688,6 +790,8 @@ export async function previewVocabularyImport(
       duplicateOfEarlierRow: null,
       levelToCreate: null,
       groupToCreate: null,
+      explicitHomonym: false,
+      spellingWarning: null,
     };
 
     const resolved = resolveImportRow(row, lookups);
@@ -732,6 +836,13 @@ export async function previewVocabularyImport(
       savesAsDraft: resolved.savesAsDraft,
       existingDuplicates,
       duplicateOfEarlierRow,
+      explicitHomonym: resolved.explicitHomonym,
+      spellingWarning: computeSpellingWarning(
+        resolved.fields,
+        resolved.action,
+        resolved.changes,
+        knownLemmas,
+      ),
       levelToCreate:
         resolved.level.kind === "toCreate"
           ? {
@@ -788,14 +899,16 @@ export type BulkImportVocabularyResult = {
 };
 
 /**
- * The real write. Re-resolves each row's level/group numbers and
- * re-derives duplicates itself (never trusts a client-sent "this row
- * is/isn't a duplicate" flag, or a client-sent id, as proof) using one
+ * The real write. Re-resolves each row's level/group numbers using one
  * shared lookup fetched once for the whole batch — not refetched per row,
- * since nothing about it changes mid-transaction. A row whose decision is
- * "import" is created unconditionally, even over a real duplicate — that
- * decision *is* the admin's homonym approval, mirrored as a
- * `DUPLICATE_APPROVED` audit event exactly like the single-item flow's.
+ * since nothing about it changes mid-transaction. An ordinary re-import
+ * still treats one live exact-term match as an update, never a duplicate to
+ * approve (spec 17's settled behavior, unchanged) — the only way a row
+ * actually creates a new item over an existing same-spelled one is spec 25
+ * §10.1's explicit `NEW_HOMONYM_SENTINEL` correction (`resolved.explicitHomonym`),
+ * which `applyImportCreate` below audits as `DUPLICATE_APPROVED`, the same
+ * event the single-item manual-create flow already records for the
+ * identical decision.
  */
 export async function bulkImportVocabulary(
   db: DbClient,
@@ -1010,12 +1123,14 @@ type ApplyContext = {
 /**
  * Creates a brand-new item.
  *
- * No homonym approval here any more: duplicate detection and this file's
- * matching normalize the same display form the same way, so a row that would
- * have been "a duplicate to approve" is now the update of the item it
- * duplicates. A second item with the same spelling is a deliberate act, and
- * belongs in Admin where the two can be told apart — a file with one term
- * column cannot express it.
+ * An exact-term match ordinarily becomes an update, never a duplicate to
+ * approve (spec 17) — a plain file has no way to say "no, really, a new
+ * item" with only one term column. Spec 25 §10.1 adds the one deliberate
+ * exception: `resolved.explicitHomonym` (a `NEW_HOMONYM_SENTINEL`
+ * correction) means an admin explicitly reviewed the conflict and chose to
+ * create anyway, so it is audited exactly like the single-item manual-create
+ * flow's own `DUPLICATE_APPROVED` event — deliberate and auditable, per
+ * `architecture.md`'s Homonyms section.
  */
 async function applyImportCreate(
   tx: DbClient,
@@ -1096,6 +1211,29 @@ async function applyImportCreate(
       resourceType: "grammar_item",
       resourceId: learningItemId,
       afterData: grammarFields,
+      correlationId,
+    });
+  }
+
+  // Spec 25 §10.1 — the admin's explicit, deliberate override of an exact
+  // term match, audited exactly like the single-item manual-create flow's
+  // own `DUPLICATE_APPROVED` event (`publication-service.ts`). Looked up
+  // before this row's own new item is registered into `lookups` below, so
+  // `approvedAsHomonymOf` names only what actually existed beforehand.
+  if (resolved.explicitHomonym) {
+    const priorMatches = (
+      lookups.targetsByType[fields.itemType].get(
+        normalizeForComparison(displayFormOf(fields)),
+      ) ?? []
+    )
+      .filter((match) => match.status !== "archived")
+      .map((match) => match.learningItemId);
+    await recordAuditEvent(tx, {
+      actorUserId,
+      action: "DUPLICATE_APPROVED",
+      resourceType: itemResourceType(fields.itemType),
+      resourceId: learningItemId,
+      afterData: { approvedAsHomonymOf: priorMatches },
       correlationId,
     });
   }

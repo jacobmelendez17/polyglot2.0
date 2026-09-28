@@ -71,6 +71,12 @@ export type CurriculumImportRowRecord = {
   changedFields: ImportFieldChange[] | null;
   reviewReasonCode: string | null;
   reviewReason: string | null;
+  /** Spec 25 §12 — advisory, never gates a disposition or confirmation. */
+  spellingWarning: {
+    field: "term";
+    original: string;
+    suggested: string;
+  } | null;
   adminDisposition: CurriculumImportRowDisposition | null;
   changedSincePreview: boolean;
   createdAt: Date;
@@ -102,6 +108,11 @@ export type CurriculumImportRowPreviewInput = {
   changedFields: ImportFieldChange[] | null;
   reviewReasonCode: string | null;
   reviewReason: string | null;
+  spellingWarning: {
+    field: "term";
+    original: string;
+    suggested: string;
+  } | null;
 };
 
 export type CurriculumImportsPage = {

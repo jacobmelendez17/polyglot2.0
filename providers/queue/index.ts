@@ -28,4 +28,8 @@ export function getCurriculumImportQueue(): CurriculumImportQueue {
   return cachedQueue;
 }
 
-export type { CurriculumImportQueue, SendCommitJobInput } from "./types";
+export type {
+  CurriculumImportQueue,
+  SendCommitJobInput,
+  SendPreviewJobInput,
+} from "./types";

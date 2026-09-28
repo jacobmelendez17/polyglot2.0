@@ -36,6 +36,23 @@ const commitImportJobSchema = z.object({
   actorUserId: z.string().min(1),
 });
 
+/**
+ * Spec 25 §10.2 — Next.js sends this directly to SQS after
+ * `reviseCurriculumImportRow` durably saves a row correction, to re-run the
+ * exact same preview job a fresh upload's S3 event would (`preview-job.ts`
+ * makes no distinction between the two — `markCurriculumImportPreviewStarted`
+ * already accepts `needs_review`/`ready_to_import` as legal starting
+ * statuses for exactly this). Parsed to the same `PreviewJobMessage` shape as
+ * a native S3 notification, not a third `ParsedJobMessage` kind — nothing
+ * downstream needs to know which one triggered it.
+ */
+const retriggerPreviewJobSchema = z.object({
+  version: z.literal(1),
+  jobType: z.literal("RETRIGGER_PREVIEW"),
+  bucket: z.string().min(1),
+  key: z.string().min(1),
+});
+
 export type PreviewJobMessage = {
   kind: "preview";
   bucket: string;
@@ -62,6 +79,15 @@ export function parseJobMessage(body: string): ParsedJobMessage {
       kind: "commit",
       importId: commitResult.data.importId,
       actorUserId: commitResult.data.actorUserId,
+    };
+  }
+
+  const retriggerResult = retriggerPreviewJobSchema.safeParse(json);
+  if (retriggerResult.success) {
+    return {
+      kind: "preview",
+      bucket: retriggerResult.data.bucket,
+      key: retriggerResult.data.key,
     };
   }
 

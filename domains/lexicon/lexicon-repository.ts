@@ -1444,3 +1444,28 @@ export async function getConfirmedDictionaryDataForItems(
   }
   return result;
 }
+
+/**
+ * Spec 25 §12 — the corpus a bulk-import spelling suggestion is checked
+ * against (`domains/curriculum/spellcheck.ts`'s
+ * `suggestSpellingCorrection`): every already-imported dictionary lemma for
+ * one language, normalized the same way `resolveImportRow`'s own term
+ * matching is (case/whitespace only — never accent-folded). One batched call
+ * per import preview, never per row. `limit` defensively bounds a
+ * pathologically large dictionary rather than assuming this stays small
+ * forever; this project's dictionaries are curated per-language imports
+ * (spec 12), not an open web corpus, so 20,000 is generous headroom over
+ * anything imported so far.
+ */
+export async function getKnownNormalizedLemmas(
+  db: DbClient,
+  languageId: string,
+  limit = 20000,
+): Promise<string[]> {
+  const rows = await db
+    .select({ normalizedLemma: dictionaryEntries.normalizedLemma })
+    .from(dictionaryEntries)
+    .where(eq(dictionaryEntries.languageId, languageId))
+    .limit(limit);
+  return rows.map((row) => row.normalizedLemma);
+}

@@ -9,6 +9,7 @@ import type {
 import type { CurriculumImportRowPreviewInput } from "@/domains/admin/curriculum-import-types";
 import { parseVocabularyImportFile } from "@/domains/curriculum/vocabulary-import-file-parser";
 import { validateVocabularyImportRow } from "@/domains/curriculum/vocabulary-import-parsing";
+import type { RawVocabularyImportRow } from "@/domains/curriculum/vocabulary-import-parsing";
 import type { CurriculumImportStorage } from "@/providers/storage/types";
 
 /**
@@ -138,6 +139,7 @@ export function toRowPreviewInput(
     changedFields: changedFields.length > 0 ? changedFields : null,
     reviewReasonCode,
     reviewReason,
+    spellingWarning: row.spellingWarning,
   };
 }
 
@@ -148,9 +150,35 @@ export type FreshImportResolution = {
 };
 
 /**
+ * Overlays a row's durable admin corrections (spec 25 §10.2,
+ * `curriculum_import_row_corrections`) onto its freshly parsed raw cells,
+ * keyed by row number — one past the header row, matching
+ * `validateVocabularyImportRow`'s own `index + 2`. A correction key is a
+ * canonical column name (`vocabulary-import-parsing.ts`'s own names/aliases),
+ * so this needs no translation: it overlays directly onto the same
+ * `RawVocabularyImportRow` shape the uncorrected file cell would have
+ * produced.
+ */
+function applyRowCorrections(
+  rows: RawVocabularyImportRow[],
+  rowCorrections: Map<number, Record<string, string>>,
+): RawVocabularyImportRow[] {
+  if (rowCorrections.size === 0) return rows;
+  return rows.map((row, index) => {
+    const correction = rowCorrections.get(index + 2);
+    return correction ? { ...row, ...correction } : row;
+  });
+}
+
+/**
  * Reads the source file from S3, parses it, and resolves every row against
  * *current* curriculum state. Throws `PreviewJobError("IMPORT_PARSE_FAILED", ...)`
  * for a bad file — the same error shape both jobs already handle.
+ *
+ * `rowCorrections` (spec 25 §10.2) defaults to empty rather than being
+ * required — a first-ever preview has none yet, and the caller loads them
+ * from `curriculum_import_row_corrections` only when there might be some
+ * (see `preview-job.ts`/`commit-job.ts`).
  */
 export async function resolveFreshImport(
   db: DbClient,
@@ -159,7 +187,13 @@ export async function resolveFreshImport(
     key,
     fileExtension,
     languageId,
-  }: { key: string; fileExtension: "csv" | "tsv"; languageId: string },
+    rowCorrections = new Map(),
+  }: {
+    key: string;
+    fileExtension: "csv" | "tsv";
+    languageId: string;
+    rowCorrections?: Map<number, Record<string, string>>;
+  },
 ): Promise<FreshImportResolution> {
   const fileContent = await storage.getObjectText(key);
   // Spec 19 §21 — computed here rather than by the browser: the create-
@@ -177,7 +211,8 @@ export async function resolveFreshImport(
     );
   }
 
-  const validatedRows = parsed.rows.map((row, index) =>
+  const correctedRows = applyRowCorrections(parsed.rows, rowCorrections);
+  const validatedRows = correctedRows.map((row, index) =>
     validateVocabularyImportRow(row, index),
   );
   const previews = await previewVocabularyImport(db, {

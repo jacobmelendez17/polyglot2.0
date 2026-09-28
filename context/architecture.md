@@ -885,9 +885,44 @@ The approval must be deliberate and auditable.
 > `move`-classified row still has no disposition, not just a `blocked` one.
 > The existing async-import review UI (`components/admin/curriculum/async-import-status.tsx`)
 > gained an "Approve Move" button alongside "Skip" for exactly these rows.
-> Spec 25 Unit 5's larger remaining pieces — staged row editing with
-> immediate re-validation (§10.2), and an explicit CSV-driven homonym
-> approval (§10.1) — are still open; see `progress-tracker.md`.
+> Spec 25 Unit 5's remaining pieces shipped in the same session: §10.2's
+> staged row editing with immediate re-validation persists a durable,
+> per-row field correction in a new `curriculum_import_row_corrections`
+> table (deliberately separate from `curriculum_import_rows`, which
+> `recordPreviewResult` deletes and reinserts on every preview) — every
+> parse (`import-resolution.ts`'s `resolveFreshImport`) overlays it onto the
+> raw row before validation, so a correction survives both a re-preview and
+> §10.4's commit-time revalidation the same way the source file's own cells
+> do. Correcting a row re-triggers the same async preview pipeline a fresh
+> upload uses (`providers/queue`'s `sendPreviewJob`, a `RETRIGGER_PREVIEW`
+> envelope that parses to the same shape a native S3 event already
+> produces). §10.1's explicit CSV-driven homonym approval rides the same
+> mechanism: a `curriculum_key` correction holding the literal sentinel
+> `NEW_HOMONYM_SENTINEL` forces a row to `create` even over a live exact-term
+> match, auditable as `DUPLICATE_APPROVED` — spec 17's ordinary re-import
+> behavior (an exact match is otherwise always an update, never a duplicate
+> to approve) is unchanged. See `progress-tracker.md` for the full
+> Unit 5/Unit 6 entries, including what's still deliberately deferred (§7.6's
+> column-exclusion UI, still Unit 8).
+>
+> Spec 25 Unit 6 (2026-09-28) integrates spellcheck (§12) and metadata
+> enrichment (§13) through the existing lexicon/dictionary domain boundary.
+> Metadata enrichment: `resolveImportRow`'s diff gained a second pass that
+> proposes filling a genuinely missing `definition`/`ipa` from a _confirmed_
+> dictionary mapping (`matchStatus === "manual"`, the same bar the existing
+> single-item `applyDictionaryFieldsToItem` flow already requires) when the
+> CSV row said nothing about the field and it isn't already
+> `dictionaryFieldOverrides`-protected — tagged `source: "dictionary"` on the
+> `ImportFieldChange` for provenance. Spellcheck is a new, deliberately narrow
+> heuristic (`domains/curriculum/spellcheck.ts` — Levenshtein distance
+> against every already-imported dictionary lemma for the language, no new
+> dependency, no linguistic/morphological awareness), advisory only and never
+> persisted as anything but a fresh-per-preview suggestion admins can accept,
+> edit, or dismiss. Both slices are deliberately narrower than §12/§13's full
+> scope (no new curriculum schema for synonyms/variants/article/
+> canonical-lemma enrichment, no English-translation spellchecking, no
+> general per-field provenance model) — see `progress-tracker.md` for exactly
+> what's trimmed and why.
 
 ---
 
@@ -1214,7 +1249,7 @@ with anything left to teach):
   alongside them whenever the current level still has grammar left, and
   selecting it fills the batch entirely from remaining grammar with no
   vocabulary at all — the pacing reservation described below is specific to
-  *not* picking grammar explicitly, so it doesn't apply here. Stored as a
+  _not_ picking grammar explicitly, so it doesn't apply here. Stored as a
   second boolean column (`selected_theme_is_grammar`) rather than inside
   `selected_vocabulary_group_id` itself, since that column is a real foreign
   key into `vocabulary_groups` and has no "Grammar" row to reference; the two

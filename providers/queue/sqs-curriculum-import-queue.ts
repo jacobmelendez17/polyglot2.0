@@ -1,6 +1,10 @@
 import { SendMessageCommand, SQSClient } from "@aws-sdk/client-sqs";
 
-import type { CurriculumImportQueue, SendCommitJobInput } from "./types";
+import type {
+  CurriculumImportQueue,
+  SendCommitJobInput,
+  SendPreviewJobInput,
+} from "./types";
 
 /**
  * The real AWS SQS-backed implementation (spec 19 §11). Sends exactly the
@@ -32,6 +36,19 @@ export class SqsCurriculumImportQueue implements CurriculumImportQueue {
       jobType: "COMMIT_IMPORT",
       importId,
       actorUserId,
+    });
+    await this.client.send(
+      new SendMessageCommand({ QueueUrl: this.queueUrl, MessageBody: body }),
+    );
+  }
+
+  /** Spec 25 §10.2 — re-runs preview after a durable row correction (`job-schema.ts`'s `RETRIGGER_PREVIEW`), reusing the exact same worker path a native S3 upload event triggers. */
+  async sendPreviewJob({ bucket, key }: SendPreviewJobInput): Promise<void> {
+    const body = JSON.stringify({
+      version: 1,
+      jobType: "RETRIGGER_PREVIEW",
+      bucket,
+      key,
     });
     await this.client.send(
       new SendMessageCommand({ QueueUrl: this.queueUrl, MessageBody: body }),

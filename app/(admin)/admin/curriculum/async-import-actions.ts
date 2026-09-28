@@ -13,6 +13,7 @@ import {
   listCurriculumImportRowsForReview,
   permanentlyDeleteCurriculumImport,
   resolveCurriculumImportRow,
+  reviseCurriculumImportRow,
   retryCurriculumImport,
   unarchiveCurriculumImport,
 } from "@/domains/admin/server";
@@ -21,6 +22,7 @@ import type {
   CurriculumImportRowsPage,
   CurriculumImportsPage,
 } from "@/domains/admin/server";
+import { IMPORT_COLUMNS } from "@/domains/curriculum/vocabulary-import-parsing";
 import { requireUser } from "@/domains/users/server";
 import { AdminError } from "@/lib/errors/admin-errors";
 
@@ -155,6 +157,29 @@ export async function resolveCurriculumImportRowAction(
   return runAsyncImportAction(async (actorUserId) => {
     const { rowId, disposition } = resolveRowInputSchema.parse(input);
     await resolveCurriculumImportRow({ rowId, disposition, actorUserId });
+  });
+}
+
+const reviseRowInputSchema = z.object({
+  rowId: z.string().uuid(),
+  // Spec 25 §10.2 — a per-field correction overlaid onto this row's raw
+  // parsed cells before the next preview re-resolves it; keyed by the same
+  // canonical column names the CSV parser itself resolves a header to
+  // (`vocabulary-import-parsing.ts`'s `IMPORT_COLUMNS`). An empty string
+  // reverts that one field to the source file's own value. `partialRecord`,
+  // not `record` — a caller only ever corrects the one or two fields it
+  // actually cares about (`z.record` with an enum key type infers every key
+  // as required, which every real caller here would fail to satisfy).
+  corrections: z.partialRecord(z.enum(IMPORT_COLUMNS), z.string().max(2000)),
+});
+
+/** Spec 25 §10.2 — saves a row correction and re-triggers preview; no new CSV upload required. The import returns to `previewing` once the async worker picks the retrigger message up. */
+export async function reviseCurriculumImportRowAction(
+  input: z.infer<typeof reviseRowInputSchema>,
+): Promise<ActionResult<void>> {
+  return runAsyncImportAction(async (actorUserId) => {
+    const { rowId, corrections } = reviseRowInputSchema.parse(input);
+    await reviseCurriculumImportRow({ rowId, corrections, actorUserId });
   });
 }
 

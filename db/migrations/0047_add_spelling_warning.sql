@@ -1,0 +1,1 @@
+ALTER TABLE "curriculum_import_rows" ADD COLUMN "spelling_warning" jsonb;

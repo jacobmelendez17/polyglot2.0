@@ -307,6 +307,30 @@ export async function resolveCurriculumImportRow(input: {
 }
 
 /**
+ * Spec 25 §10.2 — same "domain write, then enqueue" split as
+ * `confirmCurriculumImport`/`retryCurriculumImport`: the correction is
+ * durably saved first (`curriculumImport.reviseCurriculumImportRow`), and
+ * only then does the retrigger message go out, so a mid-flight failure never
+ * leaves an SQS message racing ahead of a correction the database hasn't
+ * actually committed yet.
+ */
+export async function reviseCurriculumImportRow(input: {
+  rowId: string;
+  corrections: Partial<Record<string, string>>;
+  actorUserId: string;
+}) {
+  await checkRateLimit("admin-mutation", input.actorUserId);
+  const { s3Bucket, s3Key } = await curriculumImport.reviseCurriculumImportRow(
+    db,
+    { rowId: input.rowId, corrections: input.corrections },
+  );
+  await getCurriculumImportQueue().sendPreviewJob({
+    bucket: s3Bucket,
+    key: s3Key,
+  });
+}
+
+/**
  * Confirming persists the state-machine transition first (spec 19 §9's gate
  * — refuses if any row still needs a disposition), then enqueues the
  * COMMIT_IMPORT message (§11) only once that's durably committed. Enqueuing

@@ -23,6 +23,7 @@ function storedRow(
     changedFields: null,
     reviewReasonCode: null,
     reviewReason: null,
+    spellingWarning: null,
     adminDisposition: null,
     changedSincePreview: false,
     createdAt: new Date(),
@@ -45,6 +46,7 @@ function freshRow(
     changedFields: null,
     reviewReasonCode: null,
     reviewReason: null,
+    spellingWarning: null,
     ...overrides,
   };
 }

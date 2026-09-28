@@ -52,6 +52,20 @@ describe("parseJobMessage", () => {
     });
   });
 
+  it("recognizes the custom RETRIGGER_PREVIEW envelope as a preview job (spec 25 §10.2)", () => {
+    const body = JSON.stringify({
+      version: 1,
+      jobType: "RETRIGGER_PREVIEW",
+      bucket: "polyglot-dev-imports",
+      key: "imports/abc/source.csv",
+    });
+    expect(parseJobMessage(body)).toEqual({
+      kind: "preview",
+      bucket: "polyglot-dev-imports",
+      key: "imports/abc/source.csv",
+    });
+  });
+
   it("throws for a message matching neither known shape", () => {
     expect(() =>
       parseJobMessage(JSON.stringify({ something: "else" })),

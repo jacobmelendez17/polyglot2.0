@@ -194,6 +194,14 @@ export const curriculumImportRows = pgTable(
     reviewReasonCode: text("review_reason_code"),
     reviewReason: text("review_reason"),
 
+    // Spec 25 §12 — advisory only, never gates classification/confirmation
+    // (unlike `reviewReason`, which a `blocked`/`move` row's disposition
+    // gate depends on). `{ field: "term"; original: string; suggested:
+    // string } | null`, recomputed fresh on every preview
+    // (`bulk-import-service.ts`'s `previewVocabularyImport`) rather than
+    // durable admin input — see that file's `computeSpellingWarning`.
+    spellingWarning: jsonb("spelling_warning"),
+
     adminDisposition: curriculumImportRowDispositionEnum("admin_disposition"),
 
     changedSincePreview: boolean("changed_since_preview")
@@ -206,5 +214,48 @@ export const curriculumImportRows = pgTable(
     unique("curriculum_import_rows_import_row_idx").on(t.importId, t.rowNumber),
     // Review-queue lookups: rows still needing an explicit disposition (spec 19 §9).
     index("curriculum_import_rows_review_idx").on(t.importId, t.classification),
+  ],
+);
+
+/**
+ * Spec 25 §10.2 — an admin's durable per-row correction (e.g. "batch 8 → 3",
+ * or a `curriculum_key` assignment/override), keyed by `(import_id,
+ * row_number)` rather than living on `curriculum_import_rows` itself: every
+ * preview/re-preview (`recordPreviewResult`) deletes and reinserts every row
+ * of that table from scratch, which would silently erase a correction the
+ * instant the very re-preview it requested finished running. This table is
+ * never touched by that rebuild — only `reviseCurriculumImportRow` writes it,
+ * and `resolveFreshImport` (`aws/lambda/curriculum-import/import-resolution.ts`)
+ * reads it on *every* parse (initial preview, a repair's re-preview, and
+ * commit-time revalidation alike) and overlays it onto the raw parsed cell
+ * values for that row before validating — so a correction, once made, is
+ * exactly as durable as the confirmed decision it feeds and survives the
+ * "Fresh Resolution at Commit" rerun (spec §10.4) the same way the original
+ * file's own cells do.
+ *
+ * `corrections` is a `Record<canonical column name, corrected raw string
+ * value>` — the same canonical names/aliases
+ * `vocabulary-import-parsing.ts` already resolves a header to (e.g. `group`,
+ * `level_name`, `curriculum_key`), so it overlays directly onto a parsed raw
+ * row with no translation layer. A `curriculum_key` correction of exactly
+ * `NEW_HOMONYM_SENTINEL` is not a real key — see that constant's own
+ * docstring for what it means instead.
+ */
+export const curriculumImportRowCorrections = pgTable(
+  "curriculum_import_row_corrections",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    importId: uuid("import_id")
+      .notNull()
+      .references(() => curriculumImports.id, { onDelete: "cascade" }),
+    rowNumber: integer("row_number").notNull(),
+    corrections: jsonb("corrections").notNull(),
+    ...timestamps(),
+  },
+  (t) => [
+    unique("curriculum_import_row_corrections_import_row_idx").on(
+      t.importId,
+      t.rowNumber,
+    ),
   ],
 );

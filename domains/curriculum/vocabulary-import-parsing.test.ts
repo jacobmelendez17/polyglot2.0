@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   CLEAR_SENTINEL,
   GRAMMAR_GROUP_NUMBER,
+  NEW_HOMONYM_SENTINEL,
   parseMultiValueList,
   validateVocabularyImportRow,
 } from "./vocabulary-import-parsing";
@@ -477,6 +478,80 @@ describe("validateVocabularyImportRow", () => {
         0,
       );
       expect(result.fields).toMatchObject({ term: CLEAR_SENTINEL });
+    });
+  });
+
+  describe("spec 25 Unit 5 — NEW_HOMONYM_SENTINEL", () => {
+    it("parses curriculum_key = NEW_HOMONYM_SENTINEL as forceNewHomonym, never a real key", () => {
+      const result = validateVocabularyImportRow(
+        {
+          word: "gato",
+          translation: "cat",
+          level: "1",
+          group: "1",
+          curriculum_key: NEW_HOMONYM_SENTINEL,
+        },
+        0,
+      );
+      expect(result.fields).toMatchObject({
+        curriculumKey: null,
+        forceNewHomonym: true,
+      });
+    });
+
+    it("is case-insensitive", () => {
+      const result = validateVocabularyImportRow(
+        {
+          word: "gato",
+          translation: "cat",
+          level: "1",
+          group: "1",
+          curriculum_key: "__new_homonym__",
+        },
+        0,
+      );
+      expect(result.fields).toMatchObject({ forceNewHomonym: true });
+    });
+
+    it("leaves forceNewHomonym false for an ordinary real key or no key at all", () => {
+      const withKey = validateVocabularyImportRow(
+        {
+          word: "gato",
+          translation: "cat",
+          level: "1",
+          group: "1",
+          curriculum_key: "es-MX:vocab:k7p4m2",
+        },
+        0,
+      );
+      expect(withKey.fields).toMatchObject({
+        curriculumKey: "es-MX:vocab:k7p4m2",
+        forceNewHomonym: false,
+      });
+
+      const withoutKey = validateVocabularyImportRow(
+        { word: "gato", translation: "cat", level: "1", group: "1" },
+        0,
+      );
+      expect(withoutKey.fields).toMatchObject({ forceNewHomonym: false });
+    });
+
+    it("also works on a grammar row", () => {
+      const result = validateVocabularyImportRow(
+        {
+          word: "por vs para",
+          translation: "for",
+          level: "3",
+          group: String(GRAMMAR_GROUP_NUMBER),
+          curriculum_key: NEW_HOMONYM_SENTINEL,
+        },
+        0,
+      );
+      expect(result.fields).toMatchObject({
+        itemType: "grammar",
+        curriculumKey: null,
+        forceNewHomonym: true,
+      });
     });
   });
 });

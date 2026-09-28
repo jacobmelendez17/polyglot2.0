@@ -258,6 +258,7 @@ describe("runCommitJob (spec 19 §11/§12/§14/§15)", () => {
               curriculumKey: null,
               levelName: null,
               groupName: null,
+              forceNewHomonym: false,
               term: "materialchange",
               primaryMeaning: "an admin got here first",
               partOfSpeech: "noun",

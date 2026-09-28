@@ -9,6 +9,7 @@ import {
 } from "@/domains/admin/curriculum-import-service";
 import {
   getCurriculumImportById,
+  getRowCorrections,
   listCurriculumImportRows,
 } from "@/domains/admin/curriculum-import-repository";
 import type { CurriculumImportRowRecord } from "@/domains/admin/curriculum-import-types";
@@ -91,11 +92,13 @@ export async function runCommitJob(
 
   try {
     const fileExtension = importRecord.fileExtension as "csv" | "tsv";
+    const rowCorrections = await getRowCorrections(db, importId);
     const [{ previews, rowInputs }, storedRows] = await Promise.all([
       resolveFreshImport(db, storage, {
         key: importRecord.s3Key,
         fileExtension,
         languageId: importRecord.languageId,
+        rowCorrections,
       }),
       loadAllRows(db, importId),
     ]);

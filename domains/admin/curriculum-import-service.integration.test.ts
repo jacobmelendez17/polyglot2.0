@@ -15,11 +15,13 @@ import {
   permanentlyDeleteCurriculumImport,
   recordCurriculumImportPreview,
   resolveCurriculumImportRow,
+  reviseCurriculumImportRow,
   retryCurriculumImport,
   unarchiveCurriculumImport,
 } from "./curriculum-import-service";
 import {
   getCurriculumImportById,
+  getRowCorrections,
   listArchivedCurriculumImports,
   listCurriculumImportRows,
   listCurriculumImports,
@@ -54,6 +56,7 @@ const cleanRow: CurriculumImportRowPreviewInput = {
   changedFields: null,
   reviewReasonCode: null,
   reviewReason: null,
+  spellingWarning: null,
 };
 
 const blockedRow: CurriculumImportRowPreviewInput = {
@@ -67,6 +70,7 @@ const blockedRow: CurriculumImportRowPreviewInput = {
   changedFields: null,
   reviewReasonCode: "GROUP_NOT_FOUND",
   reviewReason: "Level 7 has no Group 3.",
+  spellingWarning: null,
 };
 
 /** Spec 25 §10.3 — a structural move needs an explicit disposition (`approve_move` or `skip`) exactly like a blocked row needs one. */
@@ -81,6 +85,7 @@ const moveRow: CurriculumImportRowPreviewInput = {
   changedFields: [{ field: "level", from: "1", to: "2" }],
   reviewReasonCode: null,
   reviewReason: null,
+  spellingWarning: null,
 };
 
 describe("curriculum import service (spec 19)", () => {
@@ -299,6 +304,77 @@ describe("curriculum import service (spec 19)", () => {
       const after = await getCurriculumImportById(tx, record.id);
       expect(after?.status).toBe("needs_review");
       expect(after?.previewVersion).toBe(2);
+    });
+  });
+
+  it("saves a durable row correction while needs_review, readable back by row number (spec 25 §10.2)", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      const record = await createImport(tx, languageId);
+      await markCurriculumImportUploaded(tx, record.id);
+      await markCurriculumImportPreviewStarted(tx, record.id);
+      await recordCurriculumImportPreview(tx, {
+        importId: record.id,
+        rows: [cleanRow, blockedRow],
+      });
+
+      const rows = await listCurriculumImportRows(tx, {
+        importId: record.id,
+        limit: 10,
+      });
+      const theBlockedRow = rows.items.find(
+        (row) => row.classification === "blocked",
+      )!;
+
+      const result = await reviseCurriculumImportRow(tx, {
+        rowId: theBlockedRow.id,
+        corrections: { group: "1" },
+      });
+      expect(result).toEqual({
+        importId: record.id,
+        s3Bucket: record.s3Bucket,
+        s3Key: record.s3Key,
+      });
+
+      const corrections = await getRowCorrections(tx, record.id);
+      expect(corrections.get(blockedRow.rowNumber)).toEqual({ group: "1" });
+
+      // A second correction on the same row merges rather than replaces —
+      // and a blank value removes a previously stored field entirely.
+      await reviseCurriculumImportRow(tx, {
+        rowId: theBlockedRow.id,
+        corrections: { level: "2", group: "" },
+      });
+      const merged = await getRowCorrections(tx, record.id);
+      expect(merged.get(blockedRow.rowNumber)).toEqual({ level: "2" });
+    });
+  });
+
+  it("refuses to revise a row while the import isn't in a reviewable status", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      const record = await createImport(tx, languageId);
+      await markCurriculumImportUploaded(tx, record.id);
+      await markCurriculumImportPreviewStarted(tx, record.id);
+      await recordCurriculumImportPreview(tx, {
+        importId: record.id,
+        rows: [blockedRow],
+      });
+      const rows = await listCurriculumImportRows(tx, {
+        importId: record.id,
+        limit: 10,
+      });
+      const theBlockedRow = rows.items[0]!;
+
+      // Back into `previewing` — not a status a correction should race.
+      await markCurriculumImportPreviewStarted(tx, record.id);
+
+      await expect(
+        reviseCurriculumImportRow(tx, {
+          rowId: theBlockedRow.id,
+          corrections: { group: "1" },
+        }),
+      ).rejects.toMatchObject({ code: "CURRICULUM_VALIDATION_FAILED" });
     });
   });
 

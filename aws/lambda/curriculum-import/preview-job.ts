@@ -5,7 +5,10 @@ import {
   markCurriculumImportUploaded,
   recordCurriculumImportPreview,
 } from "@/domains/admin/curriculum-import-service";
-import { getCurriculumImportById } from "@/domains/admin/curriculum-import-repository";
+import {
+  getCurriculumImportById,
+  getRowCorrections,
+} from "@/domains/admin/curriculum-import-repository";
 import type { CurriculumImportStorage } from "@/providers/storage/types";
 import { parseCurriculumImportObjectKey } from "@/providers/storage/curriculum-import-object-key";
 
@@ -49,10 +52,17 @@ export async function runPreviewJob(
     await markCurriculumImportUploaded(db, importId);
     await markCurriculumImportPreviewStarted(db, importId);
 
+    // Spec 25 §10.2 — any durable correction an admin already made on a
+    // *previous* preview of this same import (its rows survive the rebuild
+    // below regardless of who triggered this run — the initial upload, a
+    // row-correction retrigger, or an admin manually re-running preview).
+    const rowCorrections = await getRowCorrections(db, importId);
+
     const { sourceSha256, rowInputs } = await resolveFreshImport(db, storage, {
       key,
       fileExtension,
       languageId: importRecord.languageId,
+      rowCorrections,
     });
 
     await recordCurriculumImportPreview(db, {
