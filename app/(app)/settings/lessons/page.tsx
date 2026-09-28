@@ -8,7 +8,6 @@ import {
   DEFAULT_AUTO_PRONOUNCE_LESSONS,
   DEFAULT_LESSON_BATCH_SIZE,
 } from "@/domains/users";
-import { listAvailableThemes } from "@/domains/lessons/server";
 import { getLanguageSettings, requireUser } from "@/domains/users/server";
 
 export const metadata: Metadata = {
@@ -17,17 +16,13 @@ export const metadata: Metadata = {
 
 export default async function LessonSettingsPage() {
   const user = await requireUser();
-  const [settings, themes] = await Promise.all([
-    getLanguageSettings(user.id, user.activeLanguageId),
-    listAvailableThemes({ userId: user.id, languageId: user.activeLanguageId }),
-  ]);
+  const settings = await getLanguageSettings(user.id, user.activeLanguageId);
 
   // `(app)`'s layout already redirects to /onboarding/curriculum when this
   // is null (the learner has never chosen at all), so this is a defensive
   // fallback rather than a real path — matching `lesson-service.ts`'s own
   // `FALLBACK_CURRICULUM_MODE`.
   const currentMode = settings?.curriculumMode ?? "variety";
-  const currentThemeId = settings?.selectedVocabularyGroupId ?? null;
   const currentGrammarPlacement = settings?.grammarPlacement ?? "no_preference";
   const currentBatchSize =
     settings?.lessonBatchSize ?? DEFAULT_LESSON_BATCH_SIZE;
@@ -44,11 +39,7 @@ export default async function LessonSettingsPage() {
           Choose how new words and grammar are introduced in your lessons.
         </p>
         <div className="mt-4">
-          <LearningQueuePicker
-            initialMode={currentMode}
-            initialThemeId={currentThemeId}
-            themes={themes}
-          />
+          <LearningQueuePicker initialMode={currentMode} />
         </div>
         <div className="mt-2">
           <GrammarPlacementSelect initialValue={currentGrammarPlacement} />
