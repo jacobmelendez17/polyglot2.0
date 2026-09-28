@@ -50,6 +50,8 @@ type CurriculumItemFormProps = {
   groups: { id: string; name: string; levelNumber: number }[];
   existing?: ExistingItem;
   resolvedVocabulary?: ResolvedVocabularyFieldInfo;
+  /** Spec 25 §16's "Save & Next" — the next item in the admin's current filtered view, or `null` when there is none. Editing only (`existing` set); a brand-new item has nowhere to navigate to yet. */
+  nextHref?: string | null;
 };
 
 const EMPTY_VOCAB: VocabularyEditorValue = {
@@ -136,6 +138,7 @@ export function CurriculumItemForm({
   groups,
   existing,
   resolvedVocabulary,
+  nextHref,
 }: CurriculumItemFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -179,7 +182,7 @@ export function CurriculumItemForm({
     crypto.randomUUID(),
   );
 
-  function handleSubmit(approvedAsHomonymOf?: string) {
+  function handleSubmit(approvedAsHomonymOf?: string, goToNext?: boolean) {
     setError(null);
     setSavedMessage(null);
     startTransition(async () => {
@@ -228,6 +231,11 @@ export function CurriculumItemForm({
         // here — no separate message needed, and there is nothing yet on
         // this page to attach one to.
         router.push(`/admin/curriculum/items/${result.data.learningItemId}`);
+      } else if (goToNext && nextHref) {
+        // Spec 25 §16's "Save & Next" — the save already landed (live or
+        // draft, same as a plain Save); navigating away is the confirmation,
+        // exactly like the create-then-navigate branch above.
+        router.push(nextHref);
       } else {
         setSavedMessage(
           "savedAsDraft" in result.data && result.data.savedAsDraft
@@ -337,6 +345,16 @@ export function CurriculumItemForm({
         <Button type="submit" disabled={isPending}>
           {existing ? "Save" : "Create"}
         </Button>
+        {existing && nextHref ? (
+          <Button
+            type="button"
+            variant="outline"
+            disabled={isPending}
+            onClick={() => handleSubmit(undefined, true)}
+          >
+            Save & Next
+          </Button>
+        ) : null}
         {savedMessage ? (
           <span
             role="status"

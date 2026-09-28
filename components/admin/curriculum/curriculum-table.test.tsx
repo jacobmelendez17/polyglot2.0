@@ -26,6 +26,12 @@ function item(
     groupId: "group-1",
     groupName: "Home & Basics",
     updatedAt: new Date("2026-01-01T00:00:00Z"),
+    needsDefinition: false,
+    needsExamples: false,
+    needsIpa: false,
+    needsPronunciation: false,
+    needsSynonyms: false,
+    needsVariations: false,
     ...overrides,
   };
 }

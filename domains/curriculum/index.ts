@@ -40,10 +40,13 @@ export type {
   CurriculumVocabularyGroup,
 } from "./curriculum-db-types";
 export type {
+  AdjacentAdminCurriculumItem,
   AdminCurriculumFilters,
   AdminCurriculumItemsPage,
   AdminCurriculumListItem,
+  AdminCurriculumNeedsFilter,
   AdminCurriculumStatusCounts,
+  AdminLevelContentSummary,
   GetAdminCurriculumItemsInput,
 } from "./curriculum-admin-types";
 export type {

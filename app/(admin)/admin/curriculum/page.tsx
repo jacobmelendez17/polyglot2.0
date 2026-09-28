@@ -8,11 +8,16 @@ import { CurriculumFilters } from "@/components/admin/curriculum/curriculum-filt
 import { CurriculumPagination } from "@/components/admin/curriculum/curriculum-pagination";
 import { CurriculumTableSection } from "@/components/admin/curriculum/curriculum-table-section";
 import { ItemReorderList } from "@/components/admin/curriculum/item-reorder-list";
+import { LevelContentSummaryCard } from "@/components/admin/curriculum/level-content-summary-card";
 import { canManageCurriculum } from "@/domains/admin";
-import type { CurriculumStatus } from "@/domains/curriculum";
+import type {
+  AdminCurriculumNeedsFilter,
+  CurriculumStatus,
+} from "@/domains/curriculum";
 import {
   getAdminCurriculumItems,
   getLanguages,
+  getLevelContentSummary,
   getLevelsByLanguage,
   getVocabularyGroupsByLanguage,
 } from "@/domains/curriculum/server";
@@ -33,6 +38,16 @@ const PAGE_SIZE = 20;
 const REORDER_LIMIT = 100;
 const ITEM_TYPES = ["vocabulary", "grammar"] as const;
 const STATUSES = ["draft", "pending", "published", "archived"] as const;
+const NEEDS_FILTERS = [
+  "definition",
+  "examples",
+  "ipa",
+  "pronunciation",
+  "synonyms",
+  "variations",
+  "draft_changes",
+  "ready_to_publish",
+] as const;
 
 type SearchParams = {
   language?: string;
@@ -41,6 +56,7 @@ type SearchParams = {
   status?: string;
   group?: string;
   search?: string;
+  needs?: string;
   cursor?: string;
   mode?: string;
 };
@@ -91,13 +107,18 @@ export default async function AdminCurriculumPage({
   const status = STATUSES.includes(params.status as CurriculumStatus)
     ? (params.status as CurriculumStatus)
     : undefined;
+  const needs = NEEDS_FILTERS.includes(
+    params.needs as (typeof NEEDS_FILTERS)[number],
+  )
+    ? (params.needs as AdminCurriculumNeedsFilter)
+    : undefined;
   // Reordering only makes sense scoped to exactly one level and one type —
   // `position` is uniquely constrained within `(level, type)`, never across
   // either (see reorderLearningItems).
   const canReorder = Boolean(params.level && type);
   const reorderMode = canReorder && params.mode === "reorder";
 
-  const [levels, groups, page] = await Promise.all([
+  const [levels, groups, page, levelSummary] = await Promise.all([
     getLevelsByLanguage(languageId),
     getVocabularyGroupsByLanguage(languageId),
     getAdminCurriculumItems({
@@ -107,9 +128,14 @@ export default async function AdminCurriculumPage({
       status,
       groupId: params.group,
       search: params.search,
+      needs,
       limit: reorderMode ? REORDER_LIMIT : PAGE_SIZE,
       cursor: reorderMode ? undefined : params.cursor,
     }),
+    // Spec 25 §15's per-level summary only makes sense scoped to one level.
+    params.level
+      ? getLevelContentSummary({ languageId, levelId: params.level })
+      : Promise.resolve(null),
   ]);
 
   const levelNumberById = new Map(
@@ -132,6 +158,7 @@ export default async function AdminCurriculumPage({
   if (status) baseParams.set("status", status);
   if (params.group) baseParams.set("group", params.group);
   if (params.search) baseParams.set("search", params.search);
+  if (needs) baseParams.set("needs", needs);
 
   const nextParams = new URLSearchParams(baseParams);
   if (page.nextCursor) nextParams.set("cursor", page.nextCursor);
@@ -171,8 +198,18 @@ export default async function AdminCurriculumPage({
           status,
           groupId: params.group,
           search: params.search,
+          needs,
         }}
       />
+
+      {levelSummary ? (
+        <div className="mb-4">
+          <LevelContentSummaryCard
+            levelNumber={levelNumberById.get(params.level!) ?? 0}
+            summary={levelSummary}
+          />
+        </div>
+      ) : null}
 
       {canReorder ? (
         <div className="mb-4">

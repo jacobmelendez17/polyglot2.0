@@ -95,6 +95,19 @@ export async function getAdminCurriculumStatusCounts(languageId: string) {
   return adminRepository.getAdminCurriculumStatusCounts(db, languageId);
 }
 
+export async function getAdjacentAdminCurriculumItem(
+  input: Parameters<typeof adminRepository.getAdjacentAdminCurriculumItem>[1],
+) {
+  return adminRepository.getAdjacentAdminCurriculumItem(db, input);
+}
+
+export async function getLevelContentSummary(input: {
+  languageId: string;
+  levelId: string;
+}) {
+  return adminRepository.getLevelContentSummary(db, input);
+}
+
 export async function getAcceptedAnswers(learningItemId: string) {
   return repoGetAcceptedAnswers(db, learningItemId);
 }

@@ -1,11 +1,16 @@
 import { describe, expect, it } from "vitest";
 
+import { eq } from "drizzle-orm";
+
 import type { DbClient } from "@/db/client";
 import {
+  acceptedAnswers,
   grammarItems,
   languages,
+  learningItemSentences,
   learningItems,
   levels,
+  sentences,
   vocabularyGroups,
   vocabularyItems,
 } from "@/db/schema";
@@ -14,8 +19,10 @@ import { withTestTransaction } from "@/db/test/with-test-transaction";
 import { updateItem } from "@/domains/admin/publication-service";
 
 import {
+  getAdjacentAdminCurriculumItem,
   getAdminCurriculumItems,
   getAdminCurriculumStatusCounts,
+  getLevelContentSummary,
 } from "./curriculum-admin-repository";
 
 /**
@@ -595,6 +602,274 @@ describe("getAdminCurriculumStatusCounts", () => {
       expect(counts.draft).toBe(1);
       expect(counts.pending).toBe(0);
       expect(counts.archived).toBe(0);
+    });
+  });
+});
+
+describe("spec 25 §15/§16 — editorial work queue", () => {
+  it("needsDefinition/needsIpa/needsPronunciation/needsSynonyms/needsVariations/needsExamples are true by default, and the `needs` filter matches them", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId, gatoId, casaId } = await seedIsolatedCurriculum(tx);
+
+      const [gato] = (
+        await getAdminCurriculumItems(tx, { languageId, limit: 10 })
+      ).items.filter((i) => i.id === gatoId);
+      expect(gato).toMatchObject({
+        needsDefinition: true,
+        needsExamples: true,
+        needsIpa: true,
+        needsPronunciation: true,
+        needsSynonyms: true,
+        needsVariations: true,
+      });
+
+      // Fill in casa's definition/ipa/pronunciation, an example, and one
+      // synonym+variation — it should stop needing any of them, while gato
+      // (untouched) still does.
+      await tx
+        .update(vocabularyItems)
+        .set({
+          definition: "a small domesticated feline",
+          ipa: "/ˈka.sa/",
+          pronunciation: "KAH-sah",
+        })
+        .where(eq(vocabularyItems.learningItemId, casaId));
+      const [sentence] = await tx
+        .insert(sentences)
+        .values({
+          languageId,
+          targetText: "La casa es grande.",
+          translation: "The house is big.",
+        })
+        .returning();
+      await tx.insert(learningItemSentences).values({
+        learningItemId: casaId,
+        sentenceId: sentence!.id,
+        position: 1,
+      });
+      await tx.insert(acceptedAnswers).values([
+        {
+          learningItemId: casaId,
+          side: "meaning",
+          value: "home",
+          normalizedValue: "home",
+        },
+        {
+          learningItemId: casaId,
+          side: "term",
+          value: "casita",
+          normalizedValue: "casita",
+        },
+      ]);
+
+      const page = await getAdminCurriculumItems(tx, { languageId, limit: 10 });
+      const casa = page.items.find((i) => i.id === casaId)!;
+      expect(casa).toMatchObject({
+        needsDefinition: false,
+        needsExamples: false,
+        needsIpa: false,
+        needsPronunciation: false,
+        needsSynonyms: false,
+        needsVariations: false,
+      });
+
+      for (const needs of [
+        "definition",
+        "examples",
+        "ipa",
+        "pronunciation",
+        "synonyms",
+        "variations",
+      ] as const) {
+        const filtered = await getAdminCurriculumItems(tx, {
+          languageId,
+          needs,
+          limit: 10,
+        });
+        const ids = filtered.items.map((i) => i.id);
+        expect(ids).toContain(gatoId);
+        expect(ids).not.toContain(casaId);
+      }
+    });
+  });
+
+  it("a grammar item needs a definition only when its explanation is blank, and never needs IPA/pronunciation/variations", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId, grammarYId } = await seedIsolatedCurriculum(tx);
+
+      const page = await getAdminCurriculumItems(tx, { languageId, limit: 10 });
+      const grammarY = page.items.find((i) => i.id === grammarYId)!;
+      // The fixture's own explanation is non-blank ("Connects two words...").
+      expect(grammarY.needsDefinition).toBe(false);
+      expect(grammarY.needsIpa).toBe(false);
+      expect(grammarY.needsPronunciation).toBe(false);
+      expect(grammarY.needsVariations).toBe(false);
+      expect(grammarY.needsExamples).toBe(true);
+      expect(grammarY.needsSynonyms).toBe(true);
+
+      await tx
+        .update(grammarItems)
+        .set({ explanation: "" })
+        .where(eq(grammarItems.learningItemId, grammarYId));
+      const after = (
+        await getAdminCurriculumItems(tx, {
+          languageId,
+          needs: "definition",
+          limit: 10,
+        })
+      ).items.map((i) => i.id);
+      expect(after).toContain(grammarYId);
+    });
+  });
+
+  it("needs=draft_changes matches a published item with an open draft; needs=ready_to_publish matches pending items", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId, groupId, gatoId } = await seedIsolatedCurriculum(tx);
+
+      await updateItem(tx, {
+        learningItemId: gatoId,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+        type: "vocabulary",
+        fields: {
+          vocabularyGroupId: groupId,
+          term: "gato",
+          primaryMeaning: "cat (edited)",
+          article: "el",
+          partOfSpeech: "noun",
+          acceptedAnswers: [],
+        },
+      });
+
+      const draftFiltered = await getAdminCurriculumItems(tx, {
+        languageId,
+        needs: "draft_changes",
+        limit: 10,
+      });
+      expect(draftFiltered.items.map((i) => i.id)).toEqual([gatoId]);
+
+      const readyFiltered = await getAdminCurriculumItems(tx, {
+        languageId,
+        needs: "ready_to_publish",
+        limit: 10,
+      });
+      expect(readyFiltered.items).toEqual([]);
+    });
+  });
+});
+
+describe("getAdjacentAdminCurriculumItem (spec 25 §16)", () => {
+  it("returns the next/previous item in the same level/position/id order getAdminCurriculumItems uses", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId, gatoId, casaId, aguaId, grammarYId, rojoId } =
+        await seedIsolatedCurriculum(tx);
+
+      const next = await getAdjacentAdminCurriculumItem(tx, {
+        languageId,
+        currentLevelNumber: 1,
+        currentPosition: 1, // gato
+        currentId: gatoId,
+        direction: "next",
+      });
+      expect(next).toEqual({ id: casaId });
+
+      const previous = await getAdjacentAdminCurriculumItem(tx, {
+        languageId,
+        currentLevelNumber: 1,
+        currentPosition: 4, // grammarY
+        currentId: grammarYId,
+        direction: "previous",
+      });
+      expect(previous).toEqual({ id: aguaId });
+
+      // rojo (level 2) is the very last item in this isolated language.
+      const noNext = await getAdjacentAdminCurriculumItem(tx, {
+        languageId,
+        currentLevelNumber: 2,
+        currentPosition: 1,
+        currentId: rojoId,
+        direction: "next",
+      });
+      expect(noNext).toBeNull();
+    });
+  });
+
+  it("anyIncomplete finds the next item missing anything, skipping ones already fully metadata-complete", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId, gatoId, casaId, aguaId } =
+        await seedIsolatedCurriculum(tx);
+
+      // Fill in casa completely so it's no longer "incomplete."
+      await tx
+        .update(vocabularyItems)
+        .set({
+          definition: "a house",
+          ipa: "/ˈka.sa/",
+          pronunciation: "KAH-sah",
+        })
+        .where(eq(vocabularyItems.learningItemId, casaId));
+      const [sentence] = await tx
+        .insert(sentences)
+        .values({
+          languageId,
+          targetText: "La casa es grande.",
+          translation: "The house is big.",
+        })
+        .returning();
+      await tx.insert(learningItemSentences).values({
+        learningItemId: casaId,
+        sentenceId: sentence!.id,
+        position: 1,
+      });
+      await tx.insert(acceptedAnswers).values([
+        {
+          learningItemId: casaId,
+          side: "meaning",
+          value: "home",
+          normalizedValue: "home",
+        },
+        {
+          learningItemId: casaId,
+          side: "term",
+          value: "casita",
+          normalizedValue: "casita",
+        },
+      ]);
+
+      const nextIncomplete = await getAdjacentAdminCurriculumItem(tx, {
+        languageId,
+        currentLevelNumber: 1,
+        currentPosition: 1, // gato
+        currentId: gatoId,
+        direction: "next",
+        anyIncomplete: true,
+      });
+      // casa is next by position but now complete — skips straight to agua.
+      expect(nextIncomplete).toEqual({ id: aguaId });
+    });
+  });
+});
+
+describe("getLevelContentSummary (spec 25 §15)", () => {
+  it("summarizes one level's editorial completeness", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId, level1Id, casaId } = await seedIsolatedCurriculum(tx);
+
+      await tx
+        .update(vocabularyItems)
+        .set({ definition: "a house" })
+        .where(eq(vocabularyItems.learningItemId, casaId));
+
+      const summary = await getLevelContentSummary(tx, {
+        languageId,
+        levelId: level1Id,
+      });
+
+      // gato, casa, agua, grammarY — grammarY already has a real explanation.
+      expect(summary.totalItems).toBe(4);
+      expect(summary.needsDefinitionCount).toBe(2); // gato, agua (casa now filled, grammarY was never blank)
+      expect(summary.metadataCompleteCount).toBe(0); // every item is still missing something else
+      expect(summary.draftChangesCount).toBe(0);
     });
   });
 });

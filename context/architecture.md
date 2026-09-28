@@ -940,6 +940,22 @@ The approval must be deliberate and auditable.
 > never appears anywhere in the persisted per-row preview data (`resolvedLearningItemId`
 > is always `null` for a `create` row, which is written before the item
 > exists).
+>
+> Spec 25 Unit 8 (2026-09-28) adds an editorial work queue independent of
+> publication status (`AdminCurriculumListItem`'s `needsDefinition`/
+> `needsExamples`/`needsIpa`/`needsPronunciation`/`needsSynonyms`/
+> `needsVariations`, filterable via `AdminCurriculumFilters.needs` and
+> summarized per level by `getLevelContentSummary`) and item-editor
+> navigation (`getAdjacentAdminCurriculumItem` for Previous/Next/Next
+> Incomplete Item, reusing the admin list's own filter/ordering logic so
+> "next" always means what the admin's own current view would show next; a
+> "Save & Next" button on the existing item form). Two of spec §15's listed
+> filters — "Has Validation Warning" and "Recently Imported" — have no
+> backing data anywhere in this codebase and were deliberately not added;
+> see `progress-tracker.md` for what would be needed. The editor's own field
+> layout (definition/examples prioritized over administrative metadata,
+> per spec §16) was not reorganized in this unit — a visual-hierarchy
+> decision left for its own pass, not bundled with the navigation work.
 
 ---
 

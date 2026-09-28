@@ -12,7 +12,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { CurriculumStatus } from "@/domains/curriculum";
+import type {
+  AdminCurriculumNeedsFilter,
+  CurriculumStatus,
+} from "@/domains/curriculum";
 
 const ALL_VALUE = "all";
 
@@ -27,6 +30,7 @@ type CurriculumFiltersProps = {
     status?: CurriculumStatus;
     groupId?: string;
     search?: string;
+    needs?: AdminCurriculumNeedsFilter;
   };
 };
 
@@ -35,6 +39,18 @@ const STATUS_OPTIONS: { value: CurriculumStatus; label: string }[] = [
   { value: "pending", label: "Pending" },
   { value: "published", label: "Published" },
   { value: "archived", label: "Archived" },
+];
+
+/** Spec 25 §15's work-queue filter list, minus the two deferred values — see `AdminCurriculumNeedsFilter`'s own docstring. */
+const NEEDS_OPTIONS: { value: AdminCurriculumNeedsFilter; label: string }[] = [
+  { value: "definition", label: "Needs Definition" },
+  { value: "examples", label: "Needs Examples" },
+  { value: "ipa", label: "Needs IPA" },
+  { value: "pronunciation", label: "Needs Pronunciation" },
+  { value: "synonyms", label: "Needs Synonyms" },
+  { value: "variations", label: "Needs Variations" },
+  { value: "draft_changes", label: "Has Draft Changes" },
+  { value: "ready_to_publish", label: "Ready to Publish" },
 ];
 
 /**
@@ -73,6 +89,7 @@ export function CurriculumFilters({
     if (next.status) params.set("status", next.status);
     if (next.groupId) params.set("group", next.groupId);
     if (next.search) params.set("search", next.search);
+    if (next.needs) params.set("needs", next.needs);
     router.push(`${pathname}?${params.toString()}`);
   }
 
@@ -201,6 +218,30 @@ export function CurriculumFilters({
               {selectedLevelNumber
                 ? group.name
                 : `L${group.levelNumber} — ${group.name}`}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Select
+        value={value.needs ?? ALL_VALUE}
+        onValueChange={(needs) =>
+          navigate({
+            needs:
+              needs === ALL_VALUE
+                ? undefined
+                : (needs as AdminCurriculumNeedsFilter),
+          })
+        }
+      >
+        <SelectTrigger aria-label="Needs" className="sm:w-48">
+          <SelectValue placeholder="Needs" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={ALL_VALUE}>Editorial work queue</SelectItem>
+          {NEEDS_OPTIONS.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
             </SelectItem>
           ))}
         </SelectContent>

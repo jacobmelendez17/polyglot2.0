@@ -11,6 +11,7 @@
 export { databaseCurriculumReader } from "./curriculum-db-service";
 export {
   getAcceptedAnswers,
+  getAdjacentAdminCurriculumItem,
   getAdminCurriculumItems,
   getAdminCurriculumStatusCounts,
   getItemDraft,
@@ -25,6 +26,7 @@ export {
   getLevelItems,
   getLevelsByLanguage,
   getLevelContentCounts,
+  getLevelContentSummary,
   getGrammarContentBlocks,
   getItemExamples,
   getItemResources,

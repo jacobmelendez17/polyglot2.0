@@ -27,6 +27,12 @@ function makeItem(
     groupId: null,
     groupName: null,
     updatedAt: new Date("2026-09-27T00:00:00.000Z"),
+    needsDefinition: false,
+    needsExamples: false,
+    needsIpa: false,
+    needsPronunciation: false,
+    needsSynonyms: false,
+    needsVariations: false,
     ...overrides,
   };
 }

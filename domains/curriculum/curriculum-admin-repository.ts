@@ -1,20 +1,40 @@
-import { and, asc, eq, gt, ilike, isNotNull, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gt,
+  ilike,
+  isNotNull,
+  lt,
+  or,
+  sql,
+} from "drizzle-orm";
 
 import type { DbClient } from "@/db/client";
 import {
+  acceptedAnswers,
   curriculumItemDrafts,
   grammarItems,
+  learningItemSentences,
   learningItems,
   levels,
   vocabularyGroups,
   vocabularyItems,
 } from "@/db/schema";
 
-import { getAdminCurriculumItemsInputSchema } from "./curriculum-admin-schemas";
+import {
+  getAdjacentAdminCurriculumItemInputSchema,
+  getAdminCurriculumItemsInputSchema,
+  getLevelContentSummaryInputSchema,
+} from "./curriculum-admin-schemas";
 import type {
+  AdjacentAdminCurriculumItem,
   AdminCurriculumListItem,
   AdminCurriculumItemsPage,
+  AdminCurriculumNeedsFilter,
   AdminCurriculumStatusCounts,
+  AdminLevelContentSummary,
   GetAdminCurriculumItemsInput,
 } from "./curriculum-admin-types";
 import type { CurriculumStatus } from "./curriculum-db-types";
@@ -62,6 +82,70 @@ const ITEM_GROUP_ID = sql<
   string | null
 >`coalesce(${vocabularyItems.vocabularyGroupId}, ${grammarItems.vocabularyGroupId})`;
 
+/**
+ * Spec 25 §15's work-queue conditions, one per filter value — each is a
+ * plain boolean SQL expression over the same joined tables `SELECTION`
+ * already reads, so filtering (`WHERE`) and display (`SELECT`) never risk
+ * drifting apart. `NOT EXISTS` for examples/synonyms/variations rather than
+ * a `LEFT JOIN ... IS NULL` — an item can have several examples/answers, and
+ * a join would multiply rows instead of just testing presence.
+ */
+const NEEDS_DEFINITION = sql<boolean>`(
+  (${learningItems.type} = 'vocabulary' AND ${vocabularyItems.definition} IS NULL)
+  OR (${learningItems.type} = 'grammar' AND ${grammarItems.explanation} = '')
+)`;
+const NEEDS_EXAMPLES = sql<boolean>`NOT EXISTS (
+  SELECT 1 FROM ${learningItemSentences}
+  WHERE ${learningItemSentences.learningItemId} = ${learningItems.id}
+)`;
+const NEEDS_IPA = sql<boolean>`(${learningItems.type} = 'vocabulary' AND ${vocabularyItems.ipa} IS NULL)`;
+const NEEDS_PRONUNCIATION = sql<boolean>`(${learningItems.type} = 'vocabulary' AND ${vocabularyItems.pronunciation} IS NULL)`;
+const NEEDS_SYNONYMS = sql<boolean>`NOT EXISTS (
+  SELECT 1 FROM ${acceptedAnswers}
+  WHERE ${acceptedAnswers.learningItemId} = ${learningItems.id} AND ${acceptedAnswers.side} = 'meaning'
+)`;
+const NEEDS_VARIATIONS = sql<boolean>`(
+  ${learningItems.type} = 'vocabulary' AND NOT EXISTS (
+    SELECT 1 FROM ${acceptedAnswers}
+    WHERE ${acceptedAnswers.learningItemId} = ${learningItems.id} AND ${acceptedAnswers.side} = 'term'
+  )
+)`;
+
+/** One `needs` filter value → the `WHERE` condition it applies. `draft_changes`/`ready_to_publish` reuse the same columns `computeDisplayStatus`/the existing `status="draft"` filter already read — see this file's other uses of `curriculumItemDrafts`/`learningItems.status`. */
+function needsFilterCondition(needs: AdminCurriculumNeedsFilter) {
+  switch (needs) {
+    case "definition":
+      return NEEDS_DEFINITION;
+    case "examples":
+      return NEEDS_EXAMPLES;
+    case "ipa":
+      return NEEDS_IPA;
+    case "pronunciation":
+      return NEEDS_PRONUNCIATION;
+    case "synonyms":
+      return NEEDS_SYNONYMS;
+    case "variations":
+      return NEEDS_VARIATIONS;
+    case "draft_changes":
+      return and(
+        eq(learningItems.status, "published"),
+        isNotNull(curriculumItemDrafts.id),
+      )!;
+    case "ready_to_publish":
+      return eq(learningItems.status, "pending");
+  }
+}
+
+/** Spec 25 §16's "Next Incomplete Item" — any field this item's own type actually supports being incomplete on. */
+const ANY_INCOMPLETE = or(
+  NEEDS_DEFINITION,
+  NEEDS_EXAMPLES,
+  NEEDS_IPA,
+  NEEDS_PRONUNCIATION,
+  NEEDS_SYNONYMS,
+  NEEDS_VARIATIONS,
+)!;
+
 const SELECTION = {
   id: learningItems.id,
   type: learningItems.type,
@@ -86,6 +170,14 @@ const SELECTION = {
   // instead, so a real answer to "does this have unpublished changes"
   // doesn't require re-deriving it in every UI consumer.
   hasOpenDraft: curriculumItemDrafts.id,
+  // Spec 25 §15 — computed here, once, rather than re-derived by every
+  // consumer of a list row.
+  needsDefinition: NEEDS_DEFINITION,
+  needsExamples: NEEDS_EXAMPLES,
+  needsIpa: NEEDS_IPA,
+  needsPronunciation: NEEDS_PRONUNCIATION,
+  needsSynonyms: NEEDS_SYNONYMS,
+  needsVariations: NEEDS_VARIATIONS,
 } as const;
 
 function computeDisplayStatus(
@@ -110,6 +202,12 @@ function toAdminCurriculumListItem(row: {
   vocabGroupId: string | null;
   groupName: string | null;
   grammarStructure: string | null;
+  needsDefinition: boolean;
+  needsExamples: boolean;
+  needsIpa: boolean;
+  needsPronunciation: boolean;
+  needsSynonyms: boolean;
+  needsVariations: boolean;
   grammarMeaning: string | null;
   hasOpenDraft: string | null;
 }): AdminCurriculumListItem {
@@ -126,6 +224,12 @@ function toAdminCurriculumListItem(row: {
     groupId: row.vocabGroupId,
     groupName: row.groupName,
     updatedAt: row.updatedAt,
+    needsDefinition: row.needsDefinition,
+    needsExamples: row.needsExamples,
+    needsIpa: row.needsIpa,
+    needsPronunciation: row.needsPronunciation,
+    needsSynonyms: row.needsSynonyms,
+    needsVariations: row.needsVariations,
   };
 }
 
@@ -152,8 +256,17 @@ export async function getAdminCurriculumItems(
   db: DbClient,
   input: GetAdminCurriculumItemsInput,
 ): Promise<AdminCurriculumItemsPage> {
-  const { languageId, levelId, type, status, groupId, search, limit, cursor } =
-    getAdminCurriculumItemsInputSchema.parse(input);
+  const {
+    languageId,
+    levelId,
+    type,
+    status,
+    groupId,
+    search,
+    needs,
+    limit,
+    cursor,
+  } = getAdminCurriculumItemsInputSchema.parse(input);
 
   const conditions = [eq(learningItems.languageId, languageId)];
   if (levelId) conditions.push(eq(learningItems.levelId, levelId));
@@ -173,6 +286,7 @@ export async function getAdminCurriculumItems(
     conditions.push(eq(learningItems.status, status));
   }
   if (groupId) conditions.push(eq(ITEM_GROUP_ID, groupId));
+  if (needs) conditions.push(needsFilterCondition(needs));
 
   if (search) {
     const pattern = `%${search}%`;
@@ -247,6 +361,167 @@ export async function getAdminCurriculumItems(
           })
         : null,
   };
+}
+
+/**
+ * Spec 25 §16 — "Previous"/"Next"/"Next Incomplete Item". One row, same
+ * filter shape and ordering key `getAdminCurriculumItems` itself uses, so
+ * "the next item" always means the same thing the list view would show
+ * next — never a separately-derived notion of order. `anyIncomplete` (Next
+ * Incomplete Item) takes priority over `needs` if a caller somehow sets
+ * both; in practice a caller picks one.
+ */
+export async function getAdjacentAdminCurriculumItem(
+  db: DbClient,
+  input: {
+    languageId: string;
+    levelId?: string;
+    type?: "vocabulary" | "grammar";
+    status?: CurriculumStatus;
+    groupId?: string;
+    search?: string;
+    needs?: AdminCurriculumNeedsFilter;
+    currentLevelNumber: number;
+    currentPosition: number;
+    currentId: string;
+    direction: "next" | "previous";
+    anyIncomplete?: boolean;
+  },
+): Promise<AdjacentAdminCurriculumItem> {
+  const parsed = getAdjacentAdminCurriculumItemInputSchema.parse(input);
+
+  const conditions = [eq(learningItems.languageId, parsed.languageId)];
+  if (parsed.levelId)
+    conditions.push(eq(learningItems.levelId, parsed.levelId));
+  if (parsed.type) conditions.push(eq(learningItems.type, parsed.type));
+  if (parsed.status === "draft") {
+    conditions.push(
+      and(
+        eq(learningItems.status, "published"),
+        isNotNull(curriculumItemDrafts.id),
+      )!,
+    );
+  } else if (parsed.status) {
+    conditions.push(eq(learningItems.status, parsed.status));
+  }
+  if (parsed.groupId) conditions.push(eq(ITEM_GROUP_ID, parsed.groupId));
+  if (parsed.search) {
+    const pattern = `%${parsed.search}%`;
+    conditions.push(
+      or(
+        ilike(vocabularyItems.term, pattern),
+        ilike(vocabularyItems.primaryMeaning, pattern),
+        ilike(
+          sql`(${vocabularyItems.article} || ' ' || ${vocabularyItems.term})`,
+          pattern,
+        ),
+        ilike(grammarItems.structure, pattern),
+        ilike(grammarItems.primaryMeaning, pattern),
+        ilike(grammarItems.explanation, pattern),
+      )!,
+    );
+  }
+  if (parsed.anyIncomplete) conditions.push(ANY_INCOMPLETE);
+  else if (parsed.needs) conditions.push(needsFilterCondition(parsed.needs));
+
+  const { currentLevelNumber, currentPosition, currentId } = parsed;
+  const isNext = parsed.direction === "next";
+  const cmp = isNext ? gt : lt;
+  conditions.push(
+    or(
+      cmp(levels.levelNumber, currentLevelNumber),
+      and(
+        eq(levels.levelNumber, currentLevelNumber),
+        cmp(learningItems.position, currentPosition),
+      ),
+      and(
+        eq(levels.levelNumber, currentLevelNumber),
+        eq(learningItems.position, currentPosition),
+        cmp(learningItems.id, currentId),
+      ),
+    )!,
+  );
+
+  const [row] = await db
+    .select({ id: learningItems.id })
+    .from(learningItems)
+    .innerJoin(levels, eq(levels.id, learningItems.levelId))
+    .leftJoin(
+      vocabularyItems,
+      eq(vocabularyItems.learningItemId, learningItems.id),
+    )
+    .leftJoin(grammarItems, eq(grammarItems.learningItemId, learningItems.id))
+    .leftJoin(
+      curriculumItemDrafts,
+      eq(curriculumItemDrafts.learningItemId, learningItems.id),
+    )
+    .where(and(...conditions))
+    .orderBy(
+      isNext ? asc(levels.levelNumber) : desc(levels.levelNumber),
+      isNext ? asc(learningItems.position) : desc(learningItems.position),
+      isNext ? asc(learningItems.id) : desc(learningItems.id),
+    )
+    .limit(1);
+
+  return row ?? null;
+}
+
+/**
+ * Spec 25 §15's per-level editorial summary. One query, `GROUP BY` nothing —
+ * every count is its own conditional aggregate over the same row set, since
+ * an item can count toward several "needs" at once (this is a work-queue
+ * summary, not a partition).
+ */
+export async function getLevelContentSummary(
+  db: DbClient,
+  input: { languageId: string; levelId: string },
+): Promise<AdminLevelContentSummary> {
+  const { languageId, levelId } =
+    getLevelContentSummaryInputSchema.parse(input);
+
+  const [row] = await db
+    .select({
+      totalItems: sql<number>`count(*)::int`,
+      metadataCompleteCount: sql<number>`count(*) filter (where not (${ANY_INCOMPLETE}))::int`,
+      needsDefinitionCount: sql<number>`count(*) filter (where ${NEEDS_DEFINITION})::int`,
+      needsExamplesCount: sql<number>`count(*) filter (where ${NEEDS_EXAMPLES})::int`,
+      needsIpaCount: sql<number>`count(*) filter (where ${NEEDS_IPA})::int`,
+      needsPronunciationCount: sql<number>`count(*) filter (where ${NEEDS_PRONUNCIATION})::int`,
+      needsSynonymsCount: sql<number>`count(*) filter (where ${NEEDS_SYNONYMS})::int`,
+      needsVariationsCount: sql<number>`count(*) filter (where ${NEEDS_VARIATIONS})::int`,
+      draftChangesCount: sql<number>`count(*) filter (where ${learningItems.status} = 'published' and ${curriculumItemDrafts.id} is not null)::int`,
+    })
+    .from(learningItems)
+    .innerJoin(levels, eq(levels.id, learningItems.levelId))
+    .leftJoin(
+      vocabularyItems,
+      eq(vocabularyItems.learningItemId, learningItems.id),
+    )
+    .leftJoin(grammarItems, eq(grammarItems.learningItemId, learningItems.id))
+    .leftJoin(
+      curriculumItemDrafts,
+      eq(curriculumItemDrafts.learningItemId, learningItems.id),
+    )
+    .where(
+      and(
+        eq(learningItems.languageId, languageId),
+        eq(learningItems.levelId, levelId),
+      ),
+    );
+
+  return (
+    row ?? {
+      totalItems: 0,
+      metadataCompleteCount: 0,
+      needsDefinitionCount: 0,
+      needsExamplesCount: 0,
+      needsIpaCount: 0,
+      needsPronunciationCount: 0,
+      needsSynonymsCount: 0,
+      needsVariationsCount: 0,
+      draftChangesCount: 0,
+    }
+  );
 }
 
 /** Per-status counts for one language (Unit 1's Overview stat cards). */

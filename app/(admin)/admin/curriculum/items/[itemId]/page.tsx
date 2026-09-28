@@ -17,13 +17,17 @@ import type { Register } from "@/db/schema";
 import { canManageCurriculum } from "@/domains/admin";
 import type {
   AcceptedAnswerInput,
+  AdminCurriculumNeedsFilter,
   CurriculumLearningItem,
+  CurriculumStatus,
 } from "@/domains/curriculum";
 import {
   getAcceptedAnswers,
+  getAdjacentAdminCurriculumItem,
   getItemDraft,
   getItemExamples,
   getLearningItem,
+  getLevelById,
   getLevelsByLanguage,
   getUsageContexts,
   getVocabularyGroupsByLanguage,
@@ -124,6 +128,53 @@ function toGrammarFormValue(
   };
 }
 
+const STATUSES = ["draft", "pending", "published", "archived"] as const;
+const NEEDS_FILTERS = [
+  "definition",
+  "examples",
+  "ipa",
+  "pronunciation",
+  "synonyms",
+  "variations",
+  "draft_changes",
+  "ready_to_publish",
+] as const;
+
+/**
+ * Spec 25 §16 — the list's own filters, carried through by `from` (see this
+ * page's own docstring on `backHref`), parsed back into the shape
+ * `getAdjacentAdminCurriculumItem` needs so "Previous"/"Next"/"Next
+ * Incomplete Item" mean the same thing the list the admin actually came
+ * from would show — never a separately-derived, potentially different
+ * ordering. Falls back to the current item's own language when `from` is
+ * absent (a direct link, not a click-through from the list).
+ */
+function parseAdjacentFilters(
+  from: string | undefined,
+  fallbackLanguageId: string,
+) {
+  const params = new URLSearchParams(from ?? "");
+  const type = params.get("type");
+  const status = params.get("status");
+  const needs = params.get("needs");
+  return {
+    languageId: params.get("language") ?? fallbackLanguageId,
+    levelId: params.get("level") ?? undefined,
+    type:
+      type === "vocabulary" || type === "grammar"
+        ? (type as "vocabulary" | "grammar")
+        : undefined,
+    status: STATUSES.includes(status as CurriculumStatus)
+      ? (status as CurriculumStatus)
+      : undefined,
+    groupId: params.get("group") ?? undefined,
+    search: params.get("search") ?? undefined,
+    needs: NEEDS_FILTERS.includes(needs as (typeof NEEDS_FILTERS)[number])
+      ? (needs as AdminCurriculumNeedsFilter)
+      : undefined,
+  };
+}
+
 /**
  * Spec 11 rewrite's item edit page — reads whichever content is actually
  * current: if an open draft exists (an edit-in-progress on an already-
@@ -156,6 +207,15 @@ export default async function EditCurriculumItemPage({
   const item: CurriculumLearningItem | null = await getLearningItem(itemId);
   if (!item) notFound();
 
+  const currentLevel = await getLevelById(item.levelId);
+  const adjacentFilters = parseAdjacentFilters(from, item.languageId);
+  const adjacentBase = {
+    ...adjacentFilters,
+    currentLevelNumber: currentLevel?.levelNumber ?? 0,
+    currentPosition: item.position,
+    currentId: item.id,
+  };
+
   const [
     liveAcceptedAnswers,
     draft,
@@ -164,6 +224,9 @@ export default async function EditCurriculumItemPage({
     mappingView,
     usageContexts,
     examples,
+    previousItem,
+    nextItem,
+    nextIncompleteItem,
   ] = await Promise.all([
     getAcceptedAnswers(itemId),
     getItemDraft(itemId),
@@ -176,7 +239,26 @@ export default async function EditCurriculumItemPage({
       : Promise.resolve(null),
     getUsageContexts(itemId),
     getItemExamples(itemId),
+    // Spec 25 §16 — "Previous"/"Next"/"Next Incomplete Item," scoped to
+    // whatever filters `from` carries (the same view the admin came from).
+    getAdjacentAdminCurriculumItem({ ...adjacentBase, direction: "previous" }),
+    getAdjacentAdminCurriculumItem({ ...adjacentBase, direction: "next" }),
+    getAdjacentAdminCurriculumItem({
+      ...adjacentBase,
+      direction: "next",
+      anyIncomplete: true,
+    }),
   ]);
+
+  const itemHref = (id: string) =>
+    from
+      ? `/admin/curriculum/items/${id}?from=${from}`
+      : `/admin/curriculum/items/${id}`;
+  const previousHref = previousItem ? itemHref(previousItem.id) : null;
+  const nextHref = nextItem ? itemHref(nextItem.id) : null;
+  const nextIncompleteHref = nextIncompleteItem
+    ? itemHref(nextIncompleteItem.id)
+    : null;
 
   // Deliberately not `getVocabularyDetail`/`resolveVocabularyPresentation`:
   // that learner-facing path only resolves published/archived items (see
@@ -263,12 +345,46 @@ export default async function EditCurriculumItemPage({
 
   return (
     <div>
-      <Link
-        href={backHref}
-        className="mb-2 inline-block text-sm text-primary underline-offset-4 hover:underline"
-      >
-        ← Back to Curriculum
-      </Link>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <Link
+          href={backHref}
+          className="inline-block text-sm text-primary underline-offset-4 hover:underline"
+        >
+          ← Return to Results
+        </Link>
+        {/* Spec 25 §16 — plain navigation only; a save happens through the
+            form below (see its own "Save & Next"). */}
+        <div className="flex items-center gap-3 text-sm">
+          {previousHref ? (
+            <Link
+              href={previousHref}
+              className="text-primary underline-offset-4 hover:underline"
+            >
+              ← Previous
+            </Link>
+          ) : (
+            <span className="text-muted-foreground">← Previous</span>
+          )}
+          {nextHref ? (
+            <Link
+              href={nextHref}
+              className="text-primary underline-offset-4 hover:underline"
+            >
+              Next →
+            </Link>
+          ) : (
+            <span className="text-muted-foreground">Next →</span>
+          )}
+          {nextIncompleteHref ? (
+            <Link
+              href={nextIncompleteHref}
+              className="text-primary underline-offset-4 hover:underline"
+            >
+              Next Incomplete Item →
+            </Link>
+          ) : null}
+        </div>
+      </div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <AdminPageHeader
           title={itemLabel}
@@ -296,6 +412,7 @@ export default async function EditCurriculumItemPage({
         groups={groupOptions}
         existing={existing}
         resolvedVocabulary={resolvedVocabulary}
+        nextHref={nextHref}
       />
 
       <div className="mt-8">

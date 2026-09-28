@@ -22,7 +22,39 @@ export type AdminCurriculumListItem = {
   groupId: string | null;
   groupName: string | null;
   updatedAt: Date;
+  /**
+   * Spec 25 §15's editorial work-queue flags — independent of publication
+   * status, so a `published` item can still show up needing a definition.
+   * `false` for a field that doesn't apply to this item's type (a grammar
+   * item has no IPA/pronunciation/variations at all — see
+   * `curriculum-admin-repository.ts`'s `SELECTION` for exactly which raw
+   * columns each flag reads).
+   */
+  needsDefinition: boolean;
+  needsExamples: boolean;
+  needsIpa: boolean;
+  needsPronunciation: boolean;
+  needsSynonyms: boolean;
+  needsVariations: boolean;
 };
+
+/**
+ * Spec 25 §15's filter list, minus "Has Validation Warning" and "Recently
+ * Imported" — neither has a backing data source yet (no per-item validation-
+ * warning state exists anywhere, and no column records whether/when an item
+ * came from a CSV import), so adding either would mean inventing new product
+ * state rather than wiring up something that already exists. Recorded as an
+ * open question in `progress-tracker.md` rather than faked with a proxy.
+ */
+export type AdminCurriculumNeedsFilter =
+  | "definition"
+  | "examples"
+  | "ipa"
+  | "pronunciation"
+  | "synonyms"
+  | "variations"
+  | "draft_changes"
+  | "ready_to_publish";
 
 /**
  * Spec 11 §10's minimum filter set. `languageId` is required — admin
@@ -37,6 +69,8 @@ export type AdminCurriculumFilters = {
   groupId?: string;
   /** Substring match, case-insensitive, accent-preserving (spec 11 §11) — never erases diacritics. */
   search?: string;
+  /** Spec 25 §15 — independent of, and combinable with, `status` above (e.g. "published items needing a definition"). */
+  needs?: AdminCurriculumNeedsFilter;
 };
 
 export type GetAdminCurriculumItemsInput = AdminCurriculumFilters & {
@@ -53,3 +87,24 @@ export type AdminCurriculumItemsPage = {
 
 /** Per-status item counts for one language (Unit 1's Overview stat cards). */
 export type AdminCurriculumStatusCounts = Record<CurriculumStatus, number>;
+
+/**
+ * Spec 25 §15's per-level editorial summary ("60 items, 58 metadata-complete,
+ * 24 need definitions, 31 need examples..."). Deliberately omits the spec's
+ * "warnings"/"blocking conflicts" pair — see `AdminCurriculumNeedsFilter`'s
+ * own docstring for why neither has a backing data source yet.
+ */
+export type AdminLevelContentSummary = {
+  totalItems: number;
+  metadataCompleteCount: number;
+  needsDefinitionCount: number;
+  needsExamplesCount: number;
+  needsIpaCount: number;
+  needsPronunciationCount: number;
+  needsSynonymsCount: number;
+  needsVariationsCount: number;
+  draftChangesCount: number;
+};
+
+/** Spec 25 §16 — the item immediately after/before a given item in the *same* filtered/sorted view `getAdminCurriculumItems` produces, for "Previous"/"Next"/"Next Incomplete Item". `null` when there is none (already first/last, or nothing else matches). */
+export type AdjacentAdminCurriculumItem = { id: string } | null;
