@@ -19,6 +19,41 @@ export function isUniqueViolation(error: unknown): boolean {
   return hasSqlState(error, "23505") || hasSqlState(getCause(error), "23505");
 }
 
+/**
+ * Like `isUniqueViolation`, but narrowed to one specific constraint — for a
+ * table with more than one unique constraint, where a caller needs to react
+ * differently depending on which one actually fired (e.g. retry with a
+ * freshly generated value for *this* constraint, but let a violation of some
+ * other constraint on the same insert propagate as-is). `constraintNameIncludes`
+ * is matched as a substring against Postgres's own `constraint` field, so the
+ * caller does not need to know the exact generated/quoted constraint name.
+ */
+export function isUniqueViolationOnConstraint(
+  error: unknown,
+  constraintNameIncludes: string,
+): boolean {
+  return (
+    hasConstraintViolation(error, constraintNameIncludes) ||
+    hasConstraintViolation(getCause(error), constraintNameIncludes)
+  );
+}
+
+function hasConstraintViolation(
+  error: unknown,
+  constraintNameIncludes: string,
+): boolean {
+  return (
+    hasSqlState(error, "23505") &&
+    typeof error === "object" &&
+    error !== null &&
+    "constraint" in error &&
+    typeof (error as { constraint: unknown }).constraint === "string" &&
+    (error as { constraint: string }).constraint.includes(
+      constraintNameIncludes,
+    )
+  );
+}
+
 function getCause(error: unknown): unknown {
   return typeof error === "object" && error !== null && "cause" in error
     ? (error as { cause: unknown }).cause

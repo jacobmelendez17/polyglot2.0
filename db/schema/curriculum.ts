@@ -10,6 +10,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -136,6 +137,24 @@ export const levels = pgTable(
       .references(() => languages.id, { onDelete: "restrict" }),
     levelNumber: integer("level_number").notNull(),
     name: text("name"),
+    /**
+     * Stable external curriculum identity (spec 25 §3), e.g. `es-MX:level:a1b7c4`.
+     * Immutable and independent of `level_number`/name/placement —
+     * `domains/curriculum/curriculum-key-service.ts` generates it, and every
+     * real creation path (`createLevel` et al.) always supplies one
+     * explicitly; `scripts/backfill-curriculum-keys.ts` backfilled every
+     * pre-existing row once, ahead of this column becoming `NOT NULL`.
+     *
+     * The `'unassigned:<uuid>'`-shaped default below is deliberately never
+     * the real curriculum-key format (`{language}:{segment}:{suffix}`) — it
+     * only exists so a row inserted outside the normal creation path (a raw
+     * test fixture, for instance) satisfies `NOT NULL`/uniqueness without
+     * every such call site needing to be touched. No application code ever
+     * reads or parses this default value as a real key.
+     */
+    curriculumKey: text("curriculum_key")
+      .notNull()
+      .default(sql`('unassigned:' || gen_random_uuid()::text)`),
     status: curriculumStatusEnum("status").notNull().default("draft"),
     /**
      * Per-level curriculum targets (2026-09-07). Spec 11's "48 vocabulary /
@@ -165,6 +184,11 @@ export const levels = pgTable(
       t.levelNumber,
     ),
     unique("levels_id_language_id_key").on(t.id, t.languageId),
+    // Concurrent because this table may already be populated when this index
+    // is added (code-standards.md) — applied via `db:migrate-concurrent`, not
+    // the normal `db:migrate` path. A plain `unique()` constraint cannot be
+    // added concurrently in Postgres.
+    uniqueIndex("levels_curriculum_key_key").on(t.curriculumKey).concurrently(),
   ],
 );
 
@@ -182,6 +206,10 @@ export const vocabularyGroups = pgTable(
     languageId: uuid("language_id").notNull(),
     name: text("name").notNull(),
     position: integer("position").notNull(),
+    /** Stable external curriculum identity (spec 25 §3) — see `levels.curriculumKey` above. */
+    curriculumKey: text("curriculum_key")
+      .notNull()
+      .default(sql`('unassigned:' || gen_random_uuid()::text)`),
     status: curriculumStatusEnum("status").notNull().default("draft"),
     ...timestamps(),
   },
@@ -193,6 +221,10 @@ export const vocabularyGroups = pgTable(
       columns: [t.levelId, t.languageId],
       foreignColumns: [levels.id, levels.languageId],
     }).onDelete("restrict"),
+    // See `levels_curriculum_key_key` above for why this is concurrent.
+    uniqueIndex("vocabulary_groups_curriculum_key_key")
+      .on(t.curriculumKey)
+      .concurrently(),
   ],
 );
 
@@ -223,6 +255,15 @@ export const learningItems = pgTable(
     contentClassification: contentClassificationEnum("content_classification")
       .notNull()
       .default("safe"),
+    /**
+     * Stable external curriculum identity (spec 25 §3), e.g.
+     * `es-MX:vocab:k7p4m2` / `es-MX:grammar:f3q9x1` (segment derived from
+     * `type`, see `CURRICULUM_KEY_SEGMENT_BY_ITEM_TYPE`). See
+     * `levels.curriculumKey` above for the full design note.
+     */
+    curriculumKey: text("curriculum_key")
+      .notNull()
+      .default(sql`('unassigned:' || gen_random_uuid()::text)`),
     position: integer("position").notNull(),
     lessonPriority: integer("lesson_priority").notNull(),
     // Spec 11 (rewrite) — optimistic-concurrency version, bumped on every
@@ -253,6 +294,10 @@ export const learningItems = pgTable(
       t.status,
       t.updatedAt.desc(),
     ),
+    // See `levels_curriculum_key_key` above for why this is concurrent.
+    uniqueIndex("learning_items_curriculum_key_key")
+      .on(t.curriculumKey)
+      .concurrently(),
   ],
 );
 

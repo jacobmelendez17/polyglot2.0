@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { userItemProgress, vocabularyGroups } from "@/db/schema";
+import {
+  learningItems,
+  levels,
+  userItemProgress,
+  vocabularyGroups,
+} from "@/db/schema";
 import {
   DEVELOPER_ID,
   ITEM_CASA_ID,
@@ -10,6 +15,7 @@ import {
   VOCAB_GROUP_ID,
   seedTestFixtures,
 } from "@/db/seed/test-fixtures";
+import type { TestTx } from "@/db/test/with-test-transaction";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
 
 import {
@@ -17,6 +23,7 @@ import {
   attemptPermanentDelete,
   createLearningItem,
   createLevel,
+  createVocabularyGroup,
   getAcceptedAnswers,
   getDraft,
   getDuplicateCandidateRows,
@@ -398,6 +405,163 @@ describe("move and reorder", () => {
       expect((await lockLearningItemForEdit(tx, second))?.position).toBe(1);
       expect((await lockLearningItemForEdit(tx, third))?.position).toBe(2);
       expect((await lockLearningItemForEdit(tx, first))?.position).toBe(3);
+    });
+  });
+});
+
+describe("curriculum keys (spec 25 unit 1)", () => {
+  async function getLevelCurriculumKey(tx: TestTx, levelId: string) {
+    const [row] = await tx
+      .select({ curriculumKey: levels.curriculumKey })
+      .from(levels)
+      .where(eq(levels.id, levelId));
+    return row!.curriculumKey;
+  }
+
+  async function getGroupCurriculumKey(tx: TestTx, groupId: string) {
+    const [row] = await tx
+      .select({ curriculumKey: vocabularyGroups.curriculumKey })
+      .from(vocabularyGroups)
+      .where(eq(vocabularyGroups.id, groupId));
+    return row!.curriculumKey;
+  }
+
+  async function getItemCurriculumKey(tx: TestTx, itemId: string) {
+    const [row] = await tx
+      .select({ curriculumKey: learningItems.curriculumKey })
+      .from(learningItems)
+      .where(eq(learningItems.id, itemId));
+    return row!.curriculumKey;
+  }
+
+  it("assigns a properly formatted, unique key to a newly created level", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      const levelId = await createLevel(tx, {
+        languageId,
+        levelNumber: 64,
+        name: "Curriculum key fixture level",
+      });
+      const key = await getLevelCurriculumKey(tx, levelId);
+      expect(key).toMatch(/^es-MX:level:[a-z0-9]{6}$/);
+    });
+  });
+
+  it("assigns a properly formatted, unique key to a newly created vocabulary group", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId, level1Id } = await seedTestFixtures(tx);
+      const groupId = await createVocabularyGroup(tx, {
+        levelId: level1Id,
+        languageId,
+        name: "Curriculum key fixture group",
+      });
+      const key = await getGroupCurriculumKey(tx, groupId);
+      expect(key).toMatch(/^es-MX:group:[a-z0-9]{6}$/);
+    });
+  });
+
+  it("assigns a vocab-segment key to a newly created vocabulary item and a grammar-segment key to a newly created grammar item", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId, level1Id } = await seedTestFixtures(tx);
+
+      const vocabId = await createLearningItem(tx, {
+        languageId,
+        levelId: level1Id,
+        position: 53,
+        lessonPriority: 53,
+        ...vocabFields({ term: "curriculum-key-vocab-fixture" }),
+      });
+      const grammarId = await createLearningItem(tx, {
+        languageId,
+        levelId: level1Id,
+        position: 54,
+        lessonPriority: 54,
+        type: "grammar",
+        fields: {
+          structure: "curriculum-key-grammar-fixture",
+          primaryMeaning: "fixture",
+          explanation: "Fixture only.",
+          requiredQuestions: [
+            { format: "translation", direction: "targetToEnglish" },
+          ],
+          acceptedAnswers: [],
+        },
+      });
+
+      expect(await getItemCurriculumKey(tx, vocabId)).toMatch(
+        /^es-MX:vocab:[a-z0-9]{6}$/,
+      );
+      expect(await getItemCurriculumKey(tx, grammarId)).toMatch(
+        /^es-MX:grammar:[a-z0-9]{6}$/,
+      );
+    });
+  });
+
+  it("never assigns the same key to two different items", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId, level1Id } = await seedTestFixtures(tx);
+      const firstId = await createLearningItem(tx, {
+        languageId,
+        levelId: level1Id,
+        position: 55,
+        lessonPriority: 55,
+        ...vocabFields({ term: "primero-key-fixture" }),
+      });
+      const secondId = await createLearningItem(tx, {
+        languageId,
+        levelId: level1Id,
+        position: 57,
+        lessonPriority: 57,
+        ...vocabFields({ term: "segundo-key-fixture" }),
+      });
+      const firstKey = await getItemCurriculumKey(tx, firstId);
+      const secondKey = await getItemCurriculumKey(tx, secondId);
+      expect(firstKey).not.toBe(secondKey);
+    });
+  });
+
+  it("preserves a learning item's curriculum key across a Level/group move (spec 25 §10.3)", async () => {
+    await withTestTransaction(async (tx) => {
+      const { level1Id } = await seedTestFixtures(tx);
+      const keyBeforeMove = await getItemCurriculumKey(tx, ITEM_Y_ID);
+
+      await moveLearningItem(tx, {
+        learningItemId: ITEM_Y_ID,
+        type: "grammar",
+        levelId: level1Id,
+      });
+
+      const keyAfterMove = await getItemCurriculumKey(tx, ITEM_Y_ID);
+      expect(keyAfterMove).toBe(keyBeforeMove);
+    });
+  });
+
+  it("preserves a learning item's curriculum key across a direct content update", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId, level1Id } = await seedTestFixtures(tx);
+      const id = await createLearningItem(tx, {
+        languageId,
+        levelId: level1Id,
+        position: 58,
+        lessonPriority: 58,
+        ...vocabFields({ term: "content-update-key-fixture" }),
+      });
+      const keyBeforeUpdate = await getItemCurriculumKey(tx, id);
+
+      await updateLearningItemDirect(tx, id, {
+        type: "vocabulary",
+        fields: {
+          vocabularyGroupId: VOCAB_GROUP_ID,
+          term: "content-update-key-fixture-renamed",
+          primaryMeaning: "renamed",
+          article: "el",
+          partOfSpeech: "noun",
+          acceptedAnswers: [],
+        },
+      });
+
+      const keyAfterUpdate = await getItemCurriculumKey(tx, id);
+      expect(keyAfterUpdate).toBe(keyBeforeUpdate);
     });
   });
 });

@@ -25,6 +25,7 @@
     "curriculum:import": "tsx --env-file=.env.local scripts/curriculum-import.ts",
     "curriculum:sentences": "tsx --env-file=.env.local scripts/curriculum-sentences-import.ts",
     "curriculum:reset": "tsx --env-file=.env.local scripts/curriculum-reset.ts",
+    "curriculum-keys:backfill": "tsx --env-file=.env.local scripts/backfill-curriculum-keys.ts",
     "leech:backfill": "tsx --env-file=.env.local scripts/backfill-leech-counters.ts",
     "lexicon:import": "tsx --env-file=.env.local scripts/lexicon-import.ts",
     "lexicon:import-rla": "tsx --env-file=.env.local scripts/lexicon-import-rla.ts",

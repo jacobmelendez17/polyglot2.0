@@ -295,6 +295,27 @@
       "when": 1790556959566,
       "tag": "0041_many_bullseye",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1790566379038,
+      "tag": "0042_add_curriculum_key_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1790566428253,
+      "tag": "0043_add_curriculum_key_unique_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1790566478888,
+      "tag": "0044_add_curriculum_key_not_null",
+      "breakpoints": true
     }
   ]
 }

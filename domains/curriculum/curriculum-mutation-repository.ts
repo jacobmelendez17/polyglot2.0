@@ -25,12 +25,17 @@ import {
 } from "@/db/schema";
 import { normalizeForComparison } from "@/lib/answer-checking/normalize";
 
+import {
+  CURRICULUM_KEY_SEGMENT_BY_ITEM_TYPE,
+  withGeneratedCurriculumKey,
+} from "./curriculum-key-service";
 import type {
   AcceptedAnswerInput,
   DuplicateCandidate,
   GrammarFieldsInput,
   VocabularyFieldsInput,
 } from "./curriculum-mutation-types";
+import { getLanguageById } from "./curriculum-repository";
 import type { CurriculumStatus } from "./curriculum-db-types";
 
 /**
@@ -108,6 +113,23 @@ export async function getNextPosition(
   return maxPosition + 1;
 }
 
+/**
+ * Resolves a language's stable `code` (e.g. `"es-MX"`) for curriculum-key
+ * generation. Every creation path below already receives a `languageId` from
+ * a caller that resolved it from a known-valid language, so a miss here
+ * indicates a genuine bug upstream rather than a normal, expected failure.
+ */
+async function getLanguageCodeOrThrow(
+  db: DbClient,
+  languageId: string,
+): Promise<string> {
+  const language = await getLanguageById(db, languageId);
+  if (!language) {
+    throw new Error(`No language exists with id ${languageId}`);
+  }
+  return language.code;
+}
+
 async function replaceAcceptedAnswers(
   db: DbClient,
   learningItemId: string,
@@ -141,18 +163,27 @@ export async function createLearningItem(
     lessonPriority: number;
   },
 ): Promise<string> {
-  const [item] = await db
-    .insert(learningItems)
-    .values({
-      languageId: input.languageId,
-      levelId: input.levelId,
-      type: input.type,
-      status: "pending",
-      position: input.position,
-      lessonPriority: input.lessonPriority,
-    })
-    .returning({ id: learningItems.id });
-  const learningItemId = item!.id;
+  const languageCode = await getLanguageCodeOrThrow(db, input.languageId);
+  const learningItemId = await withGeneratedCurriculumKey(
+    languageCode,
+    CURRICULUM_KEY_SEGMENT_BY_ITEM_TYPE[input.type],
+    "learning_items_curriculum_key_key",
+    async (curriculumKey) => {
+      const [item] = await db
+        .insert(learningItems)
+        .values({
+          languageId: input.languageId,
+          levelId: input.levelId,
+          type: input.type,
+          status: "pending",
+          position: input.position,
+          lessonPriority: input.lessonPriority,
+          curriculumKey,
+        })
+        .returning({ id: learningItems.id });
+      return item!.id;
+    },
+  );
 
   if (input.type === "vocabulary") {
     const f = input.fields;
@@ -1188,15 +1219,24 @@ export async function createLevel(
   db: DbClient,
   input: { languageId: string; levelNumber: number; name?: string | null },
 ): Promise<string> {
-  const [row] = await db
-    .insert(levels)
-    .values({
-      languageId: input.languageId,
-      levelNumber: input.levelNumber,
-      name: input.name ?? null,
-    })
-    .returning({ id: levels.id });
-  return row!.id;
+  const languageCode = await getLanguageCodeOrThrow(db, input.languageId);
+  return withGeneratedCurriculumKey(
+    languageCode,
+    "level",
+    "levels_curriculum_key_key",
+    async (curriculumKey) => {
+      const [row] = await db
+        .insert(levels)
+        .values({
+          languageId: input.languageId,
+          levelNumber: input.levelNumber,
+          name: input.name ?? null,
+          curriculumKey,
+        })
+        .returning({ id: levels.id });
+      return row!.id;
+    },
+  );
 }
 
 export async function updateLevel(
@@ -1272,22 +1312,31 @@ export async function createVocabularyGroup(
   db: DbClient,
   input: { levelId: string; languageId: string; name: string },
 ): Promise<string> {
+  const languageCode = await getLanguageCodeOrThrow(db, input.languageId);
   const [{ maxPosition }] = await db
     .select({
       maxPosition: sql<number>`coalesce(max(${vocabularyGroups.position}), 0)`,
     })
     .from(vocabularyGroups)
     .where(eq(vocabularyGroups.levelId, input.levelId));
-  const [row] = await db
-    .insert(vocabularyGroups)
-    .values({
-      levelId: input.levelId,
-      languageId: input.languageId,
-      name: input.name,
-      position: maxPosition + 1,
-    })
-    .returning({ id: vocabularyGroups.id });
-  return row!.id;
+  return withGeneratedCurriculumKey(
+    languageCode,
+    "group",
+    "vocabulary_groups_curriculum_key_key",
+    async (curriculumKey) => {
+      const [row] = await db
+        .insert(vocabularyGroups)
+        .values({
+          levelId: input.levelId,
+          languageId: input.languageId,
+          name: input.name,
+          position: maxPosition + 1,
+          curriculumKey,
+        })
+        .returning({ id: vocabularyGroups.id });
+      return row!.id;
+    },
+  );
 }
 
 export async function updateVocabularyGroup(
