@@ -3,6 +3,7 @@ import { forbidden } from "next/navigation";
 
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { CurriculumItemForm } from "@/components/admin/curriculum/curriculum-item-form";
+import { ItemEditorGuardProvider } from "@/components/admin/curriculum/item-editor-guard";
 import { canManageCurriculum } from "@/domains/admin";
 import {
   getLevelsByLanguage,
@@ -50,16 +51,18 @@ export default async function NewCurriculumItemPage({
     );
 
   return (
-    <div>
-      <AdminPageHeader
-        title="Add item"
-        description="New items are staged as Pending until you explicitly publish them."
-      />
-      <CurriculumItemForm
-        languageId={languageId}
-        levels={levels.map((l) => ({ id: l.id, levelNumber: l.levelNumber }))}
-        groups={groupOptions}
-      />
-    </div>
+    <ItemEditorGuardProvider>
+      <div>
+        <AdminPageHeader
+          title="Add item"
+          description="New items are staged as Pending until you explicitly publish them."
+        />
+        <CurriculumItemForm
+          languageId={languageId}
+          levels={levels.map((l) => ({ id: l.id, levelNumber: l.levelNumber }))}
+          groups={groupOptions}
+        />
+      </div>
+    </ItemEditorGuardProvider>
   );
 }

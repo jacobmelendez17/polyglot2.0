@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { Metadata } from "next";
 import { forbidden, notFound } from "next/navigation";
 
@@ -7,6 +6,10 @@ import { ArchiveDeleteDialog } from "@/components/admin/curriculum/archive-delet
 import { CurriculumItemForm } from "@/components/admin/curriculum/curriculum-item-form";
 import { CurriculumStatusBadge } from "@/components/admin/curriculum/curriculum-status-badge";
 import type { GrammarEditorValue } from "@/components/admin/curriculum/grammar-editor";
+import {
+  GuardedLink,
+  ItemEditorGuardProvider,
+} from "@/components/admin/curriculum/item-editor-guard";
 import { PublishDialog } from "@/components/admin/curriculum/publish-dialog";
 import type { VocabularyEditorValue } from "@/components/admin/curriculum/vocabulary-editor";
 import { DictionaryMappingPanel } from "@/components/admin/dictionary/dictionary-mapping-panel";
@@ -26,6 +29,7 @@ import {
   getAdjacentAdminCurriculumItem,
   getItemDraft,
   getItemExamples,
+  getLanguageById,
   getLearningItem,
   getLevelById,
   getLevelsByLanguage,
@@ -227,6 +231,7 @@ export default async function EditCurriculumItemPage({
     previousItem,
     nextItem,
     nextIncompleteItem,
+    language,
   ] = await Promise.all([
     getAcceptedAnswers(itemId),
     getItemDraft(itemId),
@@ -248,6 +253,8 @@ export default async function EditCurriculumItemPage({
       direction: "next",
       anyIncomplete: true,
     }),
+    // Spec 25 §17's breadcrumb ("Curriculum > Spanish > Level 2 > ...").
+    getLanguageById(item.languageId),
   ]);
 
   const itemHref = (id: string) =>
@@ -318,6 +325,37 @@ export default async function EditCurriculumItemPage({
     item.type === "vocabulary" ? item.vocabulary.term : item.grammar.structure;
   const isDraftEdit = draft !== null;
 
+  // Spec 25 §17 — "Curriculum > Spanish > Level 2 > Food & Drinks > gato."
+  // Each segment links to the same list filters a click-through from that
+  // level/group would use, so following one behaves exactly like navigating
+  // there from the list itself. Grammar has no group, so that segment is
+  // simply omitted rather than shown empty.
+  const currentGroupId =
+    item.type === "vocabulary" ? item.vocabulary.vocabularyGroupId : null;
+  const currentGroupName =
+    currentGroupId != null
+      ? (groups.find((g) => g.id === currentGroupId)?.name ?? null)
+      : null;
+  const breadcrumbs: { label: string; href: string }[] = [
+    { label: "Curriculum", href: "/admin/curriculum" },
+    {
+      label: language?.name ?? "Language",
+      href: `/admin/curriculum?language=${item.languageId}`,
+    },
+    {
+      label: `Level ${currentLevel?.levelNumber ?? "?"}`,
+      href: `/admin/curriculum?language=${item.languageId}&level=${item.levelId}`,
+    },
+    ...(currentGroupName
+      ? [
+          {
+            label: currentGroupName,
+            href: `/admin/curriculum?language=${item.languageId}&level=${item.levelId}&group=${currentGroupId}`,
+          },
+        ]
+      : []),
+  ];
+
   const existing =
     item.type === "vocabulary"
       ? {
@@ -344,112 +382,139 @@ export default async function EditCurriculumItemPage({
         };
 
   return (
-    <div>
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <Link
-          href={backHref}
-          className="inline-block text-sm text-primary underline-offset-4 hover:underline"
+    <ItemEditorGuardProvider>
+      <div>
+        {/* Spec 25 §17's breadcrumb trail. */}
+        <nav
+          aria-label="Breadcrumb"
+          className="mb-2 flex flex-wrap items-center gap-1 text-sm text-muted-foreground"
         >
-          ← Return to Results
-        </Link>
-        {/* Spec 25 §16 — plain navigation only; a save happens through the
-            form below (see its own "Save & Next"). */}
-        <div className="flex items-center gap-3 text-sm">
-          {previousHref ? (
-            <Link
-              href={previousHref}
-              className="text-primary underline-offset-4 hover:underline"
-            >
-              ← Previous
-            </Link>
-          ) : (
-            <span className="text-muted-foreground">← Previous</span>
-          )}
-          {nextHref ? (
-            <Link
-              href={nextHref}
-              className="text-primary underline-offset-4 hover:underline"
-            >
-              Next →
-            </Link>
-          ) : (
-            <span className="text-muted-foreground">Next →</span>
-          )}
-          {nextIncompleteHref ? (
-            <Link
-              href={nextIncompleteHref}
-              className="text-primary underline-offset-4 hover:underline"
-            >
-              Next Incomplete Item →
-            </Link>
-          ) : null}
+          {breadcrumbs.map((crumb, index) => (
+            <span key={crumb.href} className="flex items-center gap-1">
+              {index > 0 ? <span aria-hidden="true">›</span> : null}
+              <GuardedLink
+                href={crumb.href}
+                className="text-primary underline-offset-4 hover:underline"
+              >
+                {crumb.label}
+              </GuardedLink>
+            </span>
+          ))}
+          <span aria-hidden="true">›</span>
+          <span aria-current="page">{itemLabel}</span>
+        </nav>
+
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <GuardedLink
+            href={backHref}
+            className="inline-block text-sm text-primary underline-offset-4 hover:underline"
+          >
+            ← Return to Results
+          </GuardedLink>
+          {/* Spec 25 §16 — plain navigation only; a save happens through the
+              form below (see its own "Save & Next"). */}
+          <div className="flex items-center gap-3 text-sm">
+            {previousHref ? (
+              <GuardedLink
+                href={previousHref}
+                className="text-primary underline-offset-4 hover:underline"
+              >
+                ← Previous
+              </GuardedLink>
+            ) : (
+              <span className="text-muted-foreground">← Previous</span>
+            )}
+            {nextHref ? (
+              <GuardedLink
+                href={nextHref}
+                className="text-primary underline-offset-4 hover:underline"
+              >
+                Next →
+              </GuardedLink>
+            ) : (
+              <span className="text-muted-foreground">Next →</span>
+            )}
+            {nextIncompleteHref ? (
+              <GuardedLink
+                href={nextIncompleteHref}
+                className="text-primary underline-offset-4 hover:underline"
+              >
+                Next Incomplete Item →
+              </GuardedLink>
+            ) : null}
+          </div>
         </div>
-      </div>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <AdminPageHeader
-          title={itemLabel}
-          description={
-            item.type === "vocabulary" ? "Vocabulary item" : "Grammar item"
-          }
-        />
-        <div className="flex items-center gap-2">
-          <CurriculumStatusBadge status={isDraftEdit ? "draft" : item.status} />
-          {item.status !== "archived" ? (
-            <PublishDialog
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <AdminPageHeader
+            title={itemLabel}
+            description={
+              item.type === "vocabulary" ? "Vocabulary item" : "Grammar item"
+            }
+          />
+          <div className="flex items-center gap-2">
+            <CurriculumStatusBadge
+              status={isDraftEdit ? "draft" : item.status}
+            />
+            {item.status !== "archived" ? (
+              <PublishDialog
+                learningItemId={item.id}
+                itemLabel={itemLabel}
+                expectedVersion={item.version}
+                isDraftEdit={isDraftEdit}
+              />
+            ) : null}
+            <ArchiveDeleteDialog
               learningItemId={item.id}
               itemLabel={itemLabel}
-              expectedVersion={item.version}
-              isDraftEdit={isDraftEdit}
             />
-          ) : null}
-          <ArchiveDeleteDialog learningItemId={item.id} itemLabel={itemLabel} />
+          </div>
         </div>
-      </div>
 
-      <CurriculumItemForm
-        languageId={item.languageId}
-        levels={levels.map((l) => ({ id: l.id, levelNumber: l.levelNumber }))}
-        groups={groupOptions}
-        existing={existing}
-        resolvedVocabulary={resolvedVocabulary}
-        nextHref={nextHref}
-      />
-
-      <div className="mt-8">
-        <UsageContextEditor
-          learningItemId={item.id}
-          itemType={item.type}
-          contexts={usageContexts}
-          examples={examples.map((example) => ({
-            id: example.id,
-            usageContextId: example.usageContextId,
-            position: example.position,
-            targetText: example.targetText,
-            translation: example.translation,
-          }))}
-          canSeedFromDictionary={
-            mappingView?.mapping?.matchStatus === "manual" &&
-            mappingView.entry !== null
-          }
+        <CurriculumItemForm
+          languageId={item.languageId}
+          levels={levels.map((l) => ({ id: l.id, levelNumber: l.levelNumber }))}
+          groups={groupOptions}
+          existing={existing}
+          resolvedVocabulary={resolvedVocabulary}
+          nextHref={nextHref}
         />
-      </div>
 
-      {item.type === "vocabulary" && mappingView ? (
-        <div className="mt-6">
-          <DictionaryMappingPanel
-            vocabularyItemId={item.id}
-            languageId={item.languageId}
-            displayWord={composeVocabularyDisplayWord(
-              item.vocabulary.term,
-              item.vocabulary.article,
-            )}
-            mapping={mappingView.mapping}
-            entry={mappingView.entry}
-            selectedSenseIds={mappingView.selectedSenseIds}
-            attributionText={mappingView.attributionText}
+        <div className="mt-8">
+          <UsageContextEditor
+            learningItemId={item.id}
+            itemType={item.type}
+            contexts={usageContexts}
+            examples={examples.map((example) => ({
+              id: example.id,
+              usageContextId: example.usageContextId,
+              position: example.position,
+              targetText: example.targetText,
+              translation: example.translation,
+            }))}
+            canSeedFromDictionary={
+              mappingView?.mapping?.matchStatus === "manual" &&
+              mappingView.entry !== null
+            }
           />
         </div>
-      ) : null}
-    </div>
+
+        {item.type === "vocabulary" && mappingView ? (
+          <div className="mt-6">
+            <DictionaryMappingPanel
+              vocabularyItemId={item.id}
+              languageId={item.languageId}
+              displayWord={composeVocabularyDisplayWord(
+                item.vocabulary.term,
+                item.vocabulary.article,
+              )}
+              mapping={mappingView.mapping}
+              entry={mappingView.entry}
+              selectedSenseIds={mappingView.selectedSenseIds}
+              attributionText={mappingView.attributionText}
+            />
+          </div>
+        ) : null}
+      </div>
+    </ItemEditorGuardProvider>
   );
 }

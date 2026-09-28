@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { Check } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,7 @@ import {
   type GrammarQuestionDirection,
 } from "./grammar-editor";
 import { toAcceptedAnswersPayload } from "./accepted-answers-value";
+import { useItemEditorGuard } from "./item-editor-guard";
 import { REGISTER_UNSET, registerPayload } from "./register-value";
 import {
   VocabularyEditor,
@@ -182,6 +183,24 @@ export function CurriculumItemForm({
     crypto.randomUUID(),
   );
 
+  // Spec 25 §17 — "Unsaved manual edits require a navigation warning."
+  // Compared against the last-*saved* snapshot, not the original props: a
+  // save resets the baseline (see `handleSubmit`) so the form isn't still
+  // flagged dirty the instant a real save just succeeded.
+  const guard = useItemEditorGuard();
+  const savedVocabRef = useRef(vocab);
+  const savedGrammarRef = useRef(grammar);
+  useEffect(() => {
+    const dirty =
+      type === "vocabulary"
+        ? JSON.stringify(vocab) !== JSON.stringify(savedVocabRef.current)
+        : JSON.stringify(grammar) !== JSON.stringify(savedGrammarRef.current);
+    guard.setDirty(dirty);
+  }, [vocab, grammar, type, guard]);
+  // Never leave the flag set once this form itself goes away (e.g. Save &
+  // Next unmounts this instance and mounts a fresh one for the next item).
+  useEffect(() => () => guard.setDirty(false), [guard]);
+
   function handleSubmit(approvedAsHomonymOf?: string, goToNext?: boolean) {
     setError(null);
     setSavedMessage(null);
@@ -226,6 +245,12 @@ export function CurriculumItemForm({
 
       setDuplicateCandidates(null);
       setIdempotencyKey(crypto.randomUUID());
+      // The save landed — this form's current values are now the saved
+      // ones, so the unsaved-changes guard (spec 25 §17) must stop flagging
+      // them dirty before any navigation below runs.
+      savedVocabRef.current = vocab;
+      savedGrammarRef.current = grammar;
+      guard.setDirty(false);
       if (!existing && "learningItemId" in result.data) {
         // Navigating to the new item's own page is itself the confirmation
         // here — no separate message needed, and there is nothing yet on

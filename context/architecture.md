@@ -956,6 +956,22 @@ The approval must be deliberate and auditable.
 > layout (definition/examples prioritized over administrative metadata,
 > per spec §16) was not reorganized in this unit — a visual-hierarchy
 > decision left for its own pass, not bundled with the navigation work.
+>
+> Spec 25 Unit 9 (2026-09-28) adds the item editor's breadcrumb trail
+> (`Curriculum > {language} > Level {N} > {group} > {item}`, each segment
+> linking to the same `/admin/curriculum` filters a click-through from that
+> level/group would use) and an unsaved-changes navigation guard
+> (`components/admin/curriculum/item-editor-guard.tsx`) — a `beforeunload`
+> warning plus a `GuardedLink` wrapper used for the editor's own Return to
+> Results/Previous/Next/Next Incomplete Item/breadcrumb links. Scoped to the
+> item editor specifically, not a site-wide "block navigation" framework —
+> Next.js's App Router has no general hook for intercepting an arbitrary
+> client-side transition, and the admin sidebar and other in-app links are
+> not guarded. Most of spec §17's URL-state list (search/language/level/
+> type/status/group/cursor, Unit 8's `needs`) was already true before this
+> unit; a "sort" URL parameter has nothing to persist, since no dynamic sort
+> control exists anywhere in Admin (level/position/id order is fixed, an
+> explicit spec 11 Unit 3 decision).
 
 ---
 
