@@ -62,6 +62,13 @@ describe("TimezoneSelect", () => {
     await user.click(screen.getByRole("combobox"));
     await user.type(screen.getByLabelText("Search timezones"), "phoenix");
     await user.click(screen.getByRole("option", { name: "America/Phoenix" }));
+    // Picking from the list only drafts it onto the trigger — nothing is
+    // sent to the server until Save is clicked.
+    expect(
+      screen.getByRole("combobox", { name: "Timezone, America/Phoenix" }),
+    ).toBeInTheDocument();
+    expect(mockUpdateTimezoneAction).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Save" }));
 
     expect(mockUpdateTimezoneAction).toHaveBeenCalledWith({
       timezone: "America/Phoenix",
@@ -72,7 +79,7 @@ describe("TimezoneSelect", () => {
     ).toBeInTheDocument();
   });
 
-  it("does not call the action when re-selecting the already-saved timezone", async () => {
+  it("does not offer Save when re-selecting the already-saved timezone", async () => {
     const user = userEvent.setup();
     render(<TimezoneSelect initialTimezone="America/Phoenix" />);
 
@@ -80,10 +87,11 @@ describe("TimezoneSelect", () => {
     await user.type(screen.getByLabelText("Search timezones"), "phoenix");
     await user.click(screen.getByRole("option", { name: "America/Phoenix" }));
 
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
     expect(mockUpdateTimezoneAction).not.toHaveBeenCalled();
   });
 
-  it("surfaces a server error without losing the previously saved value", async () => {
+  it("keeps the drafted timezone and surfaces a server error when the save fails", async () => {
     mockUpdateTimezoneAction.mockResolvedValueOnce({
       ok: false,
       error: {
@@ -97,12 +105,14 @@ describe("TimezoneSelect", () => {
     await user.click(screen.getByRole("combobox"));
     await user.type(screen.getByLabelText("Search timezones"), "phoenix");
     await user.click(screen.getByRole("option", { name: "America/Phoenix" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
 
     expect(
       await screen.findByText("That isn't a recognized timezone."),
     ).toBeInTheDocument();
+    // A failed save never applied — the drafted (unsaved) pick stays shown.
     expect(
-      screen.getByRole("combobox", { name: "Timezone, UTC" }),
+      screen.getByRole("combobox", { name: "Timezone, America/Phoenix" }),
     ).toBeInTheDocument();
   });
 });

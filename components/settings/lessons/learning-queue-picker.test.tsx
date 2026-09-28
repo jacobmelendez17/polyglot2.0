@@ -21,7 +21,11 @@ beforeEach(() => {
 });
 
 describe("LearningQueuePicker", () => {
-  it("saves immediately when switching to Default Order", async () => {
+  // 2026-09-28 user request: every Settings card requires an explicit Save
+  // before anything is applied — this component's original "changes persist
+  // immediately, no Continue button" design (and the bug it produced, see
+  // below) is gone; every interaction now only drafts locally until Save.
+  it("does not save on mode selection alone — only once Save is clicked", async () => {
     mockAction.mockResolvedValueOnce({
       ok: true,
       data: {
@@ -39,15 +43,49 @@ describe("LearningQueuePicker", () => {
     );
 
     await user.click(screen.getByRole("radio", { name: /default order/i }));
+    expect(mockAction).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Save" }));
 
     expect(mockAction).toHaveBeenCalledWith({
       curriculumMode: "default_order",
       selectedVocabularyGroupId: null,
     });
     expect(await screen.findByText("Saved")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
   });
 
-  it("does not save Theme Selection until a group is picked", async () => {
+  it("Cancel reverts mode and theme back to what's applied without saving", async () => {
+    const user = userEvent.setup();
+    render(
+      <LearningQueuePicker
+        initialMode="default_order"
+        initialThemeId={null}
+        themes={THEMES}
+      />,
+    );
+
+    await user.click(screen.getByRole("radio", { name: /theme selection/i }));
+    await user.click(screen.getByRole("radio", { name: /Colors/ }));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(screen.getByRole("radio", { name: /default order/i })).toBeChecked();
+    expect(mockAction).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+  });
+
+  // Regression, found 2026-09-27 from a real user report ("it's not
+  // saving") under the old auto-save design: switching to Theme Selection
+  // with no group picked yet was a silent no-op — nothing was saved until a
+  // group was also clicked, so a reload right after switching modes
+  // reverted straight back to the previous mode with no error. The new
+  // explicit-Save design makes this structurally impossible — mode and
+  // theme are drafted together and saved together in one request, whatever
+  // combination is currently drafted.
+  it("saves the mode with no theme picked yet in one request when Save is clicked", async () => {
+    mockAction.mockResolvedValueOnce({
+      ok: true,
+      data: { curriculumMode: "choose_group", selectedVocabularyGroupId: null },
+    });
     const user = userEvent.setup();
     render(
       <LearningQueuePicker
@@ -58,7 +96,13 @@ describe("LearningQueuePicker", () => {
     );
 
     await user.click(screen.getByRole("radio", { name: /theme selection/i }));
-    expect(mockAction).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(mockAction).toHaveBeenCalledWith({
+      curriculumMode: "choose_group",
+      selectedVocabularyGroupId: null,
+    });
+    expect(await screen.findByText("Saved")).toBeInTheDocument();
 
     mockAction.mockResolvedValueOnce({
       ok: true,
@@ -68,6 +112,7 @@ describe("LearningQueuePicker", () => {
       },
     });
     await user.click(screen.getByRole("radio", { name: /Colors/ }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
 
     expect(mockAction).toHaveBeenCalledWith({
       curriculumMode: "choose_group",
@@ -76,32 +121,26 @@ describe("LearningQueuePicker", () => {
     expect(await screen.findByText("Saved")).toBeInTheDocument();
   });
 
-  it("saves immediately when re-entering Theme Selection with a group already selected", async () => {
-    mockAction.mockResolvedValueOnce({
-      ok: true,
-      data: {
-        curriculumMode: "choose_group",
-        selectedVocabularyGroupId: "group-numbers",
-      },
-    });
+  it("offers no Save when re-entering Theme Selection with its already-applied group still selected", async () => {
     const user = userEvent.setup();
     render(
       <LearningQueuePicker
-        initialMode="default_order"
+        initialMode="choose_group"
         initialThemeId="group-numbers"
         themes={THEMES}
       />,
     );
 
+    // Switch away and back to the mode it already started in, with the
+    // same theme still selected — nothing has actually changed.
+    await user.click(screen.getByRole("radio", { name: /default order/i }));
     await user.click(screen.getByRole("radio", { name: /theme selection/i }));
 
-    expect(mockAction).toHaveBeenCalledWith({
-      curriculumMode: "choose_group",
-      selectedVocabularyGroupId: "group-numbers",
-    });
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    expect(mockAction).not.toHaveBeenCalled();
   });
 
-  it("shows the server error without silently succeeding", async () => {
+  it("keeps the draft and shows the server error without silently succeeding", async () => {
     mockAction.mockResolvedValueOnce({
       ok: false,
       error: {
@@ -119,9 +158,12 @@ describe("LearningQueuePicker", () => {
     );
 
     await user.click(screen.getByRole("radio", { name: /default order/i }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
 
     expect(
       await screen.findByText("Could not save setting. Please try again."),
     ).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /default order/i })).toBeChecked();
+    expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
   });
 });

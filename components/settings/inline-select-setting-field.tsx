@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { SettingSaveControls } from "@/components/settings/setting-save-controls";
+import type { SettingSaveState } from "@/components/settings/setting-save-controls";
 import {
   Select,
   SelectContent,
@@ -9,8 +11,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-type SaveState = "idle" | "saving" | "saved" | "error";
 
 export type InlineSelectSettingFieldResult<T extends string> =
   { ok: true; value: T } | { ok: false; message: string };
@@ -24,13 +24,12 @@ export type InlineSelectSettingFieldProps<T extends string> = {
 };
 
 /**
- * A single small-enum Settings field that saves immediately on selection
- * (spec 20 "Saving Settings"), the `Select`-based counterpart to
- * `InlineToggleSettingField`. Optimistically switches, then reverts and
- * shows the server's message if the save fails. Extracted once a second
- * field (Lesson Batch Size) needed the exact same shape as the first
- * (Grammar Placement) — the same rule of thumb that produced
- * `InlineTextSettingField`.
+ * A single small-enum Settings field, the `Select`-based counterpart to
+ * `InlineToggleSettingField`. Choosing an option only changes the local
+ * draft — it has no effect until Save is clicked (2026-09-28 user request:
+ * every Settings card requires an explicit Save, reversing this field's
+ * original spec 20 "Saving Settings" save-on-selection design). Cancel
+ * reverts the `Select` to the last applied value without saving.
  */
 export function InlineSelectSettingField<T extends string>({
   label,
@@ -39,26 +38,36 @@ export function InlineSelectSettingField<T extends string>({
   options,
   onSave,
 }: InlineSelectSettingFieldProps<T>) {
-  const [value, setValue] = useState<T>(initialValue);
-  const [state, setState] = useState<SaveState>("idle");
+  const [savedValue, setSavedValue] = useState<T>(initialValue);
+  const [draftValue, setDraftValue] = useState<T>(initialValue);
+  const [state, setState] = useState<SettingSaveState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const isDirty = draftValue !== savedValue;
 
-  async function handleChange(next: string) {
-    const previous = value;
-    const nextValue = next as T;
-    setValue(nextValue);
+  function handleChange(next: string) {
+    setDraftValue(next as T);
+    setState("idle");
+    setErrorMessage(null);
+  }
+
+  function handleCancel() {
+    setDraftValue(savedValue);
+    setState("idle");
+    setErrorMessage(null);
+  }
+
+  async function handleSave() {
     setState("saving");
     setErrorMessage(null);
-
-    const result = await onSave(nextValue);
+    const result = await onSave(draftValue);
 
     if (!result.ok) {
-      setValue(previous);
       setState("error");
       setErrorMessage(result.message);
       return;
     }
-    setValue(result.value);
+    setSavedValue(result.value);
+    setDraftValue(result.value);
     setState("saved");
   }
 
@@ -70,7 +79,7 @@ export function InlineSelectSettingField<T extends string>({
       ) : null}
       <div className="mt-2">
         <Select
-          value={value}
+          value={draftValue}
           onValueChange={handleChange}
           disabled={state === "saving"}
         >
@@ -86,17 +95,13 @@ export function InlineSelectSettingField<T extends string>({
           </SelectContent>
         </Select>
       </div>
-      <p className="mt-2 text-sm" aria-live="polite">
-        {state === "saving" && (
-          <span className="text-muted-foreground">Saving…</span>
-        )}
-        {state === "saved" && <span className="text-state-success">Saved</span>}
-        {state === "error" && (
-          <span className="text-destructive">
-            {errorMessage ?? "Could not save setting."}
-          </span>
-        )}
-      </p>
+      <SettingSaveControls
+        isDirty={isDirty}
+        state={state}
+        errorMessage={errorMessage}
+        onSave={handleSave}
+        onCancel={handleCancel}
+      />
     </div>
   );
 }

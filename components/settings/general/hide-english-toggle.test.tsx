@@ -27,6 +27,7 @@ describe("HideEnglishToggle", () => {
     render(<HideEnglishToggle initialValue={false} />);
 
     await user.click(screen.getByRole("switch"));
+    await user.click(screen.getByRole("button", { name: "Save" }));
 
     expect(mockAction).toHaveBeenCalledWith({ hideEnglishReviews: true });
   });

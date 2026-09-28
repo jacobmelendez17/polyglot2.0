@@ -4,10 +4,10 @@ import { useState } from "react";
 
 import { updateCurriculumPreferenceAction } from "@/app/(app)/settings/lessons/actions";
 import { CurriculumModePicker } from "@/components/curriculum/curriculum-mode-picker";
+import { SettingSaveControls } from "@/components/settings/setting-save-controls";
+import type { SettingSaveState } from "@/components/settings/setting-save-controls";
 import type { LessonThemeChoice } from "@/domains/lessons";
 import type { CurriculumMode } from "@/domains/users";
-
-type SaveState = "idle" | "saving" | "saved" | "error";
 
 type LearningQueuePickerProps = {
   initialMode: CurriculumMode;
@@ -17,30 +17,66 @@ type LearningQueuePickerProps = {
 
 /**
  * Spec 20 Lessons — Learning Queue. Wraps the shared `CurriculumModePicker`
- * (also used by onboarding and the Sandbox preview) with Settings' own save
- * semantics: "changing Learning Queue persists immediately" — no "Continue"
- * button, unlike the onboarding flow's `CurriculumChoiceView`.
+ * (also used by onboarding and the Sandbox preview). Picking a mode or a
+ * theme only changes the local draft — it has no effect until Save is
+ * clicked (2026-09-28 user request: every Settings card requires an
+ * explicit Save, reversing this component's original "changes persist
+ * immediately" design). Mode and theme are saved together in one request,
+ * same as before; Cancel reverts both to the last applied combination.
  *
- * Choose Group as You Go needs a group before there is anything valid to
- * save; every other mode saves the instant it's picked.
+ * Saving `choose_group` with no theme picked yet is a legitimate, already-
+ * handled state (`selectLessonBatch`/`isThemeSelectionRequired` both treat
+ * "no selection" as "ask on the next lesson"), so Save is never blocked on
+ * a theme being chosen.
  */
 export function LearningQueuePicker({
   initialMode,
   initialThemeId,
   themes,
 }: LearningQueuePickerProps) {
+  const [savedMode, setSavedMode] = useState<CurriculumMode>(initialMode);
+  const [savedThemeId, setSavedThemeId] = useState<string | null>(
+    initialThemeId,
+  );
   const [mode, setMode] = useState<CurriculumMode>(initialMode);
   const [themeId, setThemeId] = useState<string | null>(initialThemeId);
-  const [state, setState] = useState<SaveState>("idle");
+  const [state, setState] = useState<SettingSaveState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  async function save(nextMode: CurriculumMode, nextThemeId: string | null) {
+  // Only `choose_group` ever has a meaningful theme id — every other mode
+  // is compared as if it always carried `null`, matching what the database
+  // itself enforces.
+  const effectiveThemeId = mode === "choose_group" ? themeId : null;
+  const savedEffectiveThemeId =
+    savedMode === "choose_group" ? savedThemeId : null;
+  const isDirty =
+    mode !== savedMode || effectiveThemeId !== savedEffectiveThemeId;
+
+  function handleSelectMode(nextMode: CurriculumMode) {
+    setMode(nextMode);
+    setState("idle");
+    setErrorMessage(null);
+  }
+
+  function handleSelectTheme(nextThemeId: string) {
+    setThemeId(nextThemeId);
+    setState("idle");
+    setErrorMessage(null);
+  }
+
+  function handleCancel() {
+    setMode(savedMode);
+    setThemeId(savedThemeId);
+    setState("idle");
+    setErrorMessage(null);
+  }
+
+  async function handleSave() {
     setState("saving");
     setErrorMessage(null);
     const result = await updateCurriculumPreferenceAction({
-      curriculumMode: nextMode,
-      selectedVocabularyGroupId:
-        nextMode === "choose_group" ? nextThemeId : null,
+      curriculumMode: mode,
+      selectedVocabularyGroupId: effectiveThemeId,
     });
 
     if (!result.ok) {
@@ -48,24 +84,9 @@ export function LearningQueuePicker({
       setErrorMessage(result.error.message);
       return;
     }
+    setSavedMode(result.data.curriculumMode as CurriculumMode);
+    setSavedThemeId(result.data.selectedVocabularyGroupId);
     setState("saved");
-  }
-
-  function handleSelectMode(nextMode: CurriculumMode) {
-    setMode(nextMode);
-    if (nextMode !== "choose_group") {
-      setThemeId(null);
-      void save(nextMode, null);
-      return;
-    }
-    // Choose Group as You Go with a group already selected (switching back
-    // into this mode) can save right away; otherwise wait for a pick.
-    if (themeId) void save(nextMode, themeId);
-  }
-
-  function handleSelectTheme(nextThemeId: string) {
-    setThemeId(nextThemeId);
-    void save("choose_group", nextThemeId);
   }
 
   return (
@@ -78,17 +99,13 @@ export function LearningQueuePicker({
         onSelectTheme={handleSelectTheme}
         disabled={state === "saving"}
       />
-      <p className="text-sm" aria-live="polite">
-        {state === "saving" && (
-          <span className="text-muted-foreground">Saving…</span>
-        )}
-        {state === "saved" && <span className="text-state-success">Saved</span>}
-        {state === "error" && (
-          <span className="text-destructive">
-            {errorMessage ?? "Could not save setting."}
-          </span>
-        )}
-      </p>
+      <SettingSaveControls
+        isDirty={isDirty}
+        state={state}
+        errorMessage={errorMessage}
+        onSave={handleSave}
+        onCancel={handleCancel}
+      />
     </div>
   );
 }

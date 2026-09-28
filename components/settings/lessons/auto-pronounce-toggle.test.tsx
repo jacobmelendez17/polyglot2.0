@@ -34,12 +34,14 @@ describe("AutoPronounceToggle", () => {
     await user.click(
       screen.getByRole("switch", { name: "Automatically pronounce new words" }),
     );
+    expect(mockAction).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Save" }));
 
     expect(mockAction).toHaveBeenCalledWith({ autoPronounceLessons: false });
     expect(await screen.findByText("Saved")).toBeInTheDocument();
   });
 
-  it("reverts and shows the error when the save fails", async () => {
+  it("keeps the drafted value and shows the error when the save fails", async () => {
     mockAction.mockResolvedValueOnce({
       ok: false,
       error: { code: "UNKNOWN", message: "Could not save setting." },
@@ -50,12 +52,16 @@ describe("AutoPronounceToggle", () => {
     await user.click(
       screen.getByRole("switch", { name: "Automatically pronounce new words" }),
     );
+    await user.click(screen.getByRole("button", { name: "Save" }));
 
     expect(
       await screen.findByText("Could not save setting."),
     ).toBeInTheDocument();
+    // A failed save never applied — the switch stays on the drafted
+    // (unsaved) value rather than reverting, so Save/Cancel remain to
+    // retry or back out.
     expect(
       screen.getByRole("switch", { name: "Automatically pronounce new words" }),
-    ).toBeChecked();
+    ).not.toBeChecked();
   });
 });

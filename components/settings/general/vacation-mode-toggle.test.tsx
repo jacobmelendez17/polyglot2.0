@@ -37,6 +37,7 @@ describe("VacationModeToggle", () => {
     render(<VacationModeToggle initialValue={false} />);
 
     await user.click(screen.getByRole("switch"));
+    await user.click(screen.getByRole("button", { name: "Save" }));
 
     expect(mockEnable).toHaveBeenCalled();
     expect(mockDisable).not.toHaveBeenCalled();
@@ -51,6 +52,7 @@ describe("VacationModeToggle", () => {
     render(<VacationModeToggle initialValue={true} />);
 
     await user.click(screen.getByRole("switch"));
+    await user.click(screen.getByRole("button", { name: "Save" }));
 
     expect(mockDisable).toHaveBeenCalled();
     expect(mockEnable).not.toHaveBeenCalled();

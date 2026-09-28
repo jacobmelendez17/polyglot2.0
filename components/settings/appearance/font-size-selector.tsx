@@ -3,6 +3,8 @@
 import { useAppearance } from "@/lib/appearance/appearance-context";
 import { FONT_SCALES } from "@/lib/appearance/appearance-settings";
 import type { FontScale } from "@/lib/appearance/appearance-settings";
+import { SettingSaveControls } from "@/components/settings/setting-save-controls";
+import { useAppearanceDraft } from "@/components/settings/appearance/use-appearance-draft";
 
 const LABELS: Record<FontScale, string> = {
   small: "Small",
@@ -12,14 +14,25 @@ const LABELS: Record<FontScale, string> = {
 };
 
 /**
- * Spec 20 Appearance — Font Size. The preview below is real, live app
- * typography (`text-2xl`/`text-base`, the same classes every page already
- * uses) — since font scale is a root `html` font-size percentage
- * (`globals.css`), it already reflects the current selection the instant
- * it changes, without a separate preview-only rendering path.
+ * Spec 20 Appearance — Font Size. Picking an option only changes the local
+ * draft — it has no effect on the live document until Save is clicked
+ * (2026-09-28 user request, reversing this field's original apply-on-click
+ * design). The preview below is real app typography (`text-2xl`/`text-base`)
+ * driven by the root `html` font-size percentage (`globals.css`), which is
+ * a genuinely global, `rem`-relative effect that can't be previewed inside
+ * an isolated element the way `PaletteSelector`'s inline-styled box can —
+ * it necessarily still shows the currently *applied* size, not the pending
+ * pick, until Save is clicked.
  */
 export function FontSizeSelector() {
   const { settings, updateSettings } = useAppearance();
+  const { draft, isDirty, justSaved, setDraft, markSaved, reset } =
+    useAppearanceDraft(settings.fontScale);
+
+  function handleSave() {
+    updateSettings({ fontScale: draft });
+    markSaved();
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -28,12 +41,10 @@ export function FontSizeSelector() {
           <button
             key={fontScale}
             type="button"
-            onClick={() => updateSettings({ fontScale })}
-            aria-pressed={settings.fontScale === fontScale}
+            onClick={() => setDraft(fontScale)}
+            aria-pressed={draft === fontScale}
             className={`rounded-lg border px-3 py-2 text-sm font-medium ${
-              settings.fontScale === fontScale
-                ? "border-primary bg-accent/40"
-                : "border-border"
+              draft === fontScale ? "border-primary bg-accent/40" : "border-border"
             }`}
           >
             {LABELS[fontScale]}
@@ -46,10 +57,17 @@ export function FontSizeSelector() {
           Example Header
         </p>
         <p className="mt-1 text-base text-foreground">
-          This is normal Polyglot body text. It changes as the selected text
-          size changes.
+          This is normal Polyglot body text. It changes once the selected
+          text size is saved.
         </p>
       </div>
+
+      <SettingSaveControls
+        isDirty={isDirty}
+        state={justSaved ? "saved" : "idle"}
+        onSave={handleSave}
+        onCancel={reset}
+      />
     </div>
   );
 }

@@ -18,9 +18,11 @@ describe("InlineToggleSettingField", () => {
     expect(screen.getByText("Show NSFW Content")).toBeInTheDocument();
     expect(screen.getByText("Off by default.")).toBeInTheDocument();
     expect(screen.getByRole("switch")).not.toBeChecked();
+    // No pending change yet — Save/Cancel should not appear.
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
   });
 
-  it("optimistically flips and shows Saved on success", async () => {
+  it("flips locally without saving until Save is clicked", async () => {
     const onSave = vi.fn().mockResolvedValueOnce({ ok: true, value: true });
     const user = userEvent.setup();
     render(
@@ -32,13 +34,37 @@ describe("InlineToggleSettingField", () => {
     );
 
     await user.click(screen.getByRole("switch"));
+    expect(screen.getByRole("switch")).toBeChecked();
+    expect(onSave).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Save" }));
 
     expect(onSave).toHaveBeenCalledWith(true);
     expect(await screen.findByText("Saved")).toBeInTheDocument();
     expect(screen.getByRole("switch")).toBeChecked();
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
   });
 
-  it("reverts to the previous value and shows the error when the save fails", async () => {
+  it("Cancel reverts the flip without ever calling onSave", async () => {
+    const onSave = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <InlineToggleSettingField
+        label="Show NSFW Content"
+        initialValue={false}
+        onSave={onSave}
+      />,
+    );
+
+    await user.click(screen.getByRole("switch"));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(screen.getByRole("switch")).not.toBeChecked();
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the switch on the drafted value and shows the error when the save fails", async () => {
     const onSave = vi
       .fn()
       .mockResolvedValueOnce({ ok: false, message: "Could not save setting." });
@@ -52,11 +78,14 @@ describe("InlineToggleSettingField", () => {
     );
 
     await user.click(screen.getByRole("switch"));
+    await user.click(screen.getByRole("button", { name: "Save" }));
 
     expect(
       await screen.findByText("Could not save setting."),
     ).toBeInTheDocument();
-    // Reverted — the failed toggle never looks successfully persisted.
-    expect(screen.getByRole("switch")).not.toBeChecked();
+    // A failed save never applied — the draft stays exactly as drafted, and
+    // Save/Cancel stay available to retry or back out.
+    expect(screen.getByRole("switch")).toBeChecked();
+    expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
   });
 });

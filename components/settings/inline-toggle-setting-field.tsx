@@ -2,9 +2,9 @@
 
 import { useId, useState } from "react";
 
+import { SettingSaveControls } from "@/components/settings/setting-save-controls";
+import type { SettingSaveState } from "@/components/settings/setting-save-controls";
 import { Switch } from "@/components/ui/switch";
-
-type SaveState = "idle" | "saving" | "saved" | "error";
 
 export type InlineToggleSettingFieldResult =
   { ok: true; value: boolean } | { ok: false; message: string };
@@ -17,14 +17,14 @@ export type InlineToggleSettingFieldProps = {
 };
 
 /**
- * A single boolean Settings field that saves immediately on toggle (spec 20
- * "Saving Settings"). Optimistically flips, then reverts and shows the
- * server's message if the save fails — never leaves an unsaved toggle
- * position looking successfully persisted. Shared by every ordinary
- * toggle across Settings (Hide English, NSFW, and — as later units land —
- * Vacation Mode, autoplay, lightning mode, and the rest of Review UI's
- * toggle-shaped preferences), not built speculatively: the spec names more
- * than a dozen fields with this exact shape.
+ * A single boolean Settings field. Flipping the switch only changes the
+ * local draft — it has no effect until Save is clicked (2026-09-28 user
+ * request: every Settings card requires an explicit Save, reversing this
+ * field's original spec 20 "Saving Settings" save-on-toggle design).
+ * Cancel reverts the switch to the last applied value without saving.
+ * Shared by every ordinary toggle across Settings (Hide English, NSFW,
+ * Vacation Mode, Auto Pronunciation, Fluent Mode, and the seven Review UI
+ * toggles).
  */
 export function InlineToggleSettingField({
   label,
@@ -33,60 +33,67 @@ export function InlineToggleSettingField({
   onSave,
 }: InlineToggleSettingFieldProps) {
   const switchId = useId();
-  const [checked, setChecked] = useState(initialValue);
-  const [state, setState] = useState<SaveState>("idle");
+  const [savedValue, setSavedValue] = useState(initialValue);
+  const [draftValue, setDraftValue] = useState(initialValue);
+  const [state, setState] = useState<SettingSaveState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const isDirty = draftValue !== savedValue;
 
-  async function handleChange(next: boolean) {
-    const previous = checked;
-    setChecked(next);
+  function handleToggle(next: boolean) {
+    setDraftValue(next);
+    setState("idle");
+    setErrorMessage(null);
+  }
+
+  function handleCancel() {
+    setDraftValue(savedValue);
+    setState("idle");
+    setErrorMessage(null);
+  }
+
+  async function handleSave() {
     setState("saving");
     setErrorMessage(null);
-
-    const result = await onSave(next);
+    const result = await onSave(draftValue);
 
     if (!result.ok) {
-      setChecked(previous);
       setState("error");
       setErrorMessage(result.message);
       return;
     }
 
-    setChecked(result.value);
+    setSavedValue(result.value);
+    setDraftValue(result.value);
     setState("saved");
   }
 
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-border py-4 first:pt-0 last:border-b-0">
-      <div>
-        <label
-          htmlFor={switchId}
-          className="text-sm font-medium text-foreground"
-        >
-          {label}
-        </label>
-        {description && (
-          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-        )}
-        <p className="mt-1 text-sm" aria-live="polite">
-          {state === "saving" && (
-            <span className="text-muted-foreground">Saving…</span>
+    <div className="border-b border-border py-4 first:pt-0 last:border-b-0">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <label
+            htmlFor={switchId}
+            className="text-sm font-medium text-foreground"
+          >
+            {label}
+          </label>
+          {description && (
+            <p className="mt-1 text-sm text-muted-foreground">{description}</p>
           )}
-          {state === "saved" && (
-            <span className="text-state-success">Saved</span>
-          )}
-          {state === "error" && (
-            <span className="text-destructive">
-              {errorMessage ?? "Could not save setting."}
-            </span>
-          )}
-        </p>
+        </div>
+        <Switch
+          id={switchId}
+          checked={draftValue}
+          onCheckedChange={handleToggle}
+          disabled={state === "saving"}
+        />
       </div>
-      <Switch
-        id={switchId}
-        checked={checked}
-        onCheckedChange={handleChange}
-        disabled={state === "saving"}
+      <SettingSaveControls
+        isDirty={isDirty}
+        state={state}
+        errorMessage={errorMessage}
+        onSave={handleSave}
+        onCancel={handleCancel}
       />
     </div>
   );

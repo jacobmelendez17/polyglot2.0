@@ -48,11 +48,12 @@ const curriculumPreferenceInputSchema = z.object({
  * Spec 20 Lessons — Learning Queue. Same shape as onboarding's
  * `setCurriculumPreferenceAction`
  * (`app/(onboarding)/onboarding/curriculum/actions.ts`) — deliberately not
- * shared code, since the two live in different route trees and this one
- * saves immediately on every change rather than behind a "Continue"
- * button, but the underlying validation and the exact reasons for it
- * (never trust a client-supplied theme id; a sandbox persona's preference
- * is set only through the Sandbox, audited) are identical.
+ * shared code, since the two live in different route trees and this one is
+ * called from `LearningQueuePicker`'s own explicit Save button rather than
+ * onboarding's "Continue" flow, but the underlying validation and the exact
+ * reasons for it (never trust a client-supplied theme id; a sandbox
+ * persona's preference is set only through the Sandbox, audited) are
+ * identical.
  */
 export async function updateCurriculumPreferenceAction(
   input: z.infer<typeof curriculumPreferenceInputSchema>,

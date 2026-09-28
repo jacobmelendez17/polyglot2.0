@@ -46,12 +46,14 @@ describe("LessonBatchSizeSelect", () => {
       screen.getByRole("combobox", { name: "Lesson Batch Size" }),
     );
     await user.click(screen.getByRole("option", { name: "10" }));
+    expect(mockAction).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Save" }));
 
     expect(mockAction).toHaveBeenCalledWith({ lessonBatchSize: 10 });
     expect(await screen.findByText("Saved")).toBeInTheDocument();
   });
 
-  it("reverts to the previous value and shows the error when the save fails", async () => {
+  it("keeps the drafted value and shows the error when the save fails", async () => {
     mockAction.mockResolvedValueOnce({
       ok: false,
       error: { code: "UNKNOWN", message: "Could not save setting." },
@@ -63,12 +65,14 @@ describe("LessonBatchSizeSelect", () => {
       screen.getByRole("combobox", { name: "Lesson Batch Size" }),
     );
     await user.click(screen.getByRole("option", { name: "12" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
 
     expect(
       await screen.findByText("Could not save setting."),
     ).toBeInTheDocument();
+    // A failed save never applied — the drafted (unsaved) pick stays shown.
     expect(
       screen.getByRole("combobox", { name: "Lesson Batch Size" }),
-    ).toHaveTextContent("6");
+    ).toHaveTextContent("12");
   });
 });

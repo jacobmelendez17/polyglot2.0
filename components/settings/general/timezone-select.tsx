@@ -11,10 +11,10 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { SettingSaveControls } from "@/components/settings/setting-save-controls";
+import type { SettingSaveState } from "@/components/settings/setting-save-controls";
 import { getSupportedTimezones } from "@/lib/time/timezones";
 import { cn } from "@/lib/utils";
-
-type SaveState = "idle" | "saving" | "saved" | "error";
 
 const ALL_TIMEZONES = getSupportedTimezones();
 
@@ -27,14 +27,22 @@ type TimezoneSelectProps = {
  * timezone dropdown." Built on the existing `Popover` + a plain filtered
  * list rather than adding a combobox/`cmdk` dependency — ~400 flat text
  * options need nothing more than a text filter over an array.
+ *
+ * Picking a timezone from the list only changes the local draft (shown on
+ * the trigger button) — it has no effect until Save is clicked (2026-09-28
+ * user request: every Settings card requires an explicit Save, reversing
+ * this field's original save-on-selection design). Cancel reverts the
+ * trigger back to the last applied timezone.
  */
 export function TimezoneSelect({ initialTimezone }: TimezoneSelectProps) {
   const triggerId = useId();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [savedTimezone, setSavedTimezone] = useState(initialTimezone);
-  const [state, setState] = useState<SaveState>("idle");
+  const [draftTimezone, setDraftTimezone] = useState(initialTimezone);
+  const [state, setState] = useState<SettingSaveState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const isDirty = draftTimezone !== savedTimezone;
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -44,14 +52,24 @@ export function TimezoneSelect({ initialTimezone }: TimezoneSelectProps) {
     );
   }, [query]);
 
-  async function handleSelect(timezone: string) {
+  function handleSelect(timezone: string) {
     setOpen(false);
     setQuery("");
-    if (timezone === savedTimezone) return;
+    setDraftTimezone(timezone);
+    setState("idle");
+    setErrorMessage(null);
+  }
 
+  function handleCancel() {
+    setDraftTimezone(savedTimezone);
+    setState("idle");
+    setErrorMessage(null);
+  }
+
+  async function handleSave() {
     setState("saving");
     setErrorMessage(null);
-    const result = await updateTimezoneAction({ timezone });
+    const result = await updateTimezoneAction({ timezone: draftTimezone });
 
     if (!result.ok) {
       setState("error");
@@ -60,6 +78,7 @@ export function TimezoneSelect({ initialTimezone }: TimezoneSelectProps) {
     }
 
     setSavedTimezone(result.data.timezone);
+    setDraftTimezone(result.data.timezone);
     setState("saved");
   }
 
@@ -82,7 +101,7 @@ export function TimezoneSelect({ initialTimezone }: TimezoneSelectProps) {
         >
           <PopoverTrigger asChild>
             <Button
-              aria-label={`Timezone, ${savedTimezone}`}
+              aria-label={`Timezone, ${draftTimezone}`}
               type="button"
               variant="outline"
               role="combobox"
@@ -90,7 +109,7 @@ export function TimezoneSelect({ initialTimezone }: TimezoneSelectProps) {
               className="w-full justify-between font-normal sm:max-w-xs"
               disabled={state === "saving"}
             >
-              {savedTimezone}
+              {draftTimezone}
               <ChevronsUpDown
                 className="h-4 w-4 opacity-50"
                 aria-hidden="true"
@@ -122,18 +141,18 @@ export function TimezoneSelect({ initialTimezone }: TimezoneSelectProps) {
                     key={timezone}
                     type="button"
                     role="option"
-                    aria-selected={timezone === savedTimezone}
+                    aria-selected={timezone === draftTimezone}
                     onClick={() => handleSelect(timezone)}
                     className={cn(
                       "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted",
-                      timezone === savedTimezone &&
+                      timezone === draftTimezone &&
                         "font-semibold text-foreground",
                     )}
                   >
                     <Check
                       className={cn(
                         "h-4 w-4 shrink-0",
-                        timezone === savedTimezone
+                        timezone === draftTimezone
                           ? "opacity-100"
                           : "opacity-0",
                       )}
@@ -147,17 +166,13 @@ export function TimezoneSelect({ initialTimezone }: TimezoneSelectProps) {
           </PopoverContent>
         </Popover>
       </div>
-      <p className="mt-2 text-sm" aria-live="polite">
-        {state === "saving" && (
-          <span className="text-muted-foreground">Saving…</span>
-        )}
-        {state === "saved" && <span className="text-state-success">Saved</span>}
-        {state === "error" && (
-          <span className="text-destructive">
-            {errorMessage ?? "Could not save setting."}
-          </span>
-        )}
-      </p>
+      <SettingSaveControls
+        isDirty={isDirty}
+        state={state}
+        errorMessage={errorMessage}
+        onSave={handleSave}
+        onCancel={handleCancel}
+      />
     </div>
   );
 }

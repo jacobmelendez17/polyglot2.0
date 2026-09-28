@@ -34,12 +34,14 @@ describe("GrammarPlacementSelect", () => {
       screen.getByRole("combobox", { name: "Grammar Placement" }),
     );
     await user.click(screen.getByRole("option", { name: "First" }));
+    expect(mockAction).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Save" }));
 
     expect(mockAction).toHaveBeenCalledWith({ grammarPlacement: "first" });
     expect(await screen.findByText("Saved")).toBeInTheDocument();
   });
 
-  it("reverts to the previous value and shows the error when the save fails", async () => {
+  it("keeps the drafted value and shows the error when the save fails", async () => {
     mockAction.mockResolvedValueOnce({
       ok: false,
       error: { code: "UNKNOWN", message: "Could not save setting." },
@@ -51,10 +53,14 @@ describe("GrammarPlacementSelect", () => {
       screen.getByRole("combobox", { name: "Grammar Placement" }),
     );
     await user.click(screen.getByRole("option", { name: "Last" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
 
     expect(
       await screen.findByText("Could not save setting."),
     ).toBeInTheDocument();
-    expect(screen.getByText("No Preference")).toBeInTheDocument();
+    // A failed save never applied — the drafted (unsaved) pick stays shown.
+    expect(
+      screen.getByRole("combobox", { name: "Grammar Placement" }),
+    ).toHaveTextContent("Last");
   });
 });

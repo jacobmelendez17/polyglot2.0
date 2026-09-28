@@ -27,6 +27,7 @@ describe("NsfwContentToggle", () => {
     render(<NsfwContentToggle initialValue={false} />);
 
     await user.click(screen.getByRole("switch"));
+    await user.click(screen.getByRole("button", { name: "Save" }));
 
     expect(mockAction).toHaveBeenCalledWith({ showNsfwContent: true });
   });
