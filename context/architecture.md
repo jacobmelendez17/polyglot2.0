@@ -852,6 +852,24 @@ The approval must be deliberate and auditable.
 > instead. `createVocabularyGroup` itself gained an optional explicit
 > `position` for this (a CSV row's `batch_number` names an authored position,
 > not "append at the end").
+>
+> Spec 25 Unit 4 (2026-09-28) made `curriculum_key` the resolver's _primary_
+> match — `resolveImportRow` looks a row's key up in a per-import
+> `targetsByKey` map before ever falling back to normalized-term matching,
+> and a key that matches nothing blocks the row ("Unknown curriculum key")
+> rather than silently treating it as new. Matching by key, not spelling,
+> means a row can now rename the very word it matches on, so `term`/
+> `structure` joined `IMPORTABLE_FIELDS` as ordinary diffable fields. This
+> also implements spec §7.4's explicit clearing: a clearable optional cell
+> holding exactly `__CLEAR__` parses to `null` (distinct from an absent/blank
+> cell, `undefined`, which still means "don't touch") — `resolveImportRow`'s
+> diff reads that distinction directly, and the write functions
+> (`updateVocabularyFieldsFromImport`/`updateGrammarFieldsFromImport`) apply
+> a real database `NULL` for it rather than skipping it. Patching an
+> **existing** item's `synonyms`/`variations` (as opposed to setting them at
+> create time, which already worked from Unit 2) remains unimplemented —
+> recorded as a specific, scoped follow-up in `progress-tracker.md` rather
+> than attempted piecemeal alongside this unit's other changes.
 
 ---
 

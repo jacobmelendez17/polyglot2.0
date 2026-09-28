@@ -44,12 +44,15 @@ import type {
  *   `MAX_VOCABULARY_GROUP_NUMBER`'s own note below for what that unlocks.
  *   Omitted entirely (as every pre-existing file is), the old
  *   `GRAMMAR_GROUP_NUMBER` sentinel decides exactly as before.
- * - `curriculum_key`, `level_name`, `batch_name` (alias for `group_name`):
- *   parsed and carried onto `ParsedImportFields` as plain pass-through
- *   strings. Nothing reads them yet — matching an import row by curriculum
- *   key (Unit 4) and proposing a new Level/group from a name (Unit 3)
- *   are later, separate units. Recorded here so those units extend this
- *   file's row shape rather than needing to touch parsing again.
+ * - `curriculum_key`: parsed and carried onto `ParsedImportFields` as a plain
+ *   pass-through string. As of spec 25 Unit 4 (2026-09-28), when supplied it
+ *   is the *primary* match key `domains/admin/bulk-import-service.ts`'s
+ *   `resolveImportRow` uses to find the existing item this row means — see
+ *   that file, since matching itself needs the database and stays out of
+ *   this one.
+ * - `level_name`, `batch_name` (alias for `group_name`): parsed and carried
+ *   onto `ParsedImportFields`, consumed by spec 25 Unit 3's automatic
+ *   Level/group creation (`domains/admin/bulk-import-service.ts`).
  * - `language`: validated against the import's own target language, not
  *   here (this file stays database-free) — see
  *   `domains/admin/bulk-import-service.ts`'s `resolveImportRow`.
@@ -67,6 +70,29 @@ import type {
  *   `tags` column still parses fine (it's simply not a required column and
  *   nothing rejects unrecognized headers); the value is just never applied
  *   to anything. Recorded as an open question in `progress-tracker.md`.
+ *
+ * Spec 25 Unit 4 (2026-09-28) adds two more things, both database-free and
+ * so both belonging in this file:
+ *
+ * - **Explicit clearing** (spec §7.4): a clearable optional cell —
+ *   `article`/`definition`/`pronunciation`/`ipa`/`context`/`creator_notes`
+ *   for vocabulary, `creator_notes` for grammar — holding exactly
+ *   `__CLEAR__` (case-insensitive, `CLEAR_SENTINEL`) parses to `null`,
+ *   distinct from an absent/blank cell (`undefined`, "say nothing about
+ *   this field," unchanged from Units 1-3). `null` survives onto
+ *   `ParsedImportFields` and all the way to `bulk-import-service.ts`'s
+ *   diff, which is the only place `null` vs `undefined` actually matters:
+ *   `null` proposes *clearing* the field, `undefined` proposes nothing.
+ *   `word`/`translation`/`level`/`group`/`part_of_speech` (required, or
+ *   defaulted rather than nullable) and `title`/`category` (no CSV column
+ *   feeds them at all yet) are deliberately not clearable.
+ * - **Rename support**: `word`/`translation` were always required, but nothing
+ *   before this unit let a re-import actually change a vocabulary item's own
+ *   `term` or a grammar item's own `structure` — matching was by spelling, so
+ *   a changed spelling just looked like a different word entirely. Now that
+ *   `curriculum_key` can be the match (see below), a row can rename the word
+ *   itself, so `term`/`structure` need to be diffable like any other field —
+ *   see `bulk-import-service.ts`'s `IMPORTABLE_FIELDS`.
  */
 
 export const REQUIRED_IMPORT_COLUMNS = [
@@ -249,6 +275,25 @@ function emptyToUndefined(value: string | undefined): string | undefined {
   return trimmed;
 }
 
+/** Spec 25 §7.4's literal sentinel for explicitly clearing a field, distinct from an absent/blank cell. */
+export const CLEAR_SENTINEL = "__CLEAR__";
+
+/**
+ * Distinguishes "no info supplied" (blank/absent/N-A -> `undefined`, meaning
+ * "don't touch this field," unchanged since Units 1-3) from "explicitly
+ * clear this field" (the literal cell value `__CLEAR__`, case-insensitive ->
+ * `null`) for one *clearable* optional cell (spec 25 §7.4). Only used for
+ * fields where clearing existing content is a meaningful, supported
+ * operation — see this file's top-of-file docstring for exactly which ones.
+ */
+function parseClearableCell(
+  value: string | undefined,
+): string | null | undefined {
+  const trimmed = value?.trim();
+  if (trimmed && trimmed.toUpperCase() === CLEAR_SENTINEL) return null;
+  return emptyToUndefined(value);
+}
+
 /**
  * Row 1-indexed and offset by 1 to account for the header row, so
  * `rowNumber` matches what a spreadsheet editor would call it — the number
@@ -354,7 +399,7 @@ export function validateVocabularyImportRow(
       // afterward in Admin, not guessed from a two-column spreadsheet row.
       explanation: "",
       category: null,
-      creatorNotes: emptyToUndefined(raw.creator_notes) ?? null,
+      creatorNotes: parseClearableCell(raw.creator_notes),
       requiredQuestions: [
         { format: "translation", direction: "targetToEnglish" },
       ],
@@ -387,12 +432,12 @@ export function validateVocabularyImportRow(
     term: definiteWord,
     primaryMeaning: definiteTranslation,
     partOfSpeech: emptyToUndefined(raw.part_of_speech) ?? "",
-    article: emptyToUndefined(raw.article) ?? null,
-    definition: emptyToUndefined(raw.definition) ?? null,
-    pronunciation: emptyToUndefined(raw.pronunciation) ?? null,
-    ipa: emptyToUndefined(raw.ipa) ?? null,
-    context: emptyToUndefined(raw.context) ?? null,
-    creatorNotes: emptyToUndefined(raw.creator_notes) ?? null,
+    article: parseClearableCell(raw.article),
+    definition: parseClearableCell(raw.definition),
+    pronunciation: parseClearableCell(raw.pronunciation),
+    ipa: parseClearableCell(raw.ipa),
+    context: parseClearableCell(raw.context),
+    creatorNotes: parseClearableCell(raw.creator_notes),
     acceptedAnswers,
   };
 

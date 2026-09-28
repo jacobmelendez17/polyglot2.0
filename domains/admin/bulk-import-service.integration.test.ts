@@ -7,7 +7,9 @@ import {
   ITEM_GATO_ID,
   seedTestFixtures,
 } from "@/db/seed/test-fixtures";
+import type { TestTx } from "@/db/test/with-test-transaction";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
+import { learningItems } from "@/db/schema";
 import {
   archiveLearningItem,
   createVocabularyGroup as repoCreateVocabularyGroup,
@@ -23,6 +25,7 @@ import {
   getVocabularyGroupsByLanguage,
 } from "@/domains/curriculum/curriculum-repository";
 import { GRAMMAR_GROUP_NUMBER } from "@/domains/curriculum/vocabulary-import-parsing";
+import { eq } from "drizzle-orm";
 import type {
   ParsedGrammarFields,
   ParsedVocabularyFields,
@@ -59,12 +62,17 @@ function vocabFields(
     levelName: null,
     groupName: null,
     partOfSpeech: "noun",
-    article: null,
-    definition: null,
-    pronunciation: null,
-    ipa: null,
-    context: null,
-    creatorNotes: null,
+    // `undefined`, not `null` — this factory's "not specified" default has
+    // to match the real parser's (`vocabulary-import-parsing.ts`), where
+    // spec 25 §7.4 reserves `null` specifically for an explicit `__CLEAR__`.
+    // A caller that actually wants to test clearing overrides one of these
+    // to `null` explicitly.
+    article: undefined,
+    definition: undefined,
+    pronunciation: undefined,
+    ipa: undefined,
+    context: undefined,
+    creatorNotes: undefined,
     acceptedAnswers: [],
     ...overrides,
   };
@@ -82,7 +90,8 @@ function grammarFields(
     title: null,
     explanation: "",
     category: null,
-    creatorNotes: null,
+    // See `vocabFields`'s identical note above.
+    creatorNotes: undefined,
     requiredQuestions: [
       { format: "translation", direction: "targetToEnglish" },
     ],
@@ -107,6 +116,18 @@ function validRow(
     fields: vocabFields({ term, primaryMeaning }),
     fieldIssues: [],
   };
+}
+
+/** Reads a learning item's real, backfilled/generated curriculum key directly (spec 25 Unit 1) — used to build a row that matches by key instead of spelling. */
+async function getCurriculumKey(
+  tx: TestTx,
+  learningItemId: string,
+): Promise<string> {
+  const [row] = await tx
+    .select({ curriculumKey: learningItems.curriculumKey })
+    .from(learningItems)
+    .where(eq(learningItems.id, learningItemId));
+  return row!.curriculumKey;
 }
 
 describe("previewVocabularyImport", () => {
@@ -1267,6 +1288,232 @@ describe("re-importing words that already exist (spec 17)", () => {
       });
       expect(result.createdVocabularyItemIds).toHaveLength(1);
       expect(result.updatedVocabularyItemIds).toEqual([]);
+    });
+  });
+});
+
+describe("spec 25 Unit 4 — key-based matching and explicit clearing", () => {
+  it("matches an existing pending item by curriculum_key and renames it, even though the spelling changed entirely", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      const created = await bulkImportVocabulary(tx, {
+        languageId,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+        rows: [
+          {
+            fields: vocabFields({
+              term: "palabra_original",
+              primaryMeaning: "original word",
+            }),
+            decision: "import",
+          },
+        ],
+      });
+      const learningItemId = created.createdVocabularyItemIds[0]!;
+      const curriculumKey = await getCurriculumKey(tx, learningItemId);
+
+      const renamed = await bulkImportVocabulary(tx, {
+        languageId,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+        rows: [
+          {
+            fields: vocabFields({
+              // A totally different spelling — under term-based matching
+              // this would look like a brand-new word.
+              term: "palabra_completamente_diferente",
+              primaryMeaning: "original word",
+              curriculumKey,
+            }),
+            decision: "import",
+          },
+        ],
+      });
+
+      expect(renamed.createdVocabularyItemIds).toEqual([]);
+      expect(renamed.updatedVocabularyItemIds).toEqual([learningItemId]);
+      expect(
+        (await getVocabularyDictionaryFields(tx, learningItemId))?.term,
+      ).toBe("palabra_completamente_diferente");
+      // The permanent id, and therefore the key itself, never changed.
+      expect(await getCurriculumKey(tx, learningItemId)).toBe(curriculumKey);
+    });
+  });
+
+  it("blocks a row whose curriculum_key matches nothing, rather than treating it as a new item", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      const preview = await previewVocabularyImport(tx, {
+        languageId,
+        validatedRows: [
+          {
+            rowNumber: 2,
+            raw: {
+              word: "perro",
+              translation: "dog",
+              level: String(LEVEL_1_NUMBER),
+              group: String(LEVEL_1_GROUP_1),
+              curriculum_key: "es-MX:vocab:doesnotexist",
+            },
+            fields: vocabFields({
+              term: "perro",
+              primaryMeaning: "dog",
+              curriculumKey: "es-MX:vocab:doesnotexist",
+            }),
+            fieldIssues: [],
+          },
+        ],
+      });
+
+      expect(preview[0]!.fields).toBeNull();
+      expect(preview[0]!.fieldIssues).toEqual([
+        {
+          field: "curriculum_key",
+          message: 'No curriculum item has the key "es-MX:vocab:doesnotexist".',
+        },
+      ]);
+    });
+  });
+
+  it("blocks a key match against an archived item instead of silently reviving it", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      const curriculumKey = await getCurriculumKey(tx, ITEM_GATO_ID);
+      await archiveLearningItem(tx, ITEM_GATO_ID);
+
+      const preview = await previewVocabularyImport(tx, {
+        languageId,
+        validatedRows: [
+          {
+            rowNumber: 2,
+            raw: {},
+            fields: vocabFields({
+              term: "gato",
+              primaryMeaning: "cat",
+              curriculumKey,
+            }),
+            fieldIssues: [],
+          },
+        ],
+      });
+
+      expect(preview[0]!.action).toBe("blocked");
+      expect(preview[0]!.blockedReason).toBe(
+        "This item is archived. Restore it in Admin before re-importing it.",
+      );
+    });
+  });
+
+  it("clears an existing field on a pending item via __CLEAR__, applied directly (no draft)", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      const created = await bulkImportVocabulary(tx, {
+        languageId,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+        rows: [
+          {
+            fields: vocabFields({
+              term: "palabra_con_nota",
+              primaryMeaning: "word with a note",
+              creatorNotes: "a note to clear later",
+            }),
+            decision: "import",
+          },
+        ],
+      });
+      const learningItemId = created.createdVocabularyItemIds[0]!;
+      const curriculumKey = await getCurriculumKey(tx, learningItemId);
+      expect(
+        (await getVocabularyDictionaryFields(tx, learningItemId))?.creatorNotes,
+      ).toBe("a note to clear later");
+
+      const cleared = await bulkImportVocabulary(tx, {
+        languageId,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+        rows: [
+          {
+            fields: vocabFields({
+              term: "palabra_con_nota",
+              primaryMeaning: "word with a note",
+              curriculumKey,
+              creatorNotes: null,
+            }),
+            decision: "import",
+          },
+        ],
+      });
+
+      expect(cleared.updatedVocabularyItemIds).toEqual([learningItemId]);
+      expect(
+        (await getVocabularyDictionaryFields(tx, learningItemId))?.creatorNotes,
+      ).toBeNull();
+    });
+  });
+
+  it("clears an existing field on a published item via __CLEAR__, landing in its draft", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      const curriculumKey = await getCurriculumKey(tx, ITEM_GATO_ID);
+
+      const result = await bulkImportVocabulary(tx, {
+        languageId,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+        rows: [
+          {
+            fields: vocabFields({
+              term: "gato",
+              primaryMeaning: "cat",
+              curriculumKey,
+              article: null,
+            }),
+            decision: "import",
+          },
+        ],
+      });
+
+      expect(result.draftedItemIds).toEqual([ITEM_GATO_ID]);
+      const draft = await getDraft(tx, ITEM_GATO_ID);
+      expect(draft?.data.type).toBe("vocabulary");
+      expect(
+        draft?.data.type === "vocabulary" ? draft.data.fields.article : "n/a",
+      ).toBeNull();
+      // The live, published row is untouched until an Admin publishes the draft.
+      expect(
+        (await getVocabularyDictionaryFields(tx, ITEM_GATO_ID))?.article,
+      ).toBe("el");
+    });
+  });
+
+  it("does not propose clearing a field that is already empty", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      const curriculumKey = await getCurriculumKey(tx, ITEM_GATO_ID);
+
+      const preview = await previewVocabularyImport(tx, {
+        languageId,
+        validatedRows: [
+          {
+            rowNumber: 2,
+            raw: {},
+            fields: vocabFields({
+              term: "gato",
+              primaryMeaning: "cat",
+              curriculumKey,
+              article: "el",
+              // gato's fixture `definition` is already null/unset.
+              definition: null,
+            }),
+            fieldIssues: [],
+          },
+        ],
+      });
+
+      expect(preview[0]!.changes).toEqual([]);
+      expect(preview[0]!.action).toBe("unchanged");
     });
   });
 });

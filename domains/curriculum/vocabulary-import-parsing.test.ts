@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  CLEAR_SENTINEL,
   GRAMMAR_GROUP_NUMBER,
   parseMultiValueList,
   validateVocabularyImportRow,
@@ -87,12 +88,12 @@ describe("validateVocabularyImportRow", () => {
     expect(result.fieldIssues[0]?.field).toBe("group");
   });
 
-  it("turns blank optional fields into null, not empty strings", () => {
+  it("turns blank optional fields into undefined (don't touch), not empty strings or null (spec 25 §7.4 reserves null for an explicit clear)", () => {
     const result = validateVocabularyImportRow(
       { word: "gato", translation: "cat", level: "1", group: "1", article: "" },
       0,
     );
-    expect(result.fields).toMatchObject({ article: null });
+    expect(result.fields).toMatchObject({ article: undefined });
   });
 
   it.each(["N/A", "n/a", " N/a "])(
@@ -108,7 +109,7 @@ describe("validateVocabularyImportRow", () => {
         },
         0,
       );
-      expect(result.fields).toMatchObject({ article: null });
+      expect(result.fields).toMatchObject({ article: undefined });
     },
   );
 
@@ -411,6 +412,71 @@ describe("validateVocabularyImportRow", () => {
         0,
       );
       expect(result.fields).toMatchObject({ acceptedAnswers: [] });
+    });
+  });
+
+  describe("spec 25 Unit 4 — explicit clearing", () => {
+    it.each([
+      "article",
+      "definition",
+      "pronunciation",
+      "ipa",
+      "context",
+      "creator_notes",
+    ] as const)(
+      "parses %s = __CLEAR__ as null, distinct from absent",
+      (column) => {
+        const fieldName = column === "creator_notes" ? "creatorNotes" : column;
+        const result = validateVocabularyImportRow(
+          {
+            word: "gato",
+            translation: "cat",
+            level: "1",
+            group: "1",
+            [column]: CLEAR_SENTINEL,
+          },
+          0,
+        );
+        expect(result.fields).toMatchObject({ [fieldName]: null });
+      },
+    );
+
+    it("is case-insensitive and tolerates surrounding whitespace", () => {
+      const result = validateVocabularyImportRow(
+        {
+          word: "gato",
+          translation: "cat",
+          level: "1",
+          group: "1",
+          article: " __clear__ ",
+        },
+        0,
+      );
+      expect(result.fields).toMatchObject({ article: null });
+    });
+
+    it("clears creator_notes on a grammar row the same way", () => {
+      const result = validateVocabularyImportRow(
+        {
+          word: "por vs para",
+          translation: "for",
+          level: "3",
+          group: String(GRAMMAR_GROUP_NUMBER),
+          creator_notes: CLEAR_SENTINEL,
+        },
+        0,
+      );
+      expect(result.fields).toMatchObject({ creatorNotes: null });
+    });
+
+    it("does not confuse a real word that happens to be __CLEAR__-shaped with the sentinel outside a clearable field", () => {
+      // word/translation are not clearable — a literal (if bizarre) value
+      // is stored as-is, never specially interpreted.
+      const result = validateVocabularyImportRow(
+        { word: CLEAR_SENTINEL, translation: "cat", level: "1", group: "1" },
+        0,
+      );
+      expect(result.fields).toMatchObject({ term: CLEAR_SENTINEL });
     });
   });
 });

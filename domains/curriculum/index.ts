@@ -86,6 +86,7 @@ export type { LevelCardItem, LevelViewModel } from "./level-view";
 // own docstring for why a Node-oriented parsing library stays out of the
 // client-safe surface.
 export {
+  CLEAR_SENTINEL,
   GRAMMAR_GROUP_NUMBER,
   IMPORT_COLUMNS,
   MAX_IMPORT_FILE_BYTES,

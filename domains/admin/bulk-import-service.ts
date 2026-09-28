@@ -141,9 +141,18 @@ function itemResourceType(itemType: "vocabulary" | "grammar"): string {
   return itemType === "vocabulary" ? "vocabulary_item" : "grammar_item";
 }
 
-/** The fields an import row can carry for each item type, in the order a preview lists them. */
+/**
+ * The fields an import row can carry for each item type, in the order a
+ * preview lists them. `term`/`structure` (spec 25 Unit 4) are the item's own
+ * display form — diffable/renameable like any other field now that
+ * `curriculum_key` can be the match instead of spelling (see
+ * `resolveImportRow`); a spelling-matched row could never usefully propose
+ * changing the very spelling it matched on, so this is new precisely
+ * because key-based matching is.
+ */
 const IMPORTABLE_FIELDS = {
   vocabulary: [
+    "term",
     "primaryMeaning",
     "definition",
     "article",
@@ -154,6 +163,7 @@ const IMPORTABLE_FIELDS = {
     "creatorNotes",
   ],
   grammar: [
+    "structure",
     "primaryMeaning",
     "title",
     "explanation",
@@ -163,33 +173,60 @@ const IMPORTABLE_FIELDS = {
 } as const;
 
 /**
- * What one row of the file carries, as plain values. A field the file does
- * not provide — an absent column, or a blank cell — is `null`, which
- * everything downstream reads as "say nothing about this", never as "clear
- * it".
+ * What one row of the file carries, as plain values — `undefined` for a
+ * field the file says nothing about (an absent column, a blank cell, or
+ * `N/A`), `null` for a field the file explicitly clears (spec 25 §7.4's
+ * `__CLEAR__`), or the real string otherwise. `resolveImportRow`'s diff
+ * reads this distinction directly: `undefined` proposes no change at all,
+ * `null` proposes clearing.
+ *
+ * `partOfSpeech`/`title`/`category`/`explanation` are not clearable (no
+ * `__CLEAR__` support was added for them in `vocabulary-import-parsing.ts` —
+ * see that file's docstring for why), so their own "nothing supplied" value
+ * (`""` from the parser) is mapped to `undefined` here rather than `null`,
+ * to make sure it is never misread as a clear request.
  */
 function importedValues(
   fields: ParsedImportFields,
-): Record<string, string | null> {
+): Record<string, string | null | undefined> {
   if (fields.itemType === "vocabulary") {
     return {
+      term: fields.term,
       primaryMeaning: fields.primaryMeaning,
-      definition: fields.definition ?? null,
-      article: fields.article ?? null,
-      partOfSpeech: fields.partOfSpeech || null,
-      pronunciation: fields.pronunciation ?? null,
-      ipa: fields.ipa ?? null,
-      context: fields.context ?? null,
-      creatorNotes: fields.creatorNotes ?? null,
+      definition: fields.definition,
+      article: fields.article,
+      partOfSpeech: fields.partOfSpeech || undefined,
+      pronunciation: fields.pronunciation,
+      ipa: fields.ipa,
+      context: fields.context,
+      creatorNotes: fields.creatorNotes,
     };
   }
   return {
+    structure: fields.structure,
     primaryMeaning: fields.primaryMeaning,
-    title: fields.title ?? null,
-    explanation: fields.explanation || null,
-    category: fields.category ?? null,
-    creatorNotes: fields.creatorNotes ?? null,
+    title: fields.title ?? undefined,
+    explanation: fields.explanation || undefined,
+    category: fields.category ?? undefined,
+    creatorNotes: fields.creatorNotes,
   };
+}
+
+/**
+ * Picks the value a published item's draft should carry for one field: the
+ * newly resolved value when `changes` actually proposed one for it
+ * (including an explicit spec 25 §7.4 clear, `null`), otherwise the item's
+ * own current value, unchanged. Deliberately checks *presence* in `changed`
+ * (`field in changed`), not truthiness or `?? currentValue` — the latter
+ * would silently discard an explicit clear, since `null ?? currentValue`
+ * evaluates to `currentValue`, not `null`.
+ */
+function resolvedValue(
+  changed: Record<string, string | null>,
+  field: string,
+  currentValue: string | null,
+): string | null {
+  return field in changed ? changed[field] : currentValue;
 }
 
 /**
@@ -248,6 +285,18 @@ type ImportLookups = {
   targetsByType: {
     vocabulary: Map<string, ImportMatchTarget[]>;
     grammar: Map<string, ImportMatchTarget[]>;
+  };
+  /**
+   * Spec 25 Unit 4 — curriculum_key -> target, per item type. A curriculum
+   * key is globally unique in the database (spec 25 Unit 1's constraint), so
+   * unlike `targetsByType` this never needs to hold more than one match; kept
+   * scoped per type anyway (mirroring `targetsByType`'s shape) so a key that
+   * belongs to the *other* item type simply reports as unmatched for this
+   * one, rather than needing its own cross-type special case.
+   */
+  targetsByKey: {
+    vocabulary: Map<string, ImportMatchTarget>;
+    grammar: Map<string, ImportMatchTarget>;
   };
   /**
    * Spec 25 Unit 2's optional `language` column — validated here rather than
@@ -423,12 +472,47 @@ function resolveImportRow(
     group = groupResult;
   }
 
-  const matches =
-    lookups.targetsByType[row.fields.itemType].get(
-      normalizeForComparison(displayFormOf(row.fields)),
-    ) ?? [];
-  const { target, blockedReason: matchBlockedReason } =
-    chooseMatchTarget(matches);
+  // Spec 25 Unit 4 — a supplied curriculum_key is the *primary* match: it
+  // identifies one specific item regardless of spelling, so a row can
+  // rename the very word it matches on (see `IMPORTABLE_FIELDS`'s `term`/
+  // `structure`). A key that matches nothing is never silently treated as
+  // "must be new" — the admin likely meant an existing item and something
+  // is wrong (a typo, the wrong environment), so it blocks instead. Only
+  // when no key is supplied at all does matching fall back to spelling,
+  // exactly as every pre-Unit-4 file already relies on.
+  let target: ImportMatchTarget | null;
+  let matchBlockedReason: string | null;
+  if (row.fields.curriculumKey) {
+    const keyMatch = lookups.targetsByKey[row.fields.itemType].get(
+      row.fields.curriculumKey,
+    );
+    if (!keyMatch) {
+      return {
+        kind: "invalid",
+        fieldIssues: [
+          {
+            field: "curriculum_key",
+            message: `No curriculum item has the key "${row.fields.curriculumKey}".`,
+          },
+        ],
+      };
+    }
+    if (keyMatch.status === "archived") {
+      target = null;
+      matchBlockedReason =
+        "This item is archived. Restore it in Admin before re-importing it.";
+    } else {
+      target = keyMatch;
+      matchBlockedReason = null;
+    }
+  } else {
+    const matches =
+      lookups.targetsByType[row.fields.itemType].get(
+        normalizeForComparison(displayFormOf(row.fields)),
+      ) ?? [];
+    ({ target, blockedReason: matchBlockedReason } =
+      chooseMatchTarget(matches));
+  }
 
   // Spec 25 §9.1 — an existing Level/group named differently than this row
   // says is a reviewable conflict, never a silent rename. Checked after
@@ -479,9 +563,14 @@ function resolveImportRow(
   const changes = IMPORTABLE_FIELDS[row.fields.itemType]
     .filter((field) => !overridden.has(field))
     .flatMap((field): ImportFieldChange[] => {
-      const to = values[field] ?? null;
+      const to = values[field];
       const from = target.current[field] ?? null;
-      return to === null || to === from ? [] : [{ field, from, to }];
+      // `undefined` — the file said nothing about this field — never
+      // proposes a change. `null` is spec 25 §7.4's explicit clear, and
+      // *does* propose one when there's actually something to clear.
+      if (to === undefined) return [];
+      if (to === from) return [];
+      return [{ field, from, to }];
     });
 
   const groupNumber =
@@ -525,6 +614,15 @@ function groupByTerm(
   return byTerm;
 }
 
+/** Spec 25 Unit 4 — curriculum_key -> target. Unlike `groupByTerm`, never more than one target per key (the database's own unique constraint on `curriculum_key` guarantees it). */
+function groupByKey(
+  targets: ImportMatchTarget[],
+): Map<string, ImportMatchTarget> {
+  const byKey = new Map<string, ImportMatchTarget>();
+  for (const target of targets) byKey.set(target.curriculumKey, target);
+  return byKey;
+}
+
 async function loadImportLookups(
   db: DbClient,
   languageId: string,
@@ -552,6 +650,10 @@ async function loadImportLookups(
     targetsByType: {
       vocabulary: groupByTerm(vocabularyTargets),
       grammar: groupByTerm(grammarTargets),
+    },
+    targetsByKey: {
+      vocabulary: groupByKey(vocabularyTargets),
+      grammar: groupByKey(grammarTargets),
     },
     expectedLanguageCode: language.code,
   };
@@ -994,7 +1096,24 @@ async function applyImportCreate(
       vocabularyGroupId: groupId,
       groupNumber: fields.itemType === "vocabulary" ? fields.groupNumber : null,
       dictionaryFieldOverrides: [],
-      current: importedValues(fields),
+      // `ImportMatchTarget.current` doesn't carry `undefined` (a real DB row
+      // never has it) — an "unsupplied" field on a row that just created a
+      // fresh item simply has no value yet, which `null` already means here.
+      current: Object.fromEntries(
+        Object.entries(importedValues(fields)).map(([field, value]) => [
+          field,
+          value ?? null,
+        ]),
+      ),
+      // A row reaching `applyImportCreate` never supplied a curriculum_key
+      // (one that did either matched an existing item or was blocked as
+      // "unknown" — see `resolveImportRow`), and the real key
+      // `repoCreateLearningItem` just generated internally isn't returned
+      // here to match against. `""` is a safe placeholder: no real parsed
+      // `curriculumKey` is ever that value (blank parses to `null`), so a
+      // later row in this same file can never spuriously key-match a
+      // same-run create by accident.
+      curriculumKey: "",
     },
   ]);
 }
@@ -1067,23 +1186,43 @@ async function applyImportUpdate(
             type: "vocabulary" as const,
             fields: {
               vocabularyGroupId: groupId ?? target.vocabularyGroupId!,
-              term: fields.term,
-              primaryMeaning:
-                (changed.primaryMeaning as string) ??
-                target.current.primaryMeaning!,
-              definition:
-                (changed.definition as string) ?? target.current.definition,
-              article: (changed.article as string) ?? target.current.article,
-              partOfSpeech:
-                (changed.partOfSpeech as string) ??
-                target.current.partOfSpeech!,
-              pronunciation:
-                (changed.pronunciation as string) ??
+              term: resolvedValue(changed, "term", target.current.term)!,
+              primaryMeaning: resolvedValue(
+                changed,
+                "primaryMeaning",
+                target.current.primaryMeaning,
+              )!,
+              definition: resolvedValue(
+                changed,
+                "definition",
+                target.current.definition,
+              ),
+              article: resolvedValue(
+                changed,
+                "article",
+                target.current.article,
+              ),
+              partOfSpeech: resolvedValue(
+                changed,
+                "partOfSpeech",
+                target.current.partOfSpeech,
+              )!,
+              pronunciation: resolvedValue(
+                changed,
+                "pronunciation",
                 target.current.pronunciation,
-              ipa: (changed.ipa as string) ?? target.current.ipa,
-              context: (changed.context as string) ?? target.current.context,
-              creatorNotes:
-                (changed.creatorNotes as string) ?? target.current.creatorNotes,
+              ),
+              ipa: resolvedValue(changed, "ipa", target.current.ipa),
+              context: resolvedValue(
+                changed,
+                "context",
+                target.current.context,
+              ),
+              creatorNotes: resolvedValue(
+                changed,
+                "creatorNotes",
+                target.current.creatorNotes,
+              ),
               acceptedAnswers: acceptedAnswers.map((answer) => ({
                 side: answer.side,
                 value: answer.value,
@@ -1093,16 +1232,32 @@ async function applyImportUpdate(
         : {
             type: "grammar" as const,
             fields: {
-              title: (changed.title as string) ?? target.current.title,
-              structure: fields.structure,
-              primaryMeaning:
-                (changed.primaryMeaning as string) ??
-                target.current.primaryMeaning!,
-              explanation:
-                (changed.explanation as string) ?? target.current.explanation!,
-              category: (changed.category as string) ?? target.current.category,
-              creatorNotes:
-                (changed.creatorNotes as string) ?? target.current.creatorNotes,
+              title: resolvedValue(changed, "title", target.current.title),
+              structure: resolvedValue(
+                changed,
+                "structure",
+                target.current.structure,
+              )!,
+              primaryMeaning: resolvedValue(
+                changed,
+                "primaryMeaning",
+                target.current.primaryMeaning,
+              )!,
+              explanation: resolvedValue(
+                changed,
+                "explanation",
+                target.current.explanation,
+              )!,
+              category: resolvedValue(
+                changed,
+                "category",
+                target.current.category,
+              ),
+              creatorNotes: resolvedValue(
+                changed,
+                "creatorNotes",
+                target.current.creatorNotes,
+              ),
               requiredQuestions: fields.requiredQuestions,
               acceptedAnswers: acceptedAnswers.map((answer) => ({
                 side: answer.side,

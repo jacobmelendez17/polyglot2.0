@@ -404,6 +404,8 @@ export type ImportMatchTarget = {
   dictionaryFieldOverrides: DictionaryOverridableField[];
   /** The item's current content, so a preview can say what a row would actually change. */
   current: Record<string, string | null>;
+  /** Spec 25 Unit 4 — the item's permanent external identity, so an import row can match by key instead of spelling. `NOT NULL` in the database (spec 25 Unit 1) — every real row has one. */
+  curriculumKey: string;
 };
 
 /**
@@ -420,6 +422,7 @@ export async function getImportMatchTargets(
       .select({
         learningItemId: learningItems.id,
         term: vocabularyItems.term,
+        curriculumKey: learningItems.curriculumKey,
         status: learningItems.status,
         levelId: learningItems.levelId,
         levelNumber: levels.levelNumber,
@@ -454,6 +457,7 @@ export async function getImportMatchTargets(
       );
     return rows.map(
       ({
+        term,
         primaryMeaning,
         definition,
         article,
@@ -465,8 +469,12 @@ export async function getImportMatchTargets(
         ...row
       }) => ({
         ...row,
-        normalizedTerm: normalizeForComparison(row.term),
+        normalizedTerm: normalizeForComparison(term),
+        // Spec 25 Unit 4 — `term` is now diffable/renameable like any other
+        // field, so it belongs in `current` too, not just used to compute
+        // `normalizedTerm`.
         current: {
+          term,
           primaryMeaning,
           definition,
           article,
@@ -484,6 +492,7 @@ export async function getImportMatchTargets(
     .select({
       learningItemId: learningItems.id,
       term: grammarItems.structure,
+      curriculumKey: learningItems.curriculumKey,
       status: learningItems.status,
       levelId: learningItems.levelId,
       levelNumber: levels.levelNumber,
@@ -505,6 +514,7 @@ export async function getImportMatchTargets(
     );
   return rows.map(
     ({
+      term,
       primaryMeaning,
       title,
       explanation,
@@ -513,77 +523,82 @@ export async function getImportMatchTargets(
       ...row
     }) => ({
       ...row,
-      normalizedTerm: normalizeForComparison(row.term),
+      normalizedTerm: normalizeForComparison(term),
       vocabularyGroupId: null,
       groupNumber: null,
       dictionaryFieldOverrides: [],
-      current: { primaryMeaning, title, explanation, category, creatorNotes },
+      // Spec 25 Unit 4 — `structure` (this file's own display form) is now
+      // diffable/renameable like any other field, matching vocabulary's
+      // `term` above.
+      current: {
+        structure: term,
+        primaryMeaning,
+        title,
+        explanation,
+        category,
+        creatorNotes,
+      },
     }),
   );
 }
 
 /**
- * Updates only the columns a re-import actually carries (spec 17).
+ * Updates only the columns a re-import actually determined a genuine
+ * difference for (spec 17; explicit clearing added spec 25 Unit 4 §7.4).
  *
- * Every optional column an import file omits arrives here as `null`, and a
- * blind write would erase it. Re-importing the authored Level 1 file — four
- * columns wide — would blank the article, context, pronunciation, IPA and
- * creator notes of all 45 words. So `null` means "the file said nothing",
- * never "set this to nothing".
+ * Every key present in `fields` is one `resolveImportRow` already resolved
+ * to a real change — an omitted/blank column never reaches this function at
+ * all (it simply isn't a key here), which is what keeps "the file said
+ * nothing about this field" safe from ever blanking it. A key whose value
+ * *is* `null` is different: it means the file explicitly asked to clear
+ * that field (`__CLEAR__`), and is written as a real database `NULL`, not
+ * skipped — re-importing the authored Level 1 file with four ordinary
+ * columns still leaves article/context/pronunciation/IPA/creator notes
+ * alone, precisely because those columns are simply absent from `fields`,
+ * never because their value happens to be `null`.
  *
- * Accepted answers are untouched for the same reason: an import file has no
- * way to express them, and `updateLearningItemDirect` would replace the
- * authored set with an empty one.
+ * Accepted answers are untouched here for a different reason: an import row
+ * carries its *own* full intended set (`fields.acceptedAnswers`), applied
+ * only at create time — see `bulk-import-service.ts`'s open Unit 4 note on
+ * why patching an existing item's accepted answers from a re-import isn't
+ * implemented yet.
  */
 export async function updateVocabularyFieldsFromImport(
   db: DbClient,
   learningItemId: string,
-  fields: Partial<
-    Record<
-      | "primaryMeaning"
-      | "definition"
-      | "article"
-      | "partOfSpeech"
-      | "pronunciation"
-      | "ipa"
-      | "context"
-      | "creatorNotes",
-      string | null
-    >
-  >,
+  fields: Partial<Record<"term" | "primaryMeaning" | "partOfSpeech", string>> &
+    Partial<
+      Record<
+        | "definition"
+        | "article"
+        | "pronunciation"
+        | "ipa"
+        | "context"
+        | "creatorNotes",
+        string | null
+      >
+    >,
 ): Promise<void> {
-  const changes = Object.fromEntries(
-    Object.entries(fields).filter(
-      ([, value]) => value !== null && value !== "",
-    ),
-  );
-  if (Object.keys(changes).length === 0) return;
+  if (Object.keys(fields).length === 0) return;
   await db
     .update(vocabularyItems)
-    .set(changes)
+    .set(fields)
     .where(eq(vocabularyItems.learningItemId, learningItemId));
 }
 
-/** The grammar equivalent, with the same "absent means unchanged" rule. */
+/** The grammar equivalent, with the same "presence, not value, decides" rule. */
 export async function updateGrammarFieldsFromImport(
   db: DbClient,
   learningItemId: string,
   fields: Partial<
-    Record<
-      "primaryMeaning" | "title" | "explanation" | "category" | "creatorNotes",
-      string | null
-    >
-  >,
+    Record<"structure" | "primaryMeaning" | "explanation", string>
+  > &
+    Partial<Record<"title" | "category" | "creatorNotes", string | null>>,
 ): Promise<void> {
-  const changes = Object.fromEntries(
-    Object.entries(fields).filter(
-      ([, value]) => value !== null && value !== "",
-    ),
-  );
-  if (Object.keys(changes).length === 0) return;
+  if (Object.keys(fields).length === 0) return;
   await db
     .update(grammarItems)
-    .set(changes)
+    .set(fields)
     .where(eq(grammarItems.learningItemId, learningItemId));
 }
 
