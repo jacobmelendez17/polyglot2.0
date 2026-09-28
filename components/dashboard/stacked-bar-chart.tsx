@@ -12,6 +12,7 @@ import { createStripePattern } from "@/components/dashboard/charts/canvas-patter
 import { useDashboardChartColors } from "@/components/dashboard/charts/chart-colors";
 import {
   buildChartAriaLabel,
+  buildQuantityAxisOptions,
   buildTooltipOptions,
 } from "@/components/dashboard/charts/chart-options";
 
@@ -81,14 +82,14 @@ export function StackedBarChart({ buckets }: StackedBarChartProps) {
       animation: { duration: 400, easing: "easeOutQuart" },
       scales: {
         x: { stacked: true, display: false },
-        y: { stacked: true, display: false, beginAtZero: true },
+        y: { ...buildQuantityAxisOptions(colors), stacked: true },
       },
       plugins: {
         legend: { display: false },
         tooltip: {
           ...buildTooltipOptions(colors),
           mode: "index",
-          intersect: false,
+          intersect: true,
         },
       },
       font: { family: colors.fontFamily },

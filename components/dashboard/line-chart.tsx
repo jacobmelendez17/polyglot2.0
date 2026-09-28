@@ -11,6 +11,7 @@ import "@/components/dashboard/charts/register-chart-js";
 import { useDashboardChartColors } from "@/components/dashboard/charts/chart-colors";
 import {
   buildChartAriaLabel,
+  buildQuantityAxisOptions,
   buildTooltipOptions,
 } from "@/components/dashboard/charts/chart-options";
 
@@ -63,7 +64,7 @@ export function LineChart({ points }: LineChartProps) {
       animation: { duration: 400, easing: "easeOutQuart" },
       scales: {
         x: { display: false },
-        y: { display: false, beginAtZero: true, grace: "10%" },
+        y: { ...buildQuantityAxisOptions(colors), grace: "10%" },
       },
       plugins: {
         legend: { display: false },
