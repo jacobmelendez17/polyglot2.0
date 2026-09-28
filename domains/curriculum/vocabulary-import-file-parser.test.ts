@@ -77,6 +77,25 @@ describe("parseVocabularyImportFile", () => {
     ]);
   });
 
+  it("accepts spec 25's canonical `batch_number`/`batch_name`/`type` headers as aliases", () => {
+    const csv =
+      "word,translation,level,batch_number,batch_name,type\ngato,cat,1,1,Animals,vocabulary\n";
+    const result = parseVocabularyImportFile(csv, ",");
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.rows).toEqual([
+      {
+        word: "gato",
+        translation: "cat",
+        level: "1",
+        group: "1",
+        group_name: "Animals",
+        item_type: "vocabulary",
+      },
+    ]);
+  });
+
   it("accepts a UTF-8 byte-order mark and CRLF line endings, as a real spreadsheet export has", () => {
     const csv =
       "\ufeffword,translation,level,batch_id\r\nadiós,goodbye,1,2\r\n";

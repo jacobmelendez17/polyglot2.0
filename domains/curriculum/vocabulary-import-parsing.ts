@@ -1,4 +1,5 @@
 import type {
+  AcceptedAnswerInput,
   GrammarFieldsInput,
   VocabularyFieldsInput,
 } from "./curriculum-mutation-types";
@@ -32,6 +33,40 @@ import type {
  * vocabulary-group count) doubles as "this row is grammar, not
  * vocabulary" — see `MAX_VOCABULARY_GROUP_NUMBER`'s value, chosen to match
  * `CURRICULUM_VALIDATION_CONFIG`'s own default of 4 groups per level.
+ *
+ * Spec 25 Unit 2 (2026-09-27) adds the canonical CSV schema's remaining
+ * columns as an *extension*, never a replacement — every file that already
+ * satisfies the rules above keeps parsing exactly as it always has:
+ *
+ * - `item_type` (alias `type`): an explicit "vocabulary"/"grammar" column.
+ *   When present and valid it decides the row's type outright and the
+ *   `group`/`batch_number` cell is no longer read as a sentinel — see
+ *   `MAX_VOCABULARY_GROUP_NUMBER`'s own note below for what that unlocks.
+ *   Omitted entirely (as every pre-existing file is), the old
+ *   `GRAMMAR_GROUP_NUMBER` sentinel decides exactly as before.
+ * - `curriculum_key`, `level_name`, `batch_name` (alias for `group_name`):
+ *   parsed and carried onto `ParsedImportFields` as plain pass-through
+ *   strings. Nothing reads them yet — matching an import row by curriculum
+ *   key (Unit 4) and proposing a new Level/group from a name (Unit 3)
+ *   are later, separate units. Recorded here so those units extend this
+ *   file's row shape rather than needing to touch parsing again.
+ * - `language`: validated against the import's own target language, not
+ *   here (this file stays database-free) — see
+ *   `domains/admin/bulk-import-service.ts`'s `resolveImportRow`.
+ * - `synonyms`/`variations` (vocabulary only): spec 25 §8's pipe-delimited
+ *   multi-value format (`parseMultiValueList`), merged into
+ *   `acceptedAnswers` as `meaning`/`term` side answers respectively —
+ *   `synonyms` are extra accepted English meanings, `variations` are extra
+ *   accepted spellings of the target word itself (mirrors
+ *   `AcceptedAnswerInput`'s existing `side` distinction).
+ * - `tags`: named in the spec's canonical schema but has no backing column
+ *   anywhere in the curriculum schema or `project-overview.md`'s documented
+ *   vocabulary-item fields. Deliberately **not** implemented — inventing a
+ *   tags data model would be a new product/architecture decision this unit
+ *   has no basis for making (`ai-workflow-rules.md`). A file containing a
+ *   `tags` column still parses fine (it's simply not a required column and
+ *   nothing rejects unrecognized headers); the value is just never applied
+ *   to anything. Recorded as an open question in `progress-tracker.md`.
  */
 
 export const REQUIRED_IMPORT_COLUMNS = [
@@ -48,6 +83,15 @@ const OPTIONAL_IMPORT_COLUMNS = [
   "ipa",
   "context",
   "creator_notes",
+  // Spec 25 Unit 2's canonical-schema extension — see this file's own
+  // top-of-file docstring for what each one does.
+  "item_type",
+  "curriculum_key",
+  "language",
+  "level_name",
+  "group_name",
+  "synonyms",
+  "variations",
 ] as const;
 export const IMPORT_COLUMNS = [
   ...REQUIRED_IMPORT_COLUMNS,
@@ -63,29 +107,44 @@ type ImportColumn = (typeof IMPORT_COLUMNS)[number];
  * rejecting the file would mean hand-editing a header on every future
  * authored level rather than accepting a synonym once.
  *
- * Deliberately narrow: only the group column has a real competing name in
- * the files this project actually authors. This is not a general
- * column-mapping layer, and it must never map two different source columns
- * onto the same canonical one in a single file — the last header simply
- * wins, exactly as a literal duplicate header already would.
+ * Deliberately narrow: only columns with a real competing name in files
+ * this project actually authors, or in spec 25's own canonical schema, get
+ * an alias. This is not a general column-mapping layer, and it must never
+ * map two different source columns onto the same canonical one in a single
+ * file — the last header simply wins, exactly as a literal duplicate header
+ * already would. `batch_number`/`batch_name` are spec 25's own canonical
+ * names for what this codebase has always called `group`/`group_name`; the
+ * internal name is kept (a rename touches the DB-persisted
+ * `curriculum_import_rows.group_number` column and every reader of it for
+ * no behavioral gain) and the spec's header spelling is accepted as a
+ * synonym, exactly like `batch`/`batch_id` already are.
  */
 export const IMPORT_COLUMN_ALIASES: Readonly<Record<string, ImportColumn>> = {
   batch: "group",
   batch_id: "group",
+  batch_number: "group",
   group_id: "group",
   group_number: "group",
+  batch_name: "group_name",
+  type: "item_type",
 };
 
 /**
- * The highest group number this file format treats as a vocabulary group.
+ * The highest group number this file format treats as a vocabulary group
+ * **when `item_type` is absent** (sentinel mode — see the file's top-of-file
+ * docstring). A convention of the sentinel scheme, not a limit on the
+ * curriculum: a level may hold any number of groups (spec 17). What this
+ * fixes is where the grammar sentinel sits, so the meaning of a `group` cell
+ * never shifts under an already-authored sentinel-mode file.
  *
- * A convention of the CSV format, not a limit on the curriculum: a level may
- * hold any number of groups (spec 17). What this fixes is where the grammar
- * sentinel sits, so the meaning of a `group` cell never shifts under an
- * already-authored file.
+ * Once a row carries an explicit `item_type`, this cap no longer applies —
+ * there is no sentinel value to protect, so `group`/`batch_number` for an
+ * explicit vocabulary row accepts any positive integer, matching
+ * architecture.md's "Level Shape" (levels are flexible; nothing caps their
+ * group count).
  */
 export const MAX_VOCABULARY_GROUP_NUMBER = 4;
-/** One past the last real vocabulary group number — a row with this group value has no group at all; it's a grammar item. */
+/** One past the last real vocabulary group number — a row with this group value has no group at all; it's a grammar item. Sentinel-mode only, per the above. */
 export const GRAMMAR_GROUP_NUMBER = MAX_VOCABULARY_GROUP_NUMBER + 1;
 
 /**
@@ -116,6 +175,11 @@ export type ImportRowFieldIssue = { field: ImportColumn; message: string };
  * stays pure), so `levelNumber`/`groupNumber` travel instead, and
  * `domains/admin/bulk-import-service.ts` resolves them into a real
  * `vocabularyGroupId` once it knows the target language.
+ *
+ * `curriculumKey`/`levelName`/`groupName` (spec 25 Unit 2) are plain
+ * pass-through values — `null` when the column is absent/blank — carried
+ * for a later unit to read; nothing in this file or `bulk-import-service.ts`
+ * uses them yet.
  */
 export type ParsedVocabularyFields = Omit<
   VocabularyFieldsInput,
@@ -124,15 +188,44 @@ export type ParsedVocabularyFields = Omit<
   itemType: "vocabulary";
   levelNumber: number;
   groupNumber: number;
+  curriculumKey: string | null;
+  levelName: string | null;
+  groupName: string | null;
 };
 
 /** Grammar has no group at all — only `levelNumber` needs later resolution. */
 export type ParsedGrammarFields = GrammarFieldsInput & {
   itemType: "grammar";
   levelNumber: number;
+  curriculumKey: string | null;
+  levelName: string | null;
 };
 
 export type ParsedImportFields = ParsedVocabularyFields | ParsedGrammarFields;
+
+/**
+ * Spec 25 §8's canonical multi-value cell format (`term one|term two|term
+ * three`), used by `synonyms`/`variations`. Trims each entry, drops entries
+ * that are blank after trimming (a stray `a||b` or trailing `|` produces no
+ * empty accepted-answer value), removes exact duplicates while preserving
+ * first-occurrence order, and never touches accents/diacritics — `"sí|si"`
+ * stays two distinct entries, exactly as the rest of this codebase treats
+ * accented and unaccented Spanish as different words.
+ */
+export function parseMultiValueList(raw: string | undefined): string[] {
+  const value = emptyToUndefined(raw);
+  if (!value) return [];
+
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const part of value.split("|")) {
+    const trimmed = part.trim();
+    if (!trimmed || seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    result.push(trimmed);
+  }
+  return result;
+}
 
 export type ValidatedImportRow = {
   rowNumber: number;
@@ -172,6 +265,7 @@ export function validateVocabularyImportRow(
   const translation = emptyToUndefined(raw.translation);
   const levelRaw = emptyToUndefined(raw.level);
   const groupRaw = emptyToUndefined(raw.group);
+  const itemTypeRaw = emptyToUndefined(raw.item_type);
 
   if (!word) fieldIssues.push({ field: "word", message: "Missing word." });
   if (!translation)
@@ -190,12 +284,37 @@ export function validateVocabularyImportRow(
     }
   }
 
+  // An explicit `item_type` column (spec 25 Unit 2) decides the row's type
+  // outright, in which case `group`/`batch_number` is no longer read as the
+  // grammar sentinel below and its range cap no longer applies. Left
+  // `undefined` when the column is absent, so every pre-existing
+  // sentinel-only file validates byte-for-byte as it always has.
+  let explicitItemType: "vocabulary" | "grammar" | undefined;
+  if (itemTypeRaw !== undefined) {
+    const normalized = itemTypeRaw.toLowerCase();
+    if (normalized === "vocabulary" || normalized === "grammar") {
+      explicitItemType = normalized;
+    } else {
+      fieldIssues.push({
+        field: "item_type",
+        message: `"${itemTypeRaw}" isn't a valid item type — use "vocabulary" or "grammar".`,
+      });
+    }
+  }
+
   let groupNumber = NaN;
   if (!groupRaw) {
     fieldIssues.push({ field: "group", message: "Missing group." });
   } else {
     groupNumber = Number(groupRaw);
-    if (
+    if (explicitItemType) {
+      if (!Number.isInteger(groupNumber) || groupNumber < 1) {
+        fieldIssues.push({
+          field: "group",
+          message: `"${groupRaw}" isn't a valid batch number.`,
+        });
+      }
+    } else if (
       !Number.isInteger(groupNumber) ||
       groupNumber < 1 ||
       groupNumber > GRAMMAR_GROUP_NUMBER
@@ -215,11 +334,19 @@ export function validateVocabularyImportRow(
   // value already returned above via `fieldIssues.length > 0`.
   const definiteWord = word!;
   const definiteTranslation = translation!;
+  const curriculumKey = emptyToUndefined(raw.curriculum_key) ?? null;
+  const levelName = emptyToUndefined(raw.level_name) ?? null;
 
-  if (groupNumber === GRAMMAR_GROUP_NUMBER) {
+  const itemType =
+    explicitItemType ??
+    (groupNumber === GRAMMAR_GROUP_NUMBER ? "grammar" : "vocabulary");
+
+  if (itemType === "grammar") {
     const fields: ParsedGrammarFields = {
       itemType: "grammar",
       levelNumber,
+      curriculumKey,
+      levelName,
       title: null,
       structure: definiteWord,
       primaryMeaning: definiteTranslation,
@@ -236,10 +363,27 @@ export function validateVocabularyImportRow(
     return { rowNumber, raw, fields, fieldIssues: [] };
   }
 
+  // Spec 25 §8: `synonyms` are extra accepted English meanings (the
+  // `meaning` side), `variations` are extra accepted spellings of the target
+  // word itself (the `term` side) — the same side distinction
+  // `AcceptedAnswerInput`/`user_synonyms` already use.
+  const acceptedAnswers: AcceptedAnswerInput[] = [
+    ...parseMultiValueList(raw.synonyms).map((value): AcceptedAnswerInput => ({
+      side: "meaning",
+      value,
+    })),
+    ...parseMultiValueList(raw.variations).map(
+      (value): AcceptedAnswerInput => ({ side: "term", value }),
+    ),
+  ];
+
   const fields: ParsedVocabularyFields = {
     itemType: "vocabulary",
     levelNumber,
     groupNumber,
+    curriculumKey,
+    levelName,
+    groupName: emptyToUndefined(raw.group_name) ?? null,
     term: definiteWord,
     primaryMeaning: definiteTranslation,
     partOfSpeech: emptyToUndefined(raw.part_of_speech) ?? "",
@@ -249,7 +393,7 @@ export function validateVocabularyImportRow(
     ipa: emptyToUndefined(raw.ipa) ?? null,
     context: emptyToUndefined(raw.context) ?? null,
     creatorNotes: emptyToUndefined(raw.creator_notes) ?? null,
-    acceptedAnswers: [],
+    acceptedAnswers,
   };
 
   return { rowNumber, raw, fields, fieldIssues: [] };

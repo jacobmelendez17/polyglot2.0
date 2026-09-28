@@ -91,6 +91,7 @@ export {
   MAX_IMPORT_FILE_BYTES,
   MAX_IMPORT_ROWS,
   MAX_VOCABULARY_GROUP_NUMBER,
+  parseMultiValueList,
   REQUIRED_IMPORT_COLUMNS,
   validateVocabularyImportRow,
 } from "./vocabulary-import-parsing";

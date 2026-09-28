@@ -11,6 +11,7 @@ import { withTestTransaction } from "@/db/test/with-test-transaction";
 import {
   archiveLearningItem,
   createVocabularyGroup as repoCreateVocabularyGroup,
+  getAcceptedAnswers,
   getDraft,
   getVocabularyDictionaryFields,
   lockLearningItemForEdit,
@@ -50,6 +51,9 @@ function vocabFields(
     itemType: "vocabulary",
     levelNumber: LEVEL_1_NUMBER,
     groupNumber: LEVEL_1_GROUP_1,
+    curriculumKey: null,
+    levelName: null,
+    groupName: null,
     partOfSpeech: "noun",
     article: null,
     definition: null,
@@ -69,6 +73,8 @@ function grammarFields(
   return {
     itemType: "grammar",
     levelNumber: LEVEL_1_NUMBER,
+    curriculumKey: null,
+    levelName: null,
     title: null,
     explanation: "",
     category: null,
@@ -216,6 +222,61 @@ describe("previewVocabularyImport", () => {
     });
   });
 
+  it("blocks a row whose optional language column doesn't match this import's target language (spec 25 Unit 2)", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      const row: ValidatedImportRow = {
+        rowNumber: 2,
+        raw: {
+          word: "perro",
+          translation: "dog",
+          level: String(LEVEL_1_NUMBER),
+          group: String(LEVEL_1_GROUP_1),
+          language: "fr-FR",
+        },
+        fields: vocabFields({ term: "perro", primaryMeaning: "dog" }),
+        fieldIssues: [],
+      };
+      const preview = await previewVocabularyImport(tx, {
+        languageId,
+        validatedRows: [row],
+      });
+
+      expect(preview[0]!.fields).toBeNull();
+      expect(preview[0]!.fieldIssues).toEqual([
+        {
+          field: "language",
+          message: 'This row is for "fr-FR", but this import is for "es-MX".',
+        },
+      ]);
+    });
+  });
+
+  it("accepts a row whose language column matches this import's target language, case-insensitively", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      const row: ValidatedImportRow = {
+        rowNumber: 2,
+        raw: {
+          word: "perro",
+          translation: "dog",
+          level: String(LEVEL_1_NUMBER),
+          group: String(LEVEL_1_GROUP_1),
+          language: "es-mx",
+        },
+        fields: vocabFields({ term: "perro", primaryMeaning: "dog" }),
+        fieldIssues: [],
+      };
+      const preview = await previewVocabularyImport(tx, {
+        languageId,
+        validatedRows: [row],
+      });
+
+      expect(preview[0]!.fieldIssues).toEqual([]);
+      expect(preview[0]!.action).toBe("create");
+    });
+  });
+
   it("blocks a vocabulary row whose group number doesn't exist yet in an otherwise-real level", async () => {
     await withTestTransaction(async (tx) => {
       const { languageId } = await seedTestFixtures(tx);
@@ -358,6 +419,42 @@ describe("bulkImportVocabulary", () => {
       );
       expect(grammarItem?.type).toBe("grammar");
       expect(grammarItem?.status).toBe("pending");
+    });
+  });
+
+  it("creates accepted answers from synonyms/variations the parser already turned into meaning/term entries (spec 25 Unit 2)", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      const result = await bulkImportVocabulary(tx, {
+        languageId,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+        rows: [
+          {
+            fields: vocabFields({
+              term: "gato_con_sinonimos",
+              primaryMeaning: "cat",
+              acceptedAnswers: [
+                { side: "meaning", value: "kitty" },
+                { side: "term", value: "gatto" },
+              ],
+            }),
+            decision: "import",
+          },
+        ],
+      });
+
+      expect(result.createdVocabularyItemIds).toHaveLength(1);
+      const answers = await getAcceptedAnswers(
+        tx,
+        result.createdVocabularyItemIds[0]!,
+      );
+      expect(answers).toEqual(
+        expect.arrayContaining([
+          { side: "meaning", value: "kitty" },
+          { side: "term", value: "gatto" },
+        ]),
+      );
     });
   });
 

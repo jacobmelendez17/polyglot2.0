@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   GRAMMAR_GROUP_NUMBER,
+  parseMultiValueList,
   validateVocabularyImportRow,
 } from "./vocabulary-import-parsing";
 
@@ -148,5 +149,304 @@ describe("validateVocabularyImportRow", () => {
       0,
     );
     expect(result.fields).toMatchObject({ creatorNotes: "commonly confused" });
+  });
+
+  it("carries curriculum_key/level_name/group_name through untouched, unused by this file", () => {
+    // Header aliasing (e.g. `batch_name` -> `group_name`) happens in
+    // `vocabulary-import-file-parser.ts`'s `normalizeHeader`, upstream of
+    // this function — see that file's own alias-mapping test for coverage
+    // of the actual CSV header synonym.
+    const result = validateVocabularyImportRow(
+      {
+        word: "gato",
+        translation: "cat",
+        level: "2",
+        group: "1",
+        curriculum_key: "es-MX:vocab:k7p4m2",
+        level_name: "Core Foundations",
+        group_name: "Animals",
+      },
+      0,
+    );
+    expect(result.fields).toMatchObject({
+      curriculumKey: "es-MX:vocab:k7p4m2",
+      levelName: "Core Foundations",
+      groupName: "Animals",
+    });
+  });
+
+  it("leaves curriculum_key/level_name/batch_name null when absent", () => {
+    const result = validateVocabularyImportRow(
+      { word: "gato", translation: "cat", level: "1", group: "1" },
+      0,
+    );
+    expect(result.fields).toMatchObject({
+      curriculumKey: null,
+      levelName: null,
+    });
+  });
+
+  describe("spec 25 Unit 2 — explicit item_type column", () => {
+    it("treats item_type=vocabulary as authoritative, ignoring the sentinel", () => {
+      const result = validateVocabularyImportRow(
+        {
+          word: "gato",
+          translation: "cat",
+          level: "1",
+          group: "1",
+          item_type: "vocabulary",
+        },
+        0,
+      );
+      expect(result.fieldIssues).toEqual([]);
+      expect(result.fields).toMatchObject({ itemType: "vocabulary" });
+    });
+
+    it("treats item_type=grammar as authoritative even for a low, ordinary-looking group number", () => {
+      const result = validateVocabularyImportRow(
+        {
+          word: "ser vs estar",
+          translation: "to be",
+          level: "3",
+          group: "1",
+          item_type: "grammar",
+        },
+        0,
+      );
+      expect(result.fieldIssues).toEqual([]);
+      expect(result.fields).toMatchObject({
+        itemType: "grammar",
+        structure: "ser vs estar",
+      });
+    });
+
+    it("is case-insensitive", () => {
+      const result = validateVocabularyImportRow(
+        {
+          word: "gato",
+          translation: "cat",
+          level: "1",
+          group: "1",
+          item_type: "Vocabulary",
+        },
+        0,
+      );
+      expect(result.fields).toMatchObject({ itemType: "vocabulary" });
+    });
+
+    it("also accepts the type alias header", () => {
+      const result = validateVocabularyImportRow(
+        {
+          word: "gato",
+          translation: "cat",
+          level: "1",
+          group: "1",
+          type: "vocabulary",
+        },
+        0,
+      );
+      expect(result.fields).toMatchObject({ itemType: "vocabulary" });
+    });
+
+    it("rejects an unrecognized item_type value", () => {
+      const result = validateVocabularyImportRow(
+        {
+          word: "gato",
+          translation: "cat",
+          level: "1",
+          group: "1",
+          item_type: "noun",
+        },
+        0,
+      );
+      expect(result.fields).toBeNull();
+      expect(result.fieldIssues).toContainEqual({
+        field: "item_type",
+        message:
+          '"noun" isn\'t a valid item type — use "vocabulary" or "grammar".',
+      });
+    });
+
+    it("allows a vocabulary group number above the sentinel-mode cap once item_type is explicit", () => {
+      const result = validateVocabularyImportRow(
+        {
+          word: "gato",
+          translation: "cat",
+          level: "1",
+          group: "10",
+          item_type: "vocabulary",
+        },
+        0,
+      );
+      expect(result.fieldIssues).toEqual([]);
+      expect(result.fields).toMatchObject({ groupNumber: 10 });
+    });
+
+    it("still rejects a group number above the cap without an explicit item_type (sentinel mode unchanged)", () => {
+      const result = validateVocabularyImportRow(
+        { word: "gato", translation: "cat", level: "1", group: "10" },
+        0,
+      );
+      expect(result.fields).toBeNull();
+      expect(result.fieldIssues[0]?.field).toBe("group");
+    });
+
+    it("accepts any positive batch number for an explicit grammar row", () => {
+      const result = validateVocabularyImportRow(
+        {
+          word: "ser vs estar",
+          translation: "to be",
+          level: "3",
+          group: "42",
+          item_type: "grammar",
+        },
+        0,
+      );
+      expect(result.fieldIssues).toEqual([]);
+      expect(result.fields).toMatchObject({ itemType: "grammar" });
+    });
+
+    it("rejects a non-integer batch number even with an explicit item_type", () => {
+      const result = validateVocabularyImportRow(
+        {
+          word: "gato",
+          translation: "cat",
+          level: "1",
+          group: "1.5",
+          item_type: "vocabulary",
+        },
+        0,
+      );
+      expect(result.fields).toBeNull();
+      expect(result.fieldIssues).toContainEqual({
+        field: "group",
+        message: '"1.5" isn\'t a valid batch number.',
+      });
+    });
+
+    it("still requires the group/batch_number column even when item_type is explicit", () => {
+      const result = validateVocabularyImportRow(
+        {
+          word: "gato",
+          translation: "cat",
+          level: "1",
+          group: "",
+          item_type: "vocabulary",
+        },
+        0,
+      );
+      expect(result.fields).toBeNull();
+      expect(result.fieldIssues).toContainEqual({
+        field: "group",
+        message: "Missing group.",
+      });
+    });
+  });
+
+  describe("spec 25 Unit 2 — synonyms/variations", () => {
+    it("parses synonyms into meaning-side accepted answers", () => {
+      const result = validateVocabularyImportRow(
+        {
+          word: "gato",
+          translation: "cat",
+          level: "1",
+          group: "1",
+          synonyms: "kitty|feline",
+        },
+        0,
+      );
+      expect(result.fields).toMatchObject({
+        acceptedAnswers: [
+          { side: "meaning", value: "kitty" },
+          { side: "meaning", value: "feline" },
+        ],
+      });
+    });
+
+    it("parses variations into term-side accepted answers", () => {
+      const result = validateVocabularyImportRow(
+        {
+          word: "celular",
+          translation: "cell phone",
+          level: "1",
+          group: "1",
+          variations: "célular",
+        },
+        0,
+      );
+      expect(result.fields).toMatchObject({
+        acceptedAnswers: [{ side: "term", value: "célular" }],
+      });
+    });
+
+    it("combines synonyms and variations, synonyms first", () => {
+      const result = validateVocabularyImportRow(
+        {
+          word: "gato",
+          translation: "cat",
+          level: "1",
+          group: "1",
+          synonyms: "kitty",
+          variations: "gatto",
+        },
+        0,
+      );
+      expect(result.fields).toMatchObject({
+        acceptedAnswers: [
+          { side: "meaning", value: "kitty" },
+          { side: "term", value: "gatto" },
+        ],
+      });
+    });
+
+    it("produces no accepted answers for a grammar row even if synonyms/variations are present", () => {
+      const result = validateVocabularyImportRow(
+        {
+          word: "por vs para",
+          translation: "for",
+          level: "3",
+          group: String(GRAMMAR_GROUP_NUMBER),
+          synonyms: "should be ignored",
+        },
+        0,
+      );
+      expect(result.fields).toMatchObject({ acceptedAnswers: [] });
+    });
+  });
+});
+
+describe("parseMultiValueList", () => {
+  it("returns an empty array for undefined/blank/N-A input", () => {
+    expect(parseMultiValueList(undefined)).toEqual([]);
+    expect(parseMultiValueList("")).toEqual([]);
+    expect(parseMultiValueList("   ")).toEqual([]);
+    expect(parseMultiValueList("N/A")).toEqual([]);
+  });
+
+  it("splits on the pipe delimiter and trims each entry", () => {
+    expect(parseMultiValueList(" kitty | feline |cat ")).toEqual([
+      "kitty",
+      "feline",
+      "cat",
+    ]);
+  });
+
+  it("drops empty entries produced by stray/doubled/trailing pipes", () => {
+    expect(parseMultiValueList("kitty||feline|")).toEqual(["kitty", "feline"]);
+  });
+
+  it("removes exact duplicates while preserving first-occurrence order", () => {
+    expect(parseMultiValueList("kitty|feline|kitty")).toEqual([
+      "kitty",
+      "feline",
+    ]);
+  });
+
+  it("preserves accents and treats accented/unaccented forms as distinct", () => {
+    expect(parseMultiValueList("sí|si")).toEqual(["sí", "si"]);
+  });
+
+  it("preserves a single unpiped value as a one-item list", () => {
+    expect(parseMultiValueList("kitty")).toEqual(["kitty"]);
   });
 });

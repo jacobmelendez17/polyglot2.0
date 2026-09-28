@@ -834,7 +834,12 @@ The approval must be deliberate and auditable.
 > Every row resolves to `create`/`update`/`move`/`unchanged`/`blocked`
 > through one shared resolver (`resolveImportRow`), reused rather than
 > reimplemented by spec 19's asynchronous Lambda pipeline (see
-> `feature-specs/19-lambda-import.md`).
+> `feature-specs/19-lambda-import.md`). Spec 25 Unit 2 (2026-09-27) extended
+> the column contract toward that spec's canonical schema — see
+> `domains/curriculum/vocabulary-import-parsing.ts`'s own docstring for the
+> full column list (`item_type`, `curriculum_key`, `language`, `level_name`,
+> `batch_name`, `synonyms`, `variations`) and exactly what each one does and
+> doesn't do yet.
 
 ---
 

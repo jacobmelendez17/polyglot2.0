@@ -13,6 +13,7 @@ import {
 } from "@/domains/curriculum/curriculum-mutation-repository";
 import type { ImportMatchTarget } from "@/domains/curriculum/curriculum-mutation-repository";
 import {
+  getLanguageById,
   getLevelsByLanguage,
   getVocabularyGroupsByLanguage,
 } from "@/domains/curriculum/curriculum-repository";
@@ -206,6 +207,15 @@ type ImportLookups = {
     vocabulary: Map<string, ImportMatchTarget[]>;
     grammar: Map<string, ImportMatchTarget[]>;
   };
+  /**
+   * Spec 25 Unit 2's optional `language` column — validated here rather than
+   * in `vocabulary-import-parsing.ts` (which stays database-free) since only
+   * the resolver actually knows which language this import targets. Catches
+   * the wrong-file-for-this-language mistake; it is not a mechanism for one
+   * file spanning several languages (the admin still picks one language for
+   * the whole import, per the upload screen).
+   */
+  expectedLanguageCode: string;
 };
 
 /**
@@ -253,6 +263,22 @@ function resolveImportRow(
   lookups: ImportLookups,
 ): ResolvedImportRow {
   if (!row.fields) return { kind: "invalid", fieldIssues: row.fieldIssues };
+
+  const rowLanguage = row.raw.language?.trim();
+  if (
+    rowLanguage &&
+    rowLanguage.toLowerCase() !== lookups.expectedLanguageCode.toLowerCase()
+  ) {
+    return {
+      kind: "invalid",
+      fieldIssues: [
+        {
+          field: "language",
+          message: `This row is for "${rowLanguage}", but this import is for "${lookups.expectedLanguageCode}".`,
+        },
+      ],
+    };
+  }
 
   const levelId = lookups.levelIdByNumber.get(row.fields.levelNumber);
   if (!levelId) {
@@ -382,11 +408,19 @@ async function loadImportLookups(
     { levelIdByNumber, groupIdByLevelAndPosition },
     vocabularyTargets,
     grammarTargets,
+    language,
   ] = await Promise.all([
     loadLevelAndGroupLookups(db, languageId),
     getImportMatchTargets(db, languageId, "vocabulary"),
     getImportMatchTargets(db, languageId, "grammar"),
+    getLanguageById(db, languageId),
   ]);
+  if (!language) {
+    throw new AdminError(
+      "CURRICULUM_VALIDATION_FAILED",
+      "This import's language no longer exists.",
+    );
+  }
   return {
     levelIdByNumber,
     groupIdByLevelAndPosition,
@@ -394,6 +428,7 @@ async function loadImportLookups(
       vocabulary: groupByTerm(vocabularyTargets),
       grammar: groupByTerm(grammarTargets),
     },
+    expectedLanguageCode: language.code,
   };
 }
 
