@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { NEW_HOMONYM_SENTINEL } from "@/domains/curriculum/vocabulary-import-parsing";
 import type {
+  BulkPublishDraftedItemsResult,
   CurriculumImportRecord,
   CurriculumImportRowRecord,
   CurriculumImportStatus,
@@ -17,6 +18,7 @@ import {
   confirmAsyncCurriculumImportAction,
   getCurriculumImportStatusAction,
   listCurriculumImportRowsAction,
+  publishImportedDraftChangesAction,
   resolveCurriculumImportRowAction,
   reviseCurriculumImportRowAction,
   retryAsyncCurriculumImportAction,
@@ -136,6 +138,9 @@ export function AsyncImportStatus({
   const [draft, setDraft] = useState<RowCorrectionDraft>(EMPTY_DRAFT);
   const [confirming, setConfirming] = useState(false);
   const [retrying, setRetrying] = useState(false);
+  const [publishingDrafts, setPublishingDrafts] = useState(false);
+  const [draftsPublishResult, setDraftsPublishResult] =
+    useState<BulkPublishDraftedItemsResult | null>(null);
   const [revising, setRevising] = useState(false);
   // Spec 25 §12 — "Keep Original" needs no server round trip (the warning is
   // purely advisory and never blocks anything); a client-only dismiss is
@@ -290,6 +295,22 @@ export function AsyncImportStatus({
     if (refreshed.ok && refreshed.data) setRecord(refreshed.data);
   }
 
+  /** Spec 25 §14.3 — a partial result (some items skipped) is the normal outcome, not an error; see `bulkPublishDraftedItems`'s own docstring. */
+  async function handlePublishDrafts() {
+    setPublishingDrafts(true);
+    setError(null);
+    const result = await publishImportedDraftChangesAction({
+      importId,
+      idempotencyKey: crypto.randomUUID(),
+    });
+    setPublishingDrafts(false);
+    if (!result.ok) {
+      setError(result.error.message);
+      return;
+    }
+    setDraftsPublishResult(result.data);
+  }
+
   const unresolvedCount = rows.filter(
     (row) =>
       (row.classification === "blocked" || row.classification === "move") &&
@@ -329,11 +350,45 @@ export function AsyncImportStatus({
             Import complete.
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            {record.createCount} created, {record.updateCount} updated,{" "}
+            {record.totalRows} row{record.totalRows === 1 ? "" : "s"} processed
+            — {record.createCount} created, {record.updateCount} updated,{" "}
             {record.moveCount} moved, {record.unchangedCount} unchanged
             {record.skippedCount > 0 ? `, ${record.skippedCount} skipped` : ""}.
             All newly created content is Pending.
           </p>
+          {/* Spec 25 §14.3 — bulk-publishing what the import itself drafted (never live-overwritten published content). New pending items already have their own existing bulk-publish path from the curriculum table. */}
+          {record.draftedItemIds && record.draftedItemIds.length > 0 ? (
+            <div className="mt-3 rounded-lg border border-border bg-background p-3">
+              {draftsPublishResult ? (
+                <p className="text-sm text-muted-foreground">
+                  Published {draftsPublishResult.publishedItemIds.length} item
+                  {draftsPublishResult.publishedItemIds.length === 1 ? "" : "s"}
+                  {draftsPublishResult.skippedItemIds.length > 0
+                    ? `; ${draftsPublishResult.skippedItemIds.length} no longer had a draft to publish`
+                    : ""}
+                  .
+                </p>
+              ) : (
+                <>
+                  <p className="text-sm text-foreground">
+                    {record.draftedItemIds.length} published item
+                    {record.draftedItemIds.length === 1 ? "" : "s"} now have
+                    draft changes.
+                  </p>
+                  <Button
+                    size="sm"
+                    className="mt-2"
+                    disabled={publishingDrafts}
+                    onClick={handlePublishDrafts}
+                  >
+                    {publishingDrafts
+                      ? "Publishing…"
+                      : "Publish All Eligible Imported Changes"}
+                  </Button>
+                </>
+              )}
+            </div>
+          ) : null}
           <Button asChild className="mt-3">
             <Link href="/admin/curriculum">View curriculum</Link>
           </Button>

@@ -35,6 +35,7 @@ export {
   mutateUsageContext,
   permanentlyDeleteCurriculumImport,
   previewVocabularyImport,
+  publishImportedDraftChanges,
   publishItem,
   reorderItems,
   reorderVocabularyGroups,
@@ -70,6 +71,7 @@ export type {
   ImportRowDecision,
   ImportRowPreview,
 } from "./bulk-import-service";
+export type { BulkPublishDraftedItemsResult } from "@/domains/curriculum";
 export type {
   ApplyDictionaryFieldsResult,
   ExampleMutation,

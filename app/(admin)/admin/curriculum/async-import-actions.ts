@@ -12,12 +12,14 @@ import {
   listArchivedCurriculumImportsForHistory,
   listCurriculumImportRowsForReview,
   permanentlyDeleteCurriculumImport,
+  publishImportedDraftChanges,
   resolveCurriculumImportRow,
   reviseCurriculumImportRow,
   retryCurriculumImport,
   unarchiveCurriculumImport,
 } from "@/domains/admin/server";
 import type {
+  BulkPublishDraftedItemsResult,
   CurriculumImportRecord,
   CurriculumImportRowsPage,
   CurriculumImportsPage,
@@ -189,6 +191,21 @@ export async function confirmAsyncCurriculumImportAction(
   return runAsyncImportAction(async (actorUserId) => {
     const { importId } = importIdSchema.parse(input);
     return confirmCurriculumImport({ importId, actorUserId });
+  });
+}
+
+const publishDraftsInputSchema = z.object({
+  importId: z.string().uuid(),
+  idempotencyKey: z.string().min(1),
+});
+
+/** Spec 25 §14.3 — "Publish All Eligible Imported Changes." A partial result (some items skipped because they no longer have a draft) is not an error — see `bulkPublishDraftedItems`'s own docstring. */
+export async function publishImportedDraftChangesAction(
+  input: z.infer<typeof publishDraftsInputSchema>,
+): Promise<ActionResult<BulkPublishDraftedItemsResult>> {
+  return runAsyncImportAction(async (actorUserId) => {
+    const parsed = publishDraftsInputSchema.parse(input);
+    return publishImportedDraftChanges({ ...parsed, actorUserId });
   });
 }
 

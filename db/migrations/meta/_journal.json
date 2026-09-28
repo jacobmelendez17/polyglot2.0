@@ -337,6 +337,13 @@
       "when": 1790625622314,
       "tag": "0047_add_spelling_warning",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1790630155341,
+      "tag": "0048_add_drafted_item_ids",
+      "breakpoints": true
     }
   ]
 }

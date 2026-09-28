@@ -168,3 +168,20 @@ export type BulkPublishPendingItemsInput = {
   learningItemIds: string[];
   actorUserId: string;
 };
+
+/**
+ * Spec 25 §14.3 — publishing an import's own drafted changes. Unlike
+ * {@link BulkPublishPendingItemsInput}, deliberately lenient rather than
+ * transactional: this runs an unknown amount of time after the import
+ * completed, so an item losing its draft in between (an admin published it
+ * by hand, or archived it) is an ordinary, expected outcome to skip, not a
+ * reason to fail the whole batch the import's own review screen offered.
+ */
+export type BulkPublishDraftedItemsInput = {
+  learningItemIds: string[];
+  actorUserId: string;
+};
+export type BulkPublishDraftedItemsResult = {
+  publishedItemIds: string[];
+  skippedItemIds: string[];
+};

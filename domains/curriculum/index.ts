@@ -51,6 +51,8 @@ export type {
   ArchiveLearningItemInput,
   BulkArchiveLearningItemsInput,
   BulkMoveLearningItemsInput,
+  BulkPublishDraftedItemsInput,
+  BulkPublishDraftedItemsResult,
   BulkPublishPendingItemsInput,
   CreateLearningItemInput,
   CreateLevelInput,

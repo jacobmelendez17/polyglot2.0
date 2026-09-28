@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import {
   DEVELOPER_ID,
   FIXTURE_LEVEL_NUMBER,
+  ITEM_GATO_ID,
   seedTestFixtures,
   VOCAB_GROUP_2_ID,
 } from "@/db/seed/test-fixtures";
@@ -368,6 +369,31 @@ describe("runCommitJob (spec 19 §11/§12/§14/§15)", () => {
       // markCurriculumImportStarted (the file read itself failed), so only
       // the successful retry actually incremented attempt_count.
       expect(afterRetry?.attemptCount).toBe(1);
+    });
+  });
+
+  it("records which published items landed in a draft, for spec 25 §14.3's bulk-publish-imported-changes summary", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      // gato is published in the fixture with no ipa yet — a genuine,
+      // real content change against a live item.
+      const csv =
+        `word,translation,level,group,ipa\n` +
+        `gato,cat,${LEVEL_NUMBER},${GROUP_NUMBER},/ˈɡato/\n`;
+      const { importId, storage } = await createAndPreview(tx, languageId, csv);
+
+      await confirmCurriculumImport(tx, {
+        importId,
+        actorUserId: DEVELOPER_ID,
+      });
+      await runCommitJob(tx, () => storage(), {
+        importId,
+        actorUserId: DEVELOPER_ID,
+      });
+
+      const after = await getCurriculumImportById(tx, importId);
+      expect(after?.status).toBe("completed");
+      expect(after?.draftedItemIds).toEqual([ITEM_GATO_ID]);
     });
   });
 });

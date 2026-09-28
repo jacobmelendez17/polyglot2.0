@@ -923,6 +923,23 @@ The approval must be deliberate and auditable.
 > canonical-lemma enrichment, no English-translation spellchecking, no
 > general per-field provenance model) — see `progress-tracker.md` for exactly
 > what's trimmed and why.
+>
+> Spec 25 Unit 7 (2026-09-28) closes the "bulk publish only covers pending
+> items, never drafts" gap flagged since Unit 1: a new `bulkPublishDraftedItems`
+> (`publication-service.ts`) publishes a batch of published items' drafted
+> changes, reusing `publishItem`'s own draft-promotion logic per item —
+> separate from, and not a replacement for, `bulkPublishPendingItems` (spec
+> 11), which stays strict/pending-only and untouched. Deliberately lenient
+> rather than transactional-all-or-nothing: an id that no longer has a draft
+> (published or archived by hand since) is skipped, not a batch failure — this
+> runs from an import's completed-summary screen an unbounded time after
+> commit, where that's the expected case. Which items to offer is read from a
+> new `curriculum_imports.drafted_item_ids` column, written once by the
+> commit job from `bulkImportVocabulary`'s own real result — this is the only
+> place that information can come from, since a newly _created_ item's id
+> never appears anywhere in the persisted per-row preview data (`resolvedLearningItemId`
+> is always `null` for a `create` row, which is written before the item
+> exists).
 
 ---
 

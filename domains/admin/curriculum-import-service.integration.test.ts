@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { DEVELOPER_ID, seedTestFixtures } from "@/db/seed/test-fixtures";
+import {
+  DEVELOPER_ID,
+  ITEM_GATO_ID,
+  seedTestFixtures,
+  VOCAB_GROUP_ID,
+} from "@/db/seed/test-fixtures";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
+import { getDraft } from "@/domains/curriculum/curriculum-mutation-repository";
 
 import { getAuditEvents } from "./audit-repository";
 import {
@@ -13,12 +19,14 @@ import {
   markCurriculumImportStarted,
   markCurriculumImportUploaded,
   permanentlyDeleteCurriculumImport,
+  publishImportedDraftChanges,
   recordCurriculumImportPreview,
   resolveCurriculumImportRow,
   reviseCurriculumImportRow,
   retryCurriculumImport,
   unarchiveCurriculumImport,
 } from "./curriculum-import-service";
+import { updateItem } from "./publication-service";
 import {
   getCurriculumImportById,
   getRowCorrections,
@@ -280,6 +288,99 @@ describe("curriculum import service (spec 19)", () => {
       await expect(retryCurriculumImport(tx, record.id)).rejects.toMatchObject({
         code: "CURRICULUM_VALIDATION_FAILED",
       });
+    });
+  });
+
+  it("publishImportedDraftChanges publishes exactly the drafted items a completed import recorded (spec 25 §14.3)", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      const record = await createImport(tx, languageId);
+      await markCurriculumImportUploaded(tx, record.id);
+      await markCurriculumImportPreviewStarted(tx, record.id);
+      await recordCurriculumImportPreview(tx, {
+        importId: record.id,
+        rows: [cleanRow],
+      });
+      await confirmCurriculumImport(tx, {
+        importId: record.id,
+        actorUserId: DEVELOPER_ID,
+      });
+      await markCurriculumImportStarted(tx, record.id);
+
+      // ITEM_GATO_ID is published in the fixture — a real draft, exactly
+      // what an import's own update/move row would have left behind.
+      await updateItem(tx, {
+        learningItemId: ITEM_GATO_ID,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+        type: "vocabulary",
+        fields: {
+          vocabularyGroupId: VOCAB_GROUP_ID,
+          term: "gato",
+          primaryMeaning: "cat (imported update)",
+          article: "el",
+          partOfSpeech: "noun",
+          acceptedAnswers: [],
+        },
+      });
+      expect(await getDraft(tx, ITEM_GATO_ID)).not.toBeNull();
+
+      await markCurriculumImportCompleted(tx, record.id, {
+        draftedItemIds: [ITEM_GATO_ID],
+      });
+
+      const result = await publishImportedDraftChanges(tx, {
+        importId: record.id,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+      });
+
+      expect(result).toEqual({
+        publishedItemIds: [ITEM_GATO_ID],
+        skippedItemIds: [],
+      });
+      expect(await getDraft(tx, ITEM_GATO_ID)).toBeNull();
+    });
+  });
+
+  it("publishImportedDraftChanges refuses on an import that isn't completed", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      const record = await createImport(tx, languageId);
+
+      await expect(
+        publishImportedDraftChanges(tx, {
+          importId: record.id,
+          actorUserId: DEVELOPER_ID,
+          idempotencyKey: crypto.randomUUID(),
+        }),
+      ).rejects.toMatchObject({ code: "CURRICULUM_VALIDATION_FAILED" });
+    });
+  });
+
+  it("publishImportedDraftChanges is a clean no-op when the import recorded no drafted items", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      const record = await createImport(tx, languageId);
+      await markCurriculumImportUploaded(tx, record.id);
+      await markCurriculumImportPreviewStarted(tx, record.id);
+      await recordCurriculumImportPreview(tx, {
+        importId: record.id,
+        rows: [cleanRow],
+      });
+      await confirmCurriculumImport(tx, {
+        importId: record.id,
+        actorUserId: DEVELOPER_ID,
+      });
+      await markCurriculumImportStarted(tx, record.id);
+      await markCurriculumImportCompleted(tx, record.id);
+
+      const result = await publishImportedDraftChanges(tx, {
+        importId: record.id,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+      });
+      expect(result).toEqual({ publishedItemIds: [], skippedItemIds: [] });
     });
   });
 

@@ -69,6 +69,7 @@ function toCurriculumImportRecord(
     skippedCount: row.skippedCount,
     previewVersion: row.previewVersion,
     confirmedPreviewVersion: row.confirmedPreviewVersion,
+    draftedItemIds: row.draftedItemIds,
     attemptCount: row.attemptCount,
     lastErrorCode: row.lastErrorCode,
     lastErrorSummary: row.lastErrorSummary,
@@ -357,6 +358,7 @@ export async function setStatus(
     lastErrorCode: string | null;
     lastErrorSummary: string | null;
     skippedCount: number;
+    draftedItemIds: string[];
   }> = {},
 ): Promise<void> {
   await db

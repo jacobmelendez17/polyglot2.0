@@ -2,6 +2,8 @@ import type { DbClient } from "@/db/client";
 import { AdminError } from "@/lib/errors/admin-errors";
 
 import { recordAuditEvent } from "./audit-repository";
+import { bulkPublishDraftedItems } from "./publication-service";
+import type { BulkPublishDraftedItemsResult } from "@/domains/curriculum";
 import {
   archiveCurriculumImport as repoArchiveCurriculumImport,
   countUnresolvedRows,
@@ -299,6 +301,50 @@ export async function reviseCurriculumImportRow(
   };
 }
 
+/**
+ * Spec 25 §14.3 — "Publish All Eligible Imported Changes." Reads the drafted
+ * item ids the commit itself recorded (`markCurriculumImportCompleted`) and
+ * hands them to `bulkPublishDraftedItems`, which re-verifies each one still
+ * has an active draft rather than trusting this possibly-stale list — see
+ * that function's own docstring for why a partial result here is the normal
+ * case, not an error. A no-op (nothing recorded, or nothing left to publish)
+ * returns cleanly rather than throwing; the caller decides whether that's
+ * worth telling the admin.
+ */
+export async function publishImportedDraftChanges(
+  db: DbClient,
+  {
+    importId,
+    actorUserId,
+    idempotencyKey,
+  }: { importId: string; actorUserId: string; idempotencyKey: string },
+): Promise<BulkPublishDraftedItemsResult> {
+  const importRecord = await getCurriculumImportById(db, importId);
+  if (!importRecord)
+    throw new AdminError(
+      "CURRICULUM_ITEM_NOT_FOUND",
+      "This import no longer exists.",
+    );
+  if (importRecord.status !== "completed") {
+    throw new AdminError(
+      "CURRICULUM_VALIDATION_FAILED",
+      `Only a completed import has changes to publish (status "${importRecord.status}").`,
+    );
+  }
+
+  const learningItemIds = importRecord.draftedItemIds ?? [];
+  if (learningItemIds.length === 0) {
+    return { publishedItemIds: [], skippedItemIds: [] };
+  }
+
+  return bulkPublishDraftedItems(db, {
+    learningItemIds,
+    actorUserId,
+    idempotencyKey,
+    correlationId: importId,
+  });
+}
+
 export async function markCurriculumImportStarted(
   db: DbClient,
   importId: string,
@@ -328,12 +374,18 @@ export async function markCurriculumImportStarted(
 export async function markCurriculumImportCompleted(
   db: DbClient,
   importId: string,
-  extra: { skippedCount?: number } = {},
+  extra: { skippedCount?: number; draftedItemIds?: string[] } = {},
 ): Promise<void> {
   await setStatus(db, importId, "completed", {
     completedAt: new Date(),
     ...(extra.skippedCount !== undefined
       ? { skippedCount: extra.skippedCount }
+      : {}),
+    // Spec 25 §14.3 — always set, even to an empty array, on a commit that
+    // actually wrote something: `null` should mean "this import predates
+    // Unit 7" (or wrote nothing at all), never "we forgot to record it."
+    ...(extra.draftedItemIds !== undefined
+      ? { draftedItemIds: extra.draftedItemIds }
       : {}),
   });
 }

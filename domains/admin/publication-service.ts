@@ -58,6 +58,8 @@ import type {
   ArchiveLearningItemInput,
   BulkArchiveLearningItemsInput,
   BulkMoveLearningItemsInput,
+  BulkPublishDraftedItemsInput,
+  BulkPublishDraftedItemsResult,
   BulkPublishPendingItemsInput,
   CreateLearningItemInput,
   CreateLevelInput,
@@ -1556,6 +1558,69 @@ export async function bulkPublishPendingItems(
         });
         invalidateCurriculumCache(locked.languageId);
       }
+    },
+  );
+}
+
+export type BulkPublishDraftedItemsServiceInput =
+  BulkPublishDraftedItemsInput & {
+    idempotencyKey: string;
+    /** Every audited publish carries this back to the import that drafted it (spec 25 §21's "published-after-import count"). Distinct from `idempotencyKey` — a retry of this same click must dedupe on the click, not on which import asked for it. */
+    correlationId: string;
+  };
+
+/**
+ * Spec 25 §14.3 — "Publish All Eligible Imported Changes." Reuses
+ * `publishItem`'s own draft-promotion branch, one item at a time inside one
+ * transaction, but — unlike {@link bulkPublishPendingItems} — never rejects
+ * the whole batch over one item that no longer qualifies. This runs from an
+ * import's completed-summary screen, an unbounded time after the import
+ * itself finished; an item that lost its draft in the meantime (published by
+ * hand, archived, or simply already published by an earlier click this
+ * retried) is skipped, not a batch failure — see the type's own docstring.
+ */
+export async function bulkPublishDraftedItems(
+  db: DbClient,
+  input: BulkPublishDraftedItemsServiceInput,
+): Promise<BulkPublishDraftedItemsResult> {
+  return withIdempotency(
+    db,
+    {
+      userId: input.actorUserId,
+      operation: "admin.curriculum.bulk-publish-drafted-items",
+      key: input.idempotencyKey,
+      payload: { learningItemIds: input.learningItemIds },
+    },
+    async (tx) => {
+      const result: BulkPublishDraftedItemsResult = {
+        publishedItemIds: [],
+        skippedItemIds: [],
+      };
+      for (const learningItemId of input.learningItemIds) {
+        const locked = await lockLearningItemForEdit(tx, learningItemId);
+        if (!locked || locked.status !== "published") {
+          result.skippedItemIds.push(learningItemId);
+          continue;
+        }
+        const draft = await getDraft(tx, learningItemId);
+        if (!draft) {
+          result.skippedItemIds.push(learningItemId);
+          continue;
+        }
+
+        await repoPublishDraft(tx, learningItemId, draft.data);
+        await recordAuditEvent(tx, {
+          actorUserId: input.actorUserId,
+          action: "CURRICULUM_ITEM_PUBLISHED",
+          resourceType: itemResourceType(locked.type),
+          resourceId: learningItemId,
+          beforeData: { version: locked.version },
+          correlationId: input.correlationId,
+        });
+        invalidateCurriculumCache(locked.languageId);
+        result.publishedItemIds.push(learningItemId);
+      }
+      return result;
     },
   );
 }

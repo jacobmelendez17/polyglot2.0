@@ -110,6 +110,17 @@ export const curriculumImports = pgTable(
     reviewCount: integer("review_count").notNull().default(0),
     skippedCount: integer("skipped_count").notNull().default(0),
 
+    // Spec 25 §14.3 — set once, by the commit job, from
+    // `bulkImportVocabulary`'s own real write result
+    // (`BulkImportVocabularyResult.draftedItemIds`) — the published items
+    // whose content this import changed, landing in a draft rather than
+    // live. Never recomputed afterward; `bulkPublishDraftedItems`
+    // (`publication-service.ts`) re-verifies each id still has an active
+    // draft at the moment an admin actually clicks "Publish All," so this
+    // list drifting stale (an item published or archived by hand since
+    // commit) is expected and handled there, not here.
+    draftedItemIds: jsonb("drafted_item_ids").$type<string[]>(),
+
     // Bumped each time a preview is (re)computed (initial preview, and any
     // re-preview forced by §12's commit-time revalidation). `confirmedPreviewVersion`
     // records which version the admin actually confirmed, so a commit job can

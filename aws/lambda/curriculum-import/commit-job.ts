@@ -140,6 +140,7 @@ export async function runCommitJob(
         approvedMove: approvedMoveRowNumbers.has(row.rowNumber),
       }));
 
+    let draftedItemIds: string[] = [];
     if (decisions.length > 0) {
       // One commit = one idempotency scope. `importId` is already a stable
       // UUID unique to this logical operation, reused across every retry of
@@ -152,6 +153,12 @@ export async function runCommitJob(
         idempotencyKey: importId,
         rows: decisions,
       });
+      // Spec 25 §14.3 — the real write's own record of what it drafted
+      // rather than a re-derivation, so this exactly matches what actually
+      // happened even on a retried commit (`bulkImportVocabulary` is itself
+      // idempotent, so a replay's `outcome` is the original one, not a
+      // second attempt's).
+      draftedItemIds = outcome.draftedItemIds;
 
       // Spec 19 §17 — dictionary matching follows successful curriculum
       // creation/update, vocabulary only, exactly like the old synchronous
@@ -177,6 +184,7 @@ export async function runCommitJob(
 
     await markCurriculumImportCompleted(db, importId, {
       skippedCount: skippedRowNumbers.size,
+      draftedItemIds,
     });
   } catch (error) {
     const fullMessage = describeErrorChain(error);

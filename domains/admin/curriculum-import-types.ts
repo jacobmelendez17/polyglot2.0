@@ -41,6 +41,8 @@ export type CurriculumImportRecord = {
   skippedCount: number;
   previewVersion: number;
   confirmedPreviewVersion: number | null;
+  /** Spec 25 §14.3 — the published items this import drafted (never live-overwritten), set once at commit completion. `null` before completion (or for an import that never reaches it). */
+  draftedItemIds: string[] | null;
   attemptCount: number;
   lastErrorCode: string | null;
   lastErrorSummary: string | null;

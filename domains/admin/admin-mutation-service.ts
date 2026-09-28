@@ -330,6 +330,16 @@ export async function reviseCurriculumImportRow(input: {
   });
 }
 
+/** Spec 25 §14.3's "Publish All Eligible Imported Changes" — rate limited as a publish action (`admin-publish`), matching `bulkPublishPendingItems`/`publishItem` above, not the lighter `admin-mutation` policy every other import-tracking action here uses. */
+export async function publishImportedDraftChanges(input: {
+  importId: string;
+  actorUserId: string;
+  idempotencyKey: string;
+}) {
+  await checkRateLimit("admin-publish", input.actorUserId);
+  return curriculumImport.publishImportedDraftChanges(db, input);
+}
+
 /**
  * Confirming persists the state-machine transition first (spec 19 §9's gate
  * — refuses if any row still needs a disposition), then enqueues the

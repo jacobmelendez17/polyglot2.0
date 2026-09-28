@@ -11,14 +11,20 @@ import {
   seedTestFixtures,
 } from "@/db/seed/test-fixtures";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
-import { lockLearningItemForEdit } from "@/domains/curriculum/curriculum-mutation-repository";
+import {
+  getDraft,
+  lockLearningItemForEdit,
+} from "@/domains/curriculum/curriculum-mutation-repository";
 
 import { getAuditEvents } from "./audit-repository";
 import {
+  archiveItem,
   bulkArchiveItems,
   bulkMoveItems,
+  bulkPublishDraftedItems,
   bulkPublishPendingItems,
   createItem,
+  updateItem,
 } from "./publication-service";
 
 function vocabFields(term: string, meaning: string) {
@@ -181,6 +187,89 @@ describe("bulkPublishPendingItems", () => {
       expect(
         (await lockLearningItemForEdit(tx, pending.learningItemId))?.status,
       ).toBe("pending");
+    });
+  });
+});
+
+describe("bulkPublishDraftedItems (spec 25 §14.3)", () => {
+  it("publishes every selected item's draft, skipping — not failing — an item with nothing to publish", async () => {
+    await withTestTransaction(async (tx) => {
+      await seedTestFixtures(tx);
+      const idempotencyKey = crypto.randomUUID();
+
+      // ITEM_GATO_ID is published in the fixture — draft a change onto it.
+      await updateItem(tx, {
+        learningItemId: ITEM_GATO_ID,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+        type: "vocabulary",
+        fields: vocabFields("gato", "cat (imported update)"),
+      });
+      // ITEM_CASA_ID is published too, but has no draft — the case a plain
+      // "update" or "move" row leaves behind (spec's own example: only
+      // *some* updated items end up drafted).
+      expect(await getDraft(tx, ITEM_CASA_ID)).toBeNull();
+
+      const result = await bulkPublishDraftedItems(tx, {
+        learningItemIds: [ITEM_GATO_ID, ITEM_CASA_ID],
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey,
+        correlationId: "import-1",
+      });
+
+      expect(result).toEqual({
+        publishedItemIds: [ITEM_GATO_ID],
+        skippedItemIds: [ITEM_CASA_ID],
+      });
+      expect(await getDraft(tx, ITEM_GATO_ID)).toBeNull();
+
+      const audit = await getAuditEvents(tx, {
+        action: "CURRICULUM_ITEM_PUBLISHED",
+        resourceId: ITEM_GATO_ID,
+        limit: 10,
+      });
+      expect(audit.items.some((e) => e.correlationId === "import-1")).toBe(
+        true,
+      );
+    });
+  });
+
+  it("skips a pending item (never published, so never drafted) and an archived one, without failing the batch", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId, level1Id } = await seedTestFixtures(tx);
+      const pending = await createItem(tx, {
+        languageId,
+        levelId: level1Id,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+        type: "vocabulary",
+        fields: vocabFields("silla", "chair"),
+      });
+      await archiveItem(tx, {
+        learningItemId: ITEM_AGUA_ID,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+      });
+
+      const result = await bulkPublishDraftedItems(tx, {
+        learningItemIds: [pending.learningItemId, ITEM_AGUA_ID],
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+        correlationId: "import-2",
+      });
+
+      expect(result.publishedItemIds).toEqual([]);
+      expect(result.skippedItemIds).toEqual([
+        pending.learningItemId,
+        ITEM_AGUA_ID,
+      ]);
+      // Neither status changed — a skip is a no-op, not a silent side effect.
+      expect(
+        (await lockLearningItemForEdit(tx, pending.learningItemId))?.status,
+      ).toBe("pending");
+      expect((await lockLearningItemForEdit(tx, ITEM_AGUA_ID))?.status).toBe(
+        "archived",
+      );
     });
   });
 });

@@ -1,0 +1,1 @@
+ALTER TABLE "curriculum_imports" ADD COLUMN "drafted_item_ids" jsonb;
