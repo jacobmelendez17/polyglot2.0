@@ -466,18 +466,19 @@ yet renders no section at all.
 
 ### Card Coloring
 
-An individual item card's accent color shows the **viewer's SRS progress**
-on that item (the legend's colors), not its content type — the section
-heading already says whether a card is grammar or vocabulary, and
-content-type and progress-state colors must remain visually distinct
-concepts. An item with no progress row uses a neutral, `--border-default`
-accent ("Not learned yet"), never a color implying it is inaccessible.
+Each card carries two independent accents, on two different edges, so
+content type and progress state (`ui-context.md`'s "these must remain
+visually distinct concepts") never blend into one color:
+
+- **Content type** — the fixed Vocabulary/Grammar invariant (`--learning-vocabulary`/`--learning-grammar`) on one edge (a card's left border in grid mode; a list row's left border in list mode). Always present, regardless of progress.
+- **SRS stage** — the viewer's real progress on that item on the other edge (a card's top border in grid mode; a small leading dot in list mode), using the legend's colors. An item with no progress row gets a **dashed**, neutral (`--border-default`) treatment rather than a solid color — "nothing recorded" must read as its own visual state, not a paler version of a real stage, or the legend appears to do nothing on a level nobody has started yet.
 
 There is deliberately no "Locked" state distinct from "Not learned yet":
 curriculum selection (Choose Group as You Go, in particular) does not
 actually lock a level's later groups from view, so a visual lock/unlock
 split would assert undocumented product behavior. Every group in an
-unlocked level renders fully.
+unlocked level renders fully — "dashed" communicates "not started", not
+"inaccessible".
 
 ---
 

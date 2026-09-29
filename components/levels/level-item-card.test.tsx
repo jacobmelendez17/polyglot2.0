@@ -46,13 +46,25 @@ describe("LevelItemCard", () => {
     );
   });
 
-  it("colors the accent by SRS stage, not content type (spec 26)", () => {
+  it("shows the viewer's real SRS stage as a solid top border", () => {
     render(<LevelItemCard item={{ ...VOCAB_ITEM, srsStage: "familiar_1" }} />);
     expect(screen.getByRole("link")).toHaveClass("border-t-srs-familiar");
   });
 
-  it("uses a neutral accent for an item that has not been learned yet", () => {
+  it("uses a dashed neutral top border for an item that has not been learned yet, not just a paler color", () => {
     render(<LevelItemCard item={VOCAB_ITEM} />);
-    expect(screen.getByRole("link")).toHaveClass("border-t-border");
+    const link = screen.getByRole("link");
+    expect(link).toHaveClass("border-t-border");
+    expect(link).toHaveClass("[border-top-style:dashed]");
+  });
+
+  it("keeps the fixed content-type accent on a different edge from stage color (ui-context.md's blue/red invariant)", () => {
+    render(<LevelItemCard item={VOCAB_ITEM} />);
+    expect(screen.getByRole("link")).toHaveClass("border-l-learning-vocabulary");
+
+    render(<LevelItemCard item={GRAMMAR_ITEM} />);
+    expect(
+      screen.getByRole("link", { name: "View y — and" }),
+    ).toHaveClass("border-l-learning-grammar");
   });
 });
