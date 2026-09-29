@@ -9,12 +9,14 @@ const VOCAB_ITEM: LevelCardItem = {
   itemType: "vocabulary",
   primary: "el gato",
   secondary: "cat",
+  srsStage: null,
 };
 const GRAMMAR_ITEM: LevelCardItem = {
   id: "y-id",
   itemType: "grammar",
   primary: "y",
   secondary: "and",
+  srsStage: null,
 };
 
 describe("LevelItemCard", () => {
@@ -42,5 +44,15 @@ describe("LevelItemCard", () => {
       "href",
       "/items/y-id",
     );
+  });
+
+  it("colors the accent by SRS stage, not content type (spec 26)", () => {
+    render(<LevelItemCard item={{ ...VOCAB_ITEM, srsStage: "familiar_1" }} />);
+    expect(screen.getByRole("link")).toHaveClass("border-t-srs-familiar");
+  });
+
+  it("uses a neutral accent for an item that has not been learned yet", () => {
+    render(<LevelItemCard item={VOCAB_ITEM} />);
+    expect(screen.getByRole("link")).toHaveClass("border-t-border");
   });
 });

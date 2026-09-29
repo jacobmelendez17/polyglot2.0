@@ -2,11 +2,21 @@ import Link from "next/link";
 
 import { cn } from "@/lib/utils";
 import type { LevelCardItem } from "@/domains/curriculum";
+import type { SrsStage } from "@/domains/srs";
 
-const CATEGORY_BORDER: Record<LevelCardItem["itemType"], string> = {
-  vocabulary: "border-l-learning-vocabulary",
-  grammar: "border-l-learning-grammar",
+/** Matches `LevelItemCard`'s stage coloring — see its docstring for why this replaced a content-type accent. */
+const STAGE_BORDER: Record<SrsStage, string> = {
+  beginner_1: "border-l-srs-beginner",
+  beginner_2: "border-l-srs-beginner",
+  beginner_3: "border-l-srs-beginner",
+  beginner_4: "border-l-srs-beginner",
+  familiar_1: "border-l-srs-familiar",
+  familiar_2: "border-l-srs-familiar",
+  intermediate: "border-l-srs-intermediate",
+  master: "border-l-srs-master",
+  fluent: "border-l-srs-fluent",
 };
+const NOT_LEARNED_BORDER = "border-l-border";
 
 type LevelItemListProps = {
   items: LevelCardItem[];
@@ -27,7 +37,7 @@ export function LevelItemList({ items }: LevelItemListProps) {
             aria-label={`View ${item.primary} — ${item.secondary}`}
             className={cn(
               "flex items-center justify-between gap-4 border-l-2 px-3 py-2.5 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
-              CATEGORY_BORDER[item.itemType],
+              item.srsStage ? STAGE_BORDER[item.srsStage] : NOT_LEARNED_BORDER,
             )}
           >
             <span className="font-medium text-foreground">{item.primary}</span>

@@ -5,8 +5,20 @@ import { LevelItemGrid } from "@/components/levels/level-item-grid";
 import type { LevelCardItem } from "@/domains/curriculum";
 
 const ITEMS: LevelCardItem[] = [
-  { id: "1", itemType: "vocabulary", primary: "gato", secondary: "cat" },
-  { id: "2", itemType: "vocabulary", primary: "perro", secondary: "dog" },
+  {
+    id: "1",
+    itemType: "vocabulary",
+    primary: "gato",
+    secondary: "cat",
+    srsStage: null,
+  },
+  {
+    id: "2",
+    itemType: "vocabulary",
+    primary: "perro",
+    secondary: "dog",
+    srsStage: null,
+  },
 ];
 
 describe("LevelItemGrid", () => {

@@ -1,7 +1,13 @@
 import { db } from "@/db/client";
 import { isVacationModeActive } from "@/domains/users/server";
+import {
+  getStageIndex,
+  LEVEL_UNLOCK_MINIMUM_STAGE,
+  SRS_STAGE_ORDER,
+} from "@/domains/srs";
 
 import * as repository from "./repository";
+import type { LevelUnlockBreakdown } from "./types";
 
 /**
  * Binds the real app database to the injectable repository (spec 08 §29).
@@ -68,4 +74,52 @@ export async function getLevelProgress(userId: string, levelId: string) {
 
 export async function getUnlockedLevels(userId: string, languageId: string) {
   return repository.getUnlockedLevels(db, userId, languageId);
+}
+
+export async function getProgressForItems(
+  userId: string,
+  learningItemIds: string[],
+) {
+  return repository.getProgressForItems(db, userId, learningItemIds);
+}
+
+/**
+ * Spec 26's Level page progress panel: Grammar and Vocabulary counted
+ * separately toward the same real unlock threshold
+ * (`LEVEL_UNLOCK_RATIO`/`LEVEL_UNLOCK_MINIMUM_STAGE`) the authoritative
+ * unlock check uses — never a display-only approximation of that ratio.
+ * The authoritative unlock check itself (`review-completion.ts`) is
+ * untouched and still counts the whole level in one combined ratio; this is
+ * a read model for display, not a second unlock decision.
+ */
+export async function getLevelUnlockBreakdown(
+  userId: string,
+  levelId: string,
+): Promise<LevelUnlockBreakdown> {
+  const qualifyingStages = SRS_STAGE_ORDER.slice(
+    getStageIndex(LEVEL_UNLOCK_MINIMUM_STAGE),
+  );
+
+  const [grammarTotal, grammarQualifying, vocabularyTotal, vocabularyQualifying] =
+    await Promise.all([
+      repository.countLevelGatingItems(db, levelId, "grammar"),
+      repository.countUserItemsAtOrAboveStageInLevel(db, {
+        userId,
+        levelId,
+        qualifyingStages,
+        itemType: "grammar",
+      }),
+      repository.countLevelGatingItems(db, levelId, "vocabulary"),
+      repository.countUserItemsAtOrAboveStageInLevel(db, {
+        userId,
+        levelId,
+        qualifyingStages,
+        itemType: "vocabulary",
+      }),
+    ]);
+
+  return {
+    grammar: { qualifying: grammarQualifying, total: grammarTotal },
+    vocabulary: { qualifying: vocabularyQualifying, total: vocabularyTotal },
+  };
 }

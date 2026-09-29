@@ -1,16 +1,19 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
 
+import { LevelContentFilter } from "@/components/levels/level-content-filter";
+import type { LevelContentFilterValue } from "@/components/levels/level-content-filter";
 import { LevelContentSection } from "@/components/levels/level-content-section";
 import { LevelEmptyState } from "@/components/levels/level-empty-state";
 import { LevelItemGrid } from "@/components/levels/level-item-grid";
 import { LevelItemList } from "@/components/levels/level-item-list";
+import { LevelStageLegend } from "@/components/levels/level-stage-legend";
 import {
   LevelViewControls,
   type LevelViewMode,
 } from "@/components/levels/level-view-controls";
-import type { LevelCardItem } from "@/domains/curriculum";
+import type { LevelCardItem, LevelLessonSection } from "@/domains/curriculum";
 
 const VIEW_MODE_STORAGE_KEY = "polyglot:levels-view-mode";
 const DEFAULT_VIEW_MODE: LevelViewMode = "normal";
@@ -75,57 +78,66 @@ function setStoredViewMode(mode: LevelViewMode) {
 
 type LevelContentViewProps = {
   grammar: LevelCardItem[];
-  vocabulary: LevelCardItem[];
+  lessons: LevelLessonSection[];
 };
 
 /**
- * Spec 10 §17-§22: the view-mode controls plus the Grammar/Vocabulary
- * sections they affect, as one client boundary. Display mode is
- * non-authoritative UI state (§22) — it never touches the URL/route and is
- * only ever read from `localStorage` as a per-viewer convenience, matching
- * code-standards.md's rule that browser storage may hold non-authoritative
- * UI state only.
- *
- * Reads the persisted mode via `useSyncExternalStore` (see the store
- * functions above) rather than a `useState` lazy initializer or a
- * `useEffect` that calls `setState` — both reproduce known problems
- * (respectively: a server/client hydration mismatch, since a `"use client"`
- * component still renders once on the server; and an ESLint
- * `react-hooks/set-state-in-effect` violation). `useSyncExternalStore` is
- * the primitive React provides for exactly this case and handles the
- * server/client reconciliation without a mismatch warning.
+ * Spec 26: the view-mode/filter controls, the stage-color legend, the flat
+ * Grammar section, and one collapsible section per vocabulary "Lesson", as
+ * one client boundary. Display mode and the type filter are both
+ * non-authoritative UI state — the filter never touches the URL or
+ * database, matching code-standards.md's rule that browser state may hold
+ * per-viewer UI convenience only.
  */
-export function LevelContentView({
-  grammar,
-  vocabulary,
-}: LevelContentViewProps) {
+export function LevelContentView({ grammar, lessons }: LevelContentViewProps) {
   const viewMode = useSyncExternalStore(
     subscribeToViewMode,
     getViewModeSnapshot,
     getViewModeServerSnapshot,
   );
+  const [filter, setFilter] = useState<LevelContentFilterValue>("all");
+
+  const showGrammar = filter !== "vocabulary";
+  const showVocabulary = filter !== "grammar";
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex justify-end">
-        <LevelViewControls value={viewMode} onChange={setStoredViewMode} />
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <LevelStageLegend />
+        <div className="flex items-center gap-2">
+          <LevelContentFilter value={filter} onChange={setFilter} />
+          <LevelViewControls value={viewMode} onChange={setStoredViewMode} />
+        </div>
       </div>
 
-      <LevelContentSection title="Grammar">
-        {grammar.length > 0 ? (
-          <LevelContentCollection items={grammar} viewMode={viewMode} />
-        ) : (
-          <LevelEmptyState message="No grammar items have been published for this level yet." />
-        )}
-      </LevelContentSection>
+      {showGrammar ? (
+        <LevelContentSection title="Grammar">
+          {grammar.length > 0 ? (
+            <LevelContentCollection items={grammar} viewMode={viewMode} />
+          ) : (
+            <LevelEmptyState message="No grammar items have been published for this level yet." />
+          )}
+        </LevelContentSection>
+      ) : null}
 
-      <LevelContentSection title="Vocabulary">
-        {vocabulary.length > 0 ? (
-          <LevelContentCollection items={vocabulary} viewMode={viewMode} />
+      {showVocabulary ? (
+        lessons.length > 0 ? (
+          lessons.map((lesson) => (
+            <LevelContentSection
+              key={lesson.groupId}
+              title={`Lesson ${lesson.lessonNumber} — ${lesson.name}`}
+              subtitle={`${lesson.items.length} word${lesson.items.length === 1 ? "" : "s"}`}
+              trailing={`${lesson.qualifyingCount} of ${lesson.items.length} at Familiar+`}
+            >
+              <LevelContentCollection items={lesson.items} viewMode={viewMode} />
+            </LevelContentSection>
+          ))
         ) : (
-          <LevelEmptyState message="No vocabulary items have been published for this level yet." />
-        )}
-      </LevelContentSection>
+          <LevelContentSection title="Vocabulary">
+            <LevelEmptyState message="No vocabulary items have been published for this level yet." />
+          </LevelContentSection>
+        )
+      ) : null}
     </div>
   );
 }

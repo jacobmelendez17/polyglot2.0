@@ -494,6 +494,8 @@ export async function applyItemProgressUpdate(
 export async function countLevelGatingItems(
   db: DbClient,
   levelId: string,
+  /** Spec 26's Level page needs separate Grammar/Vocabulary counts; the authoritative unlock check (unchanged) omits this and counts the whole level. */
+  itemType?: ReviewItemType,
 ): Promise<number> {
   const [row] = await db
     .select({ value: count() })
@@ -502,6 +504,7 @@ export async function countLevelGatingItems(
       and(
         eq(learningItems.levelId, levelId),
         eq(learningItems.status, "published"),
+        itemType ? eq(learningItems.type, itemType) : undefined,
       ),
     );
   return row?.value ?? 0;
@@ -523,7 +526,14 @@ export async function countUserItemsAtOrAboveStageInLevel(
     userId,
     levelId,
     qualifyingStages,
-  }: { userId: string; levelId: string; qualifyingStages: SrsStage[] },
+    itemType,
+  }: {
+    userId: string;
+    levelId: string;
+    qualifyingStages: SrsStage[];
+    /** Spec 26's Level page needs separate Grammar/Vocabulary counts; the authoritative unlock check (unchanged) omits this and counts the whole level. */
+    itemType?: ReviewItemType;
+  },
 ): Promise<number> {
   const [row] = await db
     .select({ value: count() })
@@ -537,9 +547,35 @@ export async function countUserItemsAtOrAboveStageInLevel(
         eq(userItemProgress.userId, userId),
         eq(learningItems.levelId, levelId),
         inArray(userItemProgress.srsStage, qualifyingStages),
+        itemType ? eq(learningItems.type, itemType) : undefined,
       ),
     );
   return row?.value ?? 0;
+}
+
+/**
+ * A level's items' progress for one user, in one batched query bounded by
+ * the level's own item count (never more than that) — spec 26's Level page
+ * needs every item's current stage to color its card, not just an
+ * aggregate count. Mirrors `countProgressForItems`'s shape/bounding, just
+ * returning full rows instead of a count.
+ */
+export async function getProgressForItems(
+  db: DbClient,
+  userId: string,
+  learningItemIds: string[],
+): Promise<ItemProgress[]> {
+  if (learningItemIds.length === 0) return [];
+  const rows = await db
+    .select()
+    .from(userItemProgress)
+    .where(
+      and(
+        eq(userItemProgress.userId, userId),
+        inArray(userItemProgress.learningItemId, learningItemIds),
+      ),
+    );
+  return rows.map(toItemProgress);
 }
 
 /**

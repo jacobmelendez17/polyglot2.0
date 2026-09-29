@@ -293,6 +293,30 @@ export async function getVocabularyGroupsByLanguage(
   return rows.map(toCurriculumVocabularyGroup);
 }
 
+/**
+ * A single level's vocabulary groups, ordered by position — the Level
+ * page's "Lesson N" sections (spec 26's redesign: a group's position *is*
+ * its lesson number, not a separate authored field).
+ *
+ * Not filtered by the group's own status: what a learner actually sees
+ * within a group is already governed by `getLevelItems`'s published-only
+ * default, so a draft/empty-of-published-items group simply renders an
+ * empty lesson section, which the view layer omits — the same "no content,
+ * no section" rule every other optional section on this page follows,
+ * rather than a second status check here.
+ */
+export async function getVocabularyGroupsByLevel(
+  db: DbClient,
+  levelId: string,
+): Promise<CurriculumVocabularyGroup[]> {
+  const rows = await db
+    .select()
+    .from(vocabularyGroups)
+    .where(eq(vocabularyGroups.levelId, levelId))
+    .orderBy(asc(vocabularyGroups.position));
+  return rows.map(toCurriculumVocabularyGroup);
+}
+
 export async function getLearningItem(
   db: DbClient,
   id: string,

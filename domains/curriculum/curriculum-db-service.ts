@@ -62,6 +62,10 @@ export async function getVocabularyGroupsByLanguage(languageId: string) {
   return repository.getVocabularyGroupsByLanguage(db, languageId);
 }
 
+export async function getVocabularyGroupsByLevel(levelId: string) {
+  return repository.getVocabularyGroupsByLevel(db, levelId);
+}
+
 export async function getLearningItem(id: string) {
   return repository.getLearningItem(db, id);
 }

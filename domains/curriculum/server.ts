@@ -34,6 +34,7 @@ export {
   getUsageContexts,
   getVocabularyGroup,
   getVocabularyGroupsByLanguage,
+  getVocabularyGroupsByLevel,
 } from "./curriculum-db-service";
 
 // Spec 18 — the composed item-detail read model. Server-only: it reaches

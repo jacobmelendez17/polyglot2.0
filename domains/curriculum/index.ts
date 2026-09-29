@@ -82,7 +82,11 @@ export {
   buildLevelViewModel,
   parseLevelNumber,
 } from "./level-view";
-export type { LevelCardItem, LevelViewModel } from "./level-view";
+export type {
+  LevelCardItem,
+  LevelLessonSection,
+  LevelViewModel,
+} from "./level-view";
 
 // Spec 13's bulk vocabulary import — column contract, size limits, and
 // row-shape validation, pure and database-free. `parseVocabularyImportFile`

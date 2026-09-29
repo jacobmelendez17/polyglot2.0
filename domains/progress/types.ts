@@ -31,3 +31,9 @@ export interface LevelProgress {
   unlockedAt: Date;
   completedAt: Date | null;
 }
+
+/** Spec 26's Level page progress panel — Grammar/Vocabulary counted separately toward the same real unlock threshold `domains/srs`'s `LEVEL_UNLOCK_RATIO` defines. A read model for display, not a second unlock decision. */
+export interface LevelUnlockBreakdown {
+  grammar: { qualifying: number; total: number };
+  vocabulary: { qualifying: number; total: number };
+}

@@ -427,6 +427,60 @@ Charts should match the soft visual language.
 
 ---
 
+## Level Page
+
+`/levels/[level]` (spec 10, extended by a 2026-09-29 redesign) identifies the
+level, shows the learner's real progress toward it, and lists its curriculum
+grouped the way it's actually taught.
+
+### Header
+
+Left: the level's admin-authored name when set (`levels.name` — omitted,
+never fabricated, when unset), "Level N", and a content-count line ("12
+grammar points · 48 words · 4 lessons") built from the level's real content,
+omitted entirely for an empty level.
+
+Right: a compact "Level progress" panel with one bar per content type
+(Grammar, Vocabulary), each toward the real unlock threshold
+(`domains/srs`'s `LEVEL_UNLOCK_RATIO`/`LEVEL_UNLOCK_MINIMUM_STAGE` — "Familiar
+1+", never a different or hardcoded fraction). A bar is omitted for a
+content type with no gating items in the level, rather than showing a
+meaningless `0/0`.
+
+### Stage Legend and Type Filter
+
+A small legend (colored dot + label) for "Not learned yet" and each SRS
+stage name, matching `SrsStageBadge`'s stage-name grouping — every Beginner
+sub-stage shares one color, both Familiar sub-stages share the next. Beside
+it, an "All / Grammar / Vocabulary" filter (ephemeral UI state, not
+persisted, never touching the URL).
+
+### Content Organization
+
+Grammar renders as one flat section, as before. Vocabulary is organized into
+one collapsible section per vocabulary group, titled "Lesson N — Group
+Name" — the group's `position` **is** the lesson number; this is not a
+separately authored field. Each lesson section shows its item count and how
+many of its items have reached Familiar+. A group with no published items
+yet renders no section at all.
+
+### Card Coloring
+
+An individual item card's accent color shows the **viewer's SRS progress**
+on that item (the legend's colors), not its content type — the section
+heading already says whether a card is grammar or vocabulary, and
+content-type and progress-state colors must remain visually distinct
+concepts. An item with no progress row uses a neutral, `--border-default`
+accent ("Not learned yet"), never a color implying it is inaccessible.
+
+There is deliberately no "Locked" state distinct from "Not learned yet":
+curriculum selection (Choose Group as You Go, in particular) does not
+actually lock a level's later groups from view, so a visual lock/unlock
+split would assert undocumented product behavior. Every group in an
+unlocked level renders fully.
+
+---
+
 ## Landing Page
 
 The landing page should be more expressive than the authenticated application.
