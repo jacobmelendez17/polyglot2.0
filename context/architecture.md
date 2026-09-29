@@ -972,6 +972,22 @@ The approval must be deliberate and auditable.
 > unit; a "sort" URL parameter has nothing to persist, since no dynamic sort
 > control exists anywhere in Admin (level/position/id order is fixed, an
 > explicit spec 11 Unit 3 decision).
+>
+> Spec 25 Unit 10 (2026-09-28) verifies, read-only, that the real Level 1
+> curriculum in the dev database round-trips cleanly through the whole spec
+> 25 pipeline: every item keeps its curriculum key and permanent id, real
+> learner progress/review history stay attached, and re-exporting the
+> current state and previewing it back through `previewVocabularyImport`
+> classifies every row "unchanged" (`scripts/verify-level1-migration.ts`,
+> re-runnable on demand). One real safety property was exercised for the
+> first time against real content rather than just read: a grammar item's
+> `explanation` has no CSV representation at all, so `importedValues()`
+> deliberately treats a parsed row's always-empty `explanation` as "say
+> nothing" rather than a value to diff — confirmed to actually protect a
+> real, hand-authored explanation already in Level 1, not merely assumed
+> safe from reading the code. `scripts/export-level-canonical-csv.ts` is a
+> minimal, one-off canonical-CSV exporter for this verification — not spec
+> §19's general, reusable Admin "Export" feature, which remains unbuilt.
 
 ---
 
