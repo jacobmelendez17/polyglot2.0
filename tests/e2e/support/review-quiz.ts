@@ -27,22 +27,25 @@ for (const { term, meaning, toEnglish, toSpanish } of REVIEW_TERMS) {
 
 /**
  * Answers every due review question correctly until the session is
- * complete ("Session complete!"). Spec 22's Review -> Progress flow uses a
- * correct answer path for the principal journey — penalty mathematics are
- * covered at lower test tiers, not here.
+ * complete ("You completed N review(s)"). Spec 22's Review -> Progress flow
+ * uses a correct answer path for the principal journey — penalty
+ * mathematics are covered at lower test tiers, not here.
+ *
+ * Matched by that summary line, not the completion heading itself — the
+ * heading is `congratulationsFor(languageCode)` (spec 20), a localized
+ * "Congratulations!" in whatever language was being studied, never a fixed
+ * English string.
  */
 export async function completeAllDueReviews(page: Page): Promise<void> {
   const answerInput = page.getByLabel("Your answer");
-  const completeHeading = page.getByRole("heading", {
-    name: "Session complete!",
-  });
+  const completeHeading = page.getByText(/You completed \d+ reviews?/);
 
   for (let attempt = 0; attempt < 20; attempt++) {
     // `isVisible()` is an instant, non-waiting check — right after the
     // previous iteration's "Continue" click, neither the next question nor
     // the completion screen has necessarily mounted yet, so it can read as
     // "session complete" mid-transition and return early (the calling spec
-    // then sees neither a due review nor "Session complete!"). Wait for
+    // then sees neither a due review nor the completion summary). Wait for
     // whichever of the two real end states actually appears instead.
     const state = await Promise.race([
       answerInput

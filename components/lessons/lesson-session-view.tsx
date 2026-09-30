@@ -13,22 +13,24 @@ import { useRouter } from "next/navigation";
 
 import {
   completeLessonAction,
+  getLessonItemDetailAction,
   openLessonItemAction,
   startQuizAction,
   submitQuizAnswerAction,
 } from "@/app/(focus)/lessons/actions";
 import { Button } from "@/components/ui/button";
-import { CategoryBadge } from "@/components/lessons/category-badge";
 import { ExitFocusButton } from "@/components/shared/exit-focus-button";
 import { ExitLessonDialog } from "@/components/lessons/exit-lesson-dialog";
+import { ItemDetailLayout } from "@/components/items/item-detail/item-detail-layout";
 import { LessonCompleteView } from "@/components/lessons/lesson-complete-view";
 import { LessonErrorState } from "@/components/lessons/lesson-error-state";
-import { LessonItemTabs } from "@/components/lessons/lesson-item-tabs";
 import {
   LessonProgressSegments,
   type ProgressSegmentItem,
 } from "@/components/lessons/lesson-progress-segments";
 import { QuizView } from "@/components/lessons/quiz-view";
+import { buildItemNavigation } from "@/domains/curriculum";
+import type { ItemDetailView } from "@/domains/curriculum";
 import type {
   ItemSegmentState,
   LessonCompletionSummary,
@@ -181,6 +183,16 @@ export function LessonSessionView({ initial }: LessonSessionViewProps) {
   const [isExitDialogOpen, setExitDialogOpen] = useState(false);
   const hasMarkedFirstItem = useRef(false);
 
+  // Spec 18's shared item presentation, fetched lazily per study item (the
+  // same one-at-a-time cadence `markViewed` already uses) rather than all
+  // upfront — a lesson batch can be several items, and only the one on
+  // screen is ever shown. Cached by id so navigating back to an earlier item
+  // never re-fetches it.
+  const [itemDetailById, setItemDetailById] = useState<
+    Record<string, ItemDetailView>
+  >({});
+  const fetchingItemIds = useRef(new Set<string>());
+
   const markViewed = useCallback(
     (itemId: string) => {
       startTransition(async () => {
@@ -252,6 +264,32 @@ export function LessonSessionView({ initial }: LessonSessionViewProps) {
     state.viewedItemIds,
     studyItems,
   ]);
+
+  // Spec 18's shared item presentation for whichever study item is on
+  // screen right now, fetched the same one-at-a-time way `markViewed`
+  // already is. Skipped once cached; guarded against a duplicate concurrent
+  // request for the same item (e.g. rapid Back/Next clicks).
+  useEffect(() => {
+    const itemId = studyItems[state.currentStudyIndex]?.itemId;
+    if (!itemId) return;
+    if (itemDetailById[itemId] || fetchingItemIds.current.has(itemId)) return;
+    fetchingItemIds.current.add(itemId);
+    startTransition(async () => {
+      const result = await getLessonItemDetailAction({
+        token: state.token,
+        itemId,
+      });
+      fetchingItemIds.current.delete(itemId);
+      if (!result.ok) {
+        dispatch({ type: "ERROR", error: result.error });
+        return;
+      }
+      setItemDetailById((current) => ({
+        ...current,
+        [itemId]: result.data.view,
+      }));
+    });
+  }, [itemDetailById, state.currentStudyIndex, state.token, studyItems]);
 
   /**
    * Spec 07 §49 — one idempotency key per logical completion, generated once
@@ -398,9 +436,28 @@ export function LessonSessionView({ initial }: LessonSessionViewProps) {
   }
 
   const currentItem = studyItems[state.currentStudyIndex];
+  const currentItemDetail = currentItem
+    ? itemDetailById[currentItem.itemId]
+    : undefined;
   const allViewed = batch.every((batchItem) =>
     state.viewedItemIds.includes(batchItem.itemId),
   );
+
+  function navigateToItem(itemId: string) {
+    const index = studyItems.findIndex((item) => item.itemId === itemId);
+    if (index !== -1) handleSelectStudyIndex(index);
+  }
+
+  // The hero's prev/next arrows move within this lesson's own item order
+  // only (spec 18: "in a lesson both cycle only through the active
+  // session's items and must never escape it"), never a level's full list.
+  const navigation = currentItem
+    ? buildItemNavigation(
+        studyItems.map((item) => item.itemId),
+        currentItem.itemId,
+        "This lesson",
+      )
+    : null;
 
   // Only meaningful during study — this is the item-selector segment row,
   // which no longer renders anywhere during the quiz (see QuizView).
@@ -419,19 +476,16 @@ export function LessonSessionView({ initial }: LessonSessionViewProps) {
   return (
     <>
       {/*
-       * A fixed `h-svh` (not `min-h-svh`) is load-bearing: it's what makes
-       * the middle region's `flex-1` actually cap its height so
-       * `overflow-y-auto` scrolls internally, instead of the whole page
-       * growing with the current item's content and dragging the footer
-       * along with it. `min-h-0` on that region overrides the flexbox
-       * default (a flex item's min-height otherwise resolves to its
-       * content's size, which would silently defeat the scroll). The
-       * footer is therefore always at the same fixed position on screen,
-       * regardless of how tall any given item's Details/Examples/Resources
-       * content is.
+       * Whole-page scroll, same as the item page — `ItemDetailShell`'s own
+       * sticky compact header and Back to Top are fixed relative to the
+       * viewport, not to some inner scroll container, so they only work
+       * correctly when the page itself is what scrolls. This bar stands in
+       * for the `AppHeader` the focus layout deliberately omits, at the
+       * same `--nav-h` so the shell's own sticky header sits flush beneath
+       * it rather than leaving a gap.
        */}
-      <div className="mx-auto flex h-svh max-w-3xl flex-col px-4">
-        <div className="flex shrink-0 items-center justify-between py-6">
+      <div className="sticky top-0 z-(--z-header) flex h-(--nav-h) items-center bg-background">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 sm:px-6">
           <ExitFocusButton
             label="Exit lesson"
             onClick={() => setExitDialogOpen(true)}
@@ -443,44 +497,30 @@ export function LessonSessionView({ initial }: LessonSessionViewProps) {
             </p>
           ) : null}
         </div>
+      </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          {currentItem ? (
-            <>
-              <header className="flex flex-col items-center gap-2 text-center">
-                <CategoryBadge itemType={currentItem.itemType} />
-                <h1 className="font-heading text-4xl font-semibold text-foreground">
-                  {currentItem.item.type === "vocabulary"
-                    ? currentItem.item.word
-                    : currentItem.item.structure}
-                </h1>
-                <p className="text-lg text-muted-foreground">
-                  {currentItem.item.type === "vocabulary"
-                    ? currentItem.item.meanings[0]
-                    : currentItem.item.meaning}
-                </p>
-              </header>
-
-              <div className="mt-8 pb-6">
-                <LessonItemTabs
-                  item={currentItem.item}
-                  languageCode={languageCode}
-                />
-              </div>
-            </>
-          ) : null}
-        </div>
-
-        <footer className="sticky bottom-0 flex shrink-0 flex-col gap-4 bg-background pt-4 pb-6">
-          <LessonProgressSegments
-            items={segments}
-            onSelect={(itemId) => {
-              const index = studyItems.findIndex(
-                (item) => item.itemId === itemId,
-              );
-              if (index !== -1) handleSelectStudyIndex(index);
-            }}
+      {currentItem ? (
+        currentItemDetail ? (
+          <ItemDetailLayout
+            view={currentItemDetail}
+            navigation={navigation}
+            languageCode={languageCode}
+            mode="lesson"
+            onNavigate={navigateToItem}
+            // Clears this screen's own fixed Back/Next footer, which the
+            // item page has no equivalent of.
+            backToTopBottomClassName="bottom-36 md:bottom-32"
           />
+        ) : (
+          <div className="flex min-h-[50vh] items-center justify-center">
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          </div>
+        )
+      ) : null}
+
+      <div className="sticky bottom-0 z-(--z-header) bg-background">
+        <footer className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 pt-4 pb-6 sm:px-6">
+          <LessonProgressSegments items={segments} onSelect={navigateToItem} />
           <div className="flex justify-between">
             <Button
               type="button"

@@ -27,9 +27,7 @@ test.describe("Progress persistence", () => {
     await makeVocabularyItemDue("gato", "beginner_2");
     await page.goto("/reviews");
     await completeAllDueReviews(page);
-    await expect(
-      page.getByRole("heading", { name: "Session complete!" }),
-    ).toBeVisible();
+    await expect(page.getByText(/You completed \d+ reviews?/)).toBeVisible();
 
     await page.goto("/dashboard");
     const dashboardText = await page.locator("body").innerText();

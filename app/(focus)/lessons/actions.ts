@@ -22,12 +22,16 @@ const uuidLike = z
 
 import {
   completeLesson,
+  getLessonItemDetail,
   openLessonItem,
   startQuiz,
   submitQuizAnswer,
 } from "@/domains/lessons/server";
 import type { LessonSessionResult } from "@/domains/lessons";
-import type { LessonCompletionResult } from "@/domains/lessons/server";
+import type {
+  LessonCompletionResult,
+  LessonItemDetail,
+} from "@/domains/lessons/server";
 import { listAvailableThemes } from "@/domains/lessons/server";
 import { GRAMMAR_THEME_ID } from "@/domains/users";
 import { requireUser, setCurriculumPreference } from "@/domains/users/server";
@@ -103,6 +107,21 @@ export async function openLessonItemAction(
     const { userId, languageId } = await requireLearner();
     const result = await openLessonItem({ token, userId, languageId, itemId });
     return { token: result.token, viewedItemIds: result.viewedItemIds };
+  });
+}
+
+/**
+ * Spec 18's shared item presentation, for the study screen. Same input
+ * shape as `openLessonItemAction`; the token proves the item belongs to the
+ * caller's own current lesson.
+ */
+export async function getLessonItemDetailAction(
+  input: z.infer<typeof openItemInputSchema>,
+): Promise<ActionResult<LessonItemDetail>> {
+  return runLessonAction(async () => {
+    const { token, itemId } = openItemInputSchema.parse(input);
+    const { userId, languageId } = await requireLearner();
+    return getLessonItemDetail({ token, userId, languageId, itemId });
   });
 }
 

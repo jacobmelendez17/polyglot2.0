@@ -40,9 +40,7 @@ test.describe("Review -> Progress", () => {
     await page.goto("/reviews");
     await completeAllDueReviews(page);
 
-    await expect(
-      page.getByRole("heading", { name: "Session complete!" }),
-    ).toBeVisible();
+    await expect(page.getByText(/You completed \d+ reviews?/)).toBeVisible();
 
     const [progress] = await withE2EDb((db) =>
       db

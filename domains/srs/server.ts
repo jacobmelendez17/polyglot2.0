@@ -6,6 +6,8 @@
  * rules only). See `domains/progress/server.ts` / `domains/curriculum/server.ts`
  * for the same pattern and why it exists.
  */
+export { getReviewItemDetail } from "./review-item-detail";
+export type { ReviewItemDetail } from "./review-item-detail";
 export {
   getReviewHistory,
   getReviewPreferences,

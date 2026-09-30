@@ -32,6 +32,8 @@ type ItemDetailLayoutProps = {
   now?: Date;
   hrefForItem?: (itemId: string) => string;
   onNavigate?: (itemId: string) => void;
+  /** Forwarded to `ItemDetailShell` — see its docstring. Lessons pass a taller offset to clear their own fixed Back/Next footer. */
+  backToTopBottomClassName?: string;
   /**
    * Admin editing controls, one per section (spec 18). Rendered directly
    * beneath the content each one edits rather than gathered into a toolbar.
@@ -76,12 +78,14 @@ export function ItemDetailLayout({
   now,
   hrefForItem,
   onNavigate,
+  backToTopBottomClassName,
   adminSlots,
 }: ItemDetailLayoutProps) {
   const sections = itemDetailSections(mode);
 
   return (
     <ItemDetailShell
+      backToTopBottomClassName={backToTopBottomClassName}
       hero={
         <ItemHero
           view={view}

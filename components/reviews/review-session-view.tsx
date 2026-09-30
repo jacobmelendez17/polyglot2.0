@@ -2,13 +2,18 @@
 
 import { useEffect, useReducer, useRef, useState, useTransition } from "react";
 
-import { submitReviewAnswerAction } from "@/app/(focus)/reviews/actions";
+import {
+  getReviewItemDetailAction,
+  submitReviewAnswerAction,
+} from "@/app/(focus)/reviews/actions";
+import { ItemDetailLayout } from "@/components/items/item-detail/item-detail-layout";
 import { ReviewCompletionView } from "@/components/reviews/review-completion-view";
 import { ReviewErrorState } from "@/components/reviews/review-error-state";
 import { ReviewExitDialog } from "@/components/reviews/review-exit-dialog";
 import { ReviewQuestionView } from "@/components/reviews/review-question-view";
 import { ReviewTopBar } from "@/components/reviews/review-top-bar";
 import { DEFAULT_REVIEW_PREFERENCES } from "@/domains/srs";
+import type { ItemDetailView } from "@/domains/curriculum";
 import type { ReviewSessionHistoryEntry } from "@/components/reviews/review-completion-view";
 import type {
   ReviewAnswerFeedback,
@@ -164,12 +169,24 @@ export function ReviewSessionView({ initial }: ReviewSessionViewProps) {
   const [isPending, startTransition] = useTransition();
   const [isExitDialogOpen, setExitDialogOpen] = useState(false);
 
+  // Spec 18's shared item presentation for a missed item — see `submit`'s
+  // own comment for why this is fetched only after a confirmed miss rather
+  // than speculatively alongside every submission. Keyed by item id and
+  // cleared on advance (below); `matchedItemDetail` in the render below also
+  // guards against it ever being shown for the wrong question.
+  const [itemDetail, setItemDetail] = useState<{
+    itemId: string;
+    view: ItemDetailView;
+    languageCode: string;
+  } | null>(null);
+
   function submit(
     submission:
       | { kind: "typed"; answer: string }
       | { kind: "self_graded"; knowsAnswer: boolean },
   ) {
     const questionId = state.currentQuestion?.questionId;
+    const itemId = state.currentQuestion?.itemId;
     if (!questionId) return;
     startTransition(async () => {
       const result = await submitReviewAnswerAction({
@@ -183,6 +200,31 @@ export function ReviewSessionView({ initial }: ReviewSessionViewProps) {
         return;
       }
       dispatch({ type: "ANSWER_SUBMITTED", result: result.data });
+
+      // Fetched only on an actual miss, and only after grading — not
+      // speculatively on every submit. Most answers are correct and never
+      // show this panel at all; firing this real, ~8-10-query composition
+      // unconditionally in parallel with grading measurably slowed down
+      // *every* submission in practice (caught by this session's own
+      // Review -> Progress E2E test — see progress-tracker.md), since it
+      // still costs real server/DB work even when its result is never
+      // awaited. The trade-off is a brief narrower `ItemInfoPanel` fallback
+      // (built from data the grading response already carries) until this
+      // resolves, rather than the two appearing perfectly atomically.
+      const feedback = result.data.feedback;
+      const isMiss =
+        feedback?.kind === "incorrect" ||
+        feedback?.kind === "self_graded_incorrect";
+      if (isMiss && itemId) {
+        getReviewItemDetailAction({
+          token: result.data.token,
+          itemId,
+        }).then((detailResult) => {
+          if (detailResult.ok) {
+            setItemDetail({ itemId, ...detailResult.data });
+          }
+        });
+      }
     });
   }
 
@@ -258,6 +300,16 @@ export function ReviewSessionView({ initial }: ReviewSessionViewProps) {
     );
   }
 
+  const isMiss =
+    state.feedback?.kind === "incorrect" ||
+    state.feedback?.kind === "self_graded_incorrect";
+  // Only ever paired with the currently-displayed (missed) question — see
+  // `itemDetail`'s own docstring for why this can otherwise be stale.
+  const matchedItemDetail =
+    isMiss && itemDetail?.itemId === state.currentQuestion?.itemId
+      ? itemDetail
+      : null;
+
   const remaining = state.stats.itemsTotal - state.stats.itemsCompleted;
   const progressPercent =
     state.stats.itemsTotal === 0
@@ -294,9 +346,13 @@ export function ReviewSessionView({ initial }: ReviewSessionViewProps) {
             isPending={isPending}
             reviewUiPreferences={reviewUiPreferences}
             completedItem={state.completedItem ?? undefined}
+            hasFullItemDetail={matchedItemDetail !== null}
             onSubmit={handleSubmitAnswer}
             onKnowsAnswer={handleKnowsAnswer}
-            onAdvance={() => dispatch({ type: "ADVANCE_QUESTION" })}
+            onAdvance={() => {
+              dispatch({ type: "ADVANCE_QUESTION" });
+              setItemDetail(null);
+            }}
           />
         ) : null}
 
@@ -310,6 +366,24 @@ export function ReviewSessionView({ initial }: ReviewSessionViewProps) {
           </p>
         ) : null}
       </div>
+
+      {/*
+       * Rendered as a full-width sibling of the `max-w-2xl` column above,
+       * not nested inside it — `ItemDetailShell`'s sticky compact header and
+       * Back to Top are fixed to the viewport and sized for the item page's
+       * own width, so nesting them inside a narrower ancestor would squeeze
+       * the scrollable content while the fixed header stayed full width.
+       */}
+      {matchedItemDetail ? (
+        <ItemDetailLayout
+          view={matchedItemDetail.view}
+          navigation={null}
+          languageCode={matchedItemDetail.languageCode}
+          mode="lesson"
+          // Clears this screen's own fixed miss/correct feedback footers.
+          backToTopBottomClassName="bottom-40 md:bottom-36"
+        />
+      ) : null}
 
       <ReviewExitDialog
         open={isExitDialogOpen}

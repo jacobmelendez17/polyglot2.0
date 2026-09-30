@@ -3,6 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { LessonSessionView } from "@/components/lessons/lesson-session-view";
+import type { ItemDetailView } from "@/domains/curriculum";
 import type { LessonSessionResult, QuizQuestionView } from "@/domains/lessons";
 
 const push = vi.fn();
@@ -14,6 +15,7 @@ const openLessonItemAction = vi.fn();
 const startQuizAction = vi.fn();
 const submitQuizAnswerAction = vi.fn();
 const completeLessonAction = vi.fn();
+const getLessonItemDetailAction = vi.fn();
 
 vi.mock("@/app/(focus)/lessons/actions", () => ({
   openLessonItemAction: (...args: unknown[]) => openLessonItemAction(...args),
@@ -21,7 +23,31 @@ vi.mock("@/app/(focus)/lessons/actions", () => ({
   submitQuizAnswerAction: (...args: unknown[]) =>
     submitQuizAnswerAction(...args),
   completeLessonAction: (...args: unknown[]) => completeLessonAction(...args),
+  getLessonItemDetailAction: (...args: unknown[]) =>
+    getLessonItemDetailAction(...args),
 }));
+
+/** Minimal valid `ItemDetailView` — the shared layout's own tests cover its content in depth; these tests only need a real heading to assert against. */
+function buildItemDetailView(itemId: string): ItemDetailView {
+  const headline = itemId === "vocab-gato" ? "gato" : "perro";
+  return {
+    itemId,
+    type: "vocabulary",
+    kindLabel: "Vocabulary Info",
+    headline,
+    translation: headline === "gato" ? "cat" : "dog",
+    levelNumber: 1,
+    cefrLevel: null,
+    details: [],
+    pronunciation: null,
+    synonyms: { official: [], personal: [] },
+    variations: { official: [], personal: [] },
+    about: { title: "Definition", body: null, blocks: [] },
+    patterns: [],
+    examples: [],
+    resources: [],
+  };
+}
 
 const speak = vi.fn();
 const cancel = vi.fn();
@@ -100,6 +126,14 @@ beforeEach(() => {
   startQuizAction.mockReset();
   submitQuizAnswerAction.mockReset();
   completeLessonAction.mockReset();
+  getLessonItemDetailAction.mockReset();
+  getLessonItemDetailAction.mockImplementation(
+    ({ itemId }: { itemId: string }) =>
+      Promise.resolve({
+        ok: true,
+        data: { view: buildItemDetailView(itemId), languageCode: "es-MX" },
+      }),
+  );
   speak.mockReset();
   cancel.mockReset();
 });

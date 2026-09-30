@@ -15,6 +15,13 @@ type ItemDetailShellProps = {
   headline: string;
   translation: string;
   sections: ItemDetailSectionId[];
+  /**
+   * Overrides Back to Top's resting position. The item page's own fixed
+   * `bottom-20 md:bottom-6` assumes nothing else occupies the bottom of the
+   * viewport; a caller with its own fixed/sticky bottom bar (a lesson's
+   * Back/Next footer) passes a taller offset so the two don't overlap.
+   */
+  backToTopBottomClassName?: string;
   children: ReactNode;
 };
 
@@ -48,6 +55,7 @@ export function ItemDetailShell({
   headline,
   translation,
   sections,
+  backToTopBottomClassName = "bottom-20 md:bottom-6",
   children,
 }: ItemDetailShellProps) {
   const heroRef = useRef<HTMLDivElement>(null);
@@ -192,7 +200,8 @@ export function ItemDetailShell({
         aria-hidden={isHeroVisible}
         tabIndex={isHeroVisible ? -1 : 0}
         className={cn(
-          "fixed right-4 bottom-20 z-30 inline-flex cursor-pointer items-center gap-2 rounded-full bg-primary px-4 py-2 text-base font-medium text-primary-foreground shadow-lg transition-opacity duration-(--dur-fast) md:bottom-6",
+          "fixed right-4 z-30 inline-flex cursor-pointer items-center gap-2 rounded-full bg-primary px-4 py-2 text-base font-medium text-primary-foreground shadow-lg transition-opacity duration-(--dur-fast)",
+          backToTopBottomClassName,
           "hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
           isHeroVisible ? "pointer-events-none opacity-0" : "opacity-100",
         )}

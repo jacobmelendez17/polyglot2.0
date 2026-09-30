@@ -74,6 +74,7 @@ function renderQuestion(
       characterHelpers={[]}
       isPending={false}
       reviewUiPreferences={REVIEW_UI_PREFERENCES}
+      hasFullItemDetail={false}
       onSubmit={() => {}}
       onKnowsAnswer={() => {}}
       onAdvance={() => {}}

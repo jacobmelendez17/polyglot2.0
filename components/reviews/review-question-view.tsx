@@ -26,6 +26,15 @@ type ReviewQuestionViewProps = {
   reviewUiPreferences: ReviewUiPreferences;
   /** Present only on the submit that just completed this item — spec 20 Review UI's Show SRS Stage renders it here when present. */
   completedItem?: ReviewItemCompletionPreview;
+  /**
+   * Spec 18's shared item presentation for the missed item, fetched in
+   * parallel with the answer submission — see `review-session-view.tsx`.
+   * `null` until it resolves (or if it never belonged to this question),
+   * during which the narrower `feedback.itemInfo` fallback below renders
+   * instead so a miss never shows nothing. Rendered by the parent as a
+   * full-width sibling, not here — see that same file for why.
+   */
+  hasFullItemDetail: boolean;
   onSubmit: (answer: string) => void;
   /** Spec 20 Reviews — Flashcard/Cloze (Flashcard): the learner's self-report after Reveal. */
   onKnowsAnswer: (knowsAnswer: boolean) => void;
@@ -59,6 +68,7 @@ function ReviewQuestionBody({
   isPending,
   reviewUiPreferences,
   completedItem,
+  hasFullItemDetail,
   onSubmit,
   onKnowsAnswer,
   onAdvance,
@@ -116,7 +126,9 @@ function ReviewQuestionBody({
       </div>
 
       {feedback && isMiss ? (
-        <ItemInfoPanel info={feedback.itemInfo} />
+        hasFullItemDetail ? null : (
+          <ItemInfoPanel info={feedback.itemInfo} />
+        )
       ) : (
         <>
           <ReviewHint hint={question.hint} autoExpand={autoExpandHint} />

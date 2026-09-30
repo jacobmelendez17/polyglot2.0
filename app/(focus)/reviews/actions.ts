@@ -3,7 +3,8 @@
 import { z } from "zod";
 
 import { requireUser } from "@/domains/users/server";
-import { submitReviewAnswer } from "@/domains/srs/server";
+import { getReviewItemDetail, submitReviewAnswer } from "@/domains/srs/server";
+import type { ReviewItemDetail } from "@/domains/srs/server";
 import type { ReviewSessionResult } from "@/domains/srs";
 import { AppError } from "@/lib/errors/app-error";
 import { ReviewError } from "@/lib/errors/review-errors";
@@ -81,6 +82,31 @@ const submitAnswerInputSchema = z.object({
     z.object({ kind: z.literal("self_graded"), knowsAnswer: z.boolean() }),
   ]),
 });
+
+const itemDetailInputSchema = z.object({
+  token: z.string().min(1),
+  itemId: z.string().min(1),
+});
+
+/**
+ * Spec 18's shared item presentation, for the miss-feedback panel. Called by
+ * the client in parallel with `submitReviewAnswerAction` for the question
+ * being answered — see `review-session-view.tsx` — not chained after it.
+ */
+export async function getReviewItemDetailAction(
+  input: z.infer<typeof itemDetailInputSchema>,
+): Promise<ActionResult<ReviewItemDetail>> {
+  return runReviewAction("reviews.getItemDetail", async () => {
+    const { token, itemId } = itemDetailInputSchema.parse(input);
+    const user = await requireUser();
+    return getReviewItemDetail({
+      token,
+      userId: user.id,
+      languageId: user.activeLanguageId,
+      itemId,
+    });
+  });
+}
 
 export async function submitReviewAnswerAction(
   input: z.infer<typeof submitAnswerInputSchema>,

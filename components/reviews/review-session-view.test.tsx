@@ -3,7 +3,27 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { ReviewSessionView } from "@/components/reviews/review-session-view";
+import type { ItemDetailView } from "@/domains/curriculum";
 import type { ReviewQuestionView, ReviewSessionResult } from "@/domains/srs";
+
+/** Minimal valid `ItemDetailView` — `ItemDetailLayout`'s own tests cover its content in depth. */
+const GATO_ITEM_DETAIL: ItemDetailView = {
+  itemId: "gato",
+  type: "vocabulary",
+  kindLabel: "Vocabulary Info",
+  headline: "el gato",
+  translation: "cat",
+  levelNumber: 1,
+  cefrLevel: null,
+  details: [],
+  pronunciation: null,
+  synonyms: { official: [], personal: [] },
+  variations: { official: [], personal: [] },
+  about: { title: "Definition", body: null, blocks: [] },
+  patterns: [],
+  examples: [],
+  resources: [],
+};
 
 vi.mock("canvas-confetti", () => ({ default: vi.fn() }));
 
@@ -13,9 +33,12 @@ vi.mock("next/navigation", () => ({
 }));
 
 const submitReviewAnswerAction = vi.fn();
+const getReviewItemDetailAction = vi.fn();
 vi.mock("@/app/(focus)/reviews/actions", () => ({
   submitReviewAnswerAction: (...args: unknown[]) =>
     submitReviewAnswerAction(...args),
+  getReviewItemDetailAction: (...args: unknown[]) =>
+    getReviewItemDetailAction(...args),
 }));
 
 const speak = vi.fn();
@@ -69,6 +92,15 @@ beforeEach(() => {
   push.mockReset();
   speak.mockReset();
   cancel.mockReset();
+  getReviewItemDetailAction.mockReset();
+  // Fetched in parallel with every submit (see review-session-view.tsx); these
+  // tests exercise the answer-feedback state machine, not the shared
+  // item-detail panel, so a rejection keeps the existing `ItemInfoPanel`
+  // fallback rendering — covered separately below.
+  getReviewItemDetailAction.mockResolvedValue({
+    ok: false,
+    error: { code: "ITEM_NOT_FOUND", message: "Not found." },
+  });
 });
 
 describe("ReviewSessionView", () => {
@@ -230,6 +262,61 @@ describe("ReviewSessionView", () => {
     // genuinely new question was never reached — the key should differ only once a
     // *different* question becomes current, which the advance above just did.
     expect(secondKey).not.toBe(firstKey);
+  });
+
+  it("replaces the narrow fallback panel with the shared item-detail layout once the parallel fetch resolves", async () => {
+    submitReviewAnswerAction.mockResolvedValue({
+      ok: true,
+      data: {
+        token: "t2",
+        sessionId: "session-1",
+        phase: "in_progress",
+        currentQuestion: GATO_TARGET_TO_ENGLISH,
+        characterHelpers: [],
+        stats: {
+          itemsTotal: 1,
+          itemsCompleted: 0,
+          questionsAttempted: 1,
+          questionsCorrect: 0,
+        },
+        feedback: {
+          kind: "incorrect",
+          reason: "no_match",
+          userAnswer: "dog",
+          expectedAnswer: "cat",
+          itemInfo: {
+            title: "cat",
+            meaning: "cat",
+            partOfSpeech: null,
+            pronunciation: null,
+            explanation: null,
+            note: null,
+            examples: [],
+          },
+        },
+      },
+    });
+    getReviewItemDetailAction.mockResolvedValue({
+      ok: true,
+      data: { view: GATO_ITEM_DETAIL, languageCode: "es-MX" },
+    });
+
+    const user = userEvent.setup();
+    render(<ReviewSessionView initial={INITIAL} />);
+
+    await user.type(
+      screen.getByRole("textbox", { name: "Your answer" }),
+      "dog{Enter}",
+    );
+
+    expect(getReviewItemDetailAction).toHaveBeenCalledWith(
+      expect.objectContaining({ itemId: "gato" }),
+    );
+    // The full shared layout's hero headline — proves ItemDetailLayout
+    // rendered, not the narrower ReviewItemInfo-based fallback panel.
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "el gato" })).toBeInTheDocument(),
+    );
   });
 
   it("shows a stale-completion notice inline and still advances, rather than blocking the session (spec 09 §11)", async () => {
