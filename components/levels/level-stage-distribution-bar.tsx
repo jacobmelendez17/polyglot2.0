@@ -33,6 +33,11 @@ type LevelStageDistributionBarProps = {
  * deliberately independent of `LevelProgressHeader`'s two "at Familiar 1+"
  * bars, which answer "how close is this level to unlocking the next one?"
  * Both stay, because they answer different questions from the same data.
+ * Rendered between the legend and Grammar in `LevelContentView`.
+ *
+ * Square corners on purpose (no `rounded-*`) — a pill shape doesn't align
+ * with the straight rectangular edges of the surrounding content area/card;
+ * this reads as a flush strip spanning the same width as everything else.
  *
  * Segment width is genuinely per-request dynamic data (a real item count),
  * so `flexGrow` is set via inline style rather than a Tailwind class —
@@ -55,7 +60,7 @@ export function LevelStageDistributionBar({
     <div
       role="img"
       aria-label={`Level progress by stage: ${summary}, out of ${total} items`}
-      className="flex h-2.5 w-full overflow-hidden rounded-full bg-muted"
+      className="flex h-2.5 w-full overflow-hidden bg-muted"
     >
       {SEGMENTS.map((segment) => {
         const count = distribution[segment.key];

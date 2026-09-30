@@ -447,11 +447,19 @@ Right: a compact "Level progress" panel with one bar per content type
 content type with no gating items in the level, rather than showing a
 meaningless `0/0`.
 
+### Stage Legend and Type Filter
+
+A small legend (colored dot + label) for "Locked", "In Lessons", and each
+SRS stage name — stage labels and grouping match `SrsStageBadge` exactly
+(every Beginner sub-stage shares one color, both Familiar sub-stages share
+the next). Beside it, an "All / Grammar / Vocabulary" filter (ephemeral UI
+state, not persisted, never touching the URL).
+
 ### Stage Distribution Bar
 
-Directly below the header and above the legend, one full-width horizontal
-bar answers a different question from the header's two bars: not "how close
-is this level to unlocking the next one," but "how is this level's progress
+Directly below the legend and above Grammar, one full-width horizontal bar
+answers a different question from the header's two bars: not "how close is
+this level to unlocking the next one," but "how is this level's progress
 actually distributed right now." It is segmented by count into the same
 seven buckets the legend shows (Locked, In Lessons, Beginner, Familiar,
 Intermediate, Master, Fluent) — every item in the level, grammar and
@@ -461,13 +469,9 @@ items yet. Both this bar and the header's two progress bars stay — they are
 deliberately different visualizations of the same underlying counts, not a
 duplicate of each other.
 
-### Stage Legend and Type Filter
-
-A small legend (colored dot + label) for "Locked", "In Lessons", and each
-SRS stage name — stage labels and grouping match `SrsStageBadge` exactly
-(every Beginner sub-stage shares one color, both Familiar sub-stages share
-the next). Beside it, an "All / Grammar / Vocabulary" filter (ephemeral UI
-state, not persisted, never touching the URL).
+Square corners, deliberately not a rounded pill — it spans edge to edge of
+the same content width every other row in this card uses, and a pill shape
+doesn't sit well against that mostly-rectangular, straight-edged layout.
 
 ### Content Organization
 

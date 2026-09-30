@@ -112,8 +112,6 @@ export function LevelContentView({
 
   return (
     <div className="flex flex-col gap-6">
-      <LevelStageDistributionBar distribution={stageDistribution} />
-
       <div className="flex flex-wrap items-center justify-between gap-4">
         <LevelStageLegend />
         <div className="flex items-center gap-2">
@@ -121,6 +119,8 @@ export function LevelContentView({
           <LevelViewControls value={viewMode} onChange={setStoredViewMode} />
         </div>
       </div>
+
+      <LevelStageDistributionBar distribution={stageDistribution} />
 
       {showGrammar ? (
         <LevelContentSection title="Grammar">
