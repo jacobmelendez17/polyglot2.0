@@ -13,11 +13,11 @@ const APP_NAV_LINKS = [
 
 export function AppHeader() {
   return (
-    <header className="site-header sticky top-0 z-(--z-header) h-(--nav-h) border-b border-border bg-background/95">
+    <header className="site-header sticky top-0 z-(--z-header) h-(--nav-h) border-b border-transparent bg-accent-primary-hover">
       <div className="mx-auto flex h-full w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
         <Link
           href="/dashboard"
-          className="font-heading text-2xl font-semibold text-foreground"
+          className="font-heading text-2xl font-semibold text-primary-foreground"
         >
           Polyglot
         </Link>
@@ -33,7 +33,7 @@ export function AppHeader() {
               <Link
                 key={link.href}
                 href={link.href}
-                className="text-base font-medium text-muted-foreground transition-colors hover:text-foreground"
+                className="text-base font-medium text-primary-foreground/75 transition-colors hover:text-primary-foreground"
               >
                 {link.label}
               </Link>

@@ -339,8 +339,8 @@ Layout:
 - Logo remains on the left.
 - Primary navigation remains on the right.
 - Profile may include avatar and active-language controls.
-- Keep navigation visually light and integrated with the notebook background.
-- Use a subtle bottom border/separator.
+- The header uses a solid `--accent-primary-hover` background (2026-09-30 revision — previously a light, translucent surface blending into the notebook background) — the same darker-green token the rest of the app already uses for primary-button hover states, so the header reads as a deliberate brand accent rather than a duplicate of `--accent-primary`. Wordmark and nav-link text use `--accent-foreground`/`text-primary-foreground` (full opacity for the wordmark and active/hover links, `/75` opacity for resting links) for contrast against it. The token adapts automatically across the Appearance Color Palette and dark mode — never hardcode the hex value.
+- No visible bottom border is needed once the header has its own solid color — the color change against the page background already marks the boundary.
 - Do not introduce a permanent desktop sidebar unless the product direction explicitly changes.
 
 ### Mobile Navigation
