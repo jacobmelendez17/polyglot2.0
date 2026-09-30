@@ -61,6 +61,32 @@ export type LevelLessonSection = {
   qualifyingCount: number;
 };
 
+/** One bucket per legend swatch (spec 26 follow-up) — every Beginner sub-stage folds into `beginner`, both Familiar sub-stages into `familiar`, matching `ui-context.md`'s stage-name grouping everywhere else on this page. */
+export type LevelStageDistribution = {
+  locked: number;
+  inLesson: number;
+  beginner: number;
+  familiar: number;
+  intermediate: number;
+  master: number;
+  fluent: number;
+};
+
+const STAGE_GROUP: Record<
+  SrsStage,
+  "beginner" | "familiar" | "intermediate" | "master" | "fluent"
+> = {
+  beginner_1: "beginner",
+  beginner_2: "beginner",
+  beginner_3: "beginner",
+  beginner_4: "beginner",
+  familiar_1: "familiar",
+  familiar_2: "familiar",
+  intermediate: "intermediate",
+  master: "master",
+  fluent: "fluent",
+};
+
 export type LevelViewModel = {
   grammar: LevelCardItem[];
   /** Ordered by lesson number. A group with no published items yet is omitted entirely — an empty lesson section is clutter, not information (spec 26 §22's "don't render empty sections" rule, applied here too). */
@@ -70,6 +96,8 @@ export type LevelViewModel = {
     vocabularyCount: number;
     lessonCount: number;
   };
+  /** Every item in the level (grammar + vocabulary combined), bucketed once by display state/stage — the stacked distribution bar's only data source. Never a second unlock calculation; see `qualifyingCount`/the header's progress bars for that. */
+  stageDistribution: LevelStageDistribution;
 };
 
 function toCardItem(
@@ -186,6 +214,21 @@ export function buildLevelViewModel(
     0,
   );
 
+  const stageDistribution: LevelStageDistribution = {
+    locked: 0,
+    inLesson: 0,
+    beginner: 0,
+    familiar: 0,
+    intermediate: 0,
+    master: 0,
+    fluent: 0,
+  };
+  for (const card of [...grammar, ...lessons.flatMap((lesson) => lesson.items)]) {
+    if (card.displayState === "locked") stageDistribution.locked += 1;
+    else if (card.displayState === "inLesson") stageDistribution.inLesson += 1;
+    else if (card.srsStage) stageDistribution[STAGE_GROUP[card.srsStage]] += 1;
+  }
+
   return {
     grammar,
     lessons,
@@ -194,5 +237,6 @@ export function buildLevelViewModel(
       vocabularyCount,
       lessonCount: lessons.length,
     },
+    stageDistribution,
   };
 }

@@ -85,7 +85,7 @@ export default async function LevelPage({ params }: LevelPageProps) {
   const progressByItemId = new Map<string, SrsStage>(
     progressRows.map((row) => [row.learningItemId, row.srsStage]),
   );
-  const { grammar, lessons, counts } = buildLevelViewModel(
+  const { grammar, lessons, counts, stageDistribution } = buildLevelViewModel(
     items,
     groups,
     progressByItemId,
@@ -102,7 +102,11 @@ export default async function LevelPage({ params }: LevelPageProps) {
             counts={counts}
             breakdown={breakdown}
           />
-          <LevelContentView grammar={grammar} lessons={lessons} />
+          <LevelContentView
+            grammar={grammar}
+            lessons={lessons}
+            stageDistribution={stageDistribution}
+          />
         </CardContent>
       </Card>
     </div>

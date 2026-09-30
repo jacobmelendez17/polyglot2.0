@@ -344,3 +344,87 @@ describe("buildLevelViewModel — display state (spec 26 follow-up)", () => {
     );
   });
 });
+
+describe("buildLevelViewModel — stage distribution (spec 26 follow-up)", () => {
+  it("buckets every item in the level — grammar and vocabulary combined — by display state or stage group", () => {
+    const result = buildLevelViewModel(
+      [
+        grammar("g1", 1), // no progress -> locked (grammar has no lesson grouping)
+        vocab("v1", 1, "group-1"), // familiar_1 -> familiar
+        vocab("v2", 2, "group-1"), // beginner_3 -> beginner
+        vocab("v3", 3, "group-1"), // no progress, group-1 not yet fully taught -> inLesson (active)
+        vocab("v4", 1, "group-2"), // no progress, group-2 comes after the still-active group-1 -> locked
+      ],
+      [group("group-1", 1), group("group-2", 2)],
+      new Map([
+        ["v1", "familiar_1" as SrsStage],
+        ["v2", "beginner_3" as SrsStage],
+      ]),
+    );
+
+    expect(result.stageDistribution).toEqual({
+      locked: 2, // g1, v4
+      inLesson: 1, // v3
+      beginner: 1, // v2
+      familiar: 1, // v1
+      intermediate: 0,
+      master: 0,
+      fluent: 0,
+    });
+  });
+
+  it("groups every Beginner/Familiar sub-stage into one bucket each, matching the legend", () => {
+    const result = buildLevelViewModel(
+      [
+        vocab("v1", 1, "group-1"),
+        vocab("v2", 2, "group-1"),
+        vocab("v3", 3, "group-1"),
+        vocab("v4", 4, "group-1"),
+        vocab("v5", 5, "group-1"),
+        vocab("v6", 6, "group-1"),
+      ],
+      [group("group-1", 1)],
+      new Map([
+        ["v1", "beginner_1" as SrsStage],
+        ["v2", "beginner_2" as SrsStage],
+        ["v3", "beginner_3" as SrsStage],
+        ["v4", "beginner_4" as SrsStage],
+        ["v5", "familiar_1" as SrsStage],
+        ["v6", "familiar_2" as SrsStage],
+      ]),
+    );
+
+    expect(result.stageDistribution.beginner).toBe(4);
+    expect(result.stageDistribution.familiar).toBe(2);
+  });
+
+  it("counts an unlearned item in the active lesson as 'inLesson', not 'locked'", () => {
+    const result = buildLevelViewModel(
+      [vocab("v1", 1, "group-1")],
+      [group("group-1", 1)],
+      NO_PROGRESS,
+    );
+    expect(result.stageDistribution).toEqual({
+      locked: 0,
+      inLesson: 1,
+      beginner: 0,
+      familiar: 0,
+      intermediate: 0,
+      master: 0,
+      fluent: 0,
+    });
+  });
+
+  it("returns every bucket at zero for a level with no published curriculum at all", () => {
+    const result = buildLevelViewModel([], [], NO_PROGRESS);
+    expect(result.stageDistribution).toEqual({
+      locked: 0,
+      inLesson: 0,
+      beginner: 0,
+      familiar: 0,
+      intermediate: 0,
+      master: 0,
+      fluent: 0,
+    });
+  });
+});

@@ -8,12 +8,17 @@ import { LevelContentSection } from "@/components/levels/level-content-section";
 import { LevelEmptyState } from "@/components/levels/level-empty-state";
 import { LevelItemGrid } from "@/components/levels/level-item-grid";
 import { LevelItemList } from "@/components/levels/level-item-list";
+import { LevelStageDistributionBar } from "@/components/levels/level-stage-distribution-bar";
 import { LevelStageLegend } from "@/components/levels/level-stage-legend";
 import {
   LevelViewControls,
   type LevelViewMode,
 } from "@/components/levels/level-view-controls";
-import type { LevelCardItem, LevelLessonSection } from "@/domains/curriculum";
+import type {
+  LevelCardItem,
+  LevelLessonSection,
+  LevelStageDistribution,
+} from "@/domains/curriculum";
 
 const VIEW_MODE_STORAGE_KEY = "polyglot:levels-view-mode";
 const DEFAULT_VIEW_MODE: LevelViewMode = "normal";
@@ -79,17 +84,22 @@ function setStoredViewMode(mode: LevelViewMode) {
 type LevelContentViewProps = {
   grammar: LevelCardItem[];
   lessons: LevelLessonSection[];
+  stageDistribution: LevelStageDistribution;
 };
 
 /**
- * Spec 26: the view-mode/filter controls, the stage-color legend, the flat
- * Grammar section, and one collapsible section per vocabulary "Lesson", as
- * one client boundary. Display mode and the type filter are both
- * non-authoritative UI state — the filter never touches the URL or
- * database, matching code-standards.md's rule that browser state may hold
- * per-viewer UI convenience only.
+ * Spec 26: the stage-distribution bar, the view-mode/filter controls, the
+ * stage-color legend, the flat Grammar section, and one collapsible section
+ * per vocabulary "Lesson", as one client boundary. Display mode and the
+ * type filter are both non-authoritative UI state — the filter never
+ * touches the URL or database, matching code-standards.md's rule that
+ * browser state may hold per-viewer UI convenience only.
  */
-export function LevelContentView({ grammar, lessons }: LevelContentViewProps) {
+export function LevelContentView({
+  grammar,
+  lessons,
+  stageDistribution,
+}: LevelContentViewProps) {
   const viewMode = useSyncExternalStore(
     subscribeToViewMode,
     getViewModeSnapshot,
@@ -102,6 +112,8 @@ export function LevelContentView({ grammar, lessons }: LevelContentViewProps) {
 
   return (
     <div className="flex flex-col gap-6">
+      <LevelStageDistributionBar distribution={stageDistribution} />
+
       <div className="flex flex-wrap items-center justify-between gap-4">
         <LevelStageLegend />
         <div className="flex items-center gap-2">

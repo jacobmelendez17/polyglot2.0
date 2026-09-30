@@ -447,6 +447,20 @@ Right: a compact "Level progress" panel with one bar per content type
 content type with no gating items in the level, rather than showing a
 meaningless `0/0`.
 
+### Stage Distribution Bar
+
+Directly below the header and above the legend, one full-width horizontal
+bar answers a different question from the header's two bars: not "how close
+is this level to unlocking the next one," but "how is this level's progress
+actually distributed right now." It is segmented by count into the same
+seven buckets the legend shows (Locked, In Lessons, Beginner, Familiar,
+Intermediate, Master, Fluent) — every item in the level, grammar and
+vocabulary combined, in one bar. A bucket with zero items renders no segment
+at all rather than a sliver; the whole bar is omitted for a level with no
+items yet. Both this bar and the header's two progress bars stay — they are
+deliberately different visualizations of the same underlying counts, not a
+duplicate of each other.
+
 ### Stage Legend and Type Filter
 
 A small legend (colored dot + label) for "Locked", "In Lessons", and each

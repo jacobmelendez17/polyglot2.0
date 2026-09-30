@@ -3,7 +3,11 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { LevelContentView } from "@/components/levels/level-content-view";
-import type { LevelCardItem, LevelLessonSection } from "@/domains/curriculum";
+import type {
+  LevelCardItem,
+  LevelLessonSection,
+  LevelStageDistribution,
+} from "@/domains/curriculum";
 
 const GRAMMAR: LevelCardItem[] = [
   {
@@ -33,6 +37,28 @@ const LESSONS: LevelLessonSection[] = [
     qualifyingCount: 0,
   },
 ];
+const DISTRIBUTION: LevelStageDistribution = {
+  locked: 1,
+  inLesson: 1,
+  beginner: 0,
+  familiar: 0,
+  intermediate: 0,
+  master: 0,
+  fluent: 0,
+};
+
+function renderView(
+  overrides: Partial<Parameters<typeof LevelContentView>[0]> = {},
+) {
+  return render(
+    <LevelContentView
+      grammar={GRAMMAR}
+      lessons={LESSONS}
+      stageDistribution={DISTRIBUTION}
+      {...overrides}
+    />,
+  );
+}
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -40,15 +66,13 @@ beforeEach(() => {
 
 describe("LevelContentView", () => {
   it("defaults to the normal grid", () => {
-    const { container } = render(
-      <LevelContentView grammar={GRAMMAR} lessons={LESSONS} />,
-    );
+    const { container } = renderView();
     expect(container.querySelector(".lg\\:grid-cols-8")).toBeInTheDocument();
   });
 
   it("switching to list mode renders list rows instead of the card grid, without touching which level is selected", async () => {
     const user = userEvent.setup();
-    render(<LevelContentView grammar={GRAMMAR} lessons={LESSONS} />);
+    renderView();
 
     await user.click(screen.getByRole("radio", { name: "List" }));
 
@@ -61,9 +85,7 @@ describe("LevelContentView", () => {
 
   it("switching to large mode changes the grid's layout", async () => {
     const user = userEvent.setup();
-    const { container } = render(
-      <LevelContentView grammar={GRAMMAR} lessons={LESSONS} />,
-    );
+    const { container } = renderView();
 
     await user.click(screen.getByRole("radio", { name: "Larger cards" }));
     expect(container.querySelector(".lg\\:grid-cols-6")).toBeInTheDocument();
@@ -71,20 +93,16 @@ describe("LevelContentView", () => {
 
   it("persists the chosen mode across remounts (a small per-viewer browser preference)", async () => {
     const user = userEvent.setup();
-    const { unmount } = render(
-      <LevelContentView grammar={GRAMMAR} lessons={LESSONS} />,
-    );
+    const { unmount } = renderView();
     await user.click(screen.getByRole("radio", { name: "Smaller cards" }));
     unmount();
 
-    const { container } = render(
-      <LevelContentView grammar={GRAMMAR} lessons={LESSONS} />,
-    );
+    const { container } = renderView();
     expect(container.querySelector(".lg\\:grid-cols-10")).toBeInTheDocument();
   });
 
   it("shows the empty-state message for a section with no items, and cards for the other", () => {
-    render(<LevelContentView grammar={[]} lessons={LESSONS} />);
+    renderView({ grammar: [] });
     expect(
       screen.getByText(
         "No grammar items have been published for this level yet.",
@@ -96,7 +114,7 @@ describe("LevelContentView", () => {
   });
 
   it("shows the vocabulary empty state when there are no lessons at all", () => {
-    render(<LevelContentView grammar={GRAMMAR} lessons={[]} />);
+    renderView({ lessons: [] });
     expect(
       screen.getByText(
         "No vocabulary items have been published for this level yet.",
@@ -105,7 +123,7 @@ describe("LevelContentView", () => {
   });
 
   it("renders each lesson as its own titled section with a Familiar+ count", () => {
-    render(<LevelContentView grammar={GRAMMAR} lessons={LESSONS} />);
+    renderView();
     expect(
       screen.getByRole("button", { name: /Lesson 1 — Home & Basics/ }),
     ).toBeInTheDocument();
@@ -115,7 +133,7 @@ describe("LevelContentView", () => {
 
   it("filters to only the selected content type", async () => {
     const user = userEvent.setup();
-    render(<LevelContentView grammar={GRAMMAR} lessons={LESSONS} />);
+    renderView();
 
     await user.click(screen.getByRole("radio", { name: "Grammar" }));
     expect(
@@ -130,5 +148,10 @@ describe("LevelContentView", () => {
     expect(
       screen.getByRole("button", { name: /Lesson 1/ }),
     ).toBeInTheDocument();
+  });
+
+  it("renders the stage-distribution bar summarizing all items", () => {
+    renderView();
+    expect(screen.getByRole("img", { name: /1 Locked/ })).toBeInTheDocument();
   });
 });
