@@ -84,6 +84,7 @@ export {
 } from "./level-view";
 export type {
   LevelCardItem,
+  LevelItemDisplayState,
   LevelLessonSection,
   LevelViewModel,
 } from "./level-view";

@@ -449,11 +449,11 @@ meaningless `0/0`.
 
 ### Stage Legend and Type Filter
 
-A small legend (colored dot + label) for "Not learned yet" and each SRS
-stage name, matching `SrsStageBadge`'s stage-name grouping — every Beginner
-sub-stage shares one color, both Familiar sub-stages share the next. Beside
-it, an "All / Grammar / Vocabulary" filter (ephemeral UI state, not
-persisted, never touching the URL).
+A small legend (colored dot + label) for "Locked", "In Lessons", and each
+SRS stage name — stage labels and grouping match `SrsStageBadge` exactly
+(every Beginner sub-stage shares one color, both Familiar sub-stages share
+the next). Beside it, an "All / Grammar / Vocabulary" filter (ephemeral UI
+state, not persisted, never touching the URL).
 
 ### Content Organization
 
@@ -466,19 +466,25 @@ yet renders no section at all.
 
 ### Card Coloring
 
-Each card carries two independent accents, on two different edges, so
-content type and progress state (`ui-context.md`'s "these must remain
-visually distinct concepts") never blend into one color:
+The whole card (or list row) fill carries meaning — not a thin edge accent —
+using one of three states (`domains/curriculum/level-view.ts`'s
+`LevelItemDisplayState`, computed once in the view model,
+`components/levels/level-item-style.ts` turning it into classes shared by
+grid and list mode):
 
-- **Content type** — the fixed Vocabulary/Grammar invariant (`--learning-vocabulary`/`--learning-grammar`) on one edge (a card's left border in grid mode; a list row's left border in list mode). Always present, regardless of progress.
-- **SRS stage** — the viewer's real progress on that item on the other edge (a card's top border in grid mode; a small leading dot in list mode), using the legend's colors. An item with no progress row gets a **dashed**, neutral (`--border-default`) treatment rather than a solid color — "nothing recorded" must read as its own visual state, not a paler version of a real stage, or the legend appears to do nothing on a level nobody has started yet.
+- **Learned** (has a real progress row) — filled solid with that item's real SRS stage color (the legend's Beginner→Fluent gradient), text color switching to light-on-dark for Master/Fluent's darker greens.
+- **In Lessons** — no progress yet, but the item belongs to the *active* lesson: the earliest vocabulary lesson (by group position) that hasn't been fully taught yet. A light, inviting accent tint with a solid accent border.
+- **Locked** — no progress, and either the item is grammar (which has no lesson grouping to be "active" in) or it belongs to a later, not-yet-reached lesson. A muted fill with a **dashed** border — dashed reads as "nothing here yet," not a low-contrast solid color a viewer has to already know to look for.
 
-There is deliberately no "Locked" state distinct from "Not learned yet":
-curriculum selection (Choose Group as You Go, in particular) does not
-actually lock a level's later groups from view, so a visual lock/unlock
-split would assert undocumented product behavior. Every group in an
-unlocked level renders fully — "dashed" communicates "not started", not
-"inaccessible".
+**A lesson counts as "fully taught" once every one of its items has *some*
+progress row** — the real fact that a lesson session enrolled its whole
+batch into SRS (architecture.md's Lesson Architecture), not a guess and not
+the Familiar+ unlock threshold (a lesson can be fully taught while every
+item is still at Beginner). This is a **display-sequencing convention for
+the Level page only**: it never gates, changes, or duplicates real lesson
+eligibility. A learner using "Choose Group as You Go" can still study any
+group next, and clicking straight through to any item's own page always
+works regardless of how its card is colored here.
 
 ---
 

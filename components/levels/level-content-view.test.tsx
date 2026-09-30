@@ -6,7 +6,14 @@ import { LevelContentView } from "@/components/levels/level-content-view";
 import type { LevelCardItem, LevelLessonSection } from "@/domains/curriculum";
 
 const GRAMMAR: LevelCardItem[] = [
-  { id: "y", itemType: "grammar", primary: "y", secondary: "and", srsStage: null },
+  {
+    id: "y",
+    itemType: "grammar",
+    primary: "y",
+    secondary: "and",
+    srsStage: null,
+    displayState: "locked",
+  },
 ];
 const LESSONS: LevelLessonSection[] = [
   {
@@ -20,6 +27,7 @@ const LESSONS: LevelLessonSection[] = [
         primary: "gato",
         secondary: "cat",
         srsStage: null,
+        displayState: "inLesson",
       },
     ],
     qualifyingCount: 0,

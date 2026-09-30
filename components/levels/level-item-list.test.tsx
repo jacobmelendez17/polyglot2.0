@@ -11,6 +11,7 @@ const ITEMS: LevelCardItem[] = [
     primary: "el gato",
     secondary: "cat",
     srsStage: "familiar_1",
+    displayState: "learned",
   },
   {
     id: "2",
@@ -18,6 +19,7 @@ const ITEMS: LevelCardItem[] = [
     primary: "el perro",
     secondary: "dog",
     srsStage: null,
+    displayState: "inLesson",
   },
   {
     id: "3",
@@ -25,6 +27,7 @@ const ITEMS: LevelCardItem[] = [
     primary: "y",
     secondary: "and",
     srsStage: null,
+    displayState: "locked",
   },
 ];
 
@@ -39,19 +42,14 @@ describe("LevelItemList", () => {
     expect(screen.getByText("cat")).toBeInTheDocument();
   });
 
-  it("shows each row's real SRS stage as a filled dot, and a dashed outline when not learned yet", () => {
+  it("fills each row with its real SRS stage, or the locked/in-lesson treatment", () => {
     render(<LevelItemList items={ITEMS} />);
     const rows = screen.getAllByRole("link");
-    const dot = (row: HTMLElement) => row.querySelector("span[aria-hidden]");
 
-    expect(dot(rows[0])).toHaveClass("bg-srs-familiar");
-    expect(dot(rows[1])).toHaveClass("border-dashed");
-  });
-
-  it("keeps the fixed content-type accent as the row's left border (ui-context.md's blue/red invariant)", () => {
-    render(<LevelItemList items={ITEMS} />);
-    const rows = screen.getAllByRole("link");
-    expect(rows[0]).toHaveClass("border-l-learning-vocabulary");
-    expect(rows[2]).toHaveClass("border-l-learning-grammar");
+    expect(rows[0]).toHaveClass("bg-srs-familiar");
+    expect(rows[1]).toHaveClass("border-primary/50");
+    expect(rows[1]).toHaveClass("bg-primary/10");
+    expect(rows[2]).toHaveClass("border-dashed");
+    expect(rows[2]).toHaveClass("bg-muted/40");
   });
 });

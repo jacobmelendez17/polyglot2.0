@@ -11,6 +11,7 @@ const ITEMS: LevelCardItem[] = [
     primary: "gato",
     secondary: "cat",
     srsStage: null,
+    displayState: "locked",
   },
   {
     id: "2",
@@ -18,6 +19,7 @@ const ITEMS: LevelCardItem[] = [
     primary: "perro",
     secondary: "dog",
     srsStage: null,
+    displayState: "locked",
   },
 ];
 

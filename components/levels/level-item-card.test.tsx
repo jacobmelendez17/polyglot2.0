@@ -10,6 +10,7 @@ const VOCAB_ITEM: LevelCardItem = {
   primary: "el gato",
   secondary: "cat",
   srsStage: null,
+  displayState: "locked",
 };
 const GRAMMAR_ITEM: LevelCardItem = {
   id: "y-id",
@@ -17,6 +18,7 @@ const GRAMMAR_ITEM: LevelCardItem = {
   primary: "y",
   secondary: "and",
   srsStage: null,
+  displayState: "locked",
 };
 
 describe("LevelItemCard", () => {
@@ -46,25 +48,37 @@ describe("LevelItemCard", () => {
     );
   });
 
-  it("shows the viewer's real SRS stage as a solid top border", () => {
-    render(<LevelItemCard item={{ ...VOCAB_ITEM, srsStage: "familiar_1" }} />);
-    expect(screen.getByRole("link")).toHaveClass("border-t-srs-familiar");
+  it("fills the whole card with the real SRS stage color once learned", () => {
+    render(
+      <LevelItemCard
+        item={{ ...VOCAB_ITEM, srsStage: "familiar_1", displayState: "learned" }}
+      />,
+    );
+    expect(screen.getByRole("link")).toHaveClass("bg-srs-familiar");
   });
 
-  it("uses a dashed neutral top border for an item that has not been learned yet, not just a paler color", () => {
-    render(<LevelItemCard item={VOCAB_ITEM} />);
+  it("uses a dashed, muted treatment for a locked item", () => {
+    render(<LevelItemCard item={{ ...VOCAB_ITEM, displayState: "locked" }} />);
     const link = screen.getByRole("link");
-    expect(link).toHaveClass("border-t-border");
-    expect(link).toHaveClass("[border-top-style:dashed]");
+    expect(link).toHaveClass("border-dashed");
+    expect(link).toHaveClass("bg-muted/40");
   });
 
-  it("keeps the fixed content-type accent on a different edge from stage color (ui-context.md's blue/red invariant)", () => {
-    render(<LevelItemCard item={VOCAB_ITEM} />);
-    expect(screen.getByRole("link")).toHaveClass("border-l-learning-vocabulary");
+  it("uses a light accent tint for an unlearned item in the active lesson", () => {
+    render(<LevelItemCard item={{ ...VOCAB_ITEM, displayState: "inLesson" }} />);
+    const link = screen.getByRole("link");
+    expect(link).toHaveClass("border-primary/50");
+    expect(link).toHaveClass("bg-primary/10");
+  });
 
-    render(<LevelItemCard item={GRAMMAR_ITEM} />);
-    expect(
-      screen.getByRole("link", { name: "View y — and" }),
-    ).toHaveClass("border-l-learning-grammar");
+  it("treats a learned item's stage as authoritative over its stored display state", () => {
+    // A defensive edge case: a real progress row always wins, regardless of
+    // what displayState says — see `level-item-style.ts`'s `levelItemStyle`.
+    render(
+      <LevelItemCard
+        item={{ ...VOCAB_ITEM, srsStage: "fluent", displayState: "locked" }}
+      />,
+    );
+    expect(screen.getByRole("link")).toHaveClass("bg-srs-fluent");
   });
 });

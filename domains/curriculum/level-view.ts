@@ -27,6 +27,18 @@ export function parseLevelNumber(raw: string): number | null {
   return value;
 }
 
+/**
+ * A card's presentation bucket, derived once here rather than re-derived per
+ * component. `learned` is simply "has a real progress row." `inLesson` and
+ * `locked` both mean "no progress yet" — they exist only for vocabulary,
+ * which is grouped into lessons and therefore has a well-defined "which
+ * lesson is next" (see `buildLevelViewModel`'s docstring for exactly what
+ * that means and doesn't mean); grammar has no such grouping, so an
+ * unlearned grammar item is always `locked` — a plain "nothing recorded
+ * yet," never a claim that any lesson is inaccessible.
+ */
+export type LevelItemDisplayState = "learned" | "inLesson" | "locked";
+
 export type LevelCardItem = {
   id: string;
   itemType: "vocabulary" | "grammar";
@@ -34,8 +46,9 @@ export type LevelCardItem = {
   primary: string;
   /** Smaller, muted text beneath — the English meaning/short description. */
   secondary: string;
-  /** The viewer's current SRS stage for this item, or `null` when not yet learned (spec 26's per-card stage color). Never a fabricated "locked" state — see `buildLevelViewModel`'s docstring. */
+  /** The viewer's current SRS stage for this item, or `null` when not yet learned. */
   srsStage: SrsStage | null;
+  displayState: LevelItemDisplayState;
 };
 
 /** One vocabulary group rendered as a "Lesson N" section (spec 26) — a group's position *is* its lesson number, not a separately authored field. */
@@ -62,6 +75,7 @@ export type LevelViewModel = {
 function toCardItem(
   item: CurriculumLearningItem,
   srsStage: SrsStage | null,
+  displayState: LevelItemDisplayState,
 ): LevelCardItem {
   if (item.type === "vocabulary") {
     const { term, article, primaryMeaning } = item.vocabulary;
@@ -72,6 +86,7 @@ function toCardItem(
       primary: article ? `${article} ${term}` : term,
       secondary: primaryMeaning,
       srsStage,
+      displayState,
     };
   }
 
@@ -81,6 +96,7 @@ function toCardItem(
     primary: item.grammar.structure,
     secondary: item.grammar.primaryMeaning,
     srsStage,
+    displayState,
   };
 }
 
@@ -93,14 +109,20 @@ function toCardItem(
  * (spec 10 §36); `progressByItemId` is looked up, never queried, keeping
  * this module database-free like `item-detail-view.ts`.
  *
- * Every item without a `progressByItemId` entry renders as "not learned
- * yet" (`srsStage: null`) — spec 26's redesign describes a mockup with
- * separate "Locked" and "In lessons" states for such items, implying groups
- * unlock in sequence. That isn't how curriculum selection actually works
- * (Choose Group as You Go lets a learner pick any group; Default Order and
- * Variety don't lock later groups from view either), so inventing a
- * lock/unlock split here would be undocumented product behavior. Every
- * group's items render fully; only real SRS stage is ever colored.
+ * **What `inLesson`/`locked` do and do not mean.** A vocabulary lesson is
+ * "fully taught" once every one of its items has *some* progress row — that
+ * is a real, already-true fact the moment a lesson session enrolls a batch
+ * into SRS (architecture.md's Lesson Architecture), not a guess. The
+ * "active" lesson is the earliest lesson (by position) that isn't fully
+ * taught yet; its still-unlearned items display as `inLesson`, and every
+ * later lesson's unlearned items display as `locked`. This is a *display
+ * sequencing convention* for the Level page only — it does not change,
+ * gate, or duplicate real lesson eligibility. A learner using "Choose Group
+ * as You Go" can still study any group next; clicking straight through to
+ * any item's page still works regardless of this coloring. Grammar has no
+ * grouping to hang this on, so an unlearned grammar item is always
+ * `locked` — meaning only "nothing recorded yet," same as vocabulary's own
+ * `locked` cards.
  */
 export function buildLevelViewModel(
   items: CurriculumLearningItem[],
@@ -108,29 +130,49 @@ export function buildLevelViewModel(
   progressByItemId: ReadonlyMap<string, SrsStage>,
 ): LevelViewModel {
   const grammar: LevelCardItem[] = [];
-  const vocabularyByGroup = new Map<string, LevelCardItem[]>();
+  const vocabularyByGroup = new Map<
+    string,
+    Extract<CurriculumLearningItem, { type: "vocabulary" }>[]
+  >();
 
   for (const item of items) {
-    const card = toCardItem(item, progressByItemId.get(item.id) ?? null);
     if (item.type === "grammar") {
-      grammar.push(card);
-    } else {
-      const groupId = item.vocabulary.vocabularyGroupId;
-      const existing = vocabularyByGroup.get(groupId);
-      if (existing) existing.push(card);
-      else vocabularyByGroup.set(groupId, [card]);
+      const srsStage = progressByItemId.get(item.id) ?? null;
+      grammar.push(toCardItem(item, srsStage, srsStage ? "learned" : "locked"));
+      continue;
     }
+    const groupId = item.vocabulary.vocabularyGroupId;
+    const existing = vocabularyByGroup.get(groupId);
+    if (existing) existing.push(item);
+    else vocabularyByGroup.set(groupId, [item]);
   }
+
+  // The first group (in position order) that has any item without a
+  // progress row yet — every group before it, if any, is fully taught by
+  // construction. `undefined` means every group is fully taught.
+  const activeGroupId = groups.find((group) =>
+    (vocabularyByGroup.get(group.id) ?? []).some(
+      (item) => !progressByItemId.has(item.id),
+    ),
+  )?.id;
 
   const lessons: LevelLessonSection[] = groups
     .map((group) => {
-      const items = vocabularyByGroup.get(group.id) ?? [];
+      const cards = (vocabularyByGroup.get(group.id) ?? []).map((item) => {
+        const srsStage = progressByItemId.get(item.id) ?? null;
+        const displayState: LevelItemDisplayState = srsStage
+          ? "learned"
+          : group.id === activeGroupId
+            ? "inLesson"
+            : "locked";
+        return toCardItem(item, srsStage, displayState);
+      });
       return {
         groupId: group.id,
         lessonNumber: group.position,
         name: group.name,
-        items,
-        qualifyingCount: items.filter(
+        items: cards,
+        qualifyingCount: cards.filter(
           (item) =>
             item.srsStage !== null &&
             isStageAtLeast(item.srsStage, LEVEL_UNLOCK_MINIMUM_STAGE),

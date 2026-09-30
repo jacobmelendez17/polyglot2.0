@@ -200,6 +200,7 @@ describe("buildLevelViewModel", () => {
       primary: "el gato",
       secondary: "cat",
       srsStage: null,
+      displayState: "inLesson",
     });
   });
 
@@ -225,6 +226,7 @@ describe("buildLevelViewModel", () => {
       primary: "structure-y",
       secondary: "meaning-y",
       srsStage: null,
+      displayState: "locked",
     });
   });
 
@@ -262,5 +264,83 @@ describe("buildLevelViewModel", () => {
       vocabularyCount: 1,
       lessonCount: 1,
     });
+  });
+});
+
+describe("buildLevelViewModel — display state (spec 26 follow-up)", () => {
+  it("marks every unlearned grammar item locked — grammar has no lesson grouping to be 'active' in", () => {
+    const result = buildLevelViewModel([grammar("g1", 1)], [], NO_PROGRESS);
+    expect(result.grammar[0].displayState).toBe("locked");
+  });
+
+  it("marks a learned item 'learned' regardless of its lesson's position", () => {
+    const result = buildLevelViewModel(
+      [vocab("v1", 1, "group-2"), vocab("v2", 1, "group-1")],
+      [group("group-1", 1), group("group-2", 2)],
+      new Map([["v1", "familiar_1" as SrsStage]]),
+    );
+    const lesson2 = result.lessons.find((l) => l.groupId === "group-2");
+    expect(lesson2?.items[0].displayState).toBe("learned");
+  });
+
+  it("marks the first lesson's unlearned items 'inLesson' when nothing has been learned yet", () => {
+    const result = buildLevelViewModel(
+      [vocab("v1", 1, "group-1"), vocab("v2", 1, "group-2")],
+      [group("group-1", 1), group("group-2", 2)],
+      NO_PROGRESS,
+    );
+    const lesson1 = result.lessons.find((l) => l.groupId === "group-1");
+    const lesson2 = result.lessons.find((l) => l.groupId === "group-2");
+    expect(lesson1?.items[0].displayState).toBe("inLesson");
+    expect(lesson2?.items[0].displayState).toBe("locked");
+  });
+
+  it("advances the active lesson only once every item in the earlier lesson has entered SRS — not merely reached Familiar+", () => {
+    // group-1 fully entered SRS (every item has a progress row) even though
+    // none have reached Familiar+ yet — the real "lesson enrolled a batch"
+    // fact, not the unlock-ratio threshold.
+    const result = buildLevelViewModel(
+      [
+        vocab("v1", 1, "group-1"),
+        vocab("v2", 2, "group-1"),
+        vocab("v3", 1, "group-2"),
+      ],
+      [group("group-1", 1), group("group-2", 2)],
+      new Map([
+        ["v1", "beginner_1" as SrsStage],
+        ["v2", "beginner_2" as SrsStage],
+      ]),
+    );
+    const lesson2 = result.lessons.find((l) => l.groupId === "group-2");
+    expect(lesson2?.items[0].displayState).toBe("inLesson");
+  });
+
+  it("keeps a later lesson locked while an earlier lesson still has any untaught item", () => {
+    const result = buildLevelViewModel(
+      [
+        vocab("v1", 1, "group-1"),
+        vocab("v2", 2, "group-1"),
+        vocab("v3", 1, "group-2"),
+      ],
+      [group("group-1", 1), group("group-2", 2)],
+      // v2 (group-1) still has no progress row at all.
+      new Map([["v1", "familiar_1" as SrsStage]]),
+    );
+    const lesson2 = result.lessons.find((l) => l.groupId === "group-2");
+    expect(lesson2?.items[0].displayState).toBe("locked");
+  });
+
+  it("leaves no lesson 'inLesson' once the entire level has been fully taught", () => {
+    const result = buildLevelViewModel(
+      [vocab("v1", 1, "group-1"), vocab("v2", 1, "group-2")],
+      [group("group-1", 1), group("group-2", 2)],
+      new Map([
+        ["v1", "fluent" as SrsStage],
+        ["v2", "master" as SrsStage],
+      ]),
+    );
+    expect(result.lessons.every((l) => l.items[0].displayState === "learned")).toBe(
+      true,
+    );
   });
 });
