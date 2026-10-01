@@ -129,28 +129,46 @@ export function isCurriculumChoiceRequired(
  * Whether Choose Group as You Go still needs a group chosen before a lesson
  * can be built.
  *
- * Two independent conditions, both required (user decision, 2026-09-23):
+ * One condition (simplified 2026-10-01, see below): **there must be a real
+ * choice to make** — more than one group with anything left to study. A
+ * single remaining group is nothing to choose between, so this returns
+ * `false` regardless of anything else ("unless there is only one group
+ * left," verbatim, user decision 2026-09-23). See the caller
+ * (`domains/lessons/lesson-service.ts`'s `startLesson`) for how it resolves
+ * straight to that one group without needing it already stored as the
+ * learner's selection.
  *
- * 1. **There must be a real choice to make** — more than one group with
- *    anything left to study. A single remaining group is nothing to choose
- *    between, so this returns `false` regardless of the rest ("unless
- *    there is only one group left," verbatim). See the caller
- *    (`domains/lessons/lesson-service.ts`'s `startLesson`) for how it
- *    resolves straight to that one group without needing it already stored
- *    as the learner's selection.
- * 2. **No selection is currently active for the lesson about to be
- *    built** — `selectedVocabularyGroupId` is `null`, or points at a group
- *    that is no longer available (finished, or never existed). A learner
- *    picking a group on the "What next?" screen writes it here and the
- *    very next `startLesson` call must honor it immediately, not loop back
- *    into asking again — `domains/lessons/lesson-completion.ts` clears
- *    this field back to `null` once that lesson actually *completes*,
- *    which is what makes the *following* `startLesson` call ask again.
- *    Original report this whole rule exists for: a learner finished a
- *    5-item batch out of an 11-item "Numbers" group and clicked "Start
- *    lesson" again — silently continued in Numbers, no prompt, because
- *    "the chosen group still has items" used to be reason enough on its
- *    own to skip asking. It no longer is; only an *active* selection is.
+ * **No longer considers `selectedVocabularyGroupId` at all** — a prior
+ * version of this function treated a non-null stored selection as "already
+ * decided, don't ask again," on the theory that it represented an
+ * in-progress lesson attempt "honored for the one lesson it was made for."
+ * In practice that theory didn't hold: a lesson session is an ephemeral,
+ * client-held token that is simply discarded on exit or refresh (nothing
+ * about leaving mid-study ever clears this field), so "the one lesson it
+ * was made for" never actually ended from this function's point of view —
+ * only a full completion cleared it. A learner who started a theme, studied
+ * a little, and exited before finishing (completely ordinary — getting
+ * interrupted, running out of time) would then have every future "Start
+ * lesson" click silently resume that same theme forever, with no visible
+ * indication anything was "remembered" and no way back to the picker short
+ * of finishing a full lesson+quiz. User report, 2026-10-01: "whenever I
+ * click start lesson it automatically puts me in a lesson session" — a
+ * recurring complaint rather than a one-off, confirmed by reproducing it
+ * directly (pick a theme, leave before completing, revisit `/lessons` —
+ * the picker never reappears). Now: *every* fresh `/lessons` visit in
+ * Choose Group as You Go asks again whenever there is a real choice,
+ * full stop.
+ *
+ * This reintroduces the exact failure mode a past fix for *this same
+ * function* was written to avoid — asking again even for the lesson the
+ * learner just explicitly picked a theme for, on the very next
+ * `startLesson` call the "What next?" screen's own confirm triggers, which
+ * would loop back into the picker instead of starting anything (see
+ * `lesson-service.test.ts`'s "Choose Group as You Go" describe block for
+ * the original incident). The fix is not here: `startLesson` takes an
+ * explicit `confirmedThemeId` for exactly that one call, bypassing this
+ * function entirely rather than trying to infer "just confirmed" from
+ * stored state — see its docstring.
  *
  * Takes the *eligible* group ids rather than every group in the curriculum,
  * so a finished group and a group that never existed count the same way —
@@ -161,7 +179,5 @@ export function isThemeSelectionRequired(
   availableThemeIds: readonly string[],
 ): boolean {
   if (settings?.curriculumMode !== "choose_group") return false;
-  if (availableThemeIds.length <= 1) return false;
-  if (!settings.selectedVocabularyGroupId) return true;
-  return !availableThemeIds.includes(settings.selectedVocabularyGroupId);
+  return availableThemeIds.length > 1;
 }

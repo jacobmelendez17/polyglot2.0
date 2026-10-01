@@ -24,15 +24,17 @@ import {
   completeLesson,
   getLessonItemDetail,
   openLessonItem,
+  startLesson,
   startQuiz,
   submitQuizAnswer,
 } from "@/domains/lessons/server";
-import type { LessonSessionResult } from "@/domains/lessons";
+import type { LessonSessionResult, LessonStartResult } from "@/domains/lessons";
 import type {
   LessonCompletionResult,
   LessonItemDetail,
 } from "@/domains/lessons/server";
 import { listAvailableThemes } from "@/domains/lessons/server";
+import { getLanguageById } from "@/domains/curriculum/server";
 import { GRAMMAR_THEME_ID } from "@/domains/users";
 import { requireUser, setCurriculumPreference } from "@/domains/users/server";
 import { AppError } from "@/lib/errors/app-error";
@@ -188,13 +190,17 @@ const chooseThemeInputSchema = z.object({
  * around it. The theme is re-validated against what this learner can
  * actually study rather than trusted: a group id is a request.
  *
- * Deliberately not a lesson mutation — it starts no session, signs no token,
- * and touches no progress. It only records a preference; the batch is built
- * on the next render, server-side, as always.
+ * Unlike before 2026-10-01, this *does* build the lesson itself rather than
+ * only saving a preference for the next page render to pick up — now that
+ * `isThemeSelectionRequired` asks again on every `/lessons` visit (see its
+ * docstring), a plain save-and-reload here would reload straight back into
+ * the picker instead of the lesson the learner just chose. `startLesson` is
+ * called with `confirmedThemeId` precisely to skip that re-ask for this one,
+ * explicit confirmation — see that parameter's docstring.
  */
 export async function chooseLessonThemeAction(
   input: z.infer<typeof chooseThemeInputSchema>,
-): Promise<ActionResult<null>> {
+): Promise<ActionResult<LessonStartResult>> {
   try {
     const { themeId } = chooseThemeInputSchema.parse(input);
     const user = await requireUser();
@@ -223,13 +229,30 @@ export async function chooseLessonThemeAction(
       };
     }
 
+    const language = await getLanguageById(user.activeLanguageId);
+    if (!language) {
+      // A user row cannot exist without a valid active language (a NOT
+      // NULL foreign key) — a data-integrity failure, not a flow.
+      return {
+        ok: false,
+        error: { code: "UNKNOWN", message: "Something went wrong." },
+      };
+    }
+
     await setCurriculumPreference({
       userId: user.id,
       languageId: user.activeLanguageId,
       curriculumMode: "choose_group",
       selectedVocabularyGroupId: themeId,
     });
-    return { ok: true, data: null };
+
+    const result = await startLesson({
+      userId: user.id,
+      languageId: user.activeLanguageId,
+      languageCode: language.code,
+      confirmedThemeId: themeId,
+    });
+    return { ok: true, data: result };
   } catch (error) {
     if (error instanceof AppError) {
       return { ok: false, error: { code: error.code, message: error.message } };

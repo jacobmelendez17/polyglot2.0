@@ -151,16 +151,14 @@ describe("startLesson", () => {
   });
 
   describe("Choose Group as You Go", () => {
-    // An *active* selection (just picked, its lesson not completed yet)
-    // must be honored immediately, not looped back into asking again —
-    // otherwise picking a theme on the "What next?" screen and clicking
-    // its own "Start lesson" would just re-show the same picker instead of
-    // building the lesson it was for. This was a real regression caught
-    // live: an earlier version of this fix asked on every `startLesson`
-    // call whenever more than one group existed, with no regard for
-    // whether a selection had just been made — the picker's own confirm
-    // click reproduced exactly this "renders then stops" loop.
-    it("does not ask again for the lesson about to be built when the chosen group still has items and is still the active selection", async () => {
+    // 2026-10-01: a merely *stored* selection no longer exempts a learner
+    // from being asked again — see `isThemeSelectionRequired`'s docstring
+    // for the full incident ("whenever I click start lesson it automatically
+    // puts me in a lesson session," root-caused to a stored selection that
+    // never cleared except on full completion). A plain `startLesson` call
+    // with no `confirmedThemeId` must now ask again even though a previous
+    // selection is sitting in settings.
+    it("asks again on a plain restart even though a previous selection is still stored", async () => {
       const curriculum = themedCurriculumReader([
         ...Array.from({ length: 6 }, (_, i) =>
           makeThemedItem({ id: `numbers-${i}`, theme: NUMBERS_THEME }),
@@ -181,25 +179,16 @@ describe("startLesson", () => {
         now: NOW,
       });
 
-      expect(result.kind).toBe("session");
-      if (result.kind === "session") {
-        expect(
-          result.batch.every((item) => item.itemId.startsWith("numbers-")),
-        ).toBe(true);
-      }
+      expect(result.kind).toBe("choose-theme");
     });
 
-    // Regression, found 2026-09-27 while adding the Grammar pseudo-theme:
-    // the code below used to overwrite `selectedThemeId` with `themes[0]`
-    // whenever `isThemeSelectionRequired` returned false, without checking
-    // *why* it returned false. That's correct when there's only one theme
-    // left (nothing to choose), but wrong when it's false because an active
-    // selection already matches one of several themes — every prior test
-    // for that second case happened to pick the theme that also sorts
-    // first, which is exactly what let this slip through unnoticed. This
-    // test picks the one that sorts *second* (Colors), so a reintroduced
-    // bug would silently switch it back to Numbers instead.
-    it("honors an active selection even when it isn't the first theme in curriculum order", async () => {
+    // The replacement mechanism: `confirmedThemeId` bypasses the ask-again
+    // check for exactly the one call the "What next?" screen's own confirm
+    // click makes — otherwise picking a theme there would loop straight
+    // back into the picker instead of building the lesson it was for (a
+    // real regression an earlier version of *this* fix hit live: asking on
+    // every `startLesson` call with no way to say "I just picked this one").
+    it("honors an explicitly confirmed theme for this one call, regardless of what's stored", async () => {
       const curriculum = themedCurriculumReader([
         ...Array.from({ length: 6 }, (_, i) =>
           makeThemedItem({ id: `numbers-${i}`, theme: NUMBERS_THEME }),
@@ -214,9 +203,44 @@ describe("startLesson", () => {
         userId: USER_ID,
         languageId: FIXTURE_LANGUAGE_ID,
         languageCode: "es-MX",
-        settings: chooseGroupSettings({
-          selectedVocabularyGroupId: COLORS_THEME.id,
-        }),
+        settings: chooseGroupSettings({ selectedVocabularyGroupId: null }),
+        confirmedThemeId: NUMBERS_THEME.id,
+        now: NOW,
+      });
+
+      expect(result.kind).toBe("session");
+      if (result.kind === "session") {
+        expect(
+          result.batch.every((item) => item.itemId.startsWith("numbers-")),
+        ).toBe(true);
+      }
+    });
+
+    // Regression, found 2026-09-27 while adding the Grammar pseudo-theme:
+    // the code used to overwrite `selectedThemeId` with `themes[0]`
+    // whenever the ask-check returned false, without checking *why*. That's
+    // correct when there's only one theme left (nothing to choose), but
+    // wrong when it's false because a theme was just confirmed and that
+    // confirmation doesn't happen to sort first. This test confirms with
+    // the theme that sorts *second* (Colors), so a reintroduced bug would
+    // silently switch it back to Numbers instead.
+    it("honors a confirmed theme even when it isn't the first theme in curriculum order", async () => {
+      const curriculum = themedCurriculumReader([
+        ...Array.from({ length: 6 }, (_, i) =>
+          makeThemedItem({ id: `numbers-${i}`, theme: NUMBERS_THEME }),
+        ),
+        ...Array.from({ length: 3 }, (_, i) =>
+          makeThemedItem({ id: `colors-${i}`, theme: COLORS_THEME }),
+        ),
+      ]);
+
+      const result = await startLesson({
+        curriculum,
+        userId: USER_ID,
+        languageId: FIXTURE_LANGUAGE_ID,
+        languageCode: "es-MX",
+        settings: chooseGroupSettings({ selectedVocabularyGroupId: null }),
+        confirmedThemeId: COLORS_THEME.id,
         now: NOW,
       });
 
@@ -226,6 +250,29 @@ describe("startLesson", () => {
           result.batch.every((item) => item.itemId.startsWith("colors-")),
         ).toBe(true);
       }
+    });
+
+    it("ignores a confirmed theme id that is no longer actually eligible, falling back to asking normally", async () => {
+      const curriculum = themedCurriculumReader([
+        ...Array.from({ length: 6 }, (_, i) =>
+          makeThemedItem({ id: `numbers-${i}`, theme: NUMBERS_THEME }),
+        ),
+        ...Array.from({ length: 3 }, (_, i) =>
+          makeThemedItem({ id: `colors-${i}`, theme: COLORS_THEME }),
+        ),
+      ]);
+
+      const result = await startLesson({
+        curriculum,
+        userId: USER_ID,
+        languageId: FIXTURE_LANGUAGE_ID,
+        languageCode: "es-MX",
+        settings: chooseGroupSettings({ selectedVocabularyGroupId: null }),
+        confirmedThemeId: "theme-does-not-exist",
+        now: NOW,
+      });
+
+      expect(result.kind).toBe("choose-theme");
     });
 
     // 2026-09-23 user report, reproduced exactly: finishing a lesson out
@@ -317,7 +364,7 @@ describe("startLesson", () => {
       expect(result.kind).toBe("empty");
     });
 
-    it("builds a grammar-only batch when the Grammar pseudo-theme is the active selection", async () => {
+    it("builds a grammar-only batch when the Grammar pseudo-theme is the confirmed selection", async () => {
       const curriculum = themedCurriculumReader([
         ...Array.from({ length: 6 }, (_, i) =>
           makeThemedItem({ id: `numbers-${i}`, theme: NUMBERS_THEME }),
@@ -331,9 +378,8 @@ describe("startLesson", () => {
         userId: USER_ID,
         languageId: FIXTURE_LANGUAGE_ID,
         languageCode: "es-MX",
-        settings: chooseGroupSettings({
-          selectedVocabularyGroupId: GRAMMAR_THEME_ID,
-        }),
+        settings: chooseGroupSettings({ selectedVocabularyGroupId: null }),
+        confirmedThemeId: GRAMMAR_THEME_ID,
         now: NOW,
       });
 

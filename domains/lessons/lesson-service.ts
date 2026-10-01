@@ -230,6 +230,19 @@ export type StartLessonInput = {
    * curriculum.
    */
   settings?: LanguageSettings | null;
+  /**
+   * Choose Group as You Go only: the theme id the learner has *just*
+   * explicitly confirmed on the "What next?" screen, for this one call —
+   * bypasses `isThemeSelectionRequired` entirely rather than relying on
+   * stored state to infer "this was just picked" (see that function's
+   * docstring for why stored state can't carry that meaning reliably).
+   * Every other `startLesson` call — in particular, a plain `/lessons` page
+   * load — omits this and goes through the normal ask-or-proceed check.
+   * Validated against the real eligible themes the same way a stored
+   * selection always was; an id that isn't actually available is ignored
+   * rather than trusted, falling back to asking normally.
+   */
+  confirmedThemeId?: string;
   now?: number;
 };
 
@@ -240,10 +253,16 @@ const FALLBACK_CURRICULUM_MODE: CurriculumMode = "variety";
  * Spec 07 §10 — server-selected batch, signed initial state — now under the
  * learner's spec 16 curriculum mode.
  *
- * A learner in Theme mode with no usable theme gets `choose-theme` rather
- * than an empty lesson: the batch is genuinely undecidable until they pick,
- * and silently choosing one for them would be the application making a
- * curriculum decision the spec assigns to the learner.
+ * A learner in Choose Group as You Go with more than one real theme left
+ * gets `choose-theme` rather than an empty lesson or a silently-picked one:
+ * the batch is genuinely undecidable until they pick, and choosing one for
+ * them would be the application making a curriculum decision the spec
+ * assigns to the learner. This now asks on *every* such call (2026-10-01 —
+ * see `isThemeSelectionRequired`'s docstring for why a previous "has an
+ * active selection" exemption was removed) — except the one call the
+ * learner's own confirm click on that screen makes, which passes
+ * `confirmedThemeId` to skip straight to building the lesson they just
+ * asked for.
  */
 export async function startLesson({
   curriculum,
@@ -251,6 +270,7 @@ export async function startLesson({
   languageId,
   languageCode,
   settings = null,
+  confirmedThemeId,
   now = Date.now(),
 }: StartLessonInput): Promise<LessonStartResult> {
   const eligibleItems = await curriculum.getEligibleLearningItems(
@@ -265,30 +285,27 @@ export async function startLesson({
     const themes = toThemeChoices(eligibleItems);
     // Nothing left in any group is "nothing left to learn", not a choice.
     if (themes.length === 0) return { kind: "empty" };
-    if (
-      isThemeSelectionRequired(
-        settings,
-        themes.map((theme) => theme.id),
-      )
-    ) {
+
+    const themeIds = themes.map((theme) => theme.id);
+    // Not trusted blindly even though this caller is our own server-side
+    // action, not raw user input — an id that has since stopped being
+    // eligible (the theme emptied between listing it and confirming it)
+    // falls through to the normal ask/single-theme resolution below instead
+    // of building a batch from a theme that no longer qualifies.
+    const confirmed =
+      confirmedThemeId && themeIds.includes(confirmedThemeId)
+        ? confirmedThemeId
+        : null;
+
+    if (confirmed) {
+      selectedThemeId = confirmed;
+    } else if (isThemeSelectionRequired(settings, themeIds)) {
       return { kind: "choose-theme", themes };
-    }
-    // `isThemeSelectionRequired` returning false means one of two different
-    // things, and only one of them calls for overriding `selectedThemeId`:
-    //
-    // - Exactly one theme has anything left — nothing to choose between, so
-    //   proceed with it directly rather than trusting `selectedThemeId` to
-    //   already agree: it may be stale (pointing at a theme that has since
-    //   emptied into this exact state) or never set at all.
-    // - More than one theme remains, but the stored `selectedThemeId` (set
-    //   above, before this block) is itself a real, currently-available
-    //   selection — nothing to resolve, and overwriting it with `themes[0]`
-    //   would silently switch the learner onto a different theme than the
-    //   one they're actively studying (caught 2026-09-27 while adding the
-    //   Grammar pseudo-theme: every prior test's "active selection among
-    //   several themes" fixture happened to have that selection sort first,
-    //   which is what let this go unnoticed).
-    if (themes.length === 1) {
+    } else if (themes.length === 1) {
+      // The only case `isThemeSelectionRequired` can return `false` for
+      // now that it no longer consults stored state — nothing to choose
+      // between, so proceed with the one real option regardless of
+      // whatever `selectedThemeId` happened to hold.
       selectedThemeId = themes[0]!.id;
     }
   }

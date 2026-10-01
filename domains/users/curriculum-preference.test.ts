@@ -88,21 +88,26 @@ describe("isThemeSelectionRequired", () => {
     expect(isThemeSelectionRequired(null, ["theme-1", "theme-2"])).toBe(false);
   });
 
-  // 2026-09-23 user decision: a learner who finishes a lesson and clicks
-  // "Start lesson" again must be asked again, not silently continued in
-  // whatever group they picked before — `domains/lessons/lesson-completion.ts`
-  // clears `selectedVocabularyGroupId` back to `null` on completion, which
-  // is what makes this fire; an *active* selection (just picked, lesson
-  // not completed yet) must NOT re-trigger this, or picking a theme on the
-  // "What next?" screen would loop back into asking again instead of
-  // starting the lesson it just built.
-  it("does not ask again for the lesson about to be built when a selection is still active", () => {
+  // 2026-10-01 user report, root-caused: a stored `selectedVocabularyGroupId`
+  // used to exempt a learner from being asked again, on the theory that it
+  // represented an in-progress lesson attempt "honored for the one lesson it
+  // was made for." That theory didn't hold — a lesson session is an
+  // ephemeral, client-held token discarded on exit or refresh, so nothing
+  // about leaving mid-study ever cleared this field, and a learner who
+  // picked a theme once and then exited before completing would have every
+  // later "Start lesson" click silently resume it, forever, with the picker
+  // never reappearing ("whenever I click start lesson it automatically puts
+  // me in a lesson session"). This function no longer considers the stored
+  // selection at all; see its docstring for the full incident and for where
+  // the "just confirmed, don't ask again for *this* call" case now actually
+  // lives (`startLesson`'s `confirmedThemeId`, not here).
+  it("asks again even when a previous selection is still stored", () => {
     const chosen = settings({
       curriculumMode: "choose_group",
       selectedVocabularyGroupId: "theme-1",
     });
     expect(isThemeSelectionRequired(chosen, ["theme-1", "theme-2"])).toBe(
-      false,
+      true,
     );
   });
 
@@ -164,14 +169,14 @@ describe("isThemeSelectionRequired", () => {
   // GRAMMAR_THEME_ID (2026-09-27) is just one more value this function's
   // `availableThemeIds` list can contain — it needs no dedicated handling
   // here to behave correctly, which these tests confirm rather than assume.
-  it("treats an active Grammar selection the same as an active group selection", () => {
+  it("asks again even with a stored active Grammar selection, same as a stored group selection", () => {
     const chosenGrammar = settings({
       curriculumMode: "choose_group",
       selectedVocabularyGroupId: GRAMMAR_THEME_ID,
     });
     expect(
       isThemeSelectionRequired(chosenGrammar, ["theme-1", GRAMMAR_THEME_ID]),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("asks again once Grammar is no longer offered (all grammar learned), same as a finished group", () => {

@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 
 import Link from "next/link";
 
 import { chooseLessonThemeAction } from "@/app/(focus)/lessons/actions";
 import { Button } from "@/components/ui/button";
-import type { LessonThemeChoice } from "@/domains/lessons";
+import { LessonEmptyState } from "@/components/lessons/lesson-empty-state";
+import { LessonSessionView } from "@/components/lessons/lesson-session-view";
+import type { LessonSessionResult, LessonThemeChoice } from "@/domains/lessons";
 import { cn } from "@/lib/utils";
 
 /**
@@ -17,14 +18,22 @@ import { cn } from "@/lib/utils";
  *
  * Distinct from `LessonEmptyState` on purpose: an empty lesson means there is
  * nothing left to learn, while this means there is plenty left and the
- * learner simply has not said which part. Choosing here saves the theme and
- * reloads the route, which then builds a real batch from it.
+ * learner simply has not said which part.
+ *
+ * Choosing here both saves the theme *and* builds the lesson in the same
+ * request (2026-10-01 — see `chooseLessonThemeAction`'s docstring):
+ * `isThemeSelectionRequired` now asks again on every `/lessons` visit, so a
+ * plain save-then-reload would land right back on this same screen instead
+ * of the lesson just picked. The returned session is rendered directly
+ * rather than navigating anywhere, the same way `/lessons`' own page
+ * component renders whatever `startLesson` gives it.
  */
 export function LessonThemePicker({ themes }: { themes: LessonThemeChoice[] }) {
-  const router = useRouter();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, startSaving] = useTransition();
+  const [session, setSession] = useState<LessonSessionResult | null>(null);
+  const [isEmpty, setIsEmpty] = useState(false);
 
   function handleStart() {
     if (!selectedId) return;
@@ -35,10 +44,27 @@ export function LessonThemePicker({ themes }: { themes: LessonThemeChoice[] }) {
         setError(result.error.message);
         return;
       }
-      // The batch is built server-side from the saved theme, so the next
-      // lesson comes from a fresh render rather than anything held here.
-      router.refresh();
+      if (result.data.kind === "session") {
+        setSession(result.data);
+        return;
+      }
+      if (result.data.kind === "empty") {
+        setIsEmpty(true);
+        return;
+      }
+      // `kind === "choose-theme"` — the theme this just validated against
+      // emptied in the instant between listing it and confirming it. Rare
+      // enough that re-showing this same screen with an explanation is
+      // enough; the learner picks again rather than getting stuck.
+      setError("That theme just emptied out — pick another.");
     });
+  }
+
+  if (session) {
+    return <LessonSessionView initial={session} />;
+  }
+  if (isEmpty) {
+    return <LessonEmptyState />;
   }
 
   return (
