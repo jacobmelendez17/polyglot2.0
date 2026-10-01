@@ -21,7 +21,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ExitFocusButton } from "@/components/shared/exit-focus-button";
 import { ExitLessonDialog } from "@/components/lessons/exit-lesson-dialog";
-import { ItemDetailLayout } from "@/components/items/item-detail/item-detail-layout";
+import { LessonItemDetailView } from "@/components/lessons/lesson-item-detail-view";
 import { LessonCompleteView } from "@/components/lessons/lesson-complete-view";
 import { LessonErrorState } from "@/components/lessons/lesson-error-state";
 import {
@@ -476,16 +476,18 @@ export function LessonSessionView({ initial }: LessonSessionViewProps) {
   return (
     <>
       {/*
-       * Whole-page scroll, same as the item page — `ItemDetailShell`'s own
-       * sticky compact header and Back to Top are fixed relative to the
-       * viewport, not to some inner scroll container, so they only work
-       * correctly when the page itself is what scrolls. This bar stands in
-       * for the `AppHeader` the focus layout deliberately omits, at the
-       * same `--nav-h` so the shell's own sticky header sits flush beneath
-       * it rather than leaving a gap.
+       * A fixed `h-svh` (not `min-h-svh`), same load-bearing reason the
+       * original study screen had it: it's what lets the middle region's
+       * `flex-1 min-h-0` actually cap its height so only the info card
+       * inside `LessonItemDetailView` scrolls, rather than the whole page
+       * growing and dragging the footer along with it. The word and its
+       * tabs stay pinned above that scroll region rather than scrolling
+       * away with it (user-requested divergence from the item page's own
+       * "hero scrolls away, a compact header fades in" pattern — see
+       * `LessonItemDetailView`'s docstring).
        */}
-      <div className="sticky top-0 z-(--z-header) flex h-(--nav-h) items-center bg-background">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 sm:px-6">
+      <div className="mx-auto flex h-svh w-full max-w-4xl flex-col px-4 sm:px-6">
+        <div className="flex shrink-0 items-center justify-between py-4">
           <ExitFocusButton
             label="Exit lesson"
             onClick={() => setExitDialogOpen(true)}
@@ -497,47 +499,39 @@ export function LessonSessionView({ initial }: LessonSessionViewProps) {
             </p>
           ) : null}
         </div>
-      </div>
 
-      {currentItem ? (
-        currentItemDetail ? (
-          <ItemDetailLayout
-            view={currentItemDetail}
-            navigation={navigation}
-            languageCode={languageCode}
-            mode="lesson"
-            onNavigate={navigateToItem}
-            // Clears this screen's own fixed Back/Next footer, which the
-            // item page has no equivalent of.
-            backToTopBottomClassName="bottom-36 md:bottom-32"
-          />
-        ) : (
-          <div className="flex min-h-[50vh] items-center justify-center">
-            <p className="text-sm text-muted-foreground">Loading…</p>
-          </div>
-        )
-      ) : null}
+        {currentItem ? (
+          currentItemDetail ? (
+            <LessonItemDetailView
+              view={currentItemDetail}
+              navigation={navigation}
+              languageCode={languageCode}
+              onNavigate={navigateToItem}
+            />
+          ) : (
+            <div className="flex flex-1 items-center justify-center">
+              <p className="text-sm text-muted-foreground">Loading…</p>
+            </div>
+          )
+        ) : null}
 
-      <div className="sticky bottom-0 z-(--z-header) bg-background">
-        <footer className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 pt-4 pb-6 sm:px-6">
+        <footer className="flex shrink-0 items-center justify-between gap-4 py-4">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleBack}
+            disabled={isPending || state.currentStudyIndex === 0}
+          >
+            Back
+          </Button>
           <LessonProgressSegments items={segments} onSelect={navigateToItem} />
-          <div className="flex justify-between">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleBack}
-              disabled={isPending || state.currentStudyIndex === 0}
-            >
-              Back
-            </Button>
-            <Button
-              type="button"
-              onClick={allViewed ? handleStartQuiz : handleNext}
-              disabled={isPending}
-            >
-              {allViewed ? "Start Quiz" : "Next"}
-            </Button>
-          </div>
+          <Button
+            type="button"
+            onClick={allViewed ? handleStartQuiz : handleNext}
+            disabled={isPending}
+          >
+            {allViewed ? "Start Quiz" : "Next"}
+          </Button>
         </footer>
       </div>
 

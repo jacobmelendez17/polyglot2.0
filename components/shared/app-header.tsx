@@ -13,7 +13,7 @@ const APP_NAV_LINKS = [
 
 export function AppHeader() {
   return (
-    <header className="site-header sticky top-0 z-(--z-header) h-(--nav-h) border-b border-transparent bg-accent-primary-hover">
+    <header className="site-header sticky top-0 z-(--z-header) h-(--nav-h) border-b border-transparent bg-header-accent">
       <div className="mx-auto flex h-full w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
         <Link
           href="/dashboard"

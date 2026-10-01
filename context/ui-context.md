@@ -82,6 +82,7 @@ The light palette is based on the existing Polyglot design shown in the referenc
 | Error                | `--state-error`          | `#BE7068` |
 | Success              | `--state-success`        | `#6F9B7F` |
 | Warning              | `--state-warning`        | `#D4A85F` |
+| Header accent        | `--header-accent`        | `#9AC9AE` |
 
 ### Dark Theme
 
@@ -104,6 +105,7 @@ Dark mode should use warm charcoal and muted botanical tones.
 | Error                | `--state-error`          | `#D3877F` |
 | Success              | `--state-success`        | `#87B395` |
 | Warning              | `--state-warning`        | `#D8B371` |
+| Header accent        | `--header-accent`        | `#9AC9AE` (same value as light — see Light Theme row) |
 
 ### Learning-Type Colors
 
@@ -339,7 +341,7 @@ Layout:
 - Logo remains on the left.
 - Primary navigation remains on the right.
 - Profile may include avatar and active-language controls.
-- The header uses a solid `--accent-primary-hover` background (2026-09-30 revision — previously a light, translucent surface blending into the notebook background) — the same darker-green token the rest of the app already uses for primary-button hover states, so the header reads as a deliberate brand accent rather than a duplicate of `--accent-primary`. Wordmark and nav-link text use `--accent-foreground`/`text-primary-foreground` (full opacity for the wordmark and active/hover links, `/75` opacity for resting links) for contrast against it. The token adapts automatically across the Appearance Color Palette and dark mode — never hardcode the hex value.
+- The header uses a solid `bg-header-accent` background (2026-09-30, final revision after two same-day iterations — previously a light, translucent surface blending into the notebook background, then `--accent-primary-hover`, then plain `--accent-primary`/`bg-primary`). `--header-accent` (`#9AC9AE`) is a **dedicated, fixed brand green** — unlike every other accent usage in the app, it does not come from `--accent-primary` and is not overridden by the Appearance Color Palette (Ocean/Amber/Plum) or by dark mode; it reads the same regardless of which accent the learner has chosen, because none of the existing muted sage tones were saturated enough to "pop" the way a universal brand header wants to. Wordmark and nav-link text still use `--accent-foreground`/`text-primary-foreground` (full opacity for the wordmark and active/hover links, `/75` opacity for resting links) — those remain palette-adaptive, but every palette's foreground value is dark enough to stay readable against this light, fixed green.
 - No visible bottom border is needed once the header has its own solid color — the color change against the page background already marks the boundary.
 - Do not introduce a permanent desktop sidebar unless the product direction explicitly changes.
 
@@ -640,13 +642,11 @@ Provide an explicit exit control.
 
 ### Item Content
 
-The current item displays the same major educational information used on its normal item page.
-
-The content area may scroll vertically.
+The current item displays the same major educational information used on its normal item page — same shared `ItemDetailView`/section components (Info/Examples/Resources), but **not** the item page's own shell (`ItemDetailLayout`/`ItemDetailShell`). Spec 18's "hero scrolls away, a compact header fades in" pattern is window-scroll-based and was explicitly rejected here (user decision, 2026-09-30): the word and its tabs stay **permanently pinned** at the top instead, and only the info card beneath them scrolls — see `LessonItemDetailView`. No "Vocabulary Info" / level / position kicker line above the word — that would duplicate the lesson header's own exit bar, which already shows it.
 
 ### Item Selector
 
-Available lesson items appear along the bottom so the learner can switch among them.
+Available lesson items appear as a row of pills **between the Back and Next buttons** in a single footer row (2026-09-30 — previously stacked in its own row above Back/Next; moved for more vertical room).
 
 The current item must be visually distinct.
 

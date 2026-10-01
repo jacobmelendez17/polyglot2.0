@@ -11,6 +11,7 @@
   --color-learning-vocabulary: var(--learning-vocabulary);
   --color-learning-grammar: var(--learning-grammar);
   --color-accent-primary-hover: var(--accent-primary-hover);
+  --color-header-accent: var(--header-accent);
   --color-state-success: var(--state-success);
   --color-state-warning: var(--state-warning);
   --color-srs-beginner: var(--srs-beginner);
@@ -73,6 +74,14 @@
   --accent-primary: #7fa69c;
   --accent-primary-hover: #6e978c;
   --accent-foreground: #27322e;
+  /**
+   * The site-wide header's own background (2026-09-30) — deliberately a
+   * fixed brand green, not `--accent-primary`: unlike every other accent
+   * usage, this one must not shift when the learner picks a different
+   * Appearance Color Palette (Ocean/Amber/Plum), so it is not overridden in
+   * any `[data-palette]` block, light or dark.
+   */
+  --header-accent: #9ac9ae;
   --border-default: #e1d4c2;
   --grid-line: #efe3d4;
   --accent-peach: #ebc4b4;
