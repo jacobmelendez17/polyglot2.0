@@ -45,23 +45,27 @@ const FLOATING_SPOTS = [
 
 export function HeroSection() {
   return (
-    <section className="relative overflow-hidden px-4 py-20 text-center sm:py-28">
+    // Fills the first viewport (below the sticky header) so the greeting marquee sits at the
+    // fold and everything else on the page only appears once the visitor scrolls.
+    <section className="relative flex min-h-[calc(100svh-var(--nav-h))] flex-col overflow-hidden px-4 text-center">
       <FloatingGreetings />
 
-      <Reveal className="relative z-10 mx-auto flex max-w-3xl flex-col items-center gap-6">
-        <h1 className="text-balance text-4xl leading-tight font-semibold text-foreground sm:text-5xl md:text-6xl lg:text-7xl">
-          Fluency begins{" "}
-          <AlternatingHandwritingWord
-            variants={HERE_VARIANTS}
-            intervalMs={HERE_INTERVAL_MS}
-          />
-        </h1>
-        <p className="max-w-xl text-balance text-base text-muted-foreground sm:text-lg">
-          Languages catered to you! Learn, practice, and immerse yourself in
-          personalized study material. Try today for free.
-        </p>
-        <LandingCta />
-      </Reveal>
+      <div className="relative z-10 flex flex-1 items-center justify-center py-12">
+        <Reveal className="mx-auto flex max-w-3xl flex-col items-center gap-6">
+          <h1 className="text-balance text-4xl leading-tight font-semibold text-foreground sm:text-5xl md:text-6xl lg:text-7xl">
+            Fluency begins{" "}
+            <AlternatingHandwritingWord
+              variants={HERE_VARIANTS}
+              intervalMs={HERE_INTERVAL_MS}
+            />
+          </h1>
+          <p className="max-w-xl text-balance text-base text-muted-foreground sm:text-lg">
+            Languages catered to you! Learn, practice, and immerse yourself in
+            personalized study material. Try today for free.
+          </p>
+          <LandingCta />
+        </Reveal>
+      </div>
 
       <GreetingMarquee />
     </section>
@@ -111,7 +115,7 @@ function GreetingMarquee() {
   return (
     <div
       aria-hidden="true"
-      className="relative z-10 mt-14 overflow-hidden [mask-image:linear-gradient(90deg,transparent,black_10%,black_90%,transparent)]"
+      className="relative z-10 shrink-0 overflow-hidden pt-4 pb-8 sm:pb-10 [mask-image:linear-gradient(90deg,transparent,black_10%,black_90%,transparent)]"
     >
       <div className="animate-marquee flex w-max gap-10">
         {track.map((greeting, index) => (

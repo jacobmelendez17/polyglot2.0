@@ -8,6 +8,18 @@ Implementation / feature specs
 
 ## Current Goal
 
+**Most recent unit (2026-10-01): landing page — hero fills the first screen, SRS section became a scroll-driven timeline.** Two user-directed changes, nothing else touched.
+
+1. **Hero** (`hero-section.tsx`): now `min-h-[calc(100svh-var(--nav-h))]` flex column, headline/CTA centered in the remaining space and the greeting marquee pinned at the bottom, so nothing below the hero shows until the visitor scrolls (standard landing-page fold behavior; previously the SRS heading peeked in under the marquee).
+2. **SRS section** (`srs-section.tsx` + new client component `srs-scroll-trail.tsx`): replaced the nine-card grid with a pinned timeline. Headline is now "An SRS schedule for everything you learn". The block is `350svh` tall with a `sticky` pane; scroll position (up and down) scrubs a green bar along a horizontal line, lighting each stage dot (colored by `--srs-*` tokens, light to dark) as it is reached. Stage labels are rotated 45 degrees above the line and show **names only — no intervals** (the "Next review in…" text and "Stage N of 9" are gone from the landing page; `project-overview.md` still owns the intervals). The level-unlock note stays below the pinned area.
+   - Progress is written straight to the DOM (CSS var `--srs-progress` + `data-reached`), not React state; only `transform`/`opacity` animate. Bar reaches the last stage at 90% of the pinned scroll so it holds before unpinning.
+   - Reduced motion: no pin (`motion-reduce:h-auto`/`static`), trail renders fully complete, no scroll listener.
+   - `srs-section.test.tsx` still asserts nine stage names in documented order (wording only changed).
+
+**Verification**: `tsc`, eslint on `components/marketing`, and `components/marketing` Vitest all pass; checked in headless Chromium at 1440x900 and 390x800 (hero fold, three scroll positions). Full `npm run test`/`build` not re-run for this unit.
+
+**Open / follow-ups**: feature-spec 03 still describes the old card grid for the SRS section (`03-landing-page.md`); not edited. Labels at 45 degrees on 390px wide screens are tight but legible. Everything else on the landing page is unchanged.
+
 **Most recent unit (2026-10-01): fixed a real, recurring Choose Group as You Go bug — "Start lesson" silently skipping the theme picker.** User report: "I am on 'Select theme as i go' setting but whenever i click start lesson it automatically puts me in a lesson session. This has been a recurrent problem." Reproduced directly (not guessed) via a throwaway E2E script: fresh `choose_group` state correctly shows the "What next?" picker on the *first* visit, but picking a theme, leaving before completing a lesson (completely ordinary — getting interrupted, running out of time), and revisiting `/lessons` skipped straight into a new session every time after, with the picker never reappearing short of finishing a full lesson+quiz cycle.
 
 **Root cause**: `isThemeSelectionRequired` (`domains/users/curriculum-preference.ts`) treated a stored `selectedVocabularyGroupId` as "an active selection, honored for the one lesson it was made for" and skipped asking again. That theory assumed lesson sessions are resumable, but they're not — an ephemeral, client-held token discarded on exit or refresh (confirmed: "the lesson restarts from the beginning," never "resumes"). Nothing about leaving mid-study ever cleared this field (only a full completion does, in `lesson-completion.ts`), so "the one lesson it was made for" never actually ended from this function's point of view once a learner exited early — every later click just silently reused the same old pick, forever, which is exactly the recurring symptom reported.

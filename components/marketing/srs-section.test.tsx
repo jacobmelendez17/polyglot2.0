@@ -16,7 +16,7 @@ const EXPECTED_STAGE_ORDER = [
 ];
 
 describe("SrsSection", () => {
-  it("renders all nine SRS stages as cards in documented order", () => {
+  it("renders all nine SRS stages in documented order", () => {
     render(<SrsSection />);
 
     const names = screen
