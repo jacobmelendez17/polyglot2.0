@@ -17,11 +17,19 @@ const END_AT = 0.3;
  * instead of React state, so scrolling never re-renders anything and only `transform` and
  * `opacity` ever animate. Under `prefers-reduced-motion` the trail renders fully complete.
  */
+function gradientStops(stages: readonly { color: string }[]) {
+  const last = stages.length - 1;
+  return stages
+    .map(({ color }, index) => `${color} ${(index / last) * 100}%`)
+    .join(", ");
+}
+
 export function SrsScrollTrail({
   stages,
 }: {
   stages: readonly { name: string; color: string }[];
 }) {
+  const gradient = gradientStops(stages);
   const outerRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
 
@@ -92,9 +100,19 @@ export function SrsScrollTrail({
           <ol className="relative h-1.5 rounded-full bg-border">
             <li
               aria-hidden="true"
-              className="absolute inset-0 origin-left rounded-full bg-primary"
-              style={{ transform: "scaleX(var(--srs-progress))" }}
-            />
+              className="absolute inset-0 overflow-hidden rounded-full"
+            >
+              {/* Full-width gradient slid in from the left, so the colors stay fixed to the
+                  stage dots instead of squashing as the bar grows. */}
+              <div
+                className="h-full w-full"
+                style={{
+                  transform:
+                    "translateX(calc((var(--srs-progress) - 1) * 100%))",
+                  backgroundImage: `linear-gradient(to right, ${gradient})`,
+                }}
+              />
+            </li>
             <li
               aria-hidden="true"
               className="absolute top-1/2 left-0 -mt-2.5 -ml-2.5 size-5"
