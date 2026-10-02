@@ -15,6 +15,13 @@ function createRateLimiter(): RateLimiter {
   if (hasUpstashCredentials) {
     return new UpstashRateLimiter(env.APP_ENV);
   }
+  // `lib/env.ts` already refuses to boot production without these; this is the
+  // second line of defense so the in-memory limiter can never serve production.
+  if (env.APP_ENV === "production") {
+    throw new Error(
+      "Production requires UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN; refusing to fall back to in-memory rate limiting.",
+    );
+  }
   // No Upstash credentials configured — local dev and every automated test
   // run land here. Never required for a test to pass (spec 08 §54).
   return new InMemoryRateLimiter({ appEnv: env.APP_ENV });

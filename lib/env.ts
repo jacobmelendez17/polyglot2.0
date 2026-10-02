@@ -44,9 +44,35 @@ const envSchema = z.object({
    * temporarily raise verbosity in a deployed environment.
    */
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error", "fatal"]).optional(),
+  /**
+   * Spec 23 — Upstash Redis REST credentials for rate limiting. Optional in
+   * development, preview and test (they fall back to the in-memory limiter),
+   * but REQUIRED when `APP_ENV` is "production": the in-memory limiter keeps
+   * per-instance counters, which on serverless is no real limit at all. The
+   * refinement below fails the production build/boot instead of silently
+   * degrading.
+   */
+  UPSTASH_REDIS_REST_URL: z.string().min(1).optional(),
+  UPSTASH_REDIS_REST_TOKEN: z.string().min(1).optional(),
 });
 
-export const env = envSchema.parse({
+const refinedEnvSchema = envSchema.superRefine((value, ctx) => {
+  if (value.APP_ENV !== "production") return;
+  for (const key of [
+    "UPSTASH_REDIS_REST_URL",
+    "UPSTASH_REDIS_REST_TOKEN",
+  ] as const) {
+    if (!value[key]) {
+      ctx.addIssue({
+        code: "custom",
+        path: [key],
+        message: `${key} is required when APP_ENV is "production" (in-memory rate limiting is not safe on serverless).`,
+      });
+    }
+  }
+});
+
+export const env = refinedEnvSchema.parse({
   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:
     process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
   CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY,
@@ -63,4 +89,6 @@ export const env = envSchema.parse({
   CRON_SECRET: process.env.CRON_SECRET,
   RELEASE: resolvedRelease,
   LOG_LEVEL: process.env.LOG_LEVEL,
+  UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
+  UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
 });
