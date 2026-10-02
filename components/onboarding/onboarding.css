@@ -39,9 +39,6 @@
   --ob-paper: #fffdf8;
   --ob-card-ink: #2b2b2b;
   --ob-rule: #d9cfbf;
-  /* The welcome slide's blue (2026-09-27), fixed for the same reason the
-     finale's marigold is: an illustrated cover, not UI chrome. */
-  --ob-welcome-blue: #2d6cb5;
 
   position: relative;
   height: 100dvh;
@@ -108,13 +105,33 @@
   background-color: var(--ob-marigold);
   color: var(--ob-fixed-ink);
 }
-/* The welcome slide is fixed blue with light text in both themes. */
-.ob-tone-blue {
-  background-color: var(--ob-welcome-blue);
-  color: var(--ob-fixed-paper);
+/* Welcome-slide falling leaves (see falling-leaves.tsx). transform/opacity only. */
+.ob-leaf {
+  position: absolute;
+  top: -20px;
+  width: 14px;
+  height: 9px;
+  border-radius: 0 100% 0 100%;
+  opacity: 0.75;
+  animation: ob-leaf-fall linear infinite;
 }
-.ob-tone-blue .ob-copy p {
-  color: color-mix(in srgb, var(--ob-fixed-paper) 85%, transparent);
+@keyframes ob-leaf-fall {
+  0% {
+    transform: translate(0, 0) rotate(0);
+  }
+  25% {
+    transform: translate(18px, 27vh) rotate(80deg);
+  }
+  50% {
+    transform: translate(-10px, 52vh) rotate(160deg);
+  }
+  75% {
+    transform: translate(20px, 78vh) rotate(250deg);
+  }
+  100% {
+    transform: translate(0, 108vh) rotate(360deg);
+    opacity: 0;
+  }
 }
 
 .ob-col {
@@ -184,9 +201,6 @@
 }
 .ob-nav.is-last {
   color: var(--ob-fixed-ink);
-}
-.ob-nav.is-welcome {
-  color: var(--ob-fixed-paper);
 }
 .ob-dots {
   display: flex;
@@ -308,12 +322,6 @@
 .ob-skip:hover {
   color: var(--ob-ink);
   text-decoration: underline;
-}
-.ob-skip.is-on-blue {
-  color: color-mix(in srgb, var(--ob-fixed-paper) 85%, transparent);
-}
-.ob-skip.is-on-blue:hover {
-  color: var(--ob-fixed-paper);
 }
 .ob-error {
   margin: 0;
@@ -949,6 +957,9 @@
   .ob *::before,
   .ob *::after {
     animation: none !important;
+  }
+  .ob-leaf {
+    display: none;
   }
 }
 

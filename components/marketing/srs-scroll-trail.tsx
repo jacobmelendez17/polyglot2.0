@@ -2,11 +2,12 @@
 
 import { useEffect, useRef } from "react";
 
-// The bar starts filling as the track's top edge enters the bottom of the viewport and is
-// complete once that edge has risen to 30% down it, by which point the headline above is
-// fully on screen. Scroll only drives the bar; the section itself scrolls like any other.
-const START_AT = 0.95;
-const END_AT = 0.3;
+// The bar starts filling once the track's top edge reaches 80% down the viewport (just after
+// the line itself scrolls into view, so the first stage is seen before it moves) and is
+// complete when that edge has risen to 15% down it. Scroll only drives the bar; the section
+// itself scrolls like any other.
+const START_AT = 0.8;
+const END_AT = 0.15;
 
 /**
  * A scroll-driven SRS timeline. Scroll position (both directions) scrubs a green bar along the

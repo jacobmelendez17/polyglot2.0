@@ -12,6 +12,7 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
 import { CharacterCast } from "./character-cast";
+import { FallingLeaves } from "./falling-leaves";
 import { SLIDE_COPY, type OnboardingCharacter } from "./lib/content";
 import {
   PARTICLE_COLORS,
@@ -43,7 +44,7 @@ const CHARACTERS = 2;
 const CUSTOMIZE = 3;
 const FINALE = 4;
 const TONES = [
-  "ob-tone-blue",
+  "ob-tone-bg ob-grid",
   "ob-tone-bg ob-grid",
   "ob-tone-pink ob-grid",
   "ob-tone-green ob-grid ob-slide-particles",
@@ -148,7 +149,7 @@ export function OnboardingSlides({
       {!last && (
         <button
           type="button"
-          className={`ob-skip${index === WELCOME ? " is-on-blue" : ""}`}
+          className="ob-skip"
           onClick={() => go(SLIDE_COUNT - 1)}
         >
           Skip
@@ -171,12 +172,15 @@ export function OnboardingSlides({
           aria-label={`Step ${index + 1} of ${SLIDE_COUNT}`}
         >
           {index === WELCOME && (
-            <div className="ob-col">
-              <div className="ob-copy">
-                <h1 className="ob-title">{SLIDE_COPY.welcome.title}</h1>
-                <p>{SLIDE_COPY.welcome.body}</p>
+            <>
+              <FallingLeaves />
+              <div className="ob-col">
+                <div className="ob-copy">
+                  <h1 className="ob-title">{SLIDE_COPY.welcome.title}</h1>
+                  <p>{SLIDE_COPY.welcome.body}</p>
+                </div>
               </div>
-            </div>
+            </>
           )}
           {index === FOUNDATION && (
             <div className="ob-col">
@@ -233,7 +237,7 @@ export function OnboardingSlides({
       {melt && <MeltOverlay {...melt} />}
 
       <nav
-        className={`ob-nav${last ? " is-last" : ""}${index === WELCOME ? " is-welcome" : ""}`}
+        className={`ob-nav${last ? " is-last" : ""}`}
         aria-label="Onboarding"
       >
         <div className="ob-dots" aria-hidden="true">
