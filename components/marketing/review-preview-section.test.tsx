@@ -30,22 +30,25 @@ describe("ReviewPreviewSection", () => {
     ).toHaveLength(5);
   });
 
-  it("rotates the carousel clockwise every 5 seconds", () => {
+  it("rotates the carousel every 5 seconds", () => {
     render(<ReviewPreviewSection />);
 
     // Initial: Maria in the middle, Daniel to her right, Priya on the left.
     expect(slotOf("Maria S.")).toBe("center");
     expect(slotOf("Daniel K.")).toBe("right");
     expect(slotOf("Priya N.")).toBe("left");
+    expect(
+      screen.getAllByRole("img", { name: "Spain flag", hidden: true }),
+    ).toHaveLength(3);
 
     act(() => {
       vi.advanceTimersByTime(5000);
     });
 
-    // The left card moves to the middle; the middle moves right; the right
-    // card goes round the back.
-    expect(slotOf("Priya N.")).toBe("center");
-    expect(slotOf("Maria S.")).toBe("right");
-    expect(slotOf("Daniel K.")).toBe("back");
+    // The right card moves to the middle, the middle moves left, and the
+    // left card goes behind the others.
+    expect(slotOf("Daniel K.")).toBe("center");
+    expect(slotOf("Maria S.")).toBe("left");
+    expect(slotOf("Priya N.")).toBe("back");
   });
 });
