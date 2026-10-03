@@ -83,22 +83,49 @@ const SLOT_Z: Record<Slot, string> = {
   back: "pointer-events-none z-0",
 };
 
-// How far the side cards sit from the middle, in px. Narrow screens let the
-// side cards peek out; wider ones show them almost in full.
+const SIDE_SCALE = 0.82;
+
+type Layout = {
+  cardWidth: number;
+  // Distance from the middle card's centre to a side card's centre.
+  sideOffset: number;
+  large: boolean;
+};
+
+// Side cards are scaled down, so a side card's centre must clear half the
+// middle card's width plus half of its own scaled width, plus a gap.
+function layoutFor(cardWidth: number, gap: number, large: boolean): Layout {
+  return {
+    cardWidth,
+    sideOffset: Math.round(cardWidth * ((1 + SIDE_SCALE) / 2) + gap),
+    large,
+  };
+}
+
+const LAYOUTS = {
+  mobile: layoutFor(288, 16, false),
+  tablet: layoutFor(320, 20, false),
+  desktop: layoutFor(352, 24, true),
+  wide: layoutFor(384, 24, true),
+} as const;
+
+type LayoutName = keyof typeof LAYOUTS;
+
 function subscribeToResize(onChange: () => void): () => void {
   window.addEventListener("resize", onChange);
   return () => window.removeEventListener("resize", onChange);
 }
 
-function getSideOffset(): number {
+function getLayoutName(): LayoutName {
   const width = window.innerWidth;
-  if (width >= 1024) return 256;
-  if (width >= 640) return 208;
-  return 128;
+  if (width >= 1280) return "wide";
+  if (width >= 1024) return "desktop";
+  if (width >= 640) return "tablet";
+  return "mobile";
 }
 
-function getServerSideOffset(): number {
-  return 208;
+function getServerLayoutName(): LayoutName {
+  return "tablet";
 }
 
 function slotTarget(slot: Slot, sideOffset: number) {
@@ -106,9 +133,9 @@ function slotTarget(slot: Slot, sideOffset: number) {
     case "center":
       return { x: 0, scale: 1, opacity: 1 };
     case "left":
-      return { x: -sideOffset, scale: 0.82, opacity: 0.6 };
+      return { x: -sideOffset, scale: SIDE_SCALE, opacity: 0.6 };
     case "right":
-      return { x: sideOffset, scale: 0.82, opacity: 0.6 };
+      return { x: sideOffset, scale: SIDE_SCALE, opacity: 0.6 };
     case "back":
       return { x: 0, scale: 0.6, opacity: 0 };
   }
@@ -161,12 +188,12 @@ function LanguageFlag({ language }: { language: Language }) {
 const STAR_PATH =
   "M12.2 2.6 L14.9 8.9 L21.4 9.4 L16.3 13.8 L17.9 20.4 L11.8 16.9 L6.1 20.6 L7.6 14 L2.4 9.9 L9.2 9.2 Z";
 
-function SketchedStar({ filled }: { filled: boolean }) {
+function SketchedStar({ filled, large }: { filled: boolean; large: boolean }) {
   return (
     <svg
       viewBox="0 0 24 24"
       className={cn(
-        "size-5",
+        large ? "size-6" : "size-5",
         filled ? "text-primary" : "text-muted-foreground/60",
       )}
       fill="none"
@@ -195,7 +222,7 @@ function SketchedStar({ filled }: { filled: boolean }) {
   );
 }
 
-function SketchedRating({ rating }: { rating: number }) {
+function SketchedRating({ rating, large }: { rating: number; large: boolean }) {
   return (
     <div
       role="img"
@@ -203,7 +230,7 @@ function SketchedRating({ rating }: { rating: number }) {
       className="flex items-center"
     >
       {Array.from({ length: 5 }, (_, i) => (
-        <SketchedStar key={i} filled={i < rating} />
+        <SketchedStar key={i} filled={i < rating} large={large} />
       ))}
     </div>
   );
@@ -212,11 +239,11 @@ function SketchedRating({ rating }: { rating: number }) {
 function ReviewCard({
   review,
   slot,
-  sideOffset,
+  layout,
 }: {
   review: UserReview;
   slot: Slot;
-  sideOffset: number;
+  layout: Layout;
 }) {
   const isCenter = slot === "center";
 
@@ -225,19 +252,25 @@ function ReviewCard({
       aria-hidden={!isCenter}
       data-slot={slot}
       initial={false}
-      animate={slotTarget(slot, sideOffset)}
+      animate={slotTarget(slot, layout.sideOffset)}
       transition={{ duration: 0.9, ease: [0.45, 0, 0.2, 1] }}
+      style={{ width: layout.cardWidth }}
       className={cn(
-        "absolute inset-x-0 top-0 mx-auto flex h-full w-72 flex-col rounded-2xl border border-border bg-card p-5 shadow-sm sm:w-80 sm:p-6",
+        "absolute inset-x-0 top-0 mx-auto flex h-full flex-col rounded-2xl border border-border bg-card p-5 shadow-sm",
         SLOT_Z[slot],
       )}
     >
       <header className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate font-semibold text-foreground">
+          <p
+            className={cn(
+              "truncate font-semibold text-foreground",
+              layout.large ? "text-xl" : "text-lg",
+            )}
+          >
             {review.name}
           </p>
-          <p className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+          <p className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
             <LanguageFlag language={review.language} />
             <span className="truncate">{review.duration}</span>
           </p>
@@ -245,14 +278,24 @@ function ReviewCard({
         <div className="flex shrink-0 items-center gap-2">
           <div
             aria-hidden="true"
-            className="flex size-10 items-center justify-center rounded-full bg-accent text-sm font-semibold text-accent-foreground"
+            className={cn(
+              "flex items-center justify-center rounded-full bg-accent font-semibold text-accent-foreground",
+              layout.large ? "size-12 text-base" : "size-10 text-sm",
+            )}
           >
             {review.initials}
           </div>
-          <SketchedRating rating={review.rating} />
+          <SketchedRating rating={review.rating} large={layout.large} />
         </div>
       </header>
-      <p className="mt-4 text-foreground">{review.text}</p>
+      <p
+        className={cn(
+          "mt-3 leading-snug text-foreground",
+          layout.large ? "text-lg" : "text-base",
+        )}
+      >
+        {review.text}
+      </p>
     </motion.article>
   );
 }
@@ -260,11 +303,14 @@ function ReviewCard({
 export function ReviewPreviewSection() {
   // Index of the review currently in the middle.
   const [active, setActive] = useState(0);
-  const sideOffset = useSyncExternalStore(
-    subscribeToResize,
-    getSideOffset,
-    getServerSideOffset,
-  );
+  const layout =
+    LAYOUTS[
+      useSyncExternalStore(
+        subscribeToResize,
+        getLayoutName,
+        getServerLayoutName,
+      )
+    ];
 
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -292,7 +338,7 @@ export function ReviewPreviewSection() {
             role="group"
             aria-roledescription="carousel"
             aria-label="User reviews"
-            className="relative mx-auto h-60 w-full overflow-hidden py-1 sm:h-56"
+            className="relative mx-auto h-60 w-full overflow-hidden sm:h-56"
           >
             {REVIEWS.map((review, index) => (
               <ReviewCard
@@ -302,7 +348,7 @@ export function ReviewPreviewSection() {
                   (index - active + REVIEWS.length) % REVIEWS.length,
                   REVIEWS.length,
                 )}
-                sideOffset={sideOffset}
+                layout={layout}
               />
             ))}
           </div>
