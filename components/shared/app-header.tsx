@@ -17,7 +17,7 @@ export function AppHeader() {
       <div className="mx-auto flex h-full w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
         <Link
           href="/dashboard"
-          className="font-heading text-2xl font-semibold text-primary-foreground"
+          className="font-heading text-2xl font-semibold text-header-foreground"
         >
           Polyglot
         </Link>
@@ -33,7 +33,7 @@ export function AppHeader() {
               <Link
                 key={link.href}
                 href={link.href}
-                className="text-base font-medium text-primary-foreground/75 transition-colors hover:text-primary-foreground"
+                className="text-base font-medium text-header-foreground/75 transition-colors hover:text-header-foreground"
               >
                 {link.label}
               </Link>

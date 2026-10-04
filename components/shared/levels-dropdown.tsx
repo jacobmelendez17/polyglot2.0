@@ -35,7 +35,7 @@ export function LevelsDropdown() {
           <button> at the browser default `cursor: default`. Every sibling in
           this nav is an <a>, which gets the pointer for free — without this,
           Levels is the one item in the row that feels unclickable. */}
-      <PopoverTrigger className="cursor-pointer text-base font-medium text-primary-foreground/75 transition-colors hover:text-primary-foreground aria-expanded:text-primary-foreground">
+      <PopoverTrigger className="cursor-pointer text-base font-medium text-header-foreground/75 transition-colors hover:text-header-foreground aria-expanded:text-header-foreground">
         Levels
       </PopoverTrigger>
       <PopoverContent align="center" className="w-auto p-3">

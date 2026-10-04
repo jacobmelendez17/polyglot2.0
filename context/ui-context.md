@@ -83,6 +83,7 @@ The light palette is based on the existing Polyglot design shown in the referenc
 | Success              | `--state-success`        | `#6F9B7F` |
 | Warning              | `--state-warning`        | `#D4A85F` |
 | Header accent        | `--header-accent`        | `#9AC9AE` |
+| Header foreground    | `--header-foreground`    | `#27322E` |
 
 ### Dark Theme
 
@@ -105,7 +106,8 @@ Dark mode should use warm charcoal and muted botanical tones.
 | Error                | `--state-error`          | `#D3877F` |
 | Success              | `--state-success`        | `#87B395` |
 | Warning              | `--state-warning`        | `#D8B371` |
-| Header accent        | `--header-accent`        | `#9AC9AE` (same value as light — see Light Theme row) |
+| Header accent        | `--header-accent`        | `#34463D` (deep muted green; 2026-10-03) |
+| Header foreground    | `--header-foreground`    | `#F3ECE4` |
 
 ### Learning-Type Colors
 
@@ -999,3 +1001,6 @@ When there is uncertainty about visual styling, prefer the existing Polyglot scr
 The goal is not to make Polyglot look like a standard shadcn application.
 
 shadcn supplies accessible component behavior; **Polyglot's palette, typography, spacing, surfaces, background pattern, animation, and learning-state presentation define the product's identity**.
+
+
+> **Header in dark mode (2026-10-03):** the fixed `#9AC9AE` header was too bright against the charcoal dark background, so dark mode now overrides `--header-accent` to `#34463D` and uses the new `--header-foreground` (light cream) for wordmark/nav text. Still not palette-adaptive.
