@@ -18,8 +18,10 @@ describe("InlineToggleSettingField", () => {
     expect(screen.getByText("Show NSFW Content")).toBeInTheDocument();
     expect(screen.getByText("Off by default.")).toBeInTheDocument();
     expect(screen.getByRole("switch")).not.toBeChecked();
-    // No pending change yet — Save/Cancel should not appear.
-    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    // No pending change yet — Save/Cancel are always present (so the layout
+    // never shifts) but disabled.
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
   });
 
   it("flips locally without saving until Save is clicked", async () => {
@@ -36,13 +38,14 @@ describe("InlineToggleSettingField", () => {
     await user.click(screen.getByRole("switch"));
     expect(screen.getByRole("switch")).toBeChecked();
     expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
 
     await user.click(screen.getByRole("button", { name: "Save" }));
 
     expect(onSave).toHaveBeenCalledWith(true);
     expect(await screen.findByText("Saved")).toBeInTheDocument();
     expect(screen.getByRole("switch")).toBeChecked();
-    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
   });
 
   it("Cancel reverts the flip without ever calling onSave", async () => {
@@ -61,7 +64,7 @@ describe("InlineToggleSettingField", () => {
 
     expect(screen.getByRole("switch")).not.toBeChecked();
     expect(onSave).not.toHaveBeenCalled();
-    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
   });
 
   it("keeps the switch on the drafted value and shows the error when the save fails", async () => {

@@ -50,7 +50,7 @@ describe("LearningQueuePicker", () => {
       selectedVocabularyGroupId: null,
     });
     expect(await screen.findByText("Saved")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
   });
 
   it("Cancel reverts the mode back to what's applied without saving", async () => {
@@ -62,7 +62,7 @@ describe("LearningQueuePicker", () => {
 
     expect(screen.getByRole("radio", { name: /default order/i })).toBeChecked();
     expect(mockAction).not.toHaveBeenCalled();
-    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
   });
 
   // Switching *into* Theme Selection always clears any theme id, exactly
@@ -94,7 +94,7 @@ describe("LearningQueuePicker", () => {
     await user.click(screen.getByRole("radio", { name: /default order/i }));
     await user.click(screen.getByRole("radio", { name: /theme selection/i }));
 
-    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
     expect(mockAction).not.toHaveBeenCalled();
   });
 

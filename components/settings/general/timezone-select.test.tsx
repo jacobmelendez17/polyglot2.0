@@ -87,7 +87,7 @@ describe("TimezoneSelect", () => {
     await user.type(screen.getByLabelText("Search timezones"), "phoenix");
     await user.click(screen.getByRole("option", { name: "America/Phoenix" }));
 
-    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
     expect(mockUpdateTimezoneAction).not.toHaveBeenCalled();
   });
 

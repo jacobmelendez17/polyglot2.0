@@ -761,6 +761,12 @@ Incorrect feedback should educate, not merely flash red.
 
 ---
 
+## Settings Save Controls
+
+Every Settings field that stages a change (`SettingSaveControls`) keeps its Save and Cancel buttons on screen at all times and disables them until there is something to save (2026-10-04). Controls must not mount or unmount as state changes, because that moves everything below them. The button label stays constant ("Save"); progress and result text ("Saving…", "Saved", an error) appears beside the buttons without changing the row's height.
+
+---
+
 ## Accent Input Controls
 
 Reusable text-input components used for Spanish answers should support optional accent helpers.
