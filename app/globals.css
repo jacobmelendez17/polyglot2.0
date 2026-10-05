@@ -104,9 +104,6 @@
   --practice-reading: #d4a85f;
   --practice-writing: #9b7061;
 
-  /* RGB triplet of --bg-warm, for compositing at partial opacity */
-  --bg-warm-rgb: 243 221 211;
-
   /* Layout, z-index, and motion tokens — see context/feature-specs/02-landing-page.md */
   --nav-h: 64px;
   --z-header: 40;
@@ -180,7 +177,6 @@
   --state-warning: #d8b371;
   --learning-vocabulary: #8db5ce;
   --learning-grammar: #d79289;
-  --bg-warm-rgb: 59 48 44;
   /* SRS stage hexes are not yet redefined for dark contrast — see progress-tracker.md */
   --srs-beginner: #cfe1d8;
   --srs-familiar: #adccbe;
@@ -575,21 +571,6 @@ html[data-font-scale="extra_large"] {
   }
   body {
     animation: none !important;
-  }
-}
-
-/* site-header.tsx scrolled state: translucent + blurred, falling back to a
-   solid warm surface where backdrop-filter is unsupported. */
-.site-header[data-scrolled="true"] {
-  background-color: var(--bg-warm);
-  border-color: var(--border-default);
-}
-
-@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
-  .site-header[data-scrolled="true"] {
-    background-color: rgb(var(--bg-warm-rgb) / 0.85);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
   }
 }
 

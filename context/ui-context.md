@@ -347,6 +347,10 @@ Layout:
 - No visible bottom border is needed once the header has its own solid color — the color change against the page background already marks the boundary.
 - Do not introduce a permanent desktop sidebar unless the product direction explicitly changes.
 
+### Public (Marketing) Header
+
+The landing page and other `(marketing)` pages use `SiteHeader`, which now matches the signed-in header: a solid `bg-header-accent` bar with `text-header-foreground` wordmark and links (`/75` opacity at rest), in both light and dark mode (2026-10-04). It is no longer transparent at the top of the page, and there is no scroll-triggered color change — the bar is the same color at every scroll position. The "Sign up" pill is inverted (`bg-header-foreground text-header-accent`) because the default primary green is too close to the header's own green to read as a button.
+
 ### Mobile Navigation
 
 Use bottom navigation for the most important learner destinations:

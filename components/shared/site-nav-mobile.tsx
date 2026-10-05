@@ -27,7 +27,7 @@ export function SiteNavMobile() {
           variant="ghost"
           size="icon"
           aria-label="Open menu"
-          className="md:hidden"
+          className="text-header-foreground hover:bg-header-foreground/10 hover:text-header-foreground md:hidden"
         >
           <MenuIcon />
         </Button>
