@@ -15,28 +15,24 @@ export default function AboutPage() {
   return (
     <ContentPage
       title="About Polyglot"
-      lede="A structured curriculum, spaced repetition, and practice, built as one system rather than three separate apps."
+      lede="We found language learning sites like WaniKani and Bunpro to be so effective for Japanese language learning so we made Polyglot to be just as efficient for other languagess as well."
     >
       <ContentParagraph>
-        Polyglot pairs a structured curriculum with a spaced-repetition system,
-        treating vocabulary and grammar as distinct but equally important study
-        items rather than teaching grammar as an afterthought. Its learning loop
-        draws on WaniKani&apos;s SRS and dashboard model, Bunpro&apos;s
-        treatment of grammar as structured study content, and Anki&apos;s
-        deck-based practice.
+        Polyglot is a language learning platform that utilizes spaced repetition studying to help learnes memorize fundamentals.
+        Many decks, practice modes, and example content make it an all-in-one place to learn every aspect of a language catered to how you want to learn it.
+        New features are constantly being added to make sure we cater to all learning styles.
       </ContentParagraph>
 
       <ContentParagraph>
-        Levels unlock in order, each introducing vocabulary and grammar
-        together. Newly learned items enter scheduled reviews, and additional
-        practice modes open up as a learner&apos;s level and known content grow.
+        The SRS system is focused on learning fundamental vocabulary and grammar. 
+        As you level up, you will unlock more advanced content that builds upon what you have already learned.
+        All of the content works around where you are in your language learning journey.
       </ContentParagraph>
 
       <ContentHeading>Where things stand</ContentHeading>
       <ContentParagraph>
-        Polyglot is in Beta. The first supported curriculum is Latin American
-        Spanish focused on Mexican usage, with more languages planned as the
-        core learning model proves out.
+        Polyglot is in Beta mode right now. All users get all content and new features for free.
+        The first language offered is Latin American Spanish with Tagalog and Korean on the way.
       </ContentParagraph>
     </ContentPage>
   );
