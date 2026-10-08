@@ -557,6 +557,7 @@ Most tests should be unit tests of domain rules. Domain logic is pure and has no
 - Build test data with factory functions exposing sensible defaults and accepting overrides. Do not share mutable fixture objects between tests.
 - Every test creates the data it needs. A test that only passes after another test has run is a broken test.
 - Seed scripts live in a clearly marked seed directory and are the only place hardcoded sample content is permitted.
+- Real curriculum is never hardcoded in a seed. To move an authored level between databases, use a curriculum snapshot (`npm run curriculum:snapshot-export` / `curriculum:snapshot-load`, ADR-023): it is exact, refuses non-empty targets, supports `--dry-run`, and its output (`content/snapshots/`) is gitignored because the repository is public.
 
 ### Determinism and Flake Policy
 

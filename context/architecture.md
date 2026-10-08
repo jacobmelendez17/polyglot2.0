@@ -2614,6 +2614,45 @@ no `lock_timeout` (parity with the previous behaviour); a `CONCURRENTLY`
 migration is not atomic, so a failure partway can leave an INVALID index to
 drop before re-running.
 
+## ADR-023 — Curriculum Snapshots Seed Production's First Level (Owner Override of the Admin-Import Path)
+
+**Decision:** `npm run curriculum:snapshot-export` writes one published level
+of one language from a source database to a JSON file, and
+`npm run curriculum:snapshot-load` inserts it into a target database in one
+transaction (`db/snapshot/curriculum-snapshot.ts`). It carries the level, its
+published themes and items with their detail rows, accepted answers, grammar
+lesson blocks, sentences and sentence links — preserving ids and permanent
+`curriculum_key`s — and creates the language row by `code` if missing,
+rewriting `language_id` to the target's. It never carries anything
+user-linked, audit events, import bookkeeping, dictionary data, unpublished
+rows, or other levels/languages, and rejects any row with a user-reference
+column. The loader only seeds a language that has no curriculum; a re-run of
+the same snapshot is a no-op; anything else is refused. `--dry-run` rolls
+back after verifying.
+
+**Why:** Spec 23 plans production as "empty database, then curriculum through
+the Admin import workflow." That plan cannot start: `provisionUser` requires
+the default language and a Level 1 row to exist before it creates any user,
+so the first user — the one who would become admin and run the import —
+cannot be created (found 2026-10-08 by a live production sign-up test;
+`PROVISIONING_FAILED`). The committed Level 1 CSV is stale relative to the
+owner's published dev content, and the canonical CSV export does not carry
+grammar lesson blocks or sentences, so a CSV round trip could not reproduce
+the level. A snapshot is exact (verified by re-exporting the loaded copy and
+comparing every table).
+
+**Trade-off, chosen deliberately by the owner:** this bypasses the Admin
+review/publish step and its audit trail — spec 23's "curriculum is imported
+afterward through the real admin workflow" and "do not publish automatically"
+— for this one-time bootstrap. It is not a general sync mechanism, it does not
+bring dictionary data (`lexicon:import` is a separate step), and snapshot
+files are gitignored (`content/snapshots/`) because the repository is public.
+
+**Relationship to existing decisions:** Composes with ADR-022 (the loader
+requires the target to be migrated at least as far as the source) and with
+ADR-013 (forward-only data: it never overwrites or deletes). Does not change
+`provisionUser`'s invariants.
+
 ---
 
 # Parameters That Must Remain Configurable

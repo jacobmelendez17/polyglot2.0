@@ -71,3 +71,7 @@ override.tf.json
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# curriculum snapshots (scripts/export-curriculum-snapshot.ts) — the full
+# authored curriculum; the repository is public, so never commit these
+/content/snapshots/
