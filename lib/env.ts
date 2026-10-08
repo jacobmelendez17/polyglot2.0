@@ -11,8 +11,11 @@ const resolvedAppEnv =
 // identify the deployed application version... prefer git commit SHA."
 // Vercel sets VERCEL_GIT_COMMIT_SHA automatically on every deployment; local
 // dev and any environment without it falls back to "local" rather than
-// failing the whole app over a non-authoritative diagnostic field.
-const resolvedRelease = process.env.VERCEL_GIT_COMMIT_SHA ?? "local";
+// failing the whole app over a non-authoritative diagnostic field. "Without
+// it" includes an empty string: `vercel pull` writes `VERCEL_GIT_COMMIT_SHA=""`
+// for a CLI build on a CI runner with no Git metadata (deploy-production.yml),
+// and `??` alone would pass that through and fail the schema's `min(1)`.
+const resolvedRelease = process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "local";
 
 const envSchema = z.object({
   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: z.string().min(1),

@@ -45,3 +45,42 @@ describe("env Upstash requirement", () => {
     expect(env.UPSTASH_REDIS_REST_URL).toBeUndefined();
   });
 });
+
+describe("env RELEASE", () => {
+  const original = { ...process.env };
+
+  beforeEach(() => {
+    vi.resetModules();
+    Object.assign(process.env, BASE_ENV);
+    delete process.env.APP_ENV;
+    delete process.env.VERCEL_ENV;
+    delete process.env.VERCEL_GIT_COMMIT_SHA;
+  });
+
+  afterEach(() => {
+    process.env = { ...original };
+  });
+
+  it("uses the Vercel git commit SHA when present", async () => {
+    process.env.VERCEL_GIT_COMMIT_SHA = "0123abc";
+    const { env } = await import("@/lib/env");
+    expect(env.RELEASE).toBe("0123abc");
+  });
+
+  it('falls back to "local" when the SHA is unset', async () => {
+    const { env } = await import("@/lib/env");
+    expect(env.RELEASE).toBe("local");
+  });
+
+  // Regression: `vercel pull` writes VERCEL_GIT_COMMIT_SHA="" for a CLI build
+  // on a CI runner, which previously failed the whole production build with
+  // "RELEASE: Too small: expected string to have >=1 characters".
+  it.each(["", "   "])(
+    'falls back to "local" when the SHA is blank (%j)',
+    async (blank) => {
+      process.env.VERCEL_GIT_COMMIT_SHA = blank;
+      const { env } = await import("@/lib/env");
+      expect(env.RELEASE).toBe("local");
+    },
+  );
+});
