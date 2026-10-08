@@ -37,6 +37,16 @@ if (!cronSecret) {
   process.exit(1);
 }
 
+// Clerk's `auth.protect()` answers a signed-out request that doesn't look like
+// a browser navigation with a bare 404 (it hides protected routes from
+// API-style callers), and only redirects to sign-in for document requests.
+// Node's fetch sends `Accept: */*`, so the protected-route check must ask for
+// HTML like a browser. Only that check: on Clerk's development instance (the
+// Beta runs on one), an HTML-accepting request to *any* page, even a public
+// one, gets a 307 handshake redirect first, so the landing-page and sign-in
+// checks deliberately use the default headers and expect a plain 200.
+const pageHeaders = { Accept: "text/html,application/xhtml+xml" };
+
 const failures = [];
 
 async function check(name, fn) {
@@ -73,10 +83,19 @@ async function main() {
     async () => {
       const response = await fetch(new URL("/dashboard", baseUrl), {
         redirect: "manual",
+        headers: pageHeaders,
       });
       if (![302, 307].includes(response.status)) {
         throw new Error(
           `expected a redirect (302/307), got ${response.status}`,
+        );
+      }
+      // Any redirect used to pass, including Vercel's own deployment-protection
+      // login wall — which would let this check pass for the wrong reason.
+      const location = response.headers.get("location") ?? "";
+      if (new URL(location, baseUrl).hostname === "vercel.com") {
+        throw new Error(
+          "redirected to Vercel's deployment-protection login, not the app's sign-in (is Vercel Authentication enabled on production?)",
         );
       }
     },
