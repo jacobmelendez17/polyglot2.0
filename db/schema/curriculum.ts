@@ -185,9 +185,9 @@ export const levels = pgTable(
     ),
     unique("levels_id_language_id_key").on(t.id, t.languageId),
     // Concurrent because this table may already be populated when this index
-    // is added (code-standards.md) — applied via `db:migrate-concurrent`, not
-    // the normal `db:migrate` path. A plain `unique()` constraint cannot be
-    // added concurrently in Postgres.
+    // is added (code-standards.md) — `db:migrate` runs a migration containing
+    // CONCURRENTLY outside a transaction (db/migrate/run-migrations.ts). A
+    // plain `unique()` constraint cannot be added concurrently in Postgres.
     uniqueIndex("levels_curriculum_key_key").on(t.curriculumKey).concurrently(),
   ],
 );

@@ -1,6 +1,6 @@
 import { Pool } from "@neondatabase/serverless";
-import { drizzle } from "drizzle-orm/neon-serverless";
-import { migrate } from "drizzle-orm/neon-serverless/migrator";
+
+import { runMigrations } from "@/db/migrate/run-migrations";
 
 import { assertSafeIntegrationDatabaseUrl } from "./db-safety-guard";
 
@@ -16,8 +16,7 @@ export default async function setup() {
 
   const pool = new Pool({ connectionString: url });
   try {
-    const db = drizzle(pool);
-    await migrate(db, { migrationsFolder: "./db/migrations" });
+    await runMigrations(pool, { migrationsFolder: "./db/migrations" });
   } finally {
     await pool.end();
   }

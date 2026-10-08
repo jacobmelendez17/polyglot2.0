@@ -2017,6 +2017,7 @@ Migrations are the highest-risk routine operation in the system, because they ar
 - All schema changes are generated Drizzle migrations, committed to the repository.
 - A migration that has been merged to `main` is immutable. Corrections are made by adding a new migration.
 - Migrations run as a discrete, gated pipeline step. They never run on application boot, and never inside a request handler.
+- Migrations are applied by the project's own runner (`npm run db:migrate` → `scripts/migrate.ts` → `db/migrate/run-migrations.ts`), not by `drizzle-kit migrate`: one transaction per migration, and a migration containing `CONCURRENTLY` runs outside a transaction. It reads and writes drizzle's own `drizzle.__drizzle_migrations` bookkeeping, so `drizzle-kit generate` and `drizzle-kit check` are unaffected. See ADR-022.
 - Every migration must be safe to run while the previous application version is still serving traffic. Deployments are not atomic with migrations, so both versions overlap.
 
 ## Forward-Only in Production
@@ -2575,6 +2576,43 @@ deployment still uses Vercel's Git integration exactly as before. Composes
 with ADR-012 (preview databases) and ADR-013 (forward-only migrations): this
 ADR is what makes ADR-013's ordering assumption actually true in production,
 not just documented.
+
+## ADR-022 — A Project-Owned Migration Runner Replaces `drizzle-kit migrate`
+
+**Decision:** `npm run db:migrate` runs `db/migrate/run-migrations.ts`
+(through `scripts/migrate.ts`) instead of `drizzle-kit migrate`. It applies
+each pending migration in its own transaction, runs a migration that
+contains `CONCURRENTLY` outside a transaction, and reports the failing
+migration, statement, SQLSTATE and server detail in plain text. The same
+runner is used by `scripts/e2e-reset.ts` and the integration suite's global
+setup. It keeps drizzle's bookkeeping contract exactly — the
+`drizzle.__drizzle_migrations` table, the sha256 `hash`, `created_at` = the
+journal entry's `when`, and "apply everything newer than the latest
+`created_at`" — and reuses drizzle's own `readMigrationFiles`.
+
+**Why:** `drizzle-kit migrate` (and `drizzle-orm`'s `migrate()`) wrap every
+pending migration into one shared transaction. That cannot build this
+schema from an empty database: migration 0043's
+`CREATE UNIQUE INDEX CONCURRENTLY` is illegal inside a transaction block
+(SQLSTATE 25001). Every environment migrated incrementally escaped it, so it
+stayed latent until the first from-empty run — the first production deploy
+(2026-10-07), where it also surfaced as an unreadable spinner in the CI log.
+`e2e:setup` and `migrate.yml`'s empty-to-head check had the same defect. A
+second latent hazard of one shared transaction — using an enum value added
+by `ALTER TYPE ... ADD VALUE` in the same transaction as the addition
+(SQLSTATE 55P04) — is also removed.
+
+**Relationship to existing decisions:** Composes with ADR-013 (forward-only
+migrations): the runner never rolls a committed migration back, and a failed
+migration rolls back only itself, leaving earlier migrations applied so a
+re-run resumes. Refines the Expand/Migrate/Contract rule that a concurrent
+index sits in its own migration. Supersedes the `db:migrate-concurrent` side
+channel (kept, harmless, because it records the same bookkeeping rows).
+**Trade-offs, deliberately not changed here:** no advisory lock (concurrent
+runs are prevented by the deploy workflow's concurrency group, as before) and
+no `lock_timeout` (parity with the previous behaviour); a `CONCURRENTLY`
+migration is not atomic, so a failure partway can leave an INVALID index to
+drop before re-running.
 
 ---
 

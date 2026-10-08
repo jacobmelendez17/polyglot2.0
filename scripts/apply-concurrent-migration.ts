@@ -7,6 +7,13 @@ import { Pool } from "@neondatabase/serverless";
  * `npm run db:migrate-concurrent -- <migration_tag>` (spec: Next Up #27's
  * investigation, 2026-09-17).
  *
+ * Superseded (ADR-022): `npm run db:migrate` now runs through
+ * `db/migrate/run-migrations.ts`, which applies each migration in its own
+ * transaction and runs a migration containing `CONCURRENTLY` outside one, so
+ * this side channel is no longer needed. It is kept as a manual escape hatch
+ * and records exactly the same `__drizzle_migrations` row. The explanation
+ * below describes the `drizzle-kit migrate` behaviour that made it necessary.
+ *
  * Why this exists: `npm run db:migrate` (`drizzle-kit migrate`) wraps every
  * pending migration file into **one shared transaction** before running any
  * of their statements — confirmed by reading the installed

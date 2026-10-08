@@ -6,8 +6,8 @@ config({ path: ".env.local" });
 
 import { Pool } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-serverless";
-import { migrate } from "drizzle-orm/neon-serverless/migrator";
 
+import { runMigrations } from "@/db/migrate/run-migrations";
 import * as schema from "@/db/schema";
 import { seedE2EFixtures } from "@/db/seed/e2e-fixtures";
 import { assertSafeE2EDatabaseUrl } from "@/db/test/db-safety-guard";
@@ -43,7 +43,7 @@ async function main() {
     console.log("Resetting the E2E database schema...");
     // The `drizzle` migration-tracking schema is not touched by resetting
     // `public` alone — a Neon branch created from a migrated parent copies
-    // both, so both must be dropped for `drizzle-kit`'s migrator to actually
+    // both, so both must be dropped for the migration runner to actually
     // reapply every migration rather than trusting a copied ledger.
     await pool.query(
       "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;",
@@ -51,8 +51,10 @@ async function main() {
     await pool.query("DROP SCHEMA IF EXISTS drizzle CASCADE;");
 
     console.log("Applying migrations...");
-    const migrationDb = drizzle(pool);
-    await migrate(migrationDb, { migrationsFolder: "./db/migrations" });
+    // The project's own runner, not drizzle's `migrate()`: that one wraps the
+    // whole history in a single transaction, which cannot build this schema
+    // from empty (db/migrate/run-migrations.ts explains why).
+    await runMigrations(pool, { migrationsFolder: "./db/migrations" });
 
     console.log("Seeding the E2E curriculum fixture and test identities...");
     const db = drizzle(pool, { schema });
