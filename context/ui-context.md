@@ -326,6 +326,31 @@ Do not alter shadcn base components merely to make one page look different when 
 
 Use CVA for reusable visual variants where appropriate.
 
+### Admin Console (React Admin / Material UI)
+
+The Admin console (`/admin`) is being migrated onto React Admin, which renders
+with Material UI (spec 26). That is the one place this rule has an exception:
+Material UI lives **only** in the Admin subtree and never replaces or globally
+overrides a shadcn primitive.
+
+It must still look like Polyglot, so the MUI theme is **derived from the same
+semantic CSS variables** (`components/admin/react-admin/polyglot-theme.ts`),
+not from a second palette:
+
+- Palette colors are read from the live document (`--bg-base`, `--bg-surface`,
+  `--text-*`, `--accent-primary`, `--accent-foreground`, `--border-default`,
+  `--state-*`), because MUI computes hover/alpha shades from them and cannot do
+  arithmetic on a `var()` string. Component surfaces, borders, and radii use
+  `var(--...)` directly.
+- The theme is re-read whenever `<html>`'s `class` (light/dark/system) or
+  `data-palette`/`data-font-*`/`data-color-blind` change, so every Appearance
+  setting keeps working. MUI's default purple secondary and blue info colors are
+  remapped onto Polyglot tokens, and its dark-mode Paper elevation tint is off.
+- The handwritten font (`--font-sans`), `rounded-lg` buttons, `rounded-xl`
+  cards, soft borders instead of shadows, `prefers-reduced-motion`, and the four
+  interface states (loading, empty, error, forbidden) apply here exactly as
+  elsewhere. Loading uses a Tailwind skeleton, not a spinner.
+
 ---
 
 ## Navigation

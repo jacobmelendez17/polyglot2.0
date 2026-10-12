@@ -395,6 +395,54 @@ Owns:
 - Administrative audit events
 - Sandbox tools
 - Admin-only support interfaces
+- The Admin HTTP adapter's wire contract and response builders
+  (`domains/admin/admin-api-contract.ts`, `admin-api-views.ts`) — spec 26
+
+### React Admin Console (spec 26)
+
+The Admin interface is being migrated, one unit at a time, onto **React Admin**
+(Material UI). It is a **presentation layer over the existing services**, never
+a second backend or a generic CRUD API; every business, security, and
+data-integrity rule stays in `domains/*`.
+
+- **Transport:** a small, explicit adapter under `/api/v1/admin/*`. Handlers are
+  thin and run one pipeline (`app/api/v1/admin/_lib/admin-route.ts`):
+  authenticate (`requireUser`) -> authorize (an `authorization.ts` predicate on
+  the **database** role) -> execute -> `{ data }` / `{ error: { code, message } }`.
+  `proxy.ts` only protects `/admin(.*)` _pages_, so each handler proves identity
+  and role itself, on every request. Responses are `private, no-store`.
+  Unexpected errors re-throw to `withRouteTrace` (logged at ERROR, generic 500).
+- **DTOs are defined once** (Zod, `domains/admin/admin-api-contract.ts`), built
+  by pure functions the handlers call, and re-validated by the browser's
+  `dataProvider` — a response that does not match the contract is an error.
+- **Whitelisted operations only.** The typed `dataProvider`
+  (`components/admin/react-admin/`) maps each resource/action to one named
+  endpoint and rejects everything else with a typed `UNSUPPORTED_OPERATION`.
+  React Admin's generic `update`/`delete`/`updateMany`/`deleteMany` are never
+  mapped onto a table.
+- **Permissions are mirrored, not decided, in the browser.**
+  `GET /api/v1/admin/me` returns the server's effective permissions
+  (`canAccessAdminArea`, `canManageCurriculum`, `canPublishCurriculum`,
+  `canUseDeveloperTools`, plus a per-resource action list). The `authProvider`
+  only coordinates presentation; Clerk still owns credentials and sessions.
+- **`authProvider.checkError` must never reject.** React Admin's
+  `useDataProvider` treats a rejected `checkError` as "the user is being logged
+  out" and replaces the failed call with an **empty successful response**
+  (`{ data: {} }` / `[]`) — an authorization failure rendered as "no data".
+  The provider performs its side effect (redirect to Clerk on 401) and
+  resolves, so the real 401/403 reaches the query and the screen renders an
+  access-denied state.
+- **Integration shape.** Next's App Router keeps every URL and the server-side
+  `app/(admin)/admin/layout.tsx` role guard. Each migrated screen mounts React
+  Admin's _context_ (`AdminContext`, not `<Admin>`) behind a `next/dynamic`
+  `ssr: false` client boundary, so the library is a lazy chunk only that route
+  downloads and Emotion needs no server style registry. React Admin's required
+  router is a contained `MemoryRouter` that is never wired to the address bar —
+  a default `HashRouter` (`/admin#/...`) must not mount.
+- React Query and React Admin caches are convenience state, never authorization
+  state: permissions are re-fetched on mount and on focus
+  (`useAdminPermissions`), and a 401/403 replaces whatever privileged data is
+  still cached.
 
 ## `media`
 

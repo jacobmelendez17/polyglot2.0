@@ -726,6 +726,11 @@ Default/approved choices include:
 - Motion when needed
 - Vitest
 - Playwright
+- React Admin, Material UI, and Emotion — **Admin console subtree only** (spec
+  26). They are loaded lazily behind a client-only boundary on migrated
+  `/admin` routes and must never be imported by learner-facing code. Do not
+  add an off-the-shelf React Admin data provider: the server is not a generic
+  CRUD API, and Polyglot's own typed `dataProvider` whitelists each operation.
 
 ## Environment Variables
 
