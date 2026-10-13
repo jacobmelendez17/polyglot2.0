@@ -11,10 +11,7 @@ export default function PracticeLoading() {
         </div>
       </div>
       <div className="mx-auto flex w-full max-w-[1240px] flex-col gap-6 px-3 py-6 sm:px-7">
-        <div className="flex flex-col gap-3">
-          <Skeleton className="h-7 w-44" />
-          <Skeleton className="aspect-[16/9] w-full rounded-xl" />
-        </div>
+        <Skeleton className="aspect-[4/3] rounded-xl md:aspect-auto md:h-56" />
         <div className="flex flex-wrap gap-2.5">
           {[0, 1, 2, 3, 4].map((sign) => (
             <Skeleton key={sign} className="h-9 w-28 rounded-lg" />

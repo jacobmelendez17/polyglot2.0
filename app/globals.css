@@ -706,12 +706,19 @@ html[data-font-scale="extra_large"] {
  * The resting state is "parked at the platform", so with the animation
  * removed under reduced motion, the train and its tally simply stay put.
  *
- * The station is a drawing, so its paper/ink colors are fixed in both
- * themes, like the onboarding illustrations.
+ * The station is transparent line art on the card, inverted in dark mode.
+ * The train and the placards on it are a drawing, so their colors are fixed
+ * in both themes, like the onboarding illustrations.
+ *
+ * From md up the card keeps the old walk card's footprint: `--station-h`
+ * tall, with the 16:9 scene `--station-w` wide on its right, plus a
+ * `--station-fade` strip the arriving train fades in across.
  */
 .practice-station {
   --station-cycle: 20s;
-  --station-paper: #eae0d3;
+  --station-h: 14rem;
+  --station-w: calc(var(--station-h) * 16 / 9);
+  --station-fade: 4rem;
   --station-card: #fbf7f0;
   --station-ink: #1f1b16;
 }

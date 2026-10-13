@@ -157,7 +157,13 @@ Like the learning-type colors, these do not change with the Appearance Color Pal
 
 ### Practice Station Illustration
 
-The Practice hub's "Today's practice" scene (2026-10-12) uses the user's own drawings, and it is the explicit design decision the Animation section below requires for illustration-heavy motion. Like the onboarding artwork, its paper (`#EAE0D3`), placard (`#FBF7F0`), and ink (`#1F1B16`) colors are fixed in both themes, because the drawing does not change with the theme. They are set as `--station-*` variables on `.practice-station` in `globals.css`. Each window placard's top edge uses its skill's practice color, always next to the skill's icon and number. Text inside the scene is sized in container-query units so it scales with the drawing. Below a 34rem-wide scene, the placard labels and the stripe text are hidden visually, and the heading row and screen-reader text still carry them.
+The Practice hub's "Today's practice" card (2026-10-12) uses the user's own drawings, and it is the explicit design decision the Animation section below requires for illustration-heavy motion. It occupies the footprint the old "Today's walk" card had: from md up, a `--station-h` (14rem) tall card with the heading on the left and the 16:9 scene flush right. Below md, the scene stacks under the heading at full width.
+
+- The station is transparent line art sitting directly on the card. It is inverted in dark mode (`dark:invert-[0.9]`), so its lines stay visible on the dark card.
+- The drawing's left edge is a cut, so from md up the station fades in from the left. The arriving train fades in across a `--station-fade` strip just left of the drawing, clear of where it parks.
+- The train and the placards on it are fixed-color illustration in both themes, like the onboarding artwork: placard `#FBF7F0` and ink `#1F1B16`, set as `--station-*` variables on `.practice-station` in `globals.css`.
+- Each window placard's top edge uses its skill's practice color, always next to the skill's icon and number.
+- Text on the train is sized in container-query units so it scales with the drawing. Placard labels show only when the train is at least 34rem wide, and the stripe total only at 24rem or wider. The heading row and screen-reader text always carry both.
 
 ### Skill Progress Labels
 
