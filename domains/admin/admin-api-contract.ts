@@ -72,6 +72,109 @@ export const adminOverviewSchema = z.object({
 });
 export type AdminOverview = z.infer<typeof adminOverviewSchema>;
 
+/* -------------------------------------------------------------------------- */
+/* Curriculum list (spec 26 Unit 2)                                           */
+/* -------------------------------------------------------------------------- */
+
+export const CURRICULUM_ITEM_TYPES = ["vocabulary", "grammar"] as const;
+export const CURRICULUM_STATUSES = [
+  "draft",
+  "pending",
+  "published",
+  "archived",
+] as const;
+/** Spec 25 §15's editorial work queue. "Has Validation Warning" / "Recently Imported" are deliberately absent: nothing backs them yet. */
+export const CURRICULUM_NEEDS_FILTERS = [
+  "definition",
+  "examples",
+  "ipa",
+  "pronunciation",
+  "synonyms",
+  "variations",
+  "draft_changes",
+  "ready_to_publish",
+] as const;
+
+/** What the Admin list shows per page. The server caps any request at `CURRICULUM_LIST_MAX_PAGE_SIZE`. */
+export const CURRICULUM_LIST_PAGE_SIZE = 20;
+export const CURRICULUM_LIST_MAX_PAGE_SIZE = 100;
+
+/**
+ * The one ordering the list supports: level, then curriculum position, then
+ * id (`getAdminCurriculumItems`' keyset). React Admin is told this is the
+ * sort, and any other sort is refused — a cursor is only meaningful under the
+ * ordering that produced it.
+ */
+export const CURRICULUM_LIST_SORT = {
+  field: "curriculum_order",
+  order: "ASC",
+} as const;
+
+/** Same permissive UUID shape the curriculum domain accepts (its seeded fixture ids are not RFC-4122 versioned). */
+const uuidLike = z
+  .string()
+  .regex(
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    "Invalid UUID",
+  );
+
+/**
+ * `GET /api/v1/admin/curriculum` query string. `language` is required:
+ * curriculum browsing is always scoped to exactly one language. `.strict()`
+ * means a `sort`, `order`, `page`, or any other parameter this endpoint does
+ * not implement is rejected rather than silently ignored.
+ */
+export const adminCurriculumListQuerySchema = z
+  .object({
+    language: uuidLike,
+    level: uuidLike.optional(),
+    type: z.enum(CURRICULUM_ITEM_TYPES).optional(),
+    status: z.enum(CURRICULUM_STATUSES).optional(),
+    group: uuidLike.optional(),
+    search: z.string().trim().min(1).max(200).optional(),
+    needs: z.enum(CURRICULUM_NEEDS_FILTERS).optional(),
+    cursor: z.string().trim().min(1).max(512).optional(),
+    limit: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(CURRICULUM_LIST_MAX_PAGE_SIZE)
+      .default(CURRICULUM_LIST_PAGE_SIZE),
+  })
+  .strict();
+export type AdminCurriculumListQuery = z.infer<
+  typeof adminCurriculumListQuerySchema
+>;
+
+/** One Admin curriculum row. `status` is the *display* status — a published item with an open draft reads `draft`. */
+export const adminCurriculumRowSchema = z.object({
+  id: z.string().min(1),
+  type: z.enum(CURRICULUM_ITEM_TYPES),
+  status: z.enum(CURRICULUM_STATUSES),
+  levelId: z.string().min(1),
+  levelNumber: z.number().int(),
+  itemLabel: z.string(),
+  meaningLabel: z.string(),
+  groupId: z.string().nullable(),
+  groupName: z.string().nullable(),
+});
+export type AdminCurriculumRow = z.infer<typeof adminCurriculumRowSchema>;
+
+/**
+ * A cursor-paginated page: there is deliberately **no total** — an exact
+ * count over the curriculum is a full scan, and the service does not
+ * provide one. `previousCursor` is `null` both when there is no previous page
+ * and when the previous page is the first (which needs no cursor); read it
+ * together with `hasPreviousPage`.
+ */
+export const adminCurriculumPageSchema = z.object({
+  items: z.array(adminCurriculumRowSchema),
+  nextCursor: z.string().nullable(),
+  hasPreviousPage: z.boolean(),
+  previousCursor: z.string().nullable(),
+});
+export type AdminCurriculumPage = z.infer<typeof adminCurriculumPageSchema>;
+
 /**
  * Error codes this adapter can answer with, and the HTTP status each maps
  * to (spec 26 §3 "API errors"). Domain errors (`AppError`/`AdminError`)

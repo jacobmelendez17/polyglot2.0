@@ -5,7 +5,6 @@ import NextLink from "next/link";
 import { useGetOne, useNotify } from "react-admin";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardActionArea from "@mui/material/CardActionArea";
 import Typography from "@mui/material/Typography";
@@ -18,6 +17,7 @@ import {
 } from "@/domains/admin";
 
 import { describeAdminError } from "../admin-api-error";
+import { AdminProblem, blockingError } from "../admin-problem";
 import { useAdminPermissions } from "../use-admin-permissions";
 import { getOverviewLinks } from "./overview-links";
 import { OverviewSkeleton } from "./overview-skeleton";
@@ -132,76 +132,6 @@ function ShortcutCards({
   );
 }
 
-function OverviewProblem({
-  error,
-  onRetry,
-}: {
-  error: unknown;
-  onRetry: () => void;
-}) {
-  const { kind, message, retryable } = describeAdminError(error);
-
-  if (kind === "unauthenticated") {
-    // The auth provider has already sent the browser to Clerk's sign-in
-    // page; this is only what shows during that hand-off.
-    return (
-      <Alert severity="info" role="status">
-        {message}
-      </Alert>
-    );
-  }
-
-  if (kind === "forbidden") {
-    // Permanent: offer a way out rather than a retry (ui-context.md Error).
-    return (
-      <Alert
-        severity="warning"
-        action={
-          <Button
-            color="inherit"
-            size="small"
-            component={NextLink}
-            href="/dashboard"
-          >
-            Back to dashboard
-          </Button>
-        }
-      >
-        {message}
-      </Alert>
-    );
-  }
-
-  return (
-    <Alert
-      severity="error"
-      action={
-        retryable ? (
-          <Button color="inherit" size="small" onClick={onRetry}>
-            Try again
-          </Button>
-        ) : undefined
-      }
-    >
-      {message}
-    </Alert>
-  );
-}
-
-/**
- * The failure, if any, that must replace the screen. A transient failure
- * (network, 5xx) leaves already-loaded data in place so the person can keep
- * reading while a warning shows. A *denial* never does: if the server now
- * says 401/403, whatever privileged data is still in the cache must go
- * (spec 26 §8: "on 401/403 clear stale privileged UI").
- */
-function blockingError(error: unknown, hasData: boolean): unknown {
-  if (!error) return null;
-  const { kind } = describeAdminError(error);
-  const isDenial = kind === "forbidden" || kind === "unauthenticated";
-  return !hasData || isDenial ? error : null;
-}
-
 /**
  * The Admin Overview, driven by React Admin's data layer (spec 26 Unit 1):
  * `useGetOne` fetches the `overview` resource through the typed
@@ -239,7 +169,7 @@ export function OverviewScreen() {
 
   if (overviewError) {
     return (
-      <OverviewProblem
+      <AdminProblem
         error={overviewError}
         onRetry={() => void overview.refetch()}
       />
@@ -247,7 +177,7 @@ export function OverviewScreen() {
   }
   if (permissionsError) {
     return (
-      <OverviewProblem
+      <AdminProblem
         error={permissionsError}
         onRetry={() => void permissions.refetch()}
       />

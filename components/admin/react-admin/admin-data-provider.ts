@@ -10,10 +10,15 @@ import type {
   UpdateResult,
 } from "react-admin";
 
-import { ADMIN_OVERVIEW_RECORD_ID, adminOverviewSchema } from "@/domains/admin";
+import {
+  ADMIN_OVERVIEW_RECORD_ID,
+  adminCurriculumPageSchema,
+  adminOverviewSchema,
+} from "@/domains/admin";
 
 import { requestAdminApi } from "./admin-api-client";
 import { AdminApiError } from "./admin-api-error";
+import { buildCurriculumListQuery } from "./curriculum/curriculum-list-query";
 
 type AdminRequest = typeof requestAdminApi;
 
@@ -63,7 +68,29 @@ export function createAdminDataProvider({
       return unsupported(resource, "getOne");
     },
 
-    async getList(resource): Promise<GetListResult> {
+    async getList(resource, params): Promise<GetListResult> {
+      if (resource === "curriculum") {
+        const page = await request(
+          `/curriculum?${buildCurriculumListQuery(params)}`,
+          adminCurriculumPageSchema,
+          { signal: params.signal },
+        );
+        return {
+          data: page.items,
+          // Partial pagination: there is no total, and none is invented —
+          // an exact count over the curriculum is a full scan.
+          pageInfo: {
+            hasNextPage: page.nextCursor !== null,
+            hasPreviousPage: page.hasPreviousPage,
+          },
+          // The server's cursors are authoritative; the list navigates by
+          // handing one of these back, never by computing one.
+          meta: {
+            nextCursor: page.nextCursor,
+            previousCursor: page.previousCursor,
+          },
+        };
+      }
       return unsupported(resource, "getList");
     },
     async getMany(resource): Promise<GetManyResult> {

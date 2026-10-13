@@ -29,10 +29,18 @@ import {
 import type { AdminCurriculumListItem } from "@/domains/curriculum";
 
 type BulkActionsBarProps = {
-  selectedItems: AdminCurriculumListItem[];
+  /** Only what the bar reads — so the Admin list's slim API rows qualify as well as the full read-model rows. */
+  selectedItems: Pick<AdminCurriculumListItem, "id" | "status" | "type">[];
   levels: { id: string; levelNumber: number }[];
   groups: { id: string; name: string; levelNumber: number }[];
+  /** Clear the selection. Also what "Clear" does. */
   onDone: () => void;
+  /**
+   * Called once after a bulk action *succeeds*, before the server components
+   * refresh. A list that fetches its own data client-side (the React Admin
+   * list) is not touched by `router.refresh()`, so it must be told to re-fetch.
+   */
+  onActionComplete?: () => void;
 };
 
 /**
@@ -46,6 +54,7 @@ export function BulkActionsBar({
   levels,
   groups,
   onDone,
+  onActionComplete,
 }: BulkActionsBarProps) {
   const router = useRouter();
   const count = selectedItems.length;
@@ -55,6 +64,7 @@ export function BulkActionsBar({
 
   function refreshAndClear() {
     onDone();
+    onActionComplete?.();
     router.refresh();
   }
 

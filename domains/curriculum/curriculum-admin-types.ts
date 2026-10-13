@@ -83,6 +83,18 @@ export type AdminCurriculumItemsPage = {
   items: AdminCurriculumListItem[];
   /** Opaque cursor for the next page, or `null` when this page is the last. */
   nextCursor: string | null;
+  /**
+   * Whether a page exists before this one. Always `false` for the first page
+   * (no `cursor` given); otherwise derived from the cursor itself, so it is
+   * correct after a refresh or from a deep link.
+   */
+  hasPreviousPage: boolean;
+  /**
+   * Cursor that opens the previous page, or `null` when there is no previous
+   * page *or* when the previous page is the first page (which needs no
+   * cursor) — read it together with `hasPreviousPage`.
+   */
+  previousCursor: string | null;
 };
 
 /** Per-status item counts for one language (Unit 1's Overview stat cards). */

@@ -4,16 +4,15 @@ import { forbidden } from "next/navigation";
 
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { Button } from "@/components/ui/button";
-import { CurriculumFilters } from "@/components/admin/curriculum/curriculum-filters";
-import { CurriculumPagination } from "@/components/admin/curriculum/curriculum-pagination";
-import { CurriculumTableSection } from "@/components/admin/curriculum/curriculum-table-section";
 import { ItemReorderList } from "@/components/admin/curriculum/item-reorder-list";
 import { LevelContentSummaryCard } from "@/components/admin/curriculum/level-content-summary-card";
-import { canManageCurriculum } from "@/domains/admin";
-import type {
-  AdminCurriculumNeedsFilter,
-  CurriculumStatus,
-} from "@/domains/curriculum";
+import { AdminCurriculumListApp } from "@/components/admin/react-admin/curriculum/curriculum-list-app";
+import {
+  CURRICULUM_ITEM_TYPES,
+  CURRICULUM_NEEDS_FILTERS,
+  CURRICULUM_STATUSES,
+  canManageCurriculum,
+} from "@/domains/admin";
 import {
   getAdminCurriculumItems,
   getLanguages,
@@ -22,12 +21,12 @@ import {
   getVocabularyGroupsByLanguage,
 } from "@/domains/curriculum/server";
 import { requireUser } from "@/domains/users/server";
+import { env } from "@/lib/env";
 
 export const metadata: Metadata = {
   title: "Curriculum — Polyglot Admin",
 };
 
-const PAGE_SIZE = 20;
 // getAdminCurriculumItemsInputSchema caps `limit` at 100 — this is that cap,
 // used as-is (not a separate, larger constant) so reorder mode never
 // exceeds it. Still comfortably above CURRICULUM_VALIDATION_CONFIG's
@@ -36,18 +35,6 @@ const PAGE_SIZE = 20;
 // assigns positions 1..N to whatever list it's given — leaving items out of
 // that list would desync their position from the ones that were reordered.
 const REORDER_LIMIT = 100;
-const ITEM_TYPES = ["vocabulary", "grammar"] as const;
-const STATUSES = ["draft", "pending", "published", "archived"] as const;
-const NEEDS_FILTERS = [
-  "definition",
-  "examples",
-  "ipa",
-  "pronunciation",
-  "synonyms",
-  "variations",
-  "draft_changes",
-  "ready_to_publish",
-] as const;
 
 type SearchParams = {
   language?: string;
@@ -70,6 +57,10 @@ type SearchParams = {
  * Filter/search/pagination state lives in the URL (`?language=&level=&...`),
  * not component state, so a filtered view is bookmarkable and a refresh
  * doesn't lose it (code-standards.md's URL-state rule).
+ *
+ * The list itself is a React Admin screen (spec 26 Unit 2) that fetches its
+ * own rows from `/api/v1/admin/curriculum`; this page keeps the server-side
+ * guard, the header actions, the per-level summary, and reorder mode.
  */
 export default async function AdminCurriculumPage({
   searchParams,
@@ -101,37 +92,40 @@ export default async function AdminCurriculumPage({
   const languageId = languages.some((l) => l.id === params.language)
     ? params.language!
     : languages[0]!.id;
-  const type = ITEM_TYPES.includes(params.type as (typeof ITEM_TYPES)[number])
-    ? (params.type as "vocabulary" | "grammar")
-    : undefined;
-  const status = STATUSES.includes(params.status as CurriculumStatus)
-    ? (params.status as CurriculumStatus)
-    : undefined;
-  const needs = NEEDS_FILTERS.includes(
-    params.needs as (typeof NEEDS_FILTERS)[number],
-  )
-    ? (params.needs as AdminCurriculumNeedsFilter)
-    : undefined;
+  const type = CURRICULUM_ITEM_TYPES.find(
+    (candidate) => candidate === params.type,
+  );
+  const status = CURRICULUM_STATUSES.find(
+    (candidate) => candidate === params.status,
+  );
+  const needs = CURRICULUM_NEEDS_FILTERS.find(
+    (candidate) => candidate === params.needs,
+  );
   // Reordering only makes sense scoped to exactly one level and one type —
   // `position` is uniquely constrained within `(level, type)`, never across
   // either (see reorderLearningItems).
   const canReorder = Boolean(params.level && type);
   const reorderMode = canReorder && params.mode === "reorder";
 
-  const [levels, groups, page, levelSummary] = await Promise.all([
+  const [levels, groups, reorderPage, levelSummary] = await Promise.all([
     getLevelsByLanguage(languageId),
     getVocabularyGroupsByLanguage(languageId),
-    getAdminCurriculumItems({
-      languageId,
-      levelId: params.level,
-      type,
-      status,
-      groupId: params.group,
-      search: params.search,
-      needs,
-      limit: reorderMode ? REORDER_LIMIT : PAGE_SIZE,
-      cursor: reorderMode ? undefined : params.cursor,
-    }),
+    // The list itself is fetched by the React Admin screen, from
+    // `/api/v1/admin/curriculum`. Only reorder mode — a specialist, still
+    // server-rendered view that needs every item in one level+type at once —
+    // loads items here.
+    reorderMode
+      ? getAdminCurriculumItems({
+          languageId,
+          levelId: params.level,
+          type,
+          status,
+          groupId: params.group,
+          search: params.search,
+          needs,
+          limit: REORDER_LIMIT,
+        })
+      : Promise.resolve(null),
     // Spec 25 §15's per-level summary only makes sense scoped to one level.
     params.level
       ? getLevelContentSummary({ languageId, levelId: params.level })
@@ -160,9 +154,6 @@ export default async function AdminCurriculumPage({
   if (params.search) baseParams.set("search", params.search);
   if (needs) baseParams.set("needs", needs);
 
-  const nextParams = new URLSearchParams(baseParams);
-  if (page.nextCursor) nextParams.set("cursor", page.nextCursor);
-
   const reorderParams = new URLSearchParams(baseParams);
   reorderParams.set("mode", "reorder");
 
@@ -186,21 +177,6 @@ export default async function AdminCurriculumPage({
           </Button>
         </div>
       </div>
-
-      <CurriculumFilters
-        languages={languages}
-        levels={levels.map((l) => ({ id: l.id, levelNumber: l.levelNumber }))}
-        groups={groupOptions}
-        value={{
-          languageId,
-          levelId: params.level,
-          type,
-          status,
-          groupId: params.group,
-          search: params.search,
-          needs,
-        }}
-      />
 
       {levelSummary ? (
         <div className="mb-4">
@@ -243,24 +219,15 @@ export default async function AdminCurriculumPage({
           key={`${params.level}-${type}`}
           levelId={params.level!}
           type={type!}
-          items={page.items}
+          items={reorderPage?.items ?? []}
         />
       ) : (
-        <>
-          <CurriculumTableSection
-            items={page.items}
-            levels={levels.map((l) => ({
-              id: l.id,
-              levelNumber: l.levelNumber,
-            }))}
-            groups={groupOptions}
-          />
-          {page.nextCursor ? (
-            <CurriculumPagination
-              nextHref={`/admin/curriculum?${nextParams.toString()}`}
-            />
-          ) : null}
-        </>
+        <AdminCurriculumListApp
+          signInPath={env.NEXT_PUBLIC_CLERK_SIGN_IN_URL}
+          languages={languages.map((l) => ({ id: l.id, name: l.name }))}
+          levels={levels.map((l) => ({ id: l.id, levelNumber: l.levelNumber }))}
+          groups={groupOptions}
+        />
       )}
     </div>
   );

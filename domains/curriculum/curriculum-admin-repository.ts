@@ -7,6 +7,7 @@ import {
   ilike,
   isNotNull,
   lt,
+  lte,
   or,
   sql,
 } from "drizzle-orm";
@@ -37,6 +38,8 @@ import type {
   AdminLevelContentSummary,
   GetAdminCurriculumItemsInput,
 } from "./curriculum-admin-types";
+import { AppError } from "@/lib/errors/app-error";
+
 import type { CurriculumStatus } from "./curriculum-db-types";
 
 /**
@@ -240,16 +243,34 @@ function encodeCursor(cursor: Cursor): string {
   return Buffer.from(JSON.stringify(cursor), "utf8").toString("base64url");
 }
 
+/**
+ * A cursor arrives from a URL, so a malformed or tampered one is an expected
+ * failure (`CURRICULUM_VALIDATION_FAILED`, a 4xx at the HTTP boundary), not a
+ * server fault — never a bare `SyntaxError` that would read as a 500.
+ */
 function decodeCursor(value: string): Cursor {
-  const parsed = JSON.parse(Buffer.from(value, "base64url").toString("utf8"));
-  if (
-    typeof parsed?.levelNumber !== "number" ||
-    typeof parsed?.position !== "number" ||
-    typeof parsed?.id !== "string"
-  ) {
-    throw new Error("Invalid admin curriculum cursor");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(Buffer.from(value, "base64url").toString("utf8"));
+  } catch {
+    throw invalidCursor();
   }
-  return parsed;
+  const candidate = parsed as Partial<Cursor> | null;
+  if (
+    typeof candidate?.levelNumber !== "number" ||
+    typeof candidate.position !== "number" ||
+    typeof candidate.id !== "string"
+  ) {
+    throw invalidCursor();
+  }
+  return candidate as Cursor;
+}
+
+function invalidCursor(): AppError {
+  return new AppError(
+    "CURRICULUM_VALIDATION_FAILED",
+    "That page link is not valid. Go back to the first page.",
+  );
 }
 
 export async function getAdminCurriculumItems(
@@ -305,23 +326,7 @@ export async function getAdminCurriculumItems(
     );
   }
 
-  if (cursor) {
-    const decoded = decodeCursor(cursor);
-    conditions.push(
-      or(
-        gt(levels.levelNumber, decoded.levelNumber),
-        and(
-          eq(levels.levelNumber, decoded.levelNumber),
-          gt(learningItems.position, decoded.position),
-        ),
-        and(
-          eq(levels.levelNumber, decoded.levelNumber),
-          eq(learningItems.position, decoded.position),
-          gt(learningItems.id, decoded.id),
-        ),
-      )!,
-    );
-  }
+  const decodedCursor = cursor ? decodeCursor(cursor) : null;
 
   const rows = await db
     .select(SELECTION)
@@ -337,7 +342,12 @@ export async function getAdminCurriculumItems(
       curriculumItemDrafts,
       eq(curriculumItemDrafts.learningItemId, learningItems.id),
     )
-    .where(and(...conditions))
+    .where(
+      and(
+        ...conditions,
+        ...(decodedCursor ? [isAfterCursor(decodedCursor)] : []),
+      ),
+    )
     .orderBy(
       asc(levels.levelNumber),
       asc(learningItems.position),
@@ -350,6 +360,10 @@ export async function getAdminCurriculumItems(
   const pageRows = hasNextPage ? rows.slice(0, limit) : rows;
   const last = pageRows[pageRows.length - 1];
 
+  const previous = decodedCursor
+    ? await findPreviousPage(db, conditions, decodedCursor, limit)
+    : { hasPreviousPage: false, previousCursor: null };
+
   return {
     items: pageRows.map(toAdminCurriculumListItem),
     nextCursor:
@@ -360,6 +374,92 @@ export async function getAdminCurriculumItems(
             id: last.id,
           })
         : null,
+    ...previous,
+  };
+}
+
+/** Strictly after the cursor's own `(level_number, position, id)` key — the rows that make up "the next page". */
+function isAfterCursor(cursor: Cursor) {
+  return or(
+    gt(levels.levelNumber, cursor.levelNumber),
+    and(
+      eq(levels.levelNumber, cursor.levelNumber),
+      gt(learningItems.position, cursor.position),
+    ),
+    and(
+      eq(levels.levelNumber, cursor.levelNumber),
+      eq(learningItems.position, cursor.position),
+      gt(learningItems.id, cursor.id),
+    ),
+  )!;
+}
+
+/** The cursor's own key, and everything before it — the rows that make up "the previous page", read backwards. */
+function isAtOrBeforeCursor(cursor: Cursor) {
+  return or(
+    lt(levels.levelNumber, cursor.levelNumber),
+    and(
+      eq(levels.levelNumber, cursor.levelNumber),
+      lt(learningItems.position, cursor.position),
+    ),
+    and(
+      eq(levels.levelNumber, cursor.levelNumber),
+      eq(learningItems.position, cursor.position),
+      lte(learningItems.id, cursor.id),
+    ),
+  )!;
+}
+
+/**
+ * The page *before* the one a cursor starts, computed from the cursor alone —
+ * so "Previous" works on a refresh or a pasted deep link, with no client-held
+ * history to lose (spec 26 §3 "Cursor pagination contract").
+ *
+ * A cursor is the key of the last row of the page before it, so that row and
+ * everything earlier (same filters) are read in reverse: the first `limit`
+ * of them *are* the previous page, and the `limit + 1`-th, when there is one,
+ * is the row that page starts after — i.e. the previous page's own cursor.
+ * With no such row, the previous page is the first page, which has no cursor
+ * (`null`) but does exist.
+ *
+ * Keyed on values, not row identity, so it stays correct if the cursor's own
+ * row was moved or deleted in the meantime.
+ */
+async function findPreviousPage(
+  db: DbClient,
+  filterConditions: ReturnType<typeof and>[],
+  cursor: Cursor,
+  limit: number,
+): Promise<{ hasPreviousPage: boolean; previousCursor: string | null }> {
+  const rows = await db
+    .select({
+      levelNumber: levels.levelNumber,
+      position: learningItems.position,
+      id: learningItems.id,
+    })
+    .from(learningItems)
+    .innerJoin(levels, eq(levels.id, learningItems.levelId))
+    .leftJoin(
+      vocabularyItems,
+      eq(vocabularyItems.learningItemId, learningItems.id),
+    )
+    .leftJoin(grammarItems, eq(grammarItems.learningItemId, learningItems.id))
+    .leftJoin(
+      curriculumItemDrafts,
+      eq(curriculumItemDrafts.learningItemId, learningItems.id),
+    )
+    .where(and(...filterConditions, isAtOrBeforeCursor(cursor)))
+    .orderBy(
+      desc(levels.levelNumber),
+      desc(learningItems.position),
+      desc(learningItems.id),
+    )
+    .limit(limit + 1);
+
+  const anchor = rows[limit];
+  return {
+    hasPreviousPage: rows.length > 0,
+    previousCursor: anchor ? encodeCursor(anchor) : null,
   };
 }
 

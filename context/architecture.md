@@ -443,6 +443,26 @@ data-integrity rule stays in `domains/*`.
   state: permissions are re-fetched on mount and on focus
   (`useAdminPermissions`), and a 401/403 replaces whatever privileged data is
   still cached.
+- **React Admin's router must be the `react-router-dom` one.** The contained
+  `MemoryRouter` is imported from `react-router-dom`, the package React Admin's
+  router provider itself uses. Imported from `react-router`, it can be a
+  _different module instance_ (it is under Vitest), React Admin then fails to
+  see it, mounts its own `HashRouter` inside, and its navigation silently writes
+  `#/?...` to the real address bar. A test that navigates through React Admin's
+  _own_ hooks (not a router API the test imports) guards this.
+- **Cursor-paginated lists** (spec 26 Unit 2; the pattern Units 3, 8 and 9
+  reuse). The list's state lives only in the page's real URL, and React Admin's
+  list primitives (`useGetList`, `DataTable`, `FilterForm`, selection, `ListContext`)
+  are driven by a thin custom controller (`useCurriculumList`) rather than by
+  `ListBase`: `ListBase` keeps `page`/`filter`/`sort` in React Admin's router,
+  never the Next URL, and a page _number_ cannot stand in for a deep-linkable
+  keyset cursor (`list-base-spike.test.tsx` pins this). The `dataProvider`
+  maps the endpoint's page onto React Admin's _partial pagination_
+  (`pageInfo`, no `total`) and passes the server's own `nextCursor` /
+  `previousCursor` through `meta`; it **refuses** any sort, page jump, or filter
+  the endpoint does not implement. The service derives `previousCursor` from the
+  cursor alone (a reverse keyset query), so "Previous" works after a refresh or
+  from a pasted link, with no client-held history.
 
 ## `media`
 

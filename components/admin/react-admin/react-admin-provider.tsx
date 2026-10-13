@@ -9,7 +9,7 @@ import {
   type AuthProvider,
   type DataProvider,
 } from "react-admin";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter } from "react-router-dom";
 
 import { createAdminAuthProvider, buildSignInUrl } from "./admin-auth-provider";
 import { createAdminDataProvider } from "./admin-data-provider";
@@ -45,8 +45,17 @@ type ReactAdminProviderProps = {
  * `HashRouter` (`/admin#/...`), which the spec forbids as a navigation
  * scheme. This `MemoryRouter` satisfies the requirement and is otherwise
  * inert: it is never wired to the address bar, so it can neither change nor
- * react to a Next URL, and nothing here may navigate through it. Screens link
- * with `next/link`.
+ * react to a Next URL. Screens link with `next/link`.
+ *
+ * **It must come from `react-router-dom`, not `react-router`.** React Admin
+ * decides "am I already inside a router?" through `react-router-dom`'s
+ * context. Under some module resolutions (Vitest's, for one) `react-router`
+ * and `react-router-dom` are separate instances, so a `MemoryRouter` imported
+ * from `react-router` is invisible to React Admin, which then mounts its own
+ * `HashRouter` *inside* it — and its navigation (`useListParams` and friends)
+ * silently writes `#/?...` to the real address bar. Importing from the same
+ * package React Admin uses makes the two agree however the bundler resolves
+ * them.
  *
  * Providers are built once per mount (`useState` initialisers), so their
  * in-flight-request de-duplication and the React Query cache persist for the

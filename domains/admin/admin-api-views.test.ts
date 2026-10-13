@@ -2,12 +2,16 @@ import { describe, expect, it } from "vitest";
 
 import { USER_ROLES, type UserRole } from "@/domains/users";
 
+import type { AdminCurriculumItemsPage } from "@/domains/curriculum";
+
 import {
+  adminCurriculumPageSchema,
   adminMeSchema,
   adminOverviewSchema,
   type AdminCurriculumStatusCounts,
 } from "./admin-api-contract";
 import {
+  buildAdminCurriculumPage,
   buildAdminMe,
   buildAdminOverview,
   buildAdminPermissions,
@@ -71,13 +75,20 @@ describe("buildAdminPermissions", () => {
     expect(buildAdminPermissions({ role })).toMatchObject(EXPECTED[role]);
   });
 
-  it("only lists the overview resource for an Admin-area role", () => {
-    expect(buildAdminPermissions({ role: "writer" }).resources).toEqual({
-      overview: ["show"],
-    });
+  it("lists the curriculum list only for roles that may manage curriculum", () => {
+    for (const role of ["admin", "writer"] as const) {
+      expect(buildAdminPermissions({ role }).resources).toEqual({
+        overview: ["show"],
+        curriculum: ["list"],
+      });
+    }
+    // A developer reaches /admin but not curriculum.
     expect(buildAdminPermissions({ role: "developer" }).resources).toEqual({
       overview: ["show"],
     });
+  });
+
+  it("lists nothing for roles outside the Admin area", () => {
     expect(buildAdminPermissions({ role: "user" }).resources).toEqual({});
     expect(buildAdminPermissions({ role: "beta-tester" }).resources).toEqual(
       {},
@@ -132,5 +143,79 @@ describe("buildAdminOverview", () => {
           .success,
       ).toBe(true);
     }
+  });
+});
+
+describe("buildAdminCurriculumPage", () => {
+  const SERVICE_PAGE: AdminCurriculumItemsPage = {
+    items: [
+      {
+        id: "item-1",
+        type: "vocabulary",
+        status: "draft",
+        languageId: "lang-1",
+        levelId: "level-1",
+        levelNumber: 3,
+        position: 7,
+        itemLabel: "el gato",
+        meaningLabel: "cat",
+        groupId: "group-1",
+        groupName: "Animals",
+        updatedAt: new Date("2026-01-01T00:00:00Z"),
+        needsDefinition: true,
+        needsExamples: true,
+        needsIpa: false,
+        needsPronunciation: false,
+        needsSynonyms: false,
+        needsVariations: false,
+      },
+    ],
+    nextCursor: "next",
+    hasPreviousPage: true,
+    previousCursor: null,
+  };
+
+  it("carries only what a row needs, and the server's cursors untouched", () => {
+    expect(buildAdminCurriculumPage(SERVICE_PAGE)).toEqual({
+      items: [
+        {
+          id: "item-1",
+          type: "vocabulary",
+          status: "draft",
+          levelId: "level-1",
+          levelNumber: 3,
+          itemLabel: "el gato",
+          meaningLabel: "cat",
+          groupId: "group-1",
+          groupName: "Animals",
+        },
+      ],
+      nextCursor: "next",
+      hasPreviousPage: true,
+      previousCursor: null,
+    });
+  });
+
+  it("keeps the *display* status — a published item with an open draft reads draft", () => {
+    expect(buildAdminCurriculumPage(SERVICE_PAGE).items[0]?.status).toBe(
+      "draft",
+    );
+  });
+
+  it("is contract-valid, and the contract strips anything extra", () => {
+    const built = buildAdminCurriculumPage(SERVICE_PAGE);
+    expect(adminCurriculumPageSchema.safeParse(built).success).toBe(true);
+
+    const leaky = {
+      ...built,
+      items: [{ ...built.items[0], updatedAt: "2026-01-01", position: 7 }],
+    };
+    const parsed = adminCurriculumPageSchema.parse(leaky);
+    expect(parsed.items[0]).not.toHaveProperty("updatedAt");
+    expect(parsed.items[0]).not.toHaveProperty("position");
+  });
+
+  it("never invents a total", () => {
+    expect(buildAdminCurriculumPage(SERVICE_PAGE)).not.toHaveProperty("total");
   });
 });

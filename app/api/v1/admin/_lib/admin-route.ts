@@ -51,8 +51,14 @@ type AdminGetRoute<T> = {
    * and the page/layout guard are never a substitute for this check.
    */
   authorize: (user: Pick<PolyglotUser, "role">) => boolean;
-  /** Runs only after authentication and authorization succeeded. */
-  load: (user: PolyglotUser) => Promise<T>;
+  /**
+   * Runs only after authentication and authorization succeeded — so an
+   * unauthenticated caller always gets a 401, never a validation error that
+   * would reveal this endpoint's parameters. Receives the request for its
+   * query string; anything it throws that `mapAdminApiError` knows becomes a
+   * 4xx envelope.
+   */
+  load: (user: PolyglotUser, request: Request) => Promise<T>;
 };
 
 /**
@@ -85,7 +91,7 @@ export async function handleAdminGet<T>(
         });
         throw new AppError("FORBIDDEN");
       }
-      return adminJson({ data: await load(user) }, 200);
+      return adminJson({ data: await load(user, request) }, 200);
     } catch (error) {
       const mapped = mapAdminApiError(error);
       if (!mapped) throw error;

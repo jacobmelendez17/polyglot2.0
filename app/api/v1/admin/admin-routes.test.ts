@@ -5,12 +5,21 @@ import { AppError } from "@/lib/errors/app-error";
 
 const requireUser = vi.hoisted(() => vi.fn());
 const getAdminCurriculumStatusCounts = vi.hoisted(() => vi.fn());
+const getAdminCurriculumItems = vi.hoisted(() => vi.fn());
+const getLanguages = vi.hoisted(() => vi.fn());
+const getLevelsByLanguage = vi.hoisted(() => vi.fn());
+const getVocabularyGroupsByLanguage = vi.hoisted(() => vi.fn());
 
 vi.mock("@/domains/users/server", () => ({ requireUser }));
 vi.mock("@/domains/curriculum/server", () => ({
   getAdminCurriculumStatusCounts,
+  getAdminCurriculumItems,
+  getLanguages,
+  getLevelsByLanguage,
+  getVocabularyGroupsByLanguage,
 }));
 
+import { GET as getCurriculum } from "./curriculum/route";
 import { GET as getMe } from "./me/route";
 import { GET as getOverview } from "./overview/route";
 
@@ -45,6 +54,10 @@ beforeEach(() => {
   requireUser.mockReset();
   getAdminCurriculumStatusCounts.mockReset();
   getAdminCurriculumStatusCounts.mockResolvedValue(COUNTS);
+  getAdminCurriculumItems.mockReset();
+  getLanguages.mockReset();
+  getLevelsByLanguage.mockReset();
+  getVocabularyGroupsByLanguage.mockReset();
 });
 
 describe.each([
@@ -138,7 +151,7 @@ describe("GET /api/v1/admin/me — payload", () => {
         canManageCurriculum: true,
         canPublishCurriculum: false,
         canUseDeveloperTools: false,
-        resources: { overview: ["show"] },
+        resources: { overview: ["show"], curriculum: ["list"] },
       },
     });
   });
@@ -198,6 +211,238 @@ describe("GET /api/v1/admin/overview — payload", () => {
 
     const response = await getOverview(request("/api/v1/admin/overview"));
 
+    expect(response.status).toBe(500);
+    expect(await response.text()).not.toContain("learning_items");
+  });
+});
+
+describe("GET /api/v1/admin/curriculum", () => {
+  const LANGUAGE = "5b2eb57d-acb8-4964-8af4-49a417cf227a";
+  const OTHER_LANGUAGE = "6c3fc68e-bdc9-4075-9bf5-5a5b28d1d38b";
+  const LEVEL = "133c9db4-dc71-4a7c-acf7-d55394ffdb42";
+  const GROUP = "0881836c-de9a-4dc5-84f7-1dd28b8fa439";
+
+  const SERVICE_ROW = {
+    id: "item-1",
+    type: "vocabulary" as const,
+    status: "published" as const,
+    languageId: LANGUAGE,
+    levelId: LEVEL,
+    levelNumber: 1,
+    position: 4,
+    itemLabel: "el gato",
+    meaningLabel: "cat",
+    groupId: GROUP,
+    groupName: "Animals",
+    updatedAt: new Date("2026-01-01T00:00:00Z"),
+    needsDefinition: true,
+    needsExamples: false,
+    needsIpa: false,
+    needsPronunciation: false,
+    needsSynonyms: false,
+    needsVariations: false,
+  };
+
+  const url = (query: Record<string, string>) =>
+    `/api/v1/admin/curriculum?${new URLSearchParams(query)}`;
+
+  beforeEach(() => {
+    getLanguages.mockResolvedValue([
+      { id: LANGUAGE, name: "Spanish" },
+      { id: OTHER_LANGUAGE, name: "Other" },
+    ]);
+    getLevelsByLanguage.mockResolvedValue([{ id: LEVEL, levelNumber: 1 }]);
+    getVocabularyGroupsByLanguage.mockResolvedValue([
+      { id: GROUP, name: "Animals", levelId: LEVEL },
+    ]);
+    getAdminCurriculumItems.mockResolvedValue({
+      items: [SERVICE_ROW],
+      nextCursor: "next-token",
+      hasPreviousPage: true,
+      previousCursor: "prev-token",
+    });
+  });
+
+  it("answers 401 with no session, without touching the read model", async () => {
+    requireUser.mockRejectedValue(new AppError("UNAUTHENTICATED"));
+    const response = await getCurriculum(request(url({ language: LANGUAGE })));
+    expect(response.status).toBe(401);
+    expect(getAdminCurriculumItems).not.toHaveBeenCalled();
+  });
+
+  it("does not reveal its parameters to an unauthenticated caller", async () => {
+    requireUser.mockRejectedValue(new AppError("UNAUTHENTICATED"));
+    // A request that would be a 422 if it got that far is still a 401.
+    const response = await getCurriculum(request(url({ sort: "term" })));
+    expect(response.status).toBe(401);
+  });
+
+  it.each(["developer", "user", "beta-tester"] as const)(
+    "answers 403 for %s, and never queries curriculum",
+    async (role) => {
+      requireUser.mockResolvedValue(userWithRole(role));
+      const response = await getCurriculum(
+        request(url({ language: LANGUAGE })),
+      );
+      expect(response.status).toBe(403);
+      expect(await response.json()).not.toHaveProperty("data");
+      expect(getAdminCurriculumItems).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(["admin", "writer"] as const)("answers 200 for %s", async (role) => {
+    requireUser.mockResolvedValue(userWithRole(role));
+    const response = await getCurriculum(request(url({ language: LANGUAGE })));
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe(
+      "private, no-store, max-age=0",
+    );
+  });
+
+  it("passes every supported filter through to the existing read model", async () => {
+    requireUser.mockResolvedValue(userWithRole("admin"));
+    await getCurriculum(
+      request(
+        url({
+          language: LANGUAGE,
+          level: LEVEL,
+          type: "vocabulary",
+          status: "draft",
+          group: GROUP,
+          search: "gáto",
+          needs: "definition",
+          cursor: "abc",
+          limit: "20",
+        }),
+      ),
+    );
+    expect(getAdminCurriculumItems).toHaveBeenCalledExactlyOnceWith({
+      languageId: LANGUAGE,
+      levelId: LEVEL,
+      type: "vocabulary",
+      status: "draft",
+      groupId: GROUP,
+      search: "gáto",
+      needs: "definition",
+      cursor: "abc",
+      limit: 20,
+    });
+  });
+
+  it("defaults to the Admin page size", async () => {
+    requireUser.mockResolvedValue(userWithRole("admin"));
+    await getCurriculum(request(url({ language: LANGUAGE })));
+    expect(getAdminCurriculumItems.mock.calls[0]![0].limit).toBe(20);
+  });
+
+  it("returns a cursor page with no total, and only the fields a row needs", async () => {
+    requireUser.mockResolvedValue(userWithRole("admin"));
+    const { data } = await (
+      await getCurriculum(request(url({ language: LANGUAGE })))
+    ).json();
+
+    expect(data).toEqual({
+      items: [
+        {
+          id: "item-1",
+          type: "vocabulary",
+          status: "published",
+          levelId: LEVEL,
+          levelNumber: 1,
+          itemLabel: "el gato",
+          meaningLabel: "cat",
+          groupId: GROUP,
+          groupName: "Animals",
+        },
+      ],
+      nextCursor: "next-token",
+      hasPreviousPage: true,
+      previousCursor: "prev-token",
+    });
+    expect(data).not.toHaveProperty("total");
+  });
+
+  describe("rejects what it does not support, explicitly", () => {
+    it.each([
+      ["a missing language", {}],
+      ["a non-UUID language", { language: "spanish" }],
+      ["an unsupported sort", { language: LANGUAGE, sort: "term" }],
+      ["an unsupported order", { language: LANGUAGE, order: "DESC" }],
+      ["a page number", { language: LANGUAGE, page: "3" }],
+      ["an unknown status", { language: LANGUAGE, status: "deleted" }],
+      ["an unknown needs filter", { language: LANGUAGE, needs: "validation" }],
+      ["a limit above the cap", { language: LANGUAGE, limit: "101" }],
+      ["a limit of zero", { language: LANGUAGE, limit: "0" }],
+      ["a non-numeric limit", { language: LANGUAGE, limit: "lots" }],
+    ])("answers 422 for %s", async (_name, query) => {
+      requireUser.mockResolvedValue(userWithRole("admin"));
+      const response = await getCurriculum(request(url(query)));
+      expect(response.status).toBe(422);
+      expect((await response.json()).error.code).toBe("VALIDATION_FAILED");
+      expect(getAdminCurriculumItems).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("language isolation", () => {
+    it("answers 404 for a language that does not exist", async () => {
+      requireUser.mockResolvedValue(userWithRole("admin"));
+      const response = await getCurriculum(
+        request(url({ language: "9d9d9d9d-9d9d-4d9d-9d9d-9d9d9d9d9d9d" })),
+      );
+      expect(response.status).toBe(404);
+      expect(getAdminCurriculumItems).not.toHaveBeenCalled();
+    });
+
+    it("answers 422 for a level that belongs to a different language", async () => {
+      requireUser.mockResolvedValue(userWithRole("admin"));
+      // The level exists — but not under OTHER_LANGUAGE.
+      getLevelsByLanguage.mockResolvedValue([]);
+      const response = await getCurriculum(
+        request(url({ language: OTHER_LANGUAGE, level: LEVEL })),
+      );
+      expect(response.status).toBe(422);
+      expect(getLevelsByLanguage).toHaveBeenCalledWith(OTHER_LANGUAGE);
+      expect(getAdminCurriculumItems).not.toHaveBeenCalled();
+    });
+
+    it("answers 422 for a group that belongs to a different language", async () => {
+      requireUser.mockResolvedValue(userWithRole("admin"));
+      getVocabularyGroupsByLanguage.mockResolvedValue([]);
+      const response = await getCurriculum(
+        request(url({ language: OTHER_LANGUAGE, group: GROUP })),
+      );
+      expect(response.status).toBe(422);
+      expect(getAdminCurriculumItems).not.toHaveBeenCalled();
+    });
+
+    it("never looks up levels or groups it was not asked about", async () => {
+      requireUser.mockResolvedValue(userWithRole("admin"));
+      await getCurriculum(request(url({ language: LANGUAGE })));
+      expect(getLevelsByLanguage).not.toHaveBeenCalled();
+      expect(getVocabularyGroupsByLanguage).not.toHaveBeenCalled();
+    });
+  });
+
+  it("answers 422 for a cursor the read model rejects", async () => {
+    requireUser.mockResolvedValue(userWithRole("admin"));
+    getAdminCurriculumItems.mockRejectedValue(
+      new AppError(
+        "CURRICULUM_VALIDATION_FAILED",
+        "That page link is not valid.",
+      ),
+    );
+    const response = await getCurriculum(
+      request(url({ language: LANGUAGE, cursor: "tampered" })),
+    );
+    expect(response.status).toBe(422);
+  });
+
+  it("answers a generic 500 if the read model fails unexpectedly", async () => {
+    requireUser.mockResolvedValue(userWithRole("admin"));
+    getAdminCurriculumItems.mockRejectedValue(
+      new Error("relation learning_items does not exist"),
+    );
+    const response = await getCurriculum(request(url({ language: LANGUAGE })));
     expect(response.status).toBe(500);
     expect(await response.text()).not.toContain("learning_items");
   });

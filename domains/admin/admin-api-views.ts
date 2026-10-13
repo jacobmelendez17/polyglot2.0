@@ -1,7 +1,10 @@
 import type { PolyglotUser } from "@/domains/users";
 
+import type { AdminCurriculumItemsPage } from "@/domains/curriculum";
+
 import {
   ADMIN_OVERVIEW_RECORD_ID,
+  type AdminCurriculumPage,
   type AdminCurriculumStatusCounts,
   type AdminMe,
   type AdminOverview,
@@ -41,6 +44,11 @@ function resourceAccess(
     // role-branched separately (see `buildAdminOverview`).
     resources.overview = ["show"];
   }
+  if (canManageCurriculum(subject)) {
+    // Browsing the curriculum list. Writers may; mutations are separate
+    // commands authorized (and later listed here) one at a time.
+    resources.curriculum = ["list"];
+  }
   return resources;
 }
 
@@ -76,5 +84,32 @@ export function buildAdminOverview(
     id: ADMIN_OVERVIEW_RECORD_ID,
     languageId: user.activeLanguageId,
     curriculum: canManageCurriculum(user) ? counts : null,
+  };
+}
+
+/**
+ * The service's page, reduced to what the list shows. Dropping the rest
+ * (`updatedAt`, ordering `position`, the work-queue flags, `languageId`) is
+ * deliberate: a wire DTO should carry what a screen needs, not whatever the
+ * read model happens to select.
+ */
+export function buildAdminCurriculumPage(
+  page: AdminCurriculumItemsPage,
+): AdminCurriculumPage {
+  return {
+    items: page.items.map((item) => ({
+      id: item.id,
+      type: item.type,
+      status: item.status,
+      levelId: item.levelId,
+      levelNumber: item.levelNumber,
+      itemLabel: item.itemLabel,
+      meaningLabel: item.meaningLabel,
+      groupId: item.groupId,
+      groupName: item.groupName,
+    })),
+    nextCursor: page.nextCursor,
+    hasPreviousPage: page.hasPreviousPage,
+    previousCursor: page.previousCursor,
   };
 }

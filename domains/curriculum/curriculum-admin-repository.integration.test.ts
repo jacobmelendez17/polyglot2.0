@@ -483,6 +483,165 @@ describe("getAdminCurriculumItems", () => {
     });
   });
 
+  it("rejects a malformed or tampered cursor as a validation failure, not a crash", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedIsolatedCurriculum(tx);
+      const notJson = Buffer.from("definitely not json").toString("base64url");
+      const wrongShape = Buffer.from(JSON.stringify({ id: 7 })).toString(
+        "base64url",
+      );
+
+      for (const cursor of ["%%%", notJson, wrongShape]) {
+        await expect(
+          getAdminCurriculumItems(tx, { languageId, limit: 2, cursor }),
+        ).rejects.toMatchObject({ code: "CURRICULUM_VALIDATION_FAILED" });
+      }
+    });
+  });
+
+  describe("previous-page cursor (spec 26 Unit 2)", () => {
+    it("has no previous page on the first page", async () => {
+      await withTestTransaction(async (tx) => {
+        const { languageId } = await seedIsolatedCurriculum(tx);
+
+        const firstPage = await getAdminCurriculumItems(tx, {
+          languageId,
+          limit: 2,
+        });
+
+        expect(firstPage.hasPreviousPage).toBe(false);
+        expect(firstPage.previousCursor).toBeNull();
+      });
+    });
+
+    it("walks backwards over exactly the pages it walked forwards, with no gaps or duplicates", async () => {
+      await withTestTransaction(async (tx) => {
+        const { languageId, gatoId, casaId, aguaId, grammarYId, rojoId } =
+          await seedIsolatedCurriculum(tx);
+        const expectedIds = [gatoId, casaId, aguaId, grammarYId, rojoId];
+        const filters = { languageId, limit: 2 };
+
+        const page1 = await getAdminCurriculumItems(tx, filters);
+        const page2 = await getAdminCurriculumItems(tx, {
+          ...filters,
+          cursor: page1.nextCursor,
+        });
+        const page3 = await getAdminCurriculumItems(tx, {
+          ...filters,
+          cursor: page2.nextCursor,
+        });
+        expect(page3.items.map((i) => i.id)).toEqual(expectedIds.slice(4));
+
+        // Back from page 3 -> page 2.
+        expect(page3.hasPreviousPage).toBe(true);
+        const backTo2 = await getAdminCurriculumItems(tx, {
+          ...filters,
+          cursor: page3.previousCursor,
+        });
+        expect(backTo2.items.map((i) => i.id)).toEqual(expectedIds.slice(2, 4));
+        expect(backTo2.nextCursor).toBe(page2.nextCursor);
+
+        // Back from page 2 -> page 1, which is the first page and needs no cursor.
+        expect(backTo2.hasPreviousPage).toBe(true);
+        expect(backTo2.previousCursor).toBeNull();
+        const backTo1 = await getAdminCurriculumItems(tx, {
+          ...filters,
+          cursor: backTo2.previousCursor,
+        });
+        expect(backTo1.items.map((i) => i.id)).toEqual(expectedIds.slice(0, 2));
+        expect(backTo1.hasPreviousPage).toBe(false);
+      });
+    });
+
+    it("scopes the previous page to the same filters as the current one", async () => {
+      await withTestTransaction(async (tx) => {
+        const { languageId, gatoId, casaId, aguaId } =
+          await seedIsolatedCurriculum(tx);
+        // Vocabulary only: grammar item "y" sits between the vocabulary rows
+        // in curriculum order but must never appear in this view's history.
+        const filters = { languageId, type: "vocabulary" as const, limit: 2 };
+
+        const page1 = await getAdminCurriculumItems(tx, filters);
+        const page2 = await getAdminCurriculumItems(tx, {
+          ...filters,
+          cursor: page1.nextCursor,
+        });
+        expect(page1.items.map((i) => i.id)).toEqual([gatoId, casaId]);
+        expect(page2.items.map((i) => i.id)[0]).toBe(aguaId);
+
+        expect(page2.hasPreviousPage).toBe(true);
+        const back = await getAdminCurriculumItems(tx, {
+          ...filters,
+          cursor: page2.previousCursor,
+        });
+        expect(back.items.map((i) => i.id)).toEqual([gatoId, casaId]);
+        expect(back.items.every((i) => i.type === "vocabulary")).toBe(true);
+      });
+    });
+
+    it("stays correct when the row a cursor was taken from has since moved elsewhere", async () => {
+      await withTestTransaction(async (tx) => {
+        const { languageId, gatoId, casaId, aguaId, grammarYId } =
+          await seedIsolatedCurriculum(tx);
+        const filters = { languageId, limit: 2 };
+
+        const page1 = await getAdminCurriculumItems(tx, filters);
+        // `page1.nextCursor` is the key of `casaId`, page 1's last row. Move
+        // that row away (a re-ordering, or a delete, has the same effect on a
+        // keyset): a cursor holds *values*, not a reference to the row.
+        await tx
+          .update(learningItems)
+          .set({ position: 999 })
+          .where(eq(learningItems.id, casaId));
+
+        const reread = await getAdminCurriculumItems(tx, {
+          ...filters,
+          cursor: page1.nextCursor,
+        });
+        expect(reread.items.map((i) => i.id)).toEqual([aguaId, grammarYId]);
+        expect(reread.hasPreviousPage).toBe(true);
+
+        const back = await getAdminCurriculumItems(tx, {
+          ...filters,
+          cursor: reread.previousCursor,
+        });
+        // Only one row remains before the cursor's key, so the previous page
+        // is the first page. Its size is still `limit`, so after a data change
+        // it can overlap the current page — acceptable for keyset paging — but
+        // it must start at the row that precedes the cursor and lose nothing.
+        expect(reread.previousCursor).toBeNull();
+        expect(back.items[0]?.id).toBe(gatoId);
+        expect(back.hasPreviousPage).toBe(false);
+      });
+    });
+
+    it("never reaches into another language", async () => {
+      await withTestTransaction(async (tx) => {
+        const { languageId, gatoId, casaId } = await seedIsolatedCurriculum(tx);
+        const other = await seedIsolatedCurriculum(tx);
+
+        const page1 = await getAdminCurriculumItems(tx, {
+          languageId,
+          limit: 1,
+        });
+        const page2 = await getAdminCurriculumItems(tx, {
+          languageId,
+          limit: 1,
+          cursor: page1.nextCursor,
+        });
+        expect(page2.items.map((i) => i.id)).toEqual([casaId]);
+
+        const back = await getAdminCurriculumItems(tx, {
+          languageId,
+          limit: 1,
+          cursor: page2.previousCursor,
+        });
+        expect(back.items.map((i) => i.id)).toEqual([gatoId]);
+        expect(back.items.map((i) => i.id)).not.toContain(other.gatoId);
+      });
+    });
+  });
+
   it("never leaks another language's items into the listing", async () => {
     await withTestTransaction(async (tx) => {
       const { languageId, groupId, gatoId } = await seedIsolatedCurriculum(tx);

@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import { getE2EAdminStatusCounts, setE2EAdminRole } from "../support/e2e-admin";
+import { renewSession } from "../support/e2e-session";
 
 /**
  * Spec 26 Unit 1 — the Admin Overview, rendered through React Admin, against
@@ -123,6 +124,7 @@ test.describe("Admin Overview (other roles)", () => {
     );
 
     const me = await page.request.get("/api/v1/admin/me");
+    expect(me.status()).toBe(200);
     expect((await me.json()).data.permissions).toMatchObject({
       canManageCurriculum: true,
       canPublishCurriculum: false,
@@ -144,6 +146,7 @@ test.describe("Admin Overview (other roles)", () => {
 
     // The server withheld the data; it was not merely hidden by the UI.
     const overview = await page.request.get("/api/v1/admin/overview");
+    expect(overview.status()).toBe(200);
     expect((await overview.json()).data.curriculum).toBeNull();
     await shot(page, "overview-developer");
   });
@@ -177,26 +180,35 @@ test.describe("Admin Overview (other roles)", () => {
 });
 
 test.describe("Admin API — direct access, without the page", () => {
+  // These call the endpoints directly, not through the Overview. They still
+  // go through `page.request` after `renewSession`, because Clerk's 60-second
+  // session token only stays fresh in a loaded page (see `e2e-session.ts`).
+
   test("answers 200 for an admin, with an uncacheable response", async ({
-    request,
+    page,
   }) => {
-    const me = await request.get("/api/v1/admin/me");
+    await renewSession(page);
+    const me = await page.request.get("/api/v1/admin/me");
     expect(me.status()).toBe(200);
     expect(me.headers()["cache-control"]).toBe("private, no-store, max-age=0");
     const { data } = await me.json();
     expect(data.role).toBe("admin");
     expect(Object.keys(data).sort()).toEqual(["id", "permissions", "role"]);
 
-    expect((await request.get("/api/v1/admin/overview")).status()).toBe(200);
+    expect((await page.request.get("/api/v1/admin/overview")).status()).toBe(
+      200,
+    );
   });
 
   test("answers 403 — never an empty success — for a signed-in learner", async ({
     browser,
   }) => {
     const context = await browser.newContext({ storageState: LEARNER_AUTH });
+    const learnerPage = await context.newPage();
+    await renewSession(learnerPage);
     for (const path of ["/api/v1/admin/me", "/api/v1/admin/overview"]) {
-      const response = await context.request.get(path);
-      expect(response.status()).toBe(403);
+      const response = await learnerPage.request.get(path);
+      expect(response.status(), path).toBe(403);
       const body = await response.json();
       expect(body.error.code).toBe("FORBIDDEN");
       expect(body).not.toHaveProperty("data");
@@ -216,13 +228,14 @@ test.describe("Admin API — direct access, without the page", () => {
     await context.close();
   });
 
-  test("a revoked role is refused on the very next call", async ({
-    request,
-  }) => {
-    expect((await request.get("/api/v1/admin/me")).status()).toBe(200);
+  test("a revoked role is refused on the very next call", async ({ page }) => {
+    await renewSession(page);
+    expect((await page.request.get("/api/v1/admin/me")).status()).toBe(200);
     await setE2EAdminRole("user");
-    expect((await request.get("/api/v1/admin/me")).status()).toBe(403);
-    expect((await request.get("/api/v1/admin/overview")).status()).toBe(403);
+    expect((await page.request.get("/api/v1/admin/me")).status()).toBe(403);
+    expect((await page.request.get("/api/v1/admin/overview")).status()).toBe(
+      403,
+    );
   });
 });
 

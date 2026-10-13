@@ -87,6 +87,108 @@ describe("createAdminDataProvider", () => {
     });
   });
 
+  describe("getList('curriculum')", () => {
+    const PAGE_DTO = {
+      items: [
+        {
+          id: "item-1",
+          type: "vocabulary" as const,
+          status: "published" as const,
+          levelId: "level-1",
+          levelNumber: 1,
+          itemLabel: "el gato",
+          meaningLabel: "cat",
+          groupId: null,
+          groupName: null,
+        },
+      ],
+      nextCursor: "next",
+      hasPreviousPage: true,
+      previousCursor: "prev",
+    };
+    const LIST_PARAMS = {
+      pagination: { page: 1, perPage: 20 },
+      sort: { field: "curriculum_order", order: "ASC" as const },
+      filter: { language: "lang-1", cursor: "here" },
+    };
+
+    function listProvider(dto = PAGE_DTO) {
+      const request = vi.fn<RequestFn>(async () => dto as never);
+      return {
+        request,
+        provider: createAdminDataProvider({ request: request as never }),
+      };
+    }
+
+    it("asks the curriculum endpoint with the filters, cursor, and page size", async () => {
+      const { provider, request } = listProvider();
+      await provider.getList("curriculum", LIST_PARAMS);
+      expect(request.mock.calls[0]?.[0]).toBe(
+        "/curriculum?language=lang-1&cursor=here&limit=20",
+      );
+    });
+
+    it("maps the cursor page onto React Admin's partial pagination — with no total", async () => {
+      const { provider } = listProvider();
+      const result = await provider.getList("curriculum", LIST_PARAMS);
+
+      expect(result.data).toEqual(PAGE_DTO.items);
+      expect(result.pageInfo).toEqual({
+        hasNextPage: true,
+        hasPreviousPage: true,
+      });
+      expect(result).not.toHaveProperty("total");
+    });
+
+    it("hands back the server's cursors, untouched, for the list to navigate with", async () => {
+      const { provider } = listProvider();
+      const result = await provider.getList("curriculum", LIST_PARAMS);
+      expect(result.meta).toEqual({
+        nextCursor: "next",
+        previousCursor: "prev",
+      });
+    });
+
+    it("reports no next page on the last page", async () => {
+      const { provider } = listProvider({
+        ...PAGE_DTO,
+        nextCursor: null as never,
+        hasPreviousPage: false,
+        previousCursor: null as never,
+      });
+      const result = await provider.getList("curriculum", LIST_PARAMS);
+      expect(result.pageInfo).toEqual({
+        hasNextPage: false,
+        hasPreviousPage: false,
+      });
+    });
+
+    it.each([
+      ["another sort", { sort: { field: "term", order: "ASC" as const } }],
+      ["a page jump", { pagination: { page: 3, perPage: 20 } }],
+      ["an unknown filter", { filter: { language: "lang-1", x: "1" } }],
+    ])("refuses %s without calling the server", async (_name, override) => {
+      const { provider, request } = listProvider();
+      const error = await rejection(
+        provider.getList("curriculum", { ...LIST_PARAMS, ...override }),
+      );
+      expect(error.kind).toBe("unsupported");
+      expect(request).not.toHaveBeenCalled();
+    });
+
+    it("propagates a denial instead of returning an empty list", async () => {
+      const denial = new AdminApiError("FORBIDDEN", 403);
+      const provider = createAdminDataProvider({
+        request: (async () => {
+          throw denial;
+        }) as never,
+      });
+      await expect(provider.getList("curriculum", LIST_PARAMS)).rejects.toBe(
+        denial,
+      );
+    });
+  });
+
   describe("everything not whitelisted", () => {
     it("rejects an unknown resource with a typed UNSUPPORTED_OPERATION, never a guess", async () => {
       const { provider, request } = providerWith();
