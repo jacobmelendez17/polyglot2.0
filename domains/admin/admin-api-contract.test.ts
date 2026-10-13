@@ -3,6 +3,11 @@ import { describe, expect, it } from "vitest";
 import {
   ADMIN_CEFR_LEVELS,
   CURRICULUM_STATUSES,
+  adminGroupCreateRequestSchema,
+  adminGroupListQuerySchema,
+  adminGroupPathSchema,
+  adminGroupRowSchema,
+  adminGroupUpdateRequestSchema,
   adminLevelCreateRequestSchema,
   adminLevelListQuerySchema,
   adminLevelPathSchema,
@@ -286,6 +291,225 @@ describe("adminLevelRowSchema", () => {
   it("refuses a negative count", () => {
     expect(
       adminLevelRowSchema.safeParse({ ...row, grammarItems: -1 }).success,
+    ).toBe(false);
+  });
+});
+
+/**
+ * Spec 26 Unit 5's "scoped group records": the rules of the Server Actions the
+ * group endpoints replace (`createVocabularyGroupAction`: a level, a language,
+ * a trimmed non-empty name; `updateVocabularyGroupAction`: an optional name
+ * and status), plus what is deliberately *not* a field — a position, which the
+ * server alone assigns, and a level, which a group does not move between here.
+ */
+describe("adminGroupCreateRequestSchema", () => {
+  const base = {
+    languageId: LANGUAGE,
+    levelId: LEVEL,
+    name: "Colors",
+    idempotencyKey: KEY,
+  };
+
+  it("accepts a name, a level and a language", () => {
+    expect(adminGroupCreateRequestSchema.safeParse(base).success).toBe(true);
+  });
+
+  it("trims the name", () => {
+    expect(
+      adminGroupCreateRequestSchema.parse({ ...base, name: "  Colors  " }).name,
+    ).toBe("Colors");
+  });
+
+  it.each([
+    ["empty", ""],
+    ["only spaces", "   "],
+    ["over 200 characters", "x".repeat(201)],
+    ["null", null],
+    ["a number", 7],
+  ])("refuses a name that is %s", (_label, name) => {
+    expect(
+      adminGroupCreateRequestSchema.safeParse({ ...base, name }).success,
+    ).toBe(false);
+  });
+
+  it.each(["languageId", "levelId", "name", "idempotencyKey"])(
+    "requires %s",
+    (field) => {
+      const rest: Record<string, unknown> = { ...base };
+      delete rest[field];
+      expect(adminGroupCreateRequestSchema.safeParse(rest).success).toBe(false);
+    },
+  );
+
+  it.each([
+    ["a position — the server assigns it", { position: 1 }],
+    ["a status", { status: "published" }],
+    ["an actor", { actorUserId: LEVEL }],
+    ["anything else", { publishAll: true }],
+  ])("refuses a body that also carries %s", (_label, extra) => {
+    expect(
+      adminGroupCreateRequestSchema.safeParse({ ...base, ...extra }).success,
+    ).toBe(false);
+  });
+
+  it("requires UUIDs for the language, the level, and the key", () => {
+    for (const bad of [
+      { languageId: "lang-es" },
+      { levelId: "level-1" },
+      { idempotencyKey: "retry-1" },
+    ]) {
+      expect(
+        adminGroupCreateRequestSchema.safeParse({ ...base, ...bad }).success,
+      ).toBe(false);
+    }
+  });
+});
+
+describe("adminGroupUpdateRequestSchema", () => {
+  const withKey = { idempotencyKey: KEY };
+
+  it("accepts a name, a status, or both", () => {
+    for (const change of [
+      { name: "Renamed" },
+      { status: "archived" },
+      { name: "Renamed", status: "published" },
+    ]) {
+      expect(
+        adminGroupUpdateRequestSchema.safeParse({ ...withKey, ...change })
+          .success,
+      ).toBe(true);
+    }
+  });
+
+  it("trims the name, and leaves an omitted field out entirely", () => {
+    const parsed = adminGroupUpdateRequestSchema.parse({
+      ...withKey,
+      name: "  Renamed ",
+    });
+    expect(parsed.name).toBe("Renamed");
+    // Omitted, not null: the service leaves the status alone.
+    expect("status" in parsed).toBe(false);
+  });
+
+  it("refuses an update that changes nothing", () => {
+    expect(adminGroupUpdateRequestSchema.safeParse(withKey).success).toBe(
+      false,
+    );
+  });
+
+  it.each(CURRICULUM_STATUSES)("accepts the status %s", (status) => {
+    expect(
+      adminGroupUpdateRequestSchema.safeParse({ ...withKey, status }).success,
+    ).toBe(true);
+  });
+
+  it.each([
+    ["a status that is not one", { status: "live" }],
+    ["a null status", { status: null }],
+    ["a null name — a group always has one", { name: null }],
+    ["an empty name", { name: "" }],
+    ["a name of only spaces", { name: "   " }],
+    ["a name over 200 characters", { name: "x".repeat(201) }],
+  ])("refuses %s", (_label, change) => {
+    expect(
+      adminGroupUpdateRequestSchema.safeParse({ ...withKey, ...change })
+        .success,
+    ).toBe(false);
+  });
+
+  it.each([
+    ["a position — ordering is the reorder tool's", { position: 3 }],
+    ["a level — a group is not moved here", { levelId: LEVEL }],
+    ["a different group in the body", { groupId: LEVEL }],
+    ["a language", { languageId: LANGUAGE }],
+    ["an actor", { actorUserId: LEVEL }],
+  ])("refuses a body that names %s", (_label, extra) => {
+    expect(
+      adminGroupUpdateRequestSchema.safeParse({
+        ...withKey,
+        name: "x",
+        ...extra,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("requires an idempotency key that is a UUID", () => {
+    expect(adminGroupUpdateRequestSchema.safeParse({ name: "x" }).success).toBe(
+      false,
+    );
+    expect(
+      adminGroupUpdateRequestSchema.safeParse({
+        name: "x",
+        idempotencyKey: "retry-1",
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe("adminGroupListQuerySchema", () => {
+  it("needs exactly a language and a level — a group's position only means something within its level", () => {
+    expect(
+      adminGroupListQuerySchema.safeParse({ language: LANGUAGE, level: LEVEL })
+        .success,
+    ).toBe(true);
+    expect(
+      adminGroupListQuerySchema.safeParse({ language: LANGUAGE }).success,
+    ).toBe(false);
+    expect(adminGroupListQuerySchema.safeParse({ level: LEVEL }).success).toBe(
+      false,
+    );
+    expect(
+      adminGroupListQuerySchema.safeParse({ language: "es", level: LEVEL })
+        .success,
+    ).toBe(false);
+  });
+
+  it.each(["sort", "page", "limit", "cursor", "status", "mode"])(
+    "refuses an unsupported %s parameter instead of ignoring it",
+    (param) => {
+      expect(
+        adminGroupListQuerySchema.safeParse({
+          language: LANGUAGE,
+          level: LEVEL,
+          [param]: "1",
+        }).success,
+      ).toBe(false);
+    },
+  );
+});
+
+describe("adminGroupPathSchema", () => {
+  it("accepts a UUID and nothing else", () => {
+    expect(adminGroupPathSchema.safeParse({ groupId: LEVEL }).success).toBe(
+      true,
+    );
+    expect(adminGroupPathSchema.safeParse({ groupId: "1; drop" }).success).toBe(
+      false,
+    );
+    expect(adminGroupPathSchema.safeParse({}).success).toBe(false);
+  });
+});
+
+describe("adminGroupRowSchema", () => {
+  const row = {
+    id: LEVEL,
+    levelId: LANGUAGE,
+    name: "Colors",
+    status: "published",
+    position: 2,
+  };
+
+  it("accepts a group in every status", () => {
+    for (const status of CURRICULUM_STATUSES) {
+      expect(adminGroupRowSchema.safeParse({ ...row, status }).success).toBe(
+        true,
+      );
+    }
+  });
+
+  it("refuses a position that is not a whole number", () => {
+    expect(
+      adminGroupRowSchema.safeParse({ ...row, position: 1.5 }).success,
     ).toBe(false);
   });
 });

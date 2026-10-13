@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 
-import { LevelsListSkeleton } from "./levels-list-skeleton";
+import { ListSkeleton } from "../skeletons";
 
 /**
  * The client-only boundary for the levels list — same shape and reasons as
@@ -11,7 +11,7 @@ import { LevelsListSkeleton } from "./levels-list-skeleton";
  */
 const LevelsListRoot = dynamic(() => import("./levels-list-root"), {
   ssr: false,
-  loading: () => <LevelsListSkeleton />,
+  loading: () => <ListSkeleton label="Loading the levels…" rows={4} />,
 });
 
 export function AdminLevelsListApp(props: {

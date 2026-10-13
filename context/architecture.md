@@ -536,6 +536,30 @@ data-integrity rule stays in `domains/*`.
   cut-off. It still uses the shared list controller for the URL-owned language,
   the standard `ListContext`, and error handling; language-only lists share
   `language-list-params.ts` and `LanguageFilter`.
+- **A group's `position` is its lesson number, and only the reorder tool writes
+  it** (spec 26 Unit 5). `GET /api/v1/admin/groups` takes a language **and a
+  level** (the level must belong to the language — a 422 otherwise), returns that
+  level's groups by position, and offers no sort, page or cross-level list: a
+  list across levels would show several "lesson 1"s. No part of the HTTP contract
+  takes a position — `POST` appends (the service computes `max + 1`) and
+  `PATCH` can change only a name or a status — so a form cannot collide with, or
+  silently renumber, its siblings. Ordering stays the specialist
+  `GroupReorderList` and its Admin-only Server Action, which renumbers one
+  level's groups and no other (its two-phase placeholders are scoped by level, and
+  an id from another level is ignored). The list's own `?mode=reorder` is honoured
+  only for someone who may reorder; the action re-checks from the database role.
+  Known limit, unchanged: two Admins appending to the same level at the same
+  instant can both compute the same position, and the second hits the
+  `(level_id, position)` unique constraint and gets a generic failure.
+- **The mechanics of an Admin form live in three shared pieces** (Units 4-5, in
+  `components/admin/react-admin/`): `useEditCommand` (send only what changed,
+  confirm an impactful change first, key retries by intent, move the baseline
+  forward, mark the lists stale and ask the page to re-render), `useCreateCommand`
+  (the same for adding), and `AdminFormDialog` (the dialog around an add form:
+  failure shown in it with what was typed kept, Close only on a denial, no
+  dismissal mid-request). A new form states its fields, how it reads and diffs
+  them, and what needs confirming — not its own state machine. Levels and groups
+  are the two consumers.
 
 ## `media`
 

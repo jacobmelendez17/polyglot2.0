@@ -5,6 +5,7 @@ import {
   AdminApiError,
   describeAdminError,
   isAdminApiError,
+  isDenial,
 } from "./admin-api-error";
 
 describe("AdminApiError", () => {
@@ -162,5 +163,32 @@ describe("the server's own wording", () => {
     expect(
       describeAdminError(new AdminApiError("VALIDATION_FAILED", 422)).retryable,
     ).toBe(false);
+  });
+});
+
+describe("isDenial", () => {
+  it("is true for a signed-out or not-allowed failure — a second attempt cannot fix either", () => {
+    expect(isDenial({ kind: "forbidden" })).toBe(true);
+    expect(isDenial({ kind: "unauthenticated" })).toBe(true);
+  });
+
+  it.each([
+    "not_found",
+    "conflict",
+    "validation",
+    "rate_limited",
+    "unsupported",
+    "network",
+    "invalid_response",
+    "server",
+  ] as const)(
+    "is false for %s — something a person can act on or retry",
+    (kind) => {
+      expect(isDenial({ kind })).toBe(false);
+    },
+  );
+
+  it("is false for no failure at all", () => {
+    expect(isDenial(null)).toBe(false);
   });
 });

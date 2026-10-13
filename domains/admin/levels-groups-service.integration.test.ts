@@ -375,6 +375,206 @@ describe("updateVocabularyGroup", () => {
   });
 });
 
+describe("updateVocabularyGroup — what it refuses, and what omitted means (spec 26 Unit 5)", () => {
+  it("refuses a group that does not exist, and writes no audit event for it", async () => {
+    await withTestTransaction(async (tx) => {
+      await seedTestFixtures(tx);
+      const ghost = "99999999-9999-4999-8999-999999999999";
+
+      const attempt = updateVocabularyGroup(tx, {
+        groupId: ghost,
+        name: "Nobody home",
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+      });
+
+      await expect(attempt).rejects.toMatchObject({
+        code: "CURRICULUM_ITEM_NOT_FOUND",
+        message: "That group could not be found.",
+      });
+      for (const action of ["GROUP_UPDATED", "GROUP_ARCHIVED"] as const) {
+        const audit = await getAuditEvents(tx, {
+          action,
+          resourceId: ghost,
+          limit: 10,
+        });
+        expect(audit.items).toHaveLength(0);
+      }
+    });
+  });
+
+  it("leaves a field that was left out alone", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId, level1Id } = await seedTestFixtures(tx);
+      const { groupId } = await createVocabularyGroup(tx, {
+        levelId: level1Id,
+        languageId,
+        name: "Keep me",
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+      });
+
+      await updateVocabularyGroup(tx, {
+        groupId,
+        status: "published",
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+      });
+      expect(await getVocabularyGroup(tx, groupId)).toMatchObject({
+        name: "Keep me",
+        status: "published",
+      });
+
+      await updateVocabularyGroup(tx, {
+        groupId,
+        name: "Renamed",
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+      });
+      expect(await getVocabularyGroup(tx, groupId)).toMatchObject({
+        name: "Renamed",
+        status: "published",
+      });
+    });
+  });
+});
+
+describe("groups belong to one level (spec 26 Unit 5)", () => {
+  /** Two empty levels of the fixture language, each with its own groups. */
+  async function twoLevels(
+    tx: Parameters<Parameters<typeof withTestTransaction>[0]>[0],
+  ) {
+    const { languageId } = await seedTestFixtures(tx);
+    const levelA = (
+      await createLevel(tx, {
+        languageId,
+        levelNumber: 65,
+        name: "Scoping A",
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+      })
+    ).levelId;
+    const levelB = (
+      await createLevel(tx, {
+        languageId,
+        levelNumber: 66,
+        name: "Scoping B",
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+      })
+    ).levelId;
+    const add = async (levelId: string, name: string) =>
+      (
+        await createVocabularyGroup(tx, {
+          levelId,
+          languageId,
+          name,
+          actorUserId: DEVELOPER_ID,
+          idempotencyKey: crypto.randomUUID(),
+        })
+      ).groupId;
+    return { languageId, levelA, levelB, add };
+  }
+  const positions = async (
+    tx: Parameters<Parameters<typeof withTestTransaction>[0]>[0],
+    languageId: string,
+    levelId: string,
+  ) =>
+    (await getVocabularyGroupsByLanguage(tx, languageId))
+      .filter((group) => group.levelId === levelId)
+      .map((group) => [group.name, group.position]);
+
+  it("appends a new group after its own level's last, whatever another level holds", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId, levelA, levelB, add } = await twoLevels(tx);
+      await add(levelA, "A1");
+      await add(levelA, "A2");
+      await add(levelB, "B1");
+      await add(levelA, "A3");
+
+      expect(await positions(tx, languageId, levelA)).toEqual([
+        ["A1", 1],
+        ["A2", 2],
+        ["A3", 3],
+      ]);
+      expect(await positions(tx, languageId, levelB)).toEqual([["B1", 1]]);
+    });
+  });
+
+  // The action this replaced never refused a repeated name and the table has no
+  // unique constraint on it; Unit 5 changes no schema, so the rule is unchanged:
+  // a name is a label, and the position is what tells two groups apart.
+  it("lets two groups of one level share a name — a name is a label, the position is the identity", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId, levelA, add } = await twoLevels(tx);
+      const first = await add(levelA, "Colors");
+      const second = await add(levelA, "Colors");
+
+      expect(first).not.toBe(second);
+      expect(await positions(tx, languageId, levelA)).toEqual([
+        ["Colors", 1],
+        ["Colors", 2],
+      ]);
+    });
+  });
+
+  it("reorders one level without touching another's positions", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId, levelA, levelB, add } = await twoLevels(tx);
+      const [a1, a2, a3] = [
+        await add(levelA, "A1"),
+        await add(levelA, "A2"),
+        await add(levelA, "A3"),
+      ];
+      await add(levelB, "B1");
+      await add(levelB, "B2");
+
+      await reorderVocabularyGroups(tx, {
+        levelId: levelA,
+        orderedGroupIds: [a3, a1, a2],
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+      });
+
+      expect(await positions(tx, languageId, levelA)).toEqual([
+        ["A3", 1],
+        ["A1", 2],
+        ["A2", 3],
+      ]);
+      expect(await positions(tx, languageId, levelB)).toEqual([
+        ["B1", 1],
+        ["B2", 2],
+      ]);
+    });
+  });
+
+  it("ignores a group from another level that is handed in, rather than renumbering it", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId, levelA, levelB, add } = await twoLevels(tx);
+      const [a1, a2] = [await add(levelA, "A1"), await add(levelA, "A2")];
+      const b1 = await add(levelB, "B1");
+      await add(levelB, "B2");
+
+      await reorderVocabularyGroups(tx, {
+        levelId: levelA,
+        orderedGroupIds: [a2, a1, b1],
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+      });
+
+      expect(await positions(tx, languageId, levelA)).toEqual([
+        ["A2", 1],
+        ["A1", 2],
+      ]);
+      // B1 was in the list, in third place — and is still first in its own level.
+      expect(await positions(tx, languageId, levelB)).toEqual([
+        ["B1", 1],
+        ["B2", 2],
+      ]);
+    });
+  });
+});
+
 describe("reorderVocabularyGroups", () => {
   it("reorders groups and records one GROUP_REORDERED event for the whole batch", async () => {
     await withTestTransaction(async (tx) => {

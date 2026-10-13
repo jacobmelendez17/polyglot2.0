@@ -5,13 +5,16 @@ import { USER_ROLES, type UserRole } from "@/domains/users";
 import type {
   AdminCurriculumItemsPage,
   CurriculumLevel,
+  CurriculumVocabularyGroup,
   LevelContentCounts,
 } from "@/domains/curriculum";
 
 import {
   ADMIN_CEFR_LEVELS,
+  GROUP_LIST_MAX,
   LEVEL_LIST_MAX,
   adminCurriculumPageSchema,
+  adminGroupListSchema,
   adminLevelListSchema,
   adminMeSchema,
   adminOverviewSchema,
@@ -19,6 +22,7 @@ import {
 } from "./admin-api-contract";
 import {
   buildAdminCurriculumPage,
+  buildAdminGroupList,
   buildAdminLevelList,
   buildAdminMe,
   buildAdminOverview,
@@ -90,12 +94,14 @@ describe("buildAdminPermissions", () => {
       curriculum: ["list"],
       review: ["list"],
       levels: ["list", "create", "edit"],
+      groups: ["list", "create", "edit"],
     });
     expect(buildAdminPermissions({ role: "writer" }).resources).toEqual({
       overview: ["show"],
       curriculum: ["list"],
       review: ["list"],
       levels: ["list"],
+      groups: ["list"],
     });
     // A developer reaches /admin but not curriculum.
     expect(buildAdminPermissions({ role: "developer" }).resources).toEqual({
@@ -355,6 +361,109 @@ describe("buildAdminLevelList", () => {
     expect(
       adminLevelListSchema.safeParse(buildAdminLevelList(levels, new Map()))
         .success,
+    ).toBe(true);
+  });
+});
+
+describe("buildAdminGroupList", () => {
+  function group(
+    position: number,
+    overrides: Partial<CurriculumVocabularyGroup> = {},
+  ): CurriculumVocabularyGroup {
+    return {
+      id: `group-${position}`,
+      levelId: "level-1",
+      languageId: "lang-1",
+      name: `Group ${position}`,
+      position,
+      status: "draft",
+      ...overrides,
+    };
+  }
+
+  it("carries what a row shows, and nothing else the read model has", () => {
+    const list = buildAdminGroupList([
+      {
+        ...group(2, { name: "Colors", status: "published" }),
+        curriculumKey: "es-MX:group:abc",
+      } as never,
+    ]);
+    expect(list).toEqual({
+      items: [
+        {
+          id: "group-2",
+          levelId: "level-1",
+          name: "Colors",
+          status: "published",
+          position: 2,
+        },
+      ],
+      truncated: false,
+    });
+    expect(Object.keys(list.items[0]!).sort()).toEqual([
+      "id",
+      "levelId",
+      "name",
+      "position",
+      "status",
+    ]);
+  });
+
+  it("orders by position whatever order it was handed, so the list is deterministic", () => {
+    const list = buildAdminGroupList([group(3), group(1), group(2)]);
+    expect(list.items.map((row) => row.position)).toEqual([1, 2, 3]);
+  });
+
+  it("breaks a tie by id, so even a shared position gives one order", () => {
+    const a = group(1, { id: "a" });
+    const b = group(1, { id: "b" });
+    expect(buildAdminGroupList([b, a]).items.map((r) => r.id)).toEqual([
+      "a",
+      "b",
+    ]);
+    expect(buildAdminGroupList([a, b]).items.map((r) => r.id)).toEqual([
+      "a",
+      "b",
+    ]);
+  });
+
+  it("keeps every status — an Admin list shows archived and draft groups too", () => {
+    const list = buildAdminGroupList([
+      group(1, { status: "archived" }),
+      group(2, { status: "draft" }),
+      group(3, { status: "pending" }),
+      group(4, { status: "published" }),
+    ]);
+    expect(list.items.map((row) => row.status)).toEqual([
+      "archived",
+      "draft",
+      "pending",
+      "published",
+    ]);
+  });
+
+  it("is empty, and not truncated, for a level with no groups", () => {
+    expect(buildAdminGroupList([])).toEqual({ items: [], truncated: false });
+  });
+
+  it("is bounded, and says so when it cut something off", () => {
+    const many = Array.from({ length: GROUP_LIST_MAX + 4 }, (_, i) =>
+      group(i + 1),
+    );
+    const list = buildAdminGroupList(many);
+    expect(list.items).toHaveLength(GROUP_LIST_MAX);
+    expect(list.items.at(-1)?.position).toBe(GROUP_LIST_MAX);
+    expect(list.truncated).toBe(true);
+    expect(buildAdminGroupList(many.slice(0, GROUP_LIST_MAX)).truncated).toBe(
+      false,
+    );
+  });
+
+  it("is contract-valid", () => {
+    expect(
+      adminGroupListSchema.safeParse(
+        buildAdminGroupList([group(1), group(2, { status: "published" })]),
+      ).success,
     ).toBe(true);
   });
 });

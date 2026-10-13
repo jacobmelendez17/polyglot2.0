@@ -8,23 +8,21 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogContentText from "@mui/material/DialogContentText";
 import DialogTitle from "@mui/material/DialogTitle";
 
-import type { AdminErrorDescription } from "../admin-api-error";
-import type { StatusImpact } from "./level-edit-model";
-
-/** Failures a second attempt cannot fix: the person is signed out or not allowed. */
-const DENIED_KINDS = new Set(["forbidden", "unauthenticated"]);
+import { isDenial, type AdminErrorDescription } from "./admin-api-error";
+import type { StatusImpact } from "./status-impact";
 
 /**
- * The explicit confirmation before a level goes live or dark (spec 26 §5: "A UI
- * save must not implicitly publish"). A level's `published` status gates the
- * level page, lessons, decks and item pages, so changing it is a decision about
- * what learners can reach — not a side effect of pressing Save.
+ * The explicit confirmation before a status change that matters (spec 26 §5:
+ * "A UI save must not implicitly publish"; the level screen's going live or
+ * dark, the group screen's archive). A plain Save never carries such a change
+ * through on its own: it is a decision, so it is asked about.
  *
  * Nothing is sent until the person confirms. While the request is in flight it
- * cannot be dismissed (it must be allowed to finish and be seen), and a failure
- * is reported here, in the dialog that caused it.
+ * cannot be dismissed (it must be allowed to finish and be seen), a failure is
+ * reported here — in the dialog that caused it — and a lost permission offers
+ * only "Close".
  */
-export function LevelStatusDialog({
+export function StatusImpactDialog({
   impact,
   from,
   to,
@@ -42,23 +40,23 @@ export function LevelStatusDialog({
   onConfirm: () => void;
   onClose: () => void;
 }) {
-  const denied = failure !== null && DENIED_KINDS.has(failure.kind);
+  const denied = isDenial(failure);
 
   return (
     <Dialog
       open
       fullWidth
       maxWidth="xs"
-      aria-labelledby="level-status-title"
-      aria-describedby="level-status-impact"
+      aria-labelledby="status-impact-title"
+      aria-describedby="status-impact-body"
       onClose={() => {
         if (!saving) onClose();
       }}
     >
-      <DialogTitle id="level-status-title">{impact.title}</DialogTitle>
+      <DialogTitle id="status-impact-title">{impact.title}</DialogTitle>
 
       <DialogContent>
-        <DialogContentText id="level-status-impact">
+        <DialogContentText id="status-impact-body">
           {impact.body}
         </DialogContentText>
         <DialogContentText sx={{ mt: 1.5, fontWeight: 500 }}>
@@ -80,7 +78,12 @@ export function LevelStatusDialog({
             <Button color="inherit" onClick={onClose} disabled={saving}>
               Cancel
             </Button>
-            <Button variant="contained" onClick={onConfirm} disabled={saving}>
+            <Button
+              variant="contained"
+              color={impact.destructive ? "error" : "primary"}
+              onClick={onConfirm}
+              disabled={saving}
+            >
               {saving ? "Saving…" : failure ? "Try again" : impact.confirmLabel}
             </Button>
           </>

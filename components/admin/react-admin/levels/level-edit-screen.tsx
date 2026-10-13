@@ -1,10 +1,10 @@
 "use client";
 
 import { AdminProblem, blockingError } from "../admin-problem";
+import { FormSkeleton } from "../skeletons";
 import { useAdminPermissions } from "../use-admin-permissions";
 import { LevelDetails } from "./level-details";
 import { LevelEditForm } from "./level-edit-form";
-import { LevelEditSkeleton } from "./level-edit-skeleton";
 import type { LevelFields } from "./level-edit-model";
 
 /**
@@ -46,7 +46,8 @@ export function LevelEditScreen({
       />
     );
   }
-  if (!permissions.permissions) return <LevelEditSkeleton />;
+  if (!permissions.permissions)
+    return <FormSkeleton label="Loading the properties of this level…" />;
 
   const canEdit = Boolean(
     permissions.permissions.resources.levels?.includes("edit"),

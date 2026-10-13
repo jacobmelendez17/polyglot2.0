@@ -3,15 +3,18 @@ import type { PolyglotUser } from "@/domains/users";
 import type {
   AdminCurriculumItemsPage,
   CurriculumLevel,
+  CurriculumVocabularyGroup,
   LevelContentCounts,
   ReviewQueuePage,
 } from "@/domains/curriculum";
 
 import {
   ADMIN_OVERVIEW_RECORD_ID,
+  GROUP_LIST_MAX,
   LEVEL_LIST_MAX,
   type AdminCurriculumPage,
   type AdminCurriculumStatusCounts,
+  type AdminGroupList,
   type AdminLevelList,
   type AdminReviewPage,
   type AdminMe,
@@ -63,6 +66,13 @@ function resourceAccess(
     // Admin-only), so those actions follow `canPublishCurriculum` — the same
     // predicate the endpoints themselves enforce.
     resources.levels = canPublishCurriculum(subject)
+      ? ["list", "create", "edit"]
+      : ["list"];
+    // Groups follow the same rule, for the same reason (spec 26 §6): a writer
+    // reads a level's groups; adding, renaming, archiving and reordering them
+    // is structure, so it is Admin-only. `edit` stands for reordering as well —
+    // the specialist tool is reached by a link only someone who may edit sees.
+    resources.groups = canPublishCurriculum(subject)
       ? ["list", "create", "edit"]
       : ["list"];
   }
@@ -193,5 +203,29 @@ export function buildAdminLevelList(
       ...(counts.get(level.id) ?? NO_CONTENT),
     })),
     truncated: ordered.length > LEVEL_LIST_MAX,
+  };
+}
+
+/**
+ * One level's groups, by position (then id, so the order is total even if two
+ * rows ever shared one), bounded at `GROUP_LIST_MAX` and saying so when it cut
+ * anything off. Sorted here as well as by the query, so the response never
+ * depends on the order a read happened to come back in.
+ */
+export function buildAdminGroupList(
+  groups: readonly CurriculumVocabularyGroup[],
+): AdminGroupList {
+  const ordered = [...groups].sort(
+    (a, b) => a.position - b.position || a.id.localeCompare(b.id),
+  );
+  return {
+    items: ordered.slice(0, GROUP_LIST_MAX).map((group) => ({
+      id: group.id,
+      levelId: group.levelId,
+      name: group.name,
+      status: group.status,
+      position: group.position,
+    })),
+    truncated: ordered.length > GROUP_LIST_MAX,
   };
 }

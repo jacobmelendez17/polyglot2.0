@@ -16,6 +16,7 @@ import {
   updateVocabularyGroup,
 } from "./curriculum-mutation-repository";
 import {
+  getVocabularyGroupsByLevel,
   getLevelsByLanguage,
   getVocabularyGroup,
   getVocabularyGroupsByLanguage,
@@ -239,6 +240,45 @@ describe("Level content counts for a whole language (spec 26 Unit 4)", () => {
         grammarItems: 0,
         vocabularyGroups: 1,
       });
+    });
+  });
+});
+
+describe("A level's groups, as an Admin list reads them (spec 26 Unit 5)", () => {
+  it("come back by position, in every status, and only from that level", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      const levelA = await createLevel(tx, { languageId, levelNumber: 67 });
+      const levelB = await createLevel(tx, { languageId, levelNumber: 68 });
+      const make = (levelId: string, name: string) =>
+        createVocabularyGroup(tx, { levelId, languageId, name });
+      // Names chosen so that neither alphabetical order nor creation order
+      // equals the position order the test sets up below.
+      const mango = await make(levelA, "Mango");
+      const apple = await make(levelA, "Apple");
+      const zebra = await make(levelA, "Zebra");
+      await make(levelB, "Elsewhere");
+      await updateVocabularyGroup(tx, apple, { status: "published" });
+      await updateVocabularyGroup(tx, zebra, { status: "archived" });
+
+      await reorderVocabularyGroups(tx, levelA, [zebra, mango, apple]);
+
+      const groups = await getVocabularyGroupsByLevel(tx, levelA);
+      expect(groups.map((g) => [g.name, g.position, g.status])).toEqual([
+        ["Zebra", 1, "archived"],
+        ["Mango", 2, "draft"],
+        ["Apple", 3, "published"],
+      ]);
+      expect(groups.every((g) => g.levelId === levelA)).toBe(true);
+      expect(await getVocabularyGroupsByLevel(tx, levelB)).toHaveLength(1);
+    });
+  });
+
+  it("are empty for a level that has none", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      const empty = await createLevel(tx, { languageId, levelNumber: 69 });
+      expect(await getVocabularyGroupsByLevel(tx, empty)).toEqual([]);
     });
   });
 });

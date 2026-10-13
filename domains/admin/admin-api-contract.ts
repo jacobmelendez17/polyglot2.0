@@ -389,6 +389,118 @@ export type AdminLevelUpdateResult = z.infer<
 /** The `[levelId]` path segment. */
 export const adminLevelPathSchema = z.object({ levelId: uuidLike });
 
+/* -------------------------------------------------------------------------- */
+/* Groups (spec 26 Unit 5)                                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * A level holds a handful of groups, so the list is one bounded response, not
+ * a paged one — bounded all the same, and saying so (`truncated`) if a level
+ * ever exceeded it.
+ */
+export const GROUP_LIST_MAX = 100;
+
+/**
+ * The one ordering of a level's groups: by `position`, which is unique within
+ * a level. Any other sort is refused: the position *is* the order (and the
+ * lesson number learners see), and persisting it is the specialist reorder
+ * tool's job — never a generic list sort.
+ */
+export const GROUP_LIST_SORT = {
+  field: "group_position",
+  order: "ASC",
+} as const;
+
+/** The longest a group's name may be (after trimming). Generous — the legacy action had none beyond the request-size limit. */
+export const GROUP_NAME_MAX = 200;
+
+/** A group's name is required; trimmed and not empty. */
+const groupNameSchema = z.string().trim().min(1).max(GROUP_NAME_MAX);
+
+/**
+ * `GET /api/v1/admin/groups` query string. Groups are read **one level at a
+ * time** — `language` and `level` are both required — because a group's
+ * position only means something within its own level. `.strict()`: a
+ * parameter this endpoint does not implement is a 422, never ignored.
+ */
+export const adminGroupListQuerySchema = z
+  .object({ language: uuidLike, level: uuidLike })
+  .strict();
+export type AdminGroupListQuery = z.infer<typeof adminGroupListQuerySchema>;
+
+/** One group of a level. `position` is its place in the level's order. */
+export const adminGroupRowSchema = z.object({
+  id: z.string().min(1),
+  levelId: z.string().min(1),
+  name: z.string(),
+  status: z.enum(CURRICULUM_STATUSES),
+  position: z.number().int(),
+});
+export type AdminGroupRow = z.infer<typeof adminGroupRowSchema>;
+
+export const adminGroupListSchema = z.object({
+  items: z.array(adminGroupRowSchema),
+  /** More groups exist than `GROUP_LIST_MAX`; `items` is the first of them, by position. */
+  truncated: z.boolean(),
+});
+export type AdminGroupList = z.infer<typeof adminGroupListSchema>;
+
+/**
+ * `POST /api/v1/admin/groups` — Admin only. A new group is appended after
+ * every existing group in its level; the **server** computes the position, so
+ * there is deliberately no `position` here to send (and `.strict()` refuses
+ * one). The level must belong to the language, which the endpoint checks.
+ */
+export const adminGroupCreateRequestSchema = z
+  .object({
+    languageId: uuidLike,
+    levelId: uuidLike,
+    name: groupNameSchema,
+    idempotencyKey: uuidLike,
+  })
+  .strict();
+export type AdminGroupCreateRequest = z.infer<
+  typeof adminGroupCreateRequestSchema
+>;
+
+export const adminGroupCreateResultSchema = z.object({
+  groupId: z.string().min(1),
+});
+export type AdminGroupCreateResult = z.infer<
+  typeof adminGroupCreateResultSchema
+>;
+
+/**
+ * `PATCH /api/v1/admin/groups/[groupId]` — Admin only. A field that is
+ * **omitted** is left alone. A name cannot be cleared (a group always has
+ * one), so — unlike a level's — `null` is not a value here, and neither is a
+ * `position` or a level: moving a group is not this command, and ordering is
+ * the specialist reorder tool's. At least one field must be present.
+ */
+export const adminGroupUpdateRequestSchema = z
+  .object({
+    name: groupNameSchema.optional(),
+    status: z.enum(CURRICULUM_STATUSES).optional(),
+    idempotencyKey: uuidLike,
+  })
+  .strict()
+  .refine((body) => body.name !== undefined || body.status !== undefined, {
+    message: "Nothing to change.",
+  });
+export type AdminGroupUpdateRequest = z.infer<
+  typeof adminGroupUpdateRequestSchema
+>;
+
+export const adminGroupUpdateResultSchema = z.object({
+  groupId: z.string().min(1),
+});
+export type AdminGroupUpdateResult = z.infer<
+  typeof adminGroupUpdateResultSchema
+>;
+
+/** The `[groupId]` path segment. */
+export const adminGroupPathSchema = z.object({ groupId: uuidLike });
+
 /**
  * Error codes this adapter can answer with, and the HTTP status each maps
  * to (spec 26 §3 "API errors"). Domain errors (`AppError`/`AdminError`)

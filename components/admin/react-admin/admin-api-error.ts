@@ -144,6 +144,21 @@ export type AdminErrorDescription = {
   retryable: boolean;
 };
 
+/**
+ * Whether a failure is a **denial**: the person is signed out (401) or not
+ * allowed (403). A second attempt cannot fix either, so a form that has one
+ * offers only "Close" — never "Try again" — and shows it as a warning rather
+ * than an error.
+ */
+export function isDenial(
+  failure: Pick<AdminErrorDescription, "kind"> | null,
+): boolean {
+  return (
+    failure !== null &&
+    (failure.kind === "forbidden" || failure.kind === "unauthenticated")
+  );
+}
+
 const RETRYABLE_KINDS: ReadonlySet<AdminApiErrorKind> = new Set([
   "network",
   "server",

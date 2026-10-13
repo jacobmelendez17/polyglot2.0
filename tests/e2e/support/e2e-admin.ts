@@ -13,9 +13,11 @@ import { getAuditEvents } from "@/domains/admin/audit-repository";
 import {
   createItem,
   createLevel,
+  createVocabularyGroup,
   publishItem,
   updateItem,
   updateLevel,
+  updateVocabularyGroup,
 } from "@/domains/admin/publication-service";
 import type { UserRole } from "@/domains/users";
 
@@ -720,5 +722,164 @@ export async function seedEmptyLanguage(): Promise<EmptyLanguageFixture> {
         });
       },
     };
+  });
+}
+
+/* -------------------------------------------------------------------------- */
+/* Group fixtures (spec 26 Unit 5)                                            */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Throwaway vocabulary groups, built through the *real* `createVocabularyGroup`
+ * / `updateVocabularyGroup` services — so a fixture is exactly what an Admin's
+ * own actions would have left behind, and gets the position the application
+ * itself gives it (the next one in its level). Only empty groups are ever
+ * created here, so removing one is a plain delete — and a spec removes its
+ * groups *before* the throwaway levels that hold them.
+ */
+
+export type E2EGroup = {
+  id: string;
+  levelId: string;
+  languageId: string;
+  name: string;
+  status: LevelStatus;
+  position: number;
+};
+
+const groupColumns = {
+  id: vocabularyGroups.id,
+  levelId: vocabularyGroups.levelId,
+  languageId: vocabularyGroups.languageId,
+  name: vocabularyGroups.name,
+  status: vocabularyGroups.status,
+  position: vocabularyGroups.position,
+};
+
+/** A group appended to `levelId` (after whatever it already holds), in the status given — draft by default, as the app creates it. */
+export async function seedGroup(
+  levelId: string,
+  options: { name: string; status?: LevelStatus },
+): Promise<E2EGroup> {
+  const actorUserId = await getE2EAdminUserId();
+  return withE2EDb(async (db) => {
+    const [level] = await db
+      .select({ languageId: levels.languageId })
+      .from(levels)
+      .where(eq(levels.id, levelId))
+      .limit(1);
+    if (!level) throw new Error(`No level ${levelId} to put a group in.`);
+    const { groupId } = await createVocabularyGroup(db, {
+      levelId,
+      languageId: level.languageId,
+      name: options.name,
+      actorUserId,
+      idempotencyKey: crypto.randomUUID(),
+    });
+    if (options.status !== undefined && options.status !== "draft") {
+      await updateVocabularyGroup(db, {
+        groupId,
+        status: options.status,
+        actorUserId,
+        idempotencyKey: crypto.randomUUID(),
+      });
+    }
+    const [row] = await db
+      .select(groupColumns)
+      .from(vocabularyGroups)
+      .where(eq(vocabularyGroups.id, groupId))
+      .limit(1);
+    return row!;
+  });
+}
+
+/** A group as the database holds it, read independently of the code under test; `null` once it is gone. */
+export async function getE2EGroup(groupId: string): Promise<E2EGroup | null> {
+  return withE2EDb(async (db) => {
+    const [row] = await db
+      .select(groupColumns)
+      .from(vocabularyGroups)
+      .where(eq(vocabularyGroups.id, groupId))
+      .limit(1);
+    return row ?? null;
+  });
+}
+
+/** Every group of a level, by position — the ground truth for a list, and for "nothing else moved". */
+export async function getE2EGroupsOfLevel(
+  levelId: string,
+): Promise<E2EGroup[]> {
+  return withE2EDb(async (db) =>
+    db
+      .select(groupColumns)
+      .from(vocabularyGroups)
+      .where(eq(vocabularyGroups.levelId, levelId))
+      .orderBy(vocabularyGroups.position),
+  );
+}
+
+/** A level's groups as `[name, position]` pairs, by position — what a spec compares before and after to prove nothing else moved. */
+export async function snapshotE2EGroups(
+  levelId: string,
+): Promise<[string, number][]> {
+  return (await getE2EGroupsOfLevel(levelId)).map((group) => [
+    group.name,
+    group.position,
+  ]);
+}
+
+/** How many audit events of `action` exist for a resource — one per real change, never per click. */
+export async function countE2EGroupAudits(
+  action:
+    "GROUP_CREATED" | "GROUP_UPDATED" | "GROUP_ARCHIVED" | "GROUP_REORDERED",
+  resourceId: string,
+): Promise<number> {
+  return withE2EDb(async (db) => {
+    const page = await getAuditEvents(db, {
+      action,
+      resourceId,
+      limit: 50,
+    });
+    return page.items.length;
+  });
+}
+
+/** Removes groups this module (or the UI, under test) created. They must be empty. */
+export async function removeSeededGroups(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  await withE2EDb(async (db) => {
+    await db.delete(vocabularyGroups).where(inArray(vocabularyGroups.id, ids));
+  });
+}
+
+/**
+ * `howMany` empty draft groups in one statement, in `levelId` and numbered
+ * from 1 — for a spec that needs more groups than the list's bound without
+ * paying for each one's audit trail. The level must be empty of groups.
+ */
+export async function seedManyGroups(
+  levelId: string,
+  howMany: number,
+): Promise<string[]> {
+  return withE2EDb(async (db) => {
+    const [level] = await db
+      .select({ languageId: levels.languageId })
+      .from(levels)
+      .where(eq(levels.id, levelId))
+      .limit(1);
+    if (!level) throw new Error(`No level ${levelId} to put groups in.`);
+    const rows = await db
+      .insert(vocabularyGroups)
+      .values(
+        Array.from({ length: howMany }, (_, index) => ({
+          levelId,
+          languageId: level.languageId,
+          name: `Bulk group ${index + 1}`,
+          position: index + 1,
+          status: "draft" as const,
+        })),
+      )
+      .returning({ id: vocabularyGroups.id });
+    return rows.map((row) => row.id);
   });
 }

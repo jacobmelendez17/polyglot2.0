@@ -9,7 +9,6 @@ import {
   bulkMoveItems,
   bulkPublishPendingItems,
   createItem,
-  createVocabularyGroup,
   deleteItem,
   moveItem,
   mutateGrammarContentBlock,
@@ -23,7 +22,6 @@ import {
   resetDictionaryFieldOverride,
   saveGrammarContentBlocks,
   updateItem,
-  updateVocabularyGroup,
 } from "@/domains/admin/server";
 import { DICTIONARY_OVERRIDABLE_FIELDS } from "@/db/schema";
 import { resolveConfirmedDictionaryFields } from "@/domains/lexicon";
@@ -618,47 +616,6 @@ export async function reorderItemsAction(
     const parsed = reorderItemsActionSchema.parse(input);
     const user = await requireUser();
     await reorderItems({ ...parsed, actorUserId: user.id });
-  });
-}
-
-const curriculumStatusActionSchema = z.enum([
-  "draft",
-  "pending",
-  "published",
-  "archived",
-]);
-
-const createVocabularyGroupActionSchema = z.object({
-  levelId: z.string().min(1),
-  languageId: z.string().min(1),
-  name: z.string().trim().min(1),
-  idempotencyKey: z.string().min(1),
-});
-
-export async function createVocabularyGroupAction(
-  input: z.infer<typeof createVocabularyGroupActionSchema>,
-): Promise<ActionResult<{ groupId: string }>> {
-  return runPublishAction(async () => {
-    const parsed = createVocabularyGroupActionSchema.parse(input);
-    const user = await requireUser();
-    return createVocabularyGroup({ ...parsed, actorUserId: user.id });
-  });
-}
-
-const updateVocabularyGroupActionSchema = z.object({
-  groupId: z.string().min(1),
-  name: z.string().trim().min(1).optional(),
-  status: curriculumStatusActionSchema.optional(),
-  idempotencyKey: z.string().min(1),
-});
-
-export async function updateVocabularyGroupAction(
-  input: z.infer<typeof updateVocabularyGroupActionSchema>,
-): Promise<ActionResult<void>> {
-  return runPublishAction(async () => {
-    const parsed = updateVocabularyGroupActionSchema.parse(input);
-    const user = await requireUser();
-    await updateVocabularyGroup({ ...parsed, actorUserId: user.id });
   });
 }
 

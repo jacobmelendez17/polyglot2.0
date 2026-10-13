@@ -13,12 +13,19 @@ import type {
 import {
   ADMIN_OVERVIEW_RECORD_ID,
   adminCurriculumPageSchema,
+  adminGroupCreateResultSchema,
+  adminGroupListSchema,
+  adminGroupUpdateResultSchema,
   adminLevelCreateResultSchema,
   adminLevelListSchema,
   adminLevelUpdateResultSchema,
   adminOverviewSchema,
   adminReviewPageSchema,
   adminReviewPublishResultSchema,
+  type AdminGroupCreateRequest,
+  type AdminGroupCreateResult,
+  type AdminGroupUpdateRequest,
+  type AdminGroupUpdateResult,
   type AdminLevelCreateRequest,
   type AdminLevelCreateResult,
   type AdminLevelUpdateRequest,
@@ -30,6 +37,7 @@ import {
 import { requestAdminApi } from "./admin-api-client";
 import { AdminApiError } from "./admin-api-error";
 import { buildCurriculumListQuery } from "./curriculum/curriculum-list-query";
+import { buildGroupsListQuery } from "./groups/groups-list-query";
 import { buildLevelsListQuery } from "./levels/levels-list-query";
 import { buildReviewListQuery } from "./review/review-list-query";
 
@@ -58,6 +66,21 @@ export type AdminDataProvider = DataProvider & {
     levelId: string,
     input: AdminLevelUpdateRequest,
   ) => Promise<AdminLevelUpdateResult>;
+  /**
+   * Adds a group to the end of a level (Admin only). The server computes its
+   * position; there is no position to send.
+   */
+  createGroup: (
+    input: AdminGroupCreateRequest,
+  ) => Promise<AdminGroupCreateResult>;
+  /**
+   * Changes one group's name or status (Admin only). A field left out is left
+   * alone. Position is not a field: ordering is the reorder tool's.
+   */
+  updateGroup: (
+    groupId: string,
+    input: AdminGroupUpdateRequest,
+  ) => Promise<AdminGroupUpdateResult>;
 };
 
 /** A cursor page, as React Admin's *partial pagination*: no total, and the server's cursors passed through untouched. */
@@ -163,6 +186,19 @@ export function createAdminDataProvider({
           meta: { truncated: list.truncated },
         };
       }
+      if (resource === "groups") {
+        const list = await request(
+          `/groups?${buildGroupsListQuery(params)}`,
+          adminGroupListSchema,
+          { signal: params.signal },
+        );
+        // A level's groups are one bounded response, like a language's levels.
+        return {
+          data: list.items as GetListResult["data"],
+          total: list.items.length,
+          meta: { truncated: list.truncated },
+        };
+      }
       return unsupported(resource, "getList");
     },
 
@@ -183,6 +219,19 @@ export function createAdminDataProvider({
       return request(
         `/levels/${encodeURIComponent(levelId)}`,
         adminLevelUpdateResultSchema,
+        { body: input, method: "PATCH" },
+      );
+    },
+
+    createGroup(input) {
+      // The body is exactly the command: no actor, no role, no position.
+      return request("/groups", adminGroupCreateResultSchema, { body: input });
+    },
+
+    updateGroup(groupId, input) {
+      return request(
+        `/groups/${encodeURIComponent(groupId)}`,
+        adminGroupUpdateResultSchema,
         { body: input, method: "PATCH" },
       );
     },

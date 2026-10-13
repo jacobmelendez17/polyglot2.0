@@ -393,6 +393,24 @@ not from a second palette:
   labelled list, and one line saying whose job editing is. The decision follows
   the server's permissions (`GET /api/v1/admin/me`, refetched on focus), so a
   role revoked mid-session turns the form read-only on the next focus.
+- **A filter that depends on another gets its own filter form** (spec 26 Unit 5:
+  a group list's Level depends on its Language). React Admin's filter form does
+  not re-sync from the URL the first time the URL changes after _the person_
+  edited it — so that a delayed value cannot overwrite what they just typed — and
+  a dependent field the application changed in the same step (a language switch
+  resets the level) is swallowed with it: the select kept the old value, which
+  was no longer among its choices, and showed blank while the list beneath it was
+  correctly another level's. Give the dependent select a form of its own and
+  remount it (`key`) when what it depends on changes.
+- **A list scoped to one thing names it, and never offers "all".** The groups
+  list always shows which level it is showing and has no "All levels" option: a
+  group's position means something only inside its level. A scope that cannot be
+  chosen (a language with no levels) is a designed empty state that points at
+  where to fix it, and nothing is requested for it.
+- **A way into a specialist tool appears only where it can do something, and
+  only to someone who may use it** (the "Reorder groups" link: Admins, and only
+  when the level has at least two groups). The tool stays reachable by address
+  only for those allowed; anyone else who types it gets the ordinary list.
 
 ---
 

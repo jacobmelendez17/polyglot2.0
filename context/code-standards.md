@@ -346,6 +346,15 @@ a nullable field sent as `null` means (cleared), and the form that calls it send
 only what a person changed. A form whose request can change between attempts
 takes its idempotency key from `useIntentKey`, never one fixed key per screen.
 
+An Admin edit or create form does not hand-roll that behavior: it uses
+`useEditCommand` / `useCreateCommand` / `AdminFormDialog`
+(`components/admin/react-admin/`) and supplies only its fields, how it reads and
+diffs them, and what needs confirming. A specialist screen that stays on a Server
+Action (the group reorder tool) keeps its authorization in the action and has a
+unit test of its own that exercises every role and the request's validation
+(`app/(admin)/admin/curriculum/actions.test.ts`); hiding its link from someone is
+a convenience, never the control.
+
 Use meaningful HTTP status codes.
 
 Do not return raw database rows when a safe response model is more appropriate.

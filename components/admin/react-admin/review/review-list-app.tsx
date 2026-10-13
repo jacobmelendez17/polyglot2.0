@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 
-import { ReviewListSkeleton } from "./review-list-skeleton";
+import { ListSkeleton } from "../skeletons";
 
 /**
  * The client-only boundary for the review queue — same shape and reasons as
@@ -11,7 +11,7 @@ import { ReviewListSkeleton } from "./review-list-skeleton";
  */
 const ReviewListRoot = dynamic(() => import("./review-list-root"), {
   ssr: false,
-  loading: () => <ReviewListSkeleton />,
+  loading: () => <ListSkeleton label="Loading the review queue…" rows={6} />,
 });
 
 export function AdminReviewListApp(props: {

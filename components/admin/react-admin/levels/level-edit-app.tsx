@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 
-import { LevelEditSkeleton } from "./level-edit-skeleton";
+import { FormSkeleton } from "../skeletons";
 import type { LevelFields } from "./level-edit-model";
 
 /**
@@ -13,7 +13,7 @@ import type { LevelFields } from "./level-edit-model";
  */
 const LevelEditRoot = dynamic(() => import("./level-edit-root"), {
   ssr: false,
-  loading: () => <LevelEditSkeleton />,
+  loading: () => <FormSkeleton label="Loading the properties of this level…" />,
 });
 
 export function AdminLevelEditApp(props: {

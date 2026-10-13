@@ -4,6 +4,9 @@ import {
   type AdminLevelUpdateRequest,
 } from "@/domains/admin";
 
+import { STATUS_CHOICES } from "../status-choices";
+import type { StatusImpact } from "../status-impact";
+
 /**
  * The level edit form's logic, apart from React so each rule can be stated and
  * tested on its own (spec 26 Unit 4).
@@ -26,11 +29,9 @@ export type LevelFormValues = {
   status?: string | null;
 };
 
-/** What each select offers, with the labels people read. */
-export const STATUS_CHOICES = CURRICULUM_STATUSES.map((status) => ({
-  id: status,
-  name: status.charAt(0).toUpperCase() + status.slice(1),
-}));
+/** Every status, with the labels people read — shared with the other Admin forms with a status select. */
+export { STATUS_CHOICES };
+
 /**
  * "No band": a level need not have one, and item pages then simply omit it.
  *
@@ -90,13 +91,6 @@ export function changedFields(
   if (next.status !== baseline.status) changes.status = next.status;
   return changes;
 }
-
-export type StatusImpact = {
-  title: string;
-  /** What happens to learners — stated only as far as the code guarantees it. */
-  body: string;
-  confirmLabel: string;
-};
 
 /**
  * Whether a change of status needs an explicit confirmation, and what to tell

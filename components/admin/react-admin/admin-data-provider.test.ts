@@ -538,6 +538,222 @@ describe("createAdminDataProvider", () => {
     });
   });
 
+  describe("getList('groups')", () => {
+    const GROUPS = {
+      items: [
+        {
+          id: "group-1",
+          levelId: "level-1",
+          name: "Fruit",
+          status: "published" as const,
+          position: 1,
+        },
+      ],
+      truncated: false,
+    };
+    const LIST_PARAMS = {
+      pagination: { page: 1, perPage: 100 },
+      sort: { field: "group_position", order: "ASC" as const },
+      filter: { language: "lang-1", level: "level-1", cursor: undefined },
+    };
+
+    function groupsProvider(answer: unknown = GROUPS) {
+      const request = vi.fn<RequestFn>(async () => answer as never);
+      return {
+        request,
+        provider: createAdminDataProvider({ request: request as never }),
+      };
+    }
+
+    it("asks the groups endpoint for the language and the level, and for nothing else", async () => {
+      const { provider, request } = groupsProvider();
+      await provider.getList("groups", LIST_PARAMS);
+      expect(request.mock.calls[0]?.[0]).toBe(
+        "/groups?language=lang-1&level=level-1",
+      );
+    });
+
+    it("answers the one bounded response as a list whose length is its total", async () => {
+      const { provider } = groupsProvider();
+      const result = await provider.getList("groups", LIST_PARAMS);
+      expect(result.data).toEqual(GROUPS.items);
+      expect(result.total).toBe(1);
+      expect(result).not.toHaveProperty("pageInfo");
+      expect(result.meta).toEqual({ truncated: false });
+    });
+
+    it("passes on that the response was cut short", async () => {
+      const { provider } = groupsProvider({ ...GROUPS, truncated: true });
+      const result = await provider.getList("groups", LIST_PARAMS);
+      expect(result.meta).toEqual({ truncated: true });
+    });
+
+    it("validates the answer against the contract, position and all", async () => {
+      const { provider, request } = groupsProvider();
+      await provider.getList("groups", LIST_PARAMS);
+      const schema = request.mock.calls[0]?.[1] as {
+        safeParse: (v: unknown) => { success: boolean };
+      };
+      expect(schema.safeParse(GROUPS).success).toBe(true);
+      expect(
+        schema.safeParse({
+          ...GROUPS,
+          items: [{ ...GROUPS.items[0], position: undefined }],
+        }).success,
+      ).toBe(false);
+    });
+
+    it.each([
+      // The position is the order; a list sort must never stand in for it.
+      ["a sort by name", { sort: { field: "name", order: "ASC" as const } }],
+      [
+        "a descending position",
+        { sort: { field: "group_position", order: "DESC" as const } },
+      ],
+      ["a page jump", { pagination: { page: 2, perPage: 100 } }],
+      [
+        "a cursor",
+        { filter: { language: "lang-1", level: "level-1", cursor: "tok" } },
+      ],
+      [
+        "a filter",
+        { filter: { language: "lang-1", level: "level-1", status: "draft" } },
+      ],
+      // Groups are never listed across levels: positions are per level.
+      ["no level", { filter: { language: "lang-1" } }],
+    ])("refuses %s without calling the server", async (_name, override) => {
+      const { provider, request } = groupsProvider();
+      const error = await rejection(
+        provider.getList("groups", { ...LIST_PARAMS, ...override }),
+      );
+      expect(error.kind).toBe("unsupported");
+      expect(request).not.toHaveBeenCalled();
+    });
+
+    it("propagates a denial instead of returning an empty list", async () => {
+      const denial = new AdminApiError("FORBIDDEN", 403);
+      const provider = createAdminDataProvider({
+        request: (async () => {
+          throw denial;
+        }) as never,
+      });
+      await expect(provider.getList("groups", LIST_PARAMS)).rejects.toBe(
+        denial,
+      );
+    });
+  });
+
+  describe("createGroup and updateGroup (explicit commands)", () => {
+    const CREATE = {
+      languageId: "11111111-1111-4111-8111-111111111111",
+      levelId: "55555555-5555-4555-8555-555555555555",
+      name: "Fruit",
+      idempotencyKey: "22222222-2222-4222-8222-222222222222",
+    };
+    const GROUP_ID = "33333333-3333-4333-8333-333333333333";
+    const UPDATE = {
+      name: "Vegetables",
+      status: "archived" as const,
+      idempotencyKey: "44444444-4444-4444-8444-444444444444",
+    };
+
+    function commandProvider(answer: unknown) {
+      const request = vi.fn<RequestFn>(async () => answer as never);
+      return {
+        request,
+        provider: createAdminDataProvider({ request: request as never }),
+      };
+    }
+
+    it("posts exactly the create command — no actor, no role, no position — to the collection", async () => {
+      const { provider, request } = commandProvider({ groupId: GROUP_ID });
+
+      await expect(provider.createGroup(CREATE)).resolves.toEqual({
+        groupId: GROUP_ID,
+      });
+
+      const [path, , options] = request.mock.calls[0] as [
+        string,
+        unknown,
+        { body: unknown; method?: string },
+      ];
+      expect(path).toBe("/groups");
+      expect(options.body).toEqual(CREATE);
+      expect(options.body).not.toHaveProperty("position");
+      // A POST (the client's default), not a PATCH.
+      expect(options.method).toBeUndefined();
+    });
+
+    it("patches exactly the fields it was given, to the one group named in the path", async () => {
+      const { provider, request } = commandProvider({ groupId: GROUP_ID });
+
+      await expect(provider.updateGroup(GROUP_ID, UPDATE)).resolves.toEqual({
+        groupId: GROUP_ID,
+      });
+
+      const [path, , options] = request.mock.calls[0] as [
+        string,
+        unknown,
+        { body: unknown; method: string },
+      ];
+      expect(path).toBe(`/groups/${GROUP_ID}`);
+      expect(options.method).toBe("PATCH");
+      // Nothing is added: no groupId, no level, no position, no actor.
+      expect(options.body).toEqual(UPDATE);
+      for (const key of ["groupId", "levelId", "languageId", "position"]) {
+        expect(options.body).not.toHaveProperty(key);
+      }
+    });
+
+    it("encodes the id so it can only ever be one path segment", async () => {
+      const { provider, request } = commandProvider({ groupId: "x" });
+      await provider.updateGroup("a/b?c", UPDATE);
+      expect(request.mock.calls[0]?.[0]).toBe("/groups/a%2Fb%3Fc");
+    });
+
+    it("validates each answer against the contract", async () => {
+      const { provider, request } = commandProvider({ groupId: GROUP_ID });
+      await provider.createGroup(CREATE);
+      await provider.updateGroup(GROUP_ID, UPDATE);
+      for (const call of request.mock.calls) {
+        const schema = call[1] as {
+          safeParse: (v: unknown) => { success: boolean };
+        };
+        expect(schema.safeParse({ groupId: GROUP_ID }).success).toBe(true);
+        expect(schema.safeParse({}).success).toBe(false);
+      }
+    });
+
+    it("propagates a refusal unchanged, for the form to explain", async () => {
+      const refusal = new AdminApiError("VALIDATION_FAILED", 422, undefined, {
+        serverMessage: "That level doesn't belong to the selected language.",
+      });
+      const provider = createAdminDataProvider({
+        request: (async () => {
+          throw refusal;
+        }) as never,
+      });
+      await expect(provider.createGroup(CREATE)).rejects.toBe(refusal);
+      await expect(provider.updateGroup(GROUP_ID, UPDATE)).rejects.toBe(
+        refusal,
+      );
+    });
+
+    it("is not reachable through React Admin's generic mutations", async () => {
+      const { provider, request } = commandProvider({});
+      for (const attempt of [
+        provider.update("groups", { id: "x", data: {}, previousData: {} }),
+        provider.create("groups", { data: {} }),
+        provider.delete("groups", { id: "x" }),
+        provider.updateMany("groups", { ids: ["x"], data: {} }),
+        provider.deleteMany("groups", { ids: ["x"] }),
+      ]) {
+        expect((await rejection(attempt)).kind).toBe("unsupported");
+      }
+      expect(request).not.toHaveBeenCalled();
+    });
+  });
+
   describe("everything not whitelisted", () => {
     it("rejects an unknown resource with a typed UNSUPPORTED_OPERATION, never a guess", async () => {
       const { provider, request } = providerWith();

@@ -33,6 +33,14 @@ export type CursorListConfig<F> = {
    * position, where any other change opens a new view.
    */
   isRefinement?: (previous: F, next: F) => boolean;
+  /**
+   * Whether the list can be asked for at all under these filters. A list that
+   * needs something the URL may not be able to name (a level, in a language
+   * that has none yet) says so here instead of sending a request the server
+   * would refuse. While it is `false` nothing is fetched and `rows` stays
+   * empty; the screen decides what to show instead. Default: always.
+   */
+  canFetch?: (filters: F) => boolean;
 };
 
 type CursorMeta = {
@@ -75,6 +83,7 @@ export function useCursorList<F extends object, Row extends RaRecord>({
   pageSize,
   codec,
   isRefinement,
+  canFetch,
 }: CursorListConfig<F>) {
   const router = useRouter();
   const pathname = usePathname();
@@ -93,9 +102,12 @@ export function useCursorList<F extends object, Row extends RaRecord>({
       sort: { ...sort },
       filter: { ...state.filters, cursor: state.cursor },
     },
-    // Keep the previous page on screen while the next loads, instead of
-    // flashing a skeleton between every page.
-    { placeholderData: keepPreviousData },
+    {
+      // Keep the previous page on screen while the next loads, instead of
+      // flashing a skeleton between every page.
+      placeholderData: keepPreviousData,
+      enabled: canFetch ? canFetch(state.filters) : true,
+    },
   );
 
   const [selectedIds, selection] = useRecordSelection<Row>({

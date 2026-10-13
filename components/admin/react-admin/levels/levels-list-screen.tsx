@@ -16,10 +16,10 @@ import { LEVEL_LIST_MAX } from "@/domains/admin";
 import { describeAdminError } from "../admin-api-error";
 import { AdminProblem, blockingError } from "../admin-problem";
 import { LanguageFilter } from "../language-filter";
+import { ListSkeleton } from "../skeletons";
 import { useAdminPermissions } from "../use-admin-permissions";
 import { CreateLevelDialog } from "./create-level-dialog";
 import { LevelsDataTable } from "./levels-data-table";
-import { LevelsListSkeleton } from "./levels-list-skeleton";
 import { useLevelsList } from "./use-levels-list";
 
 /**
@@ -103,7 +103,7 @@ export function LevelsListScreen({
             }}
           />
         ) : list.isPending || !permissions.permissions ? (
-          <LevelsListSkeleton />
+          <ListSkeleton label="Loading the levels…" rows={4} />
         ) : (
           <>
             {!canCreate ? (

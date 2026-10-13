@@ -14,9 +14,9 @@ import { describeAdminError } from "../admin-api-error";
 import { AdminProblem, blockingError } from "../admin-problem";
 import { CursorPagination } from "../cursor-pagination";
 import { LanguageFilter } from "../language-filter";
+import { ListSkeleton } from "../skeletons";
 import { useAdminPermissions } from "../use-admin-permissions";
 import { ReviewDataTable } from "./review-data-table";
-import { ReviewListSkeleton } from "./review-list-skeleton";
 import { ReviewPublishDialog } from "./review-publish-dialog";
 import { useReviewList } from "./use-review-list";
 
@@ -77,7 +77,7 @@ export function ReviewListScreen({
             }}
           />
         ) : list.isPending || !permissions.permissions ? (
-          <ReviewListSkeleton />
+          <ListSkeleton label="Loading the review queue…" rows={6} />
         ) : (
           <>
             {!canPublish ? (

@@ -45,6 +45,7 @@ import {
 import {
   getGrammarContentBlocks,
   getLevelById,
+  getVocabularyGroup,
 } from "@/domains/curriculum/curriculum-repository";
 import type { CurriculumGrammarContentBlock } from "@/domains/curriculum/curriculum-db-types";
 import { findDuplicateCandidates } from "@/domains/curriculum/curriculum-duplicate-detection";
@@ -1404,6 +1405,15 @@ export async function updateVocabularyGroup(
       },
     },
     async (tx) => {
+      // The write below is an `UPDATE ... WHERE id = ?`, which changes nothing —
+      // and says nothing — for an id that is not there; the audit event after
+      // it would then record an edit to a group that does not exist.
+      if (!(await getVocabularyGroup(tx, input.groupId))) {
+        throw new AdminError(
+          "CURRICULUM_ITEM_NOT_FOUND",
+          "That group could not be found.",
+        );
+      }
       await repoUpdateVocabularyGroup(tx, input.groupId, {
         name: input.name,
         status: input.status,
