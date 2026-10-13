@@ -696,27 +696,27 @@ html[data-font-scale="extra_large"] {
  * Practice station (practice-station.tsx). One loop, two layers that share
  * its duration so they stay in step:
  * - .animate-station-train is the journey. The train pulls in under constant
- *   braking (0–25%), dwells with today's tally on its side (25–60%), pulls
- *   out under constant acceleration (60–82.5%), and then the platform stays
- *   empty for a beat.
+ *   braking (0–25%), dwells at the platform (25–60%), pulls out under
+ *   constant acceleration (60–82.5%), and then the platform stays empty for
+ *   a beat.
  * - .animate-station-train-body is the suspension. It bumps at each rail
  *   joint (the joints are evenly spaced along the track, so the bumps bunch
  *   up at speed and spread out as the train brakes), leans forward while
  *   braking and rocks back at the stop, then lags back as it pulls away.
  * The resting state is "parked at the platform", so with the animation
- * removed under reduced motion, the train and its tally simply stay put.
+ * removed under reduced motion, the train simply stays put.
  *
- * The station is transparent line art straight on the page background,
- * inverted in dark mode. The train and the placards on it are a drawing, so
- * their colors are fixed in both themes, like the onboarding illustrations.
+ * The station is transparent line art inside a black outline, with the page
+ * background showing through; the lines and outline invert in dark mode.
+ * The train's colors are fixed in both themes, like the onboarding
+ * illustrations.
  *
  * Sizing (`.practice-station` is the size container, so `cqw` is the
  * content column's width): the scene is the column's width but at most
  * `--station-h` tall. The 16:9 drawing is `--station-w` wide: the full width
  * while it fits, else capped by the height. Any width left over becomes
- * repeated track. `--station-edge` is the gap kept right of the drawing and
- * the width of the fades at both margins. It shrinks to 0 when the drawing
- * fills the column, so the parked train is never faded.
+ * repeated track, and `--station-edge` keeps a little of it right of the
+ * drawing (0 when the drawing fills the column).
  */
 .practice-station {
   --station-cycle: 20s;
@@ -727,22 +727,15 @@ html[data-font-scale="extra_large"] {
     var(--station-fade),
     calc((100cqw - var(--station-w)) / 2)
   );
-  --station-card: #fbf7f0;
-  --station-ink: #1f1b16;
 }
-/* The train and the track fade in and out at the column's margins. */
+/* An outline, not a border, so the drawing's box stays exactly 16:9 inside
+   it. The radius matches .practice-sketch. */
 .practice-station-frame {
-  mask-image: linear-gradient(
-    to right,
-    transparent,
-    #000 var(--station-edge),
-    #000 calc(100% - var(--station-edge)),
-    transparent
-  );
+  outline: 1.5px solid #000;
+  border-radius: 14px 18px 13px 17px / 16px 13px 18px 14px;
 }
-/* The track's cut-off ends at the bottom of the scene. */
-.practice-station-scenery {
-  mask-image: linear-gradient(to bottom, #000 92%, transparent);
+.dark .practice-station-frame {
+  outline-color: #e6e6e6;
 }
 /* With track to its left, the drawing's left edge (a cut: the roof runs off
    the canvas) fades out above the track band — its bottom sixth, which the

@@ -157,15 +157,13 @@ Like the learning-type colors, these do not change with the Appearance Color Pal
 
 ### Practice Station Illustration
 
-The Practice hub's "Today's practice" scene (2026-10-12) uses the user's own drawings, and it is the explicit design decision the Animation section below requires for illustration-heavy motion. It replaces the old "Today's walk" card, and by the user's direction it sits **directly on the page background, not in a card**. It spans the content column margin to margin, but is at most `--station-h` (20rem) tall.
+The Practice hub's "Today's practice" scene (2026-10-12) uses the user's own drawings, and it is the explicit design decision the Animation section below requires for illustration-heavy motion. It replaces the old "Today's walk" card. By the user's direction it is **not a card**: a black outline (1.5px, `.practice-sketch`'s radius) frames it, and the page background shows through. It spans the content column margin to margin, but is at most `--station-h` (20rem) tall.
 
-- Once the column is wider than the 16:9 drawing at that height, the drawing sits toward the right. Repeatable strips cut from its own track band (`public/practice-station/track-left.png`, `track-right.png`) carry the rails to both margins, so the train runs the full width.
-- The track and train fade in and out at the margins (`--station-edge`). The drawing's cut-off left edge fades out above the track band. The fades shrink to nothing when the drawing fills the column, so the parked train is never faded.
-- From a 58rem-wide column, the heading sits in the empty space left of the station. Below that it sits above the scene.
-- The station and track are transparent line art, inverted in dark mode (`dark:invert-[0.9]`) so the lines stay visible.
-- The train and the placards on it are fixed-color illustration in both themes, like the onboarding artwork: placard `#FBF7F0` and ink `#1F1B16`, set as `--station-*` variables on `.practice-station` in `globals.css`.
-- Each window placard's top edge uses its skill's practice color, always next to the skill's icon and number.
-- Text on the train is sized in container-query units so it scales with the drawing. Placard labels show only when the train is at least 34rem wide, and the stripe total only at 24rem or wider. The heading and screen-reader text always carry both.
+- **Art only, for now:** nothing is overlaid on the train. Today's total appears only in the heading.
+- **Track:** once the column is wider than the 16:9 drawing at that height, the drawing sits toward the right. Repeatable strips cut from its own track band (`public/practice-station/track-left.png`, `track-right.png`) carry the rails to both sides.
+- **Edges:** the outline clips the train like a window. The drawing's cut-off left edge fades out above the track band.
+- **Heading:** from a 58rem-wide column, it sits inside the frame, in the empty space left of the station. Below that, it sits above the frame.
+- **Dark mode:** the line art and the outline invert to `#E6E6E6`. The train's colors are fixed in both themes, like the onboarding artwork.
 
 ### Skill Progress Labels
 

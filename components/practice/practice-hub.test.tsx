@@ -48,7 +48,7 @@ describe("PracticeHub", () => {
     expect(screen.getAllByText("Coming soon").length).toBeGreaterThanOrEqual(6);
   });
 
-  it("carries today's tally on the train, with an honest empty state", () => {
+  it("states today's total, with an honest empty state", () => {
     const { unmount } = renderHub();
 
     expect(
@@ -71,20 +71,8 @@ describe("PracticeHub", () => {
       },
     ]);
 
+    // Conjugation counts toward today's total, though it is in no grove.
     expect(screen.getByText("3 sessions so far today.")).toBeInTheDocument();
-    const train = screen.getByRole("list", {
-      name: "Sessions completed today, by skill",
-    });
-    expect(
-      within(train)
-        .getAllByRole("listitem")
-        .map((item) => item.textContent),
-    ).toEqual([
-      expect.stringContaining("Listening: 0 sessions"),
-      expect.stringContaining("Speaking: 0 sessions"),
-      expect.stringContaining("Reading: 0 sessions"),
-      expect.stringContaining("Writing: 2 sessions"),
-    ]);
   });
 
   it("shows a learner's real history and an honest empty state", () => {
