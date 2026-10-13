@@ -12,9 +12,6 @@ import { PRACTICE_SKILL_ICONS } from "./practice-icons";
  * and its stripe exactly where they were drawn, at any size.
  */
 
-/** Train height as a share of the station: 833 / 1440. It sits on the canvas bottom. */
-const TRAIN_HEIGHT = "57.847%";
-
 /** The four passenger windows' glass, left to right — one per skill. y 229–444 on the train. */
 const TRAIN_WINDOWS = [
   { left: "4.219%", width: "9.805%" }, // x 108–359
@@ -33,25 +30,26 @@ const TRAIN_STRIPE = {
   height: "11.285%",
 } as const;
 
-/** Stacked under the heading below md, then a fixed `--station-w` (≈ 25rem) beside it. */
-const SCENE_SIZES = "(min-width: 768px) 400px, 100vw";
+/** Full width on narrow screens, then capped by `--station-h` (20rem × 16/9 ≈ 570px). */
+const SCENE_SIZES = "(min-width: 640px) 570px, 100vw";
 
 const sessionWord = (count: number) => (count === 1 ? "session" : "sessions");
 
 type PracticeStationProps = { today: PracticeTodayView };
 
 /**
- * The hub's station, in the card the walk used to fill: a train pulls in
+ * The hub's station, straight on the page background: a train pulls in
  * carrying what the learner has done today, waits at the platform, and pulls
  * away again, on a loop. All motion is CSS (`globals.css`, "Practice
  * station"), so this stays a Server Component. The tally is real text in the
  * DOM, and the heading's summary repeats the total, so nothing depends on
  * catching the train.
  *
- * From md up, the scene sits flush right at a fixed height. The drawing's
- * left edge is a cut (the roof runs off the canvas), so the station fades in
- * from the left, and the train fades in over a strip just left of the drawing
- * — clear of where it parks, so the parked train is never faded.
+ * The scene spans the content column but is capped at `--station-h` tall, so
+ * once the column is wider than the 16:9 drawing, the drawing sits toward the
+ * right and repeatable strips cut from its own track band
+ * (`track-left.png`, `track-right.png`) carry the rails to both margins. The
+ * train runs the full width and fades in and out at the margins.
  */
 export function PracticeStation({ today }: PracticeStationProps) {
   const { totalSessionCount } = today;
@@ -59,9 +57,9 @@ export function PracticeStation({ today }: PracticeStationProps) {
   return (
     <section
       aria-labelledby="practice-station-title"
-      className="practice-station practice-sketch animate-practice-rise relative overflow-hidden bg-card md:h-(--station-h)"
+      className="practice-station animate-practice-rise @container relative"
     >
-      <div className="flex flex-col gap-1 p-5 md:pr-[calc(var(--station-w)+var(--station-fade)+1rem)]">
+      <div className="relative z-10 mb-3 flex flex-col gap-1 @min-[58rem]:absolute @min-[58rem]:top-2 @min-[58rem]:left-0 @min-[58rem]:mb-0 @min-[58rem]:max-w-[18rem]">
         <h2
           id="practice-station-title"
           className="font-heading text-xl font-semibold text-foreground"
@@ -75,73 +73,78 @@ export function PracticeStation({ today }: PracticeStationProps) {
         </p>
       </div>
 
-      <div className="relative aspect-[16/9] w-full overflow-hidden md:absolute md:inset-y-0 md:right-0 md:aspect-auto md:w-[calc(var(--station-w)+var(--station-fade))] md:[mask-image:linear-gradient(to_right,transparent,black_var(--station-fade))]">
-        <div className="@container absolute inset-y-0 right-0 w-full md:w-(--station-w)">
-          <Image
-            src={stationImage}
-            alt=""
-            fill
-            sizes={SCENE_SIZES}
-            preload
-            className="dark:invert-[0.9] md:[mask-image:linear-gradient(to_right,transparent,black_15%)]"
-          />
-
-          <div
-            className="animate-station-train absolute inset-x-0 bottom-0"
-            style={{ height: TRAIN_HEIGHT }}
-          >
-            <div className="animate-station-train-body relative size-full">
+      <div className="relative aspect-[16/9] max-h-(--station-h) w-full">
+        <div className="practice-station-frame absolute inset-0 overflow-hidden">
+          <div className="practice-station-scenery absolute inset-0 dark:invert-[0.9]">
+            <div className="absolute bottom-0 left-0 h-1/6 w-[calc(100%-var(--station-w)-var(--station-edge))] bg-[url(/practice-station/track-left.png)] bg-[length:auto_100%] bg-right-bottom bg-repeat-x" />
+            <div className="absolute right-0 bottom-0 h-1/6 w-(--station-edge) bg-[url(/practice-station/track-right.png)] bg-[length:auto_100%] bg-left-bottom bg-repeat-x" />
+            <div className="absolute inset-y-0 right-(--station-edge) w-(--station-w)">
               <Image
-                src={trainImage}
+                src={stationImage}
                 alt=""
                 fill
                 sizes={SCENE_SIZES}
-                loading="eager"
+                preload
+                className="practice-station-drawing"
               />
+            </div>
+          </div>
 
-              <p
-                aria-hidden="true"
-                className="absolute flex items-center justify-center font-heading text-[length:max(10px,1.9cqw)] font-semibold tracking-wide text-(--station-ink) uppercase @max-[24rem]:hidden"
-                style={TRAIN_STRIPE}
-              >
-                Today · {totalSessionCount} {sessionWord(totalSessionCount)}
-              </p>
+          <div className="animate-station-train absolute inset-x-0 bottom-0 h-[calc(var(--station-w)*833/2560)]">
+            <div className="@container absolute inset-y-0 right-(--station-edge) w-(--station-w)">
+              <div className="animate-station-train-body relative size-full">
+                <Image
+                  src={trainImage}
+                  alt=""
+                  fill
+                  sizes={SCENE_SIZES}
+                  loading="eager"
+                />
 
-              <ul aria-label="Sessions completed today, by skill">
-                {today.skills.map(({ skill, label, sessionCount }, index) => {
-                  const Icon = PRACTICE_SKILL_ICONS[skill];
-                  return (
-                    <li
-                      key={skill}
-                      data-practice-tone={skill}
-                      className="absolute flex items-center justify-center"
-                      style={{
-                        ...TRAIN_WINDOWS[index],
-                        top: WINDOW_TOP,
-                        height: WINDOW_HEIGHT,
-                      }}
-                    >
-                      <span
-                        aria-hidden="true"
-                        className="flex flex-col items-center rounded-[max(3px,0.5cqw)] border-[length:max(1px,0.13cqw)] border-t-[length:max(2px,0.4cqw)] border-(--station-ink) border-t-(--c) bg-(--station-card) px-[max(3px,0.9cqw)] py-[max(2px,0.4cqw)] leading-none text-(--station-ink)"
+                <p
+                  aria-hidden="true"
+                  className="absolute flex items-center justify-center font-heading text-[length:max(10px,1.9cqw)] font-semibold tracking-wide text-(--station-ink) uppercase @max-[24rem]:hidden"
+                  style={TRAIN_STRIPE}
+                >
+                  Today · {totalSessionCount} {sessionWord(totalSessionCount)}
+                </p>
+
+                <ul aria-label="Sessions completed today, by skill">
+                  {today.skills.map(({ skill, label, sessionCount }, index) => {
+                    const Icon = PRACTICE_SKILL_ICONS[skill];
+                    return (
+                      <li
+                        key={skill}
+                        data-practice-tone={skill}
+                        className="absolute flex items-center justify-center"
+                        style={{
+                          ...TRAIN_WINDOWS[index],
+                          top: WINDOW_TOP,
+                          height: WINDOW_HEIGHT,
+                        }}
                       >
-                        <span className="flex items-center gap-[max(1px,0.4cqw)]">
-                          <Icon className="size-[max(9px,1.6cqw)]" />
-                          <span className="font-heading text-[length:max(11px,2.4cqw)] font-semibold tabular-nums">
-                            {sessionCount}
+                        <span
+                          aria-hidden="true"
+                          className="flex flex-col items-center rounded-[max(3px,0.5cqw)] border-[length:max(1px,0.13cqw)] border-t-[length:max(2px,0.4cqw)] border-(--station-ink) border-t-(--c) bg-(--station-card) px-[max(3px,0.9cqw)] py-[max(2px,0.4cqw)] leading-none text-(--station-ink)"
+                        >
+                          <span className="flex items-center gap-[max(1px,0.4cqw)]">
+                            <Icon className="size-[max(9px,1.6cqw)]" />
+                            <span className="font-heading text-[length:max(11px,2.4cqw)] font-semibold tabular-nums">
+                              {sessionCount}
+                            </span>
+                          </span>
+                          <span className="mt-[0.3cqw] text-[length:max(10px,1.15cqw)] @max-[34rem]:hidden">
+                            {label}
                           </span>
                         </span>
-                        <span className="mt-[0.3cqw] text-[length:max(10px,1.15cqw)] @max-[34rem]:hidden">
-                          {label}
+                        <span className="sr-only">
+                          {label}: {sessionCount} {sessionWord(sessionCount)}
                         </span>
-                      </span>
-                      <span className="sr-only">
-                        {label}: {sessionCount} {sessionWord(sessionCount)}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
             </div>
           </div>
         </div>
