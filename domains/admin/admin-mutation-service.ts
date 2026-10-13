@@ -71,6 +71,9 @@ async function checkRateLimit(
     throw new AdminError(
       "RATE_LIMITED",
       `Please slow down and try again in ${decision.retryAfterSeconds}s.`,
+      // Structured, so an HTTP caller can answer with a real `Retry-After`
+      // header instead of parsing the sentence above.
+      { retryAfterSeconds: decision.retryAfterSeconds },
     );
   }
 }

@@ -14,13 +14,55 @@ import {
   ADMIN_OVERVIEW_RECORD_ID,
   adminCurriculumPageSchema,
   adminOverviewSchema,
+  adminReviewPageSchema,
+  adminReviewPublishResultSchema,
+  type AdminReviewPublishRequest,
+  type AdminReviewPublishResult,
 } from "@/domains/admin";
 
 import { requestAdminApi } from "./admin-api-client";
 import { AdminApiError } from "./admin-api-error";
 import { buildCurriculumListQuery } from "./curriculum/curriculum-list-query";
+import { buildReviewListQuery } from "./review/review-list-query";
 
 type AdminRequest = typeof requestAdminApi;
+
+/**
+ * The provider's own commands, beyond React Admin's CRUD vocabulary. A
+ * command is an explicit, named operation with its own endpoint and guard —
+ * never a generic `update` aimed at a table (spec 26 §3 "Whitelist operations
+ * by resource and action").
+ */
+export type AdminDataProvider = DataProvider & {
+  /** Publishes one queued item. `expectedVersion` is the version the Admin last saw; a stale one is a conflict. */
+  publishReviewItem: (
+    input: AdminReviewPublishRequest,
+  ) => Promise<AdminReviewPublishResult>;
+};
+
+/** A cursor page, as React Admin's *partial pagination*: no total, and the server's cursors passed through untouched. */
+function toListResult<Row>(page: {
+  items: Row[];
+  nextCursor: string | null;
+  hasPreviousPage: boolean;
+  previousCursor: string | null;
+}): GetListResult {
+  return {
+    data: page.items as GetListResult["data"],
+    // There is no total, and none is invented — an exact count over an
+    // unbounded list is a full scan.
+    pageInfo: {
+      hasNextPage: page.nextCursor !== null,
+      hasPreviousPage: page.hasPreviousPage,
+    },
+    // The server's cursors are authoritative; a list navigates by handing one
+    // of these back, never by computing one.
+    meta: {
+      nextCursor: page.nextCursor,
+      previousCursor: page.previousCursor,
+    },
+  };
+}
 
 /**
  * Polyglot's own React Admin `dataProvider` (spec 26 §3/§5) — deliberately
@@ -41,7 +83,7 @@ type AdminRequest = typeof requestAdminApi;
  */
 export function createAdminDataProvider({
   request = requestAdminApi,
-}: { request?: AdminRequest } = {}): DataProvider {
+}: { request?: AdminRequest } = {}): AdminDataProvider {
   function unsupported(resource: string, operation: string): never {
     // A 405, not a 401/403: the *operation* isn't allowed, which is not an
     // authentication problem and must not trip `authProvider.checkError`'s
@@ -70,29 +112,34 @@ export function createAdminDataProvider({
 
     async getList(resource, params): Promise<GetListResult> {
       if (resource === "curriculum") {
-        const page = await request(
-          `/curriculum?${buildCurriculumListQuery(params)}`,
-          adminCurriculumPageSchema,
-          { signal: params.signal },
+        return toListResult(
+          await request(
+            `/curriculum?${buildCurriculumListQuery(params)}`,
+            adminCurriculumPageSchema,
+            { signal: params.signal },
+          ),
         );
-        return {
-          data: page.items,
-          // Partial pagination: there is no total, and none is invented —
-          // an exact count over the curriculum is a full scan.
-          pageInfo: {
-            hasNextPage: page.nextCursor !== null,
-            hasPreviousPage: page.hasPreviousPage,
-          },
-          // The server's cursors are authoritative; the list navigates by
-          // handing one of these back, never by computing one.
-          meta: {
-            nextCursor: page.nextCursor,
-            previousCursor: page.previousCursor,
-          },
-        };
+      }
+      if (resource === "review") {
+        return toListResult(
+          await request(
+            `/review?${buildReviewListQuery(params)}`,
+            adminReviewPageSchema,
+            { signal: params.signal },
+          ),
+        );
       }
       return unsupported(resource, "getList");
     },
+
+    publishReviewItem(input) {
+      // The body is exactly the command: no actor, no role. Who is asking is
+      // the session's business, never the client's.
+      return request("/review/publish", adminReviewPublishResultSchema, {
+        body: input,
+      });
+    },
+
     async getMany(resource): Promise<GetManyResult> {
       return unsupported(resource, "getMany");
     },

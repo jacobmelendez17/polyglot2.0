@@ -30,7 +30,7 @@ export {
   getGrammarContentBlocks,
   getItemExamples,
   getItemResources,
-  getReviewQueue,
+  getReviewQueuePage,
   getUsageContexts,
   getVocabularyGroup,
   getVocabularyGroupsByLanguage,

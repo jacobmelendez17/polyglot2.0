@@ -16,13 +16,15 @@ import {
 } from "@/db/schema";
 import { DEVELOPER_ID, seedTestFixtures } from "@/db/seed/test-fixtures";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
-import { updateItem } from "@/domains/admin/publication-service";
+import { publishItem, updateItem } from "@/domains/admin/publication-service";
 
 import {
   getAdjacentAdminCurriculumItem,
   getAdminCurriculumItems,
   getAdminCurriculumStatusCounts,
   getLevelContentSummary,
+  getReviewQueue,
+  getReviewQueuePage,
 } from "./curriculum-admin-repository";
 
 /**
@@ -727,6 +729,215 @@ describe("getAdminCurriculumItems", () => {
         limit: 10,
       });
       expect(publishedFiltered.items.map((i) => i.id)).toContain(gatoId);
+    });
+  });
+});
+
+describe("the review queue (spec 17, paged by spec 26 Unit 3)", () => {
+  /** An edit to a published item, saved as an open draft by the real service. */
+  async function editGato(
+    tx: DbClient,
+    ids: { gatoId: string; groupId: string },
+    primaryMeaning = "cat (edited)",
+  ) {
+    await updateItem(tx, {
+      learningItemId: ids.gatoId,
+      actorUserId: DEVELOPER_ID,
+      idempotencyKey: crypto.randomUUID(),
+      type: "vocabulary",
+      fields: {
+        vocabularyGroupId: ids.groupId,
+        term: "gato",
+        primaryMeaning,
+        article: "el",
+        partOfSpeech: "noun",
+        acceptedAnswers: [],
+      },
+    });
+  }
+
+  it("is empty when everything is published", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedIsolatedCurriculum(tx);
+      expect(await getReviewQueue(tx, languageId)).toEqual([]);
+      const page = await getReviewQueuePage(tx, { languageId, limit: 20 });
+      expect(page).toEqual({
+        entries: [],
+        nextCursor: null,
+        hasPreviousPage: false,
+        previousCursor: null,
+      });
+    });
+  });
+
+  it("tells a pending item ('new') apart from a published item with an open draft ('edit')", async () => {
+    await withTestTransaction(async (tx) => {
+      const seeded = await seedIsolatedCurriculum(tx);
+      const { languageId, casaId, gatoId } = seeded;
+      await tx
+        .update(learningItems)
+        .set({ status: "pending" })
+        .where(eq(learningItems.id, casaId));
+      await editGato(tx, seeded);
+
+      const queue = await getReviewQueue(tx, languageId);
+
+      expect(queue.map((e) => [e.learningItemId, e.kind])).toEqual(
+        expect.arrayContaining([
+          [casaId, "new"],
+          [gatoId, "edit"],
+        ]),
+      );
+      expect(queue).toHaveLength(2);
+    });
+  });
+
+  it("carries the labels, level, version, and — for an edit — the author and the draft's own time", async () => {
+    await withTestTransaction(async (tx) => {
+      const seeded = await seedIsolatedCurriculum(tx);
+      await editGato(tx, seeded);
+
+      const [gato] = await getReviewQueue(tx, seeded.languageId);
+      const [item] = await tx
+        .select({ version: learningItems.version })
+        .from(learningItems)
+        .where(eq(learningItems.id, seeded.gatoId));
+
+      expect(gato).toMatchObject({
+        learningItemId: seeded.gatoId,
+        kind: "edit",
+        type: "vocabulary",
+        itemLabel: "el gato",
+        levelNumber: 1,
+        authorUserId: DEVELOPER_ID,
+        // The version `publishItem` will insist on — never a stale copy.
+        version: item!.version,
+      });
+      expect(gato!.updatedAt).toBeInstanceOf(Date);
+    });
+  });
+
+  it("has no author for a new item", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId, casaId } = await seedIsolatedCurriculum(tx);
+      await tx
+        .update(learningItems)
+        .set({ status: "pending" })
+        .where(eq(learningItems.id, casaId));
+
+      const [casa] = await getReviewQueue(tx, languageId);
+      expect(casa).toMatchObject({ kind: "new", authorUserId: null });
+    });
+  });
+
+  it("leaves an archived item out, even one that still has a draft", async () => {
+    await withTestTransaction(async (tx) => {
+      const seeded = await seedIsolatedCurriculum(tx);
+      await editGato(tx, seeded);
+      await tx
+        .update(learningItems)
+        .set({ status: "archived" })
+        .where(eq(learningItems.id, seeded.gatoId));
+
+      expect(await getReviewQueue(tx, seeded.languageId)).toEqual([]);
+    });
+  });
+
+  it("never lists another language's pending work", async () => {
+    await withTestTransaction(async (tx) => {
+      const ours = await seedIsolatedCurriculum(tx);
+      const theirs = await seedIsolatedCurriculum(tx);
+      await tx
+        .update(learningItems)
+        .set({ status: "pending" })
+        .where(eq(learningItems.id, theirs.casaId));
+
+      expect(await getReviewQueue(tx, ours.languageId)).toEqual([]);
+      expect(
+        (await getReviewQueue(tx, theirs.languageId)).map(
+          (e) => e.learningItemId,
+        ),
+      ).toEqual([theirs.casaId]);
+    });
+  });
+
+  it("pages in the queue's own order, with no gaps or duplicates, and agrees with the unpaged queue", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId, gatoId, casaId, aguaId, grammarYId, rojoId } =
+        await seedIsolatedCurriculum(tx);
+      for (const id of [gatoId, casaId, aguaId, grammarYId, rojoId]) {
+        await tx
+          .update(learningItems)
+          .set({ status: "pending" })
+          .where(eq(learningItems.id, id));
+      }
+      const whole = (await getReviewQueue(tx, languageId)).map(
+        (e) => e.learningItemId,
+      );
+      expect(whole).toHaveLength(5);
+
+      const seen: string[] = [];
+      let cursor: string | null = null;
+      for (let guard = 0; guard < 5; guard++) {
+        const page = await getReviewQueuePage(tx, {
+          languageId,
+          limit: 2,
+          cursor,
+        });
+        seen.push(...page.entries.map((e) => e.learningItemId));
+        if (!page.nextCursor) break;
+        cursor = page.nextCursor;
+      }
+      expect(seen).toEqual(whole);
+    });
+  });
+
+  it("keeps a cursor valid after the row it came from is actually published", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId, gatoId, casaId, aguaId, grammarYId, rojoId } =
+        await seedIsolatedCurriculum(tx);
+      for (const id of [gatoId, casaId, aguaId, grammarYId, rojoId]) {
+        await tx
+          .update(learningItems)
+          .set({ status: "pending" })
+          .where(eq(learningItems.id, id));
+      }
+      const first = await getReviewQueuePage(tx, { languageId, limit: 2 });
+      const [, lastOfFirst] = first.entries;
+
+      // An Admin publishes the very row the cursor was taken from, for real:
+      // through the service, with its version check and audit.
+      await publishItem(tx, {
+        learningItemId: lastOfFirst!.learningItemId,
+        actorUserId: DEVELOPER_ID,
+        expectedVersion: lastOfFirst!.version,
+        idempotencyKey: crypto.randomUUID(),
+      });
+
+      const next = await getReviewQueuePage(tx, {
+        languageId,
+        limit: 2,
+        cursor: first.nextCursor,
+      });
+      const expectedRest = (await getReviewQueue(tx, languageId))
+        .map((e) => e.learningItemId)
+        .filter((id) => !first.entries.some((e) => e.learningItemId === id));
+      expect(next.entries.map((e) => e.learningItemId)).toEqual(
+        expectedRest.slice(0, 2),
+      );
+      // Published, so no longer waiting.
+      expect(
+        (await getReviewQueue(tx, languageId)).map((e) => e.learningItemId),
+      ).not.toContain(lastOfFirst!.learningItemId);
+    });
+  });
+
+  it("rejects a tampered cursor as a validation failure", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedIsolatedCurriculum(tx);
+      await expect(
+        getReviewQueuePage(tx, { languageId, limit: 2, cursor: "garbage" }),
+      ).rejects.toMatchObject({ code: "CURRICULUM_VALIDATION_FAILED" });
     });
   });
 });

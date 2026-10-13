@@ -5,7 +5,7 @@ import { ADMIN_API_ERROR_STATUS } from "@/domains/admin";
 import { AdminError } from "@/lib/errors/admin-errors";
 import { AppError } from "@/lib/errors/app-error";
 
-import { mapAdminApiError } from "./admin-api-errors";
+import { AdminApiRequestError, mapAdminApiError } from "./admin-api-errors";
 
 describe("mapAdminApiError", () => {
   it.each([
@@ -16,6 +16,9 @@ describe("mapAdminApiError", () => {
     [new AppError("CURRICULUM_VALIDATION_FAILED"), "VALIDATION_FAILED", 422],
     [new AdminError("ADMIN_EDIT_CONFLICT"), "CONFLICT", 409],
     [new AdminError("RATE_LIMITED"), "RATE_LIMITED", 429],
+    // Replaying a key with other data, or two copies racing: both are a 409.
+    [new AppError("IDEMPOTENCY_KEY_PAYLOAD_MISMATCH"), "CONFLICT", 409],
+    [new AppError("IDEMPOTENCY_OPERATION_IN_PROGRESS"), "CONFLICT", 409],
   ])("maps %s to %s (%i)", (error, code, status) => {
     const mapped = mapAdminApiError(error);
     expect(mapped?.code).toBe(code);
@@ -36,5 +39,45 @@ describe("mapAdminApiError", () => {
 
   it("returns null for a domain error this adapter has no mapping for", () => {
     expect(mapAdminApiError(new AppError("PROVISIONING_FAILED"))).toBeNull();
+  });
+
+  describe("rate limiting", () => {
+    it("carries the limiter's own wait out as a number, for the Retry-After header", () => {
+      const error = new AdminError("RATE_LIMITED", "slow down", {
+        retryAfterSeconds: 12.2,
+      });
+      expect(mapAdminApiError(error)).toMatchObject({
+        code: "RATE_LIMITED",
+        retryAfterSeconds: 13,
+      });
+    });
+
+    it.each([
+      ["no details", undefined],
+      ["details without a wait", {}],
+      ["a non-numeric wait", { retryAfterSeconds: "soon" }],
+      ["a zero wait", { retryAfterSeconds: 0 }],
+      ["a negative wait", { retryAfterSeconds: -4 }],
+      ["an infinite wait", { retryAfterSeconds: Infinity }],
+    ])("omits Retry-After for %s", (_name, details) => {
+      const mapped = mapAdminApiError(
+        new AdminError("RATE_LIMITED", "slow down", details),
+      );
+      expect(mapped?.code).toBe("RATE_LIMITED");
+      expect(mapped).not.toHaveProperty("retryAfterSeconds");
+    });
+  });
+
+  describe("requests refused at the HTTP boundary", () => {
+    it.each([
+      ["FORBIDDEN", 403],
+      ["UNSUPPORTED_MEDIA_TYPE", 415],
+      ["PAYLOAD_TOO_LARGE", 413],
+      ["VALIDATION_FAILED", 422],
+    ] as const)("maps %s straight through (%i)", (code, status) => {
+      const mapped = mapAdminApiError(new AdminApiRequestError(code, "nope"));
+      expect(mapped).toEqual({ code, message: "nope" });
+      expect(ADMIN_API_ERROR_STATUS[code]).toBe(status);
+    });
   });
 });

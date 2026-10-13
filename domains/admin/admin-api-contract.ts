@@ -175,6 +175,89 @@ export const adminCurriculumPageSchema = z.object({
 });
 export type AdminCurriculumPage = z.infer<typeof adminCurriculumPageSchema>;
 
+/* -------------------------------------------------------------------------- */
+/* Review queue (spec 26 Unit 3)                                              */
+/* -------------------------------------------------------------------------- */
+
+/** A new item awaiting its first publication, or an open edit to an already-published one. */
+export const REVIEW_KINDS = ["new", "edit"] as const;
+
+export const REVIEW_LIST_PAGE_SIZE = 20;
+export const REVIEW_LIST_MAX_PAGE_SIZE = 100;
+
+/** The queue's single ordering (level, label, id). Any other sort is refused, as for the curriculum list. */
+export const REVIEW_LIST_SORT = {
+  field: "review_order",
+  order: "ASC",
+} as const;
+
+/** `GET /api/v1/admin/review`. Strict, like the curriculum list: an unsupported parameter is a 422, not ignored. */
+export const adminReviewListQuerySchema = z
+  .object({
+    language: uuidLike,
+    cursor: z.string().trim().min(1).max(512).optional(),
+    limit: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(REVIEW_LIST_MAX_PAGE_SIZE)
+      .default(REVIEW_LIST_PAGE_SIZE),
+  })
+  .strict();
+export type AdminReviewListQuery = z.infer<typeof adminReviewListQuerySchema>;
+
+/**
+ * One thing waiting for an Admin. `id` is the learning item's id (React Admin
+ * needs one). `version` is the optimistic-concurrency token the publish
+ * command must echo back. `authorName` is a display name only — never an id,
+ * email, or Clerk identity — and `null` for a new item (it has no draft author).
+ */
+export const adminReviewRowSchema = z.object({
+  id: z.string().min(1),
+  kind: z.enum(REVIEW_KINDS),
+  itemLabel: z.string(),
+  meaningLabel: z.string(),
+  levelNumber: z.number().int(),
+  groupName: z.string().nullable(),
+  authorName: z.string().nullable(),
+  updatedAt: z.iso.datetime(),
+  version: z.number().int().min(1),
+});
+export type AdminReviewRow = z.infer<typeof adminReviewRowSchema>;
+
+export const adminReviewPageSchema = z.object({
+  items: z.array(adminReviewRowSchema),
+  nextCursor: z.string().nullable(),
+  hasPreviousPage: z.boolean(),
+  previousCursor: z.string().nullable(),
+});
+export type AdminReviewPage = z.infer<typeof adminReviewPageSchema>;
+
+/**
+ * `POST /api/v1/admin/review/publish` — an explicit command, not a generic
+ * update. `expectedVersion` is the version the Admin last saw (a stale one is
+ * a 409). `idempotencyKey` is one UUID per *intent*: a retry of the same
+ * attempt reuses it and is answered from the stored result instead of
+ * publishing twice.
+ */
+export const adminReviewPublishRequestSchema = z
+  .object({
+    itemId: uuidLike,
+    expectedVersion: z.number().int().min(1),
+    idempotencyKey: uuidLike,
+  })
+  .strict();
+export type AdminReviewPublishRequest = z.infer<
+  typeof adminReviewPublishRequestSchema
+>;
+
+export const adminReviewPublishResultSchema = z.object({
+  itemId: z.string().min(1),
+});
+export type AdminReviewPublishResult = z.infer<
+  typeof adminReviewPublishResultSchema
+>;
+
 /**
  * Error codes this adapter can answer with, and the HTTP status each maps
  * to (spec 26 §3 "API errors"). Domain errors (`AppError`/`AdminError`)
@@ -186,6 +269,8 @@ export const ADMIN_API_ERROR_STATUS = {
   NOT_FOUND: 404,
   VALIDATION_FAILED: 422,
   CONFLICT: 409,
+  PAYLOAD_TOO_LARGE: 413,
+  UNSUPPORTED_MEDIA_TYPE: 415,
   RATE_LIMITED: 429,
   INTERNAL_ERROR: 500,
 } as const;

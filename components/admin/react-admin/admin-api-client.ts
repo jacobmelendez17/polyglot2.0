@@ -13,16 +13,23 @@ type RequestOptions = {
   signal?: AbortSignal;
   /** Injected in tests; the browser's own `fetch` otherwise. */
   fetcher?: typeof fetch;
+  /**
+   * A command: a `POST` whose JSON body is the request. Omitted, the request
+   * is a `GET`. The browser adds `Origin` and `Sec-Fetch-Site` itself, which
+   * is what the server's same-origin check reads — nothing here sets them.
+   */
+  body?: unknown;
 };
 
 /**
  * The single place the Admin console talks HTTP: a same-origin, cookie-
- * authenticated GET to `/api/v1/admin/*` whose answer is checked against the
- * shared contract (`domains/admin`) before anything else sees it.
+ * authenticated request to `/api/v1/admin/*` whose answer is checked against
+ * the shared contract (`domains/admin`) before anything else sees it.
  *
  * Authentication is the Clerk session cookie the browser already holds. No
  * token, user id, or role is ever sent from here — the server derives who is
- * asking from the session and the database, which is the whole point.
+ * asking from the session and the database, which is the whole point. In
+ * particular a command's body never names an actor.
  *
  * Failures all surface as `AdminApiError`. The one exception is an aborted
  * request, which is re-thrown untouched so React Query's cancellation keeps
@@ -31,13 +38,17 @@ type RequestOptions = {
 export async function requestAdminApi<S extends z.ZodType>(
   path: string,
   dataSchema: S,
-  { signal, fetcher = fetch }: RequestOptions = {},
+  { signal, fetcher = fetch, body: commandBody }: RequestOptions = {},
 ): Promise<z.infer<S>> {
+  const isCommand = commandBody !== undefined;
   let response: Response;
   try {
     response = await fetcher(`${ADMIN_API_BASE}${path}`, {
-      method: "GET",
-      headers: { Accept: "application/json" },
+      method: isCommand ? "POST" : "GET",
+      headers: isCommand
+        ? { Accept: "application/json", "Content-Type": "application/json" }
+        : { Accept: "application/json" },
+      body: isCommand ? JSON.stringify(commandBody) : undefined,
       credentials: "same-origin",
       cache: "no-store",
       signal,
@@ -51,9 +62,18 @@ export async function requestAdminApi<S extends z.ZodType>(
 
   if (!response.ok) {
     const parsed = adminApiErrorSchema.safeParse(body);
+    const retryAfter = Number(response.headers.get("retry-after"));
     throw new AdminApiError(
       parsed.success ? parsed.data.error.code : "UNKNOWN",
       response.status,
+      undefined,
+      {
+        serverMessage: parsed.success ? parsed.data.error.message : undefined,
+        retryAfterSeconds:
+          Number.isFinite(retryAfter) && retryAfter > 0
+            ? retryAfter
+            : undefined,
+      },
     );
   }
 

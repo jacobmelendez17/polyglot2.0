@@ -112,4 +112,126 @@ describe("requestAdminApi", () => {
       }),
     ).rejects.toBe(abort);
   });
+
+  describe("commands", () => {
+    it("sends a POST with a JSON body and a JSON content type", async () => {
+      const fetcher = respond({ data: { answer: 7 } });
+      await requestAdminApi("/review/publish", schema, {
+        fetcher,
+        body: { itemId: "abc", expectedVersion: 3 },
+      });
+
+      const [url, init] = vi.mocked(fetcher).mock.calls[0]!;
+      expect(url).toBe("/api/v1/admin/review/publish");
+      expect(init).toMatchObject({
+        method: "POST",
+        credentials: "same-origin",
+        cache: "no-store",
+        body: JSON.stringify({ itemId: "abc", expectedVersion: 3 }),
+      });
+      expect(init?.headers).toMatchObject({
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      });
+    });
+
+    it("sets no Origin or Sec-Fetch headers itself — the browser owns those", async () => {
+      const fetcher = respond({ data: { answer: 1 } });
+      await requestAdminApi("/x", schema, { fetcher, body: {} });
+      const headers = Object.keys(
+        vi.mocked(fetcher).mock.calls[0]![1]!.headers!,
+      );
+      expect(headers.map((h) => h.toLowerCase())).toEqual([
+        "accept",
+        "content-type",
+      ]);
+    });
+
+    it("still treats a request with no body as a GET with no content type", async () => {
+      const fetcher = respond({ data: { answer: 1 } });
+      await requestAdminApi("/x", schema, { fetcher });
+      const init = vi.mocked(fetcher).mock.calls[0]![1]!;
+      expect(init.method).toBe("GET");
+      expect(init.body).toBeUndefined();
+      expect(init.headers).not.toHaveProperty("Content-Type");
+    });
+
+    it("sends an empty-object command as a command, not a GET", async () => {
+      const fetcher = respond({ data: { answer: 1 } });
+      await requestAdminApi("/x", schema, { fetcher, body: {} });
+      expect(vi.mocked(fetcher).mock.calls[0]![1]!.method).toBe("POST");
+    });
+  });
+
+  describe("failures that carry a reason", () => {
+    const failing = (
+      status: number,
+      error: object,
+      headers: HeadersInit = {},
+    ) =>
+      vi.fn(async () => Response.json({ error }, { status, headers })) as never;
+
+    it("surfaces the server's sentence for a stale-version conflict", async () => {
+      const error = await rejection(
+        requestAdminApi("/x", schema, {
+          fetcher: failing(409, {
+            code: "CONFLICT",
+            message:
+              "This item changed after you opened it. Reload the latest version.",
+          }),
+          body: {},
+        }),
+      );
+      expect(error.kind).toBe("conflict");
+      expect(error.message).toContain("changed after you opened it");
+    });
+
+    it("reads Retry-After off a 429", async () => {
+      const error = await rejection(
+        requestAdminApi("/x", schema, {
+          fetcher: failing(
+            429,
+            {
+              code: "RATE_LIMITED",
+              message: "Please slow down and try again in 17s.",
+            },
+            { "Retry-After": "17" },
+          ),
+          body: {},
+        }),
+      );
+      expect(error.kind).toBe("rate_limited");
+      expect(error.retryAfterSeconds).toBe(17);
+    });
+
+    it.each(["", "soon", "-3", "0"])(
+      "ignores a Retry-After of %j",
+      async (value) => {
+        const error = await rejection(
+          requestAdminApi("/x", schema, {
+            fetcher: failing(
+              429,
+              { code: "RATE_LIMITED", message: "slow down" },
+              { "Retry-After": value },
+            ),
+            body: {},
+          }),
+        );
+        expect(error.retryAfterSeconds).toBeUndefined();
+      },
+    );
+
+    it("never shows a server fault's own text", async () => {
+      const error = await rejection(
+        requestAdminApi("/x", schema, {
+          fetcher: failing(500, {
+            code: "INTERNAL_ERROR",
+            message: "deadlock detected on learning_items",
+          }),
+          body: {},
+        }),
+      );
+      expect(error.message).not.toContain("learning_items");
+    });
+  });
 });

@@ -120,3 +120,25 @@ export type AdminLevelContentSummary = {
 
 /** Spec 25 §16 — the item immediately after/before a given item in the *same* filtered/sorted view `getAdminCurriculumItems` produces, for "Previous"/"Next"/"Next Incomplete Item". `null` when there is none (already first/last, or nothing else matches). */
 export type AdjacentAdminCurriculumItem = { id: string } | null;
+
+/**
+ * Everything waiting for an Admin to verify it (spec 17): items that have
+ * never been published, and open drafts against items that have.
+ *
+ * One query per kind rather than a union — they are genuinely different
+ * things (a whole new item versus an edit to a live one), and an Admin
+ * deciding needs to see which is which. Authors come back as ids; the page
+ * resolves them to names through `domains/users`, which owns that.
+ */
+export type ReviewQueueEntry = {
+  learningItemId: string;
+  kind: "new" | "edit";
+  type: "vocabulary" | "grammar";
+  itemLabel: string;
+  meaningLabel: string;
+  levelNumber: number;
+  groupName: string | null;
+  authorUserId: string | null;
+  updatedAt: Date;
+  version: number;
+};

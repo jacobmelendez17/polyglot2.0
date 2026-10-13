@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { z } from "zod";
 
 import {
   ADMIN_API_ERROR_STATUS,
@@ -10,7 +11,13 @@ import { AppError } from "@/lib/errors/app-error";
 import { logger } from "@/lib/logging/logger";
 import { withRouteTrace } from "@/lib/logging/route-trace";
 
-import { mapAdminApiError } from "./admin-api-errors";
+import { AdminApiRequestError, mapAdminApiError } from "./admin-api-errors";
+import {
+  MAX_COMMAND_BODY_BYTES,
+  assertCommandRequest,
+  parseJsonBody,
+  readBodyWithLimit,
+} from "./request-guards";
 
 /**
  * Privileged, per-user responses: never stored by a shared cache or the
@@ -23,14 +30,22 @@ const PRIVATE_HEADERS = {
   "X-Content-Type-Options": "nosniff",
 } as const;
 
-function adminJson(body: unknown, status: number): Response {
-  return NextResponse.json(body, { status, headers: PRIVATE_HEADERS });
+function adminJson(
+  body: unknown,
+  status: number,
+  extraHeaders: Record<string, string> = {},
+): Response {
+  return NextResponse.json(body, {
+    status,
+    headers: { ...PRIVATE_HEADERS, ...extraHeaders },
+  });
 }
 
 function errorResponse(
   route: string,
   code: AdminApiErrorCode,
   message: string,
+  retryAfterSeconds?: number,
 ): Response {
   // Authentication/authorization denials are already logged as
   // `auth.denied` (by `requireUser` and by `handleAdminGet`), where the
@@ -39,7 +54,13 @@ function errorResponse(
   if (code !== "UNAUTHENTICATED" && code !== "FORBIDDEN") {
     logger.warn({ event: "admin_api.rejected", route, code });
   }
-  return adminJson({ error: { code, message } }, ADMIN_API_ERROR_STATUS[code]);
+  return adminJson(
+    { error: { code, message } },
+    ADMIN_API_ERROR_STATUS[code],
+    // A rate-limited caller is told *when* to come back, as the standard
+    // header (architecture.md "Rate Limiting"), not just in prose.
+    retryAfterSeconds ? { "Retry-After": String(retryAfterSeconds) } : {},
+  );
 }
 
 type AdminGetRoute<T> = {
@@ -95,7 +116,98 @@ export async function handleAdminGet<T>(
     } catch (error) {
       const mapped = mapAdminApiError(error);
       if (!mapped) throw error;
-      return errorResponse(route, mapped.code, mapped.message);
+      return errorResponse(
+        route,
+        mapped.code,
+        mapped.message,
+        mapped.retryAfterSeconds,
+      );
+    }
+  });
+}
+
+type AdminMutationRoute<TBody, TResult> = {
+  /** Stable name for traces/logs, e.g. `admin.review.publish`. */
+  route: string;
+  /** The predicate for who may run this command, on the *database* role. */
+  authorize: (user: Pick<PolyglotUser, "role">) => boolean;
+  /** The command's JSON body. Strict schemas reject anything unexpected. */
+  body: z.ZodType<TBody>;
+  /**
+   * Runs only after every guard passed. This calls the *same* domain service
+   * the equivalent Server Action does — rate limiting, idempotency, the
+   * optimistic-version check, audit, and cache invalidation all live there,
+   * and none of it is repeated here.
+   */
+  execute: (user: PolyglotUser, body: TBody) => Promise<TResult>;
+};
+
+/**
+ * The request pipeline for **state-changing** Admin commands (spec 26 §5),
+ * in this order, each step cheaper and less revealing than the next:
+ *
+ * 1. **Same origin + JSON content type + no query string** — before anything
+ *    else, so a cross-site request learns nothing and costs nothing.
+ * 2. **Authenticate** from the real session, then
+ * 3. **authorize** on the database role — so an unauthenticated or
+ *    unauthorized caller never sees a validation error.
+ * 4. **Read and validate the body** (size-capped, strict schema).
+ * 5. **Execute** the domain command, and answer `{ data }`.
+ *
+ * A command is `POST`-only by construction: Next answers 405 for any method
+ * the route file does not export. Unexpected failures re-throw to
+ * `withRouteTrace` (logged at ERROR, generic 500).
+ */
+export async function handleAdminMutation<TBody, TResult>(
+  request: Request,
+  {
+    route,
+    authorize,
+    body: bodySchema,
+    execute,
+  }: AdminMutationRoute<TBody, TResult>,
+): Promise<Response> {
+  return withRouteTrace(route, request, async () => {
+    try {
+      try {
+        assertCommandRequest(request);
+      } catch (error) {
+        if (
+          error instanceof AdminApiRequestError &&
+          error.code === "FORBIDDEN"
+        ) {
+          // A cross-origin attempt to act as someone is worth a log line of
+          // its own — and has no user to attach it to yet.
+          logger.warn({ event: "auth.denied", reason: "cross_origin", route });
+        }
+        throw error;
+      }
+
+      const user = await requireUser();
+      if (!authorize(user)) {
+        logger.warn({
+          event: "auth.denied",
+          reason: "forbidden",
+          route,
+          userId: user.id,
+          role: user.role,
+        });
+        throw new AppError("FORBIDDEN");
+      }
+
+      const parsed = bodySchema.parse(
+        parseJsonBody(await readBodyWithLimit(request, MAX_COMMAND_BODY_BYTES)),
+      );
+      return adminJson({ data: await execute(user, parsed) }, 200);
+    } catch (error) {
+      const mapped = mapAdminApiError(error);
+      if (!mapped) throw error;
+      return errorResponse(
+        route,
+        mapped.code,
+        mapped.message,
+        mapped.retryAfterSeconds,
+      );
     }
   });
 }

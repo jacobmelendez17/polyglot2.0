@@ -330,6 +330,16 @@ API endpoints should normally process concerns in this order:
 5. Execute application/domain operation
 6. Map the result into a response DTO
 
+**State-changing Admin endpoints under `/api/v1/admin/*` are the documented
+exception to that order** (spec 26 Unit 3). They authenticate and authorize
+_before_ reading the body, so a caller who is not allowed never learns what a
+valid body looks like, and they refuse a cross-site, non-JSON, or
+query-string request before doing any work at all. A new mutation endpoint there
+uses `handleAdminMutation` (`app/api/v1/admin/_lib/admin-route.ts`) and does not
+hand-roll the pipeline; it is a named command that calls the existing domain
+service, takes its actor from the session (never the body), and carries an
+idempotency key. See `architecture.md`, "React Admin Console", for the full order.
+
 Use meaningful HTTP status codes.
 
 Do not return raw database rows when a safe response model is more appropriate.

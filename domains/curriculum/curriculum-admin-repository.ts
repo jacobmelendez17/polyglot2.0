@@ -29,6 +29,11 @@ import {
   getAdminCurriculumItemsInputSchema,
   getLevelContentSummaryInputSchema,
 } from "./curriculum-admin-schemas";
+import {
+  compareReviewKeys,
+  paginateReviewQueue,
+  type ReviewQueuePage,
+} from "./review-queue-pagination";
 import type {
   AdjacentAdminCurriculumItem,
   AdminCurriculumListItem,
@@ -37,6 +42,7 @@ import type {
   AdminCurriculumStatusCounts,
   AdminLevelContentSummary,
   GetAdminCurriculumItemsInput,
+  ReviewQueueEntry,
 } from "./curriculum-admin-types";
 import { AppError } from "@/lib/errors/app-error";
 
@@ -647,28 +653,6 @@ export async function getAdminCurriculumStatusCounts(
   return counts;
 }
 
-/**
- * Everything waiting for an Admin to verify it (spec 17): items that have
- * never been published, and open drafts against items that have.
- *
- * One query per kind rather than a union — they are genuinely different
- * things (a whole new item versus an edit to a live one), and an Admin
- * deciding needs to see which is which. Authors come back as ids; the page
- * resolves them to names through `domains/users`, which owns that.
- */
-export type ReviewQueueEntry = {
-  learningItemId: string;
-  kind: "new" | "edit";
-  type: "vocabulary" | "grammar";
-  itemLabel: string;
-  meaningLabel: string;
-  levelNumber: number;
-  groupName: string | null;
-  authorUserId: string | null;
-  updatedAt: Date;
-  version: number;
-};
-
 export async function getReviewQueue(
   db: DbClient,
   languageId: string,
@@ -735,8 +719,40 @@ export async function getReviewQueue(
       updatedAt: row.draftUpdatedAt ?? row.updatedAt,
       version: row.version,
     }))
-    .sort(
-      (a, b) =>
-        a.levelNumber - b.levelNumber || a.itemLabel.localeCompare(b.itemLabel),
+    .sort((a, b) =>
+      compareReviewKeys(
+        {
+          levelNumber: a.levelNumber,
+          itemLabel: a.itemLabel,
+          id: a.learningItemId,
+        },
+        {
+          levelNumber: b.levelNumber,
+          itemLabel: b.itemLabel,
+          id: b.learningItemId,
+        },
+      ),
     );
+}
+
+/**
+ * One bounded page of the review queue, in the queue's own order (spec 26
+ * Unit 3). The queue is read as before — one filtered query — and then sliced
+ * by `paginateReviewQueue`, so the response size is bounded and the order is
+ * unchanged.
+ *
+ * Known limit: every page request still reads the whole queue before
+ * slicing. The queue is "unpublished work", which stays small in practice and
+ * shrinks as it is reviewed; if a bulk import ever makes it tens of
+ * thousands of rows, move the ordering and cursor into SQL (as
+ * `getAdminCurriculumItems` does) rather than raising this ceiling.
+ */
+export async function getReviewQueuePage(
+  db: DbClient,
+  input: { languageId: string; limit: number; cursor?: string | null },
+): Promise<ReviewQueuePage> {
+  return paginateReviewQueue(await getReviewQueue(db, input.languageId), {
+    limit: input.limit,
+    cursor: input.cursor,
+  });
 }

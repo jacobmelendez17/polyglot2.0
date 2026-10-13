@@ -10,12 +10,12 @@ import {
   renderCurriculumList,
   row,
 } from "./curriculum-list-test-harness";
-import { navigation } from "./curriculum-list-test-navigation";
+import { navigation } from "../test-support/next-navigation";
 
 // `vi.mock` is hoisted above the imports, so the factory loads the navigation
 // stand-in itself; it resolves to the same instance the test imports below.
 vi.mock("next/navigation", async () =>
-  (await import("./curriculum-list-test-navigation")).nextNavigationMock(),
+  (await import("../test-support/next-navigation")).nextNavigationMock(),
 );
 
 // The legacy bulk bar is the shadcn component, which imports server actions;

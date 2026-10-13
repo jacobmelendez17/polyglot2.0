@@ -1,6 +1,7 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 
 import {
+  curriculumItemDrafts,
   languages,
   learningItems,
   levels,
@@ -8,6 +9,12 @@ import {
   vocabularyGroups,
   vocabularyItems,
 } from "@/db/schema";
+import { getAuditEvents } from "@/domains/admin/audit-repository";
+import {
+  createItem,
+  publishItem,
+  updateItem,
+} from "@/domains/admin/publication-service";
 import type { UserRole } from "@/domains/users";
 
 import { withE2EDb } from "./e2e-db";
@@ -127,7 +134,7 @@ async function adminScope(
 }
 
 /**
- * Inserts published vocabulary items into the E2E admin's own language and
+ * Inserts vocabulary items (published unless `status` says otherwise) into the E2E admin's own language and
  * first level, after everything already there: positions continue from the
  * highest in use (and never below 1000, which no seed uses), so a spec can
  * call this more than once — `(level, type, position)` is unique. Returns the
@@ -139,6 +146,7 @@ async function adminScope(
 export async function seedExtraVocabulary(
   terms: string[],
   meaningPrefix = "meaning of",
+  status: "published" | "pending" = "published",
 ): Promise<string[]> {
   return withE2EDb(async (db) => {
     const { languageId, levelId, groupId } = await adminScope(db);
@@ -162,7 +170,7 @@ export async function seedExtraVocabulary(
           languageId,
           levelId,
           type: "vocabulary" as const,
-          status: "published" as const,
+          status,
           position: first + index,
           lessonPriority: first + index,
         })),
@@ -288,4 +296,174 @@ export async function getE2EAdminScope(): Promise<{
   groupId: string;
 }> {
   return withE2EDb((db) => adminScope(db));
+}
+
+/* -------------------------------------------------------------------------- */
+/* Review-queue fixtures (spec 26 Unit 3)                                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The review queue is "pending items" plus "published items with an open
+ * draft". These helpers build both through the *real* domain services — the
+ * same `createItem` / `updateItem` / `publishItem` the Admin console calls —
+ * run against the guarded E2E connection (they take a database handle and
+ * touch nothing else), so a fixture is exactly what an author's own actions
+ * would have left behind, never a hand-built row that merely looks like one.
+ */
+
+/** The permanent E2E admin's `users.id`: the author of seeded drafts and the actor of seeded publications. */
+export async function getE2EAdminUserId(): Promise<string> {
+  return withE2EDb(async (db) => {
+    const [row] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.clerkUserId, adminClerkUserId()))
+      .limit(1);
+    if (!row)
+      throw new Error(
+        "No E2E admin row found — run `npm run e2e:setup` first.",
+      );
+    return row.id;
+  });
+}
+
+function vocabularyFields(
+  vocabularyGroupId: string,
+  term: string,
+  primaryMeaning: string,
+) {
+  return {
+    vocabularyGroupId,
+    term,
+    primaryMeaning,
+    partOfSpeech: "noun",
+    acceptedAnswers: [],
+  };
+}
+
+/**
+ * A brand-new item awaiting review — what "Add item" leaves behind: status
+ * `pending`, version 1, no draft. Remove it with `removeSeededItems`.
+ */
+export async function seedPendingItem(
+  term: string,
+  primaryMeaning: string,
+): Promise<string> {
+  const actorUserId = await getE2EAdminUserId();
+  return withE2EDb(async (db) => {
+    const { languageId, levelId, groupId } = await adminScope(db);
+    const { learningItemId } = await createItem(db, {
+      languageId,
+      levelId,
+      actorUserId,
+      idempotencyKey: crypto.randomUUID(),
+      type: "vocabulary",
+      fields: vocabularyFields(groupId, term, primaryMeaning),
+    });
+    return learningItemId;
+  });
+}
+
+/**
+ * A published item that also carries an unpublished edit — what saving a live
+ * item leaves behind. Learners keep seeing `liveMeaning` until the draft is
+ * published. Remove it with `removeSeededItems` (the draft goes with it).
+ */
+export async function seedItemWithDraft(
+  term: string,
+  draftMeaning: string,
+  liveMeaningPrefix = "live meaning of",
+): Promise<{ id: string; liveMeaning: string }> {
+  const [id] = await seedExtraVocabulary([term], liveMeaningPrefix);
+  const actorUserId = await getE2EAdminUserId();
+  await withE2EDb(async (db) => {
+    const { groupId } = await adminScope(db);
+    const { savedAsDraft } = await updateItem(db, {
+      learningItemId: id!,
+      actorUserId,
+      idempotencyKey: crypto.randomUUID(),
+      type: "vocabulary",
+      fields: vocabularyFields(groupId, term, draftMeaning),
+    });
+    if (!savedAsDraft)
+      throw new Error("The edit to a published item was not saved as a draft.");
+  });
+  return { id: id!, liveMeaning: `${liveMeaningPrefix} ${term}` };
+}
+
+/**
+ * Publishes an item through the real service while a browser still shows it as
+ * waiting — the "somebody else got there first" half of the stale-version
+ * scenario. The version bump this causes is what makes the browser's copy stale.
+ */
+export async function publishBehindTheirBack(
+  learningItemId: string,
+  expectedVersion: number,
+): Promise<void> {
+  const actorUserId = await getE2EAdminUserId();
+  await withE2EDb((db) =>
+    publishItem(db, {
+      learningItemId,
+      expectedVersion,
+      actorUserId,
+      idempotencyKey: crypto.randomUUID(),
+    }),
+  );
+}
+
+export type E2EItemState = {
+  status: "draft" | "pending" | "published" | "archived";
+  version: number;
+  term: string | null;
+  primaryMeaning: string | null;
+  hasDraft: boolean;
+};
+
+/** An item as the database holds it, read independently of the code under test; `null` once it is gone. */
+export async function getE2EItemState(
+  learningItemId: string,
+): Promise<E2EItemState | null> {
+  return withE2EDb(async (db) => {
+    const [row] = await db
+      .select({
+        status: learningItems.status,
+        version: learningItems.version,
+        term: vocabularyItems.term,
+        primaryMeaning: vocabularyItems.primaryMeaning,
+        draftId: curriculumItemDrafts.id,
+      })
+      .from(learningItems)
+      .leftJoin(
+        vocabularyItems,
+        eq(vocabularyItems.learningItemId, learningItems.id),
+      )
+      .leftJoin(
+        curriculumItemDrafts,
+        eq(curriculumItemDrafts.learningItemId, learningItems.id),
+      )
+      .where(eq(learningItems.id, learningItemId))
+      .limit(1);
+    if (!row) return null;
+    return {
+      status: row.status,
+      version: row.version,
+      term: row.term,
+      primaryMeaning: row.primaryMeaning,
+      hasDraft: row.draftId !== null,
+    };
+  });
+}
+
+/** How many "published" audit events exist for an item — one per real publication, never per click. */
+export async function countE2EPublishAudits(
+  resourceId: string,
+): Promise<number> {
+  return withE2EDb(async (db) => {
+    const page = await getAuditEvents(db, {
+      action: "CURRICULUM_ITEM_PUBLISHED",
+      resourceId,
+      limit: 50,
+    });
+    return page.items.length;
+  });
 }

@@ -151,7 +151,11 @@ describe("GET /api/v1/admin/me — payload", () => {
         canManageCurriculum: true,
         canPublishCurriculum: false,
         canUseDeveloperTools: false,
-        resources: { overview: ["show"], curriculum: ["list"] },
+        resources: {
+          overview: ["show"],
+          curriculum: ["list"],
+          review: ["list"],
+        },
       },
     });
   });

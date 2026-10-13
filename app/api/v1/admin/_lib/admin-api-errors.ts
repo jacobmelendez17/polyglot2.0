@@ -7,7 +7,24 @@ import { AppError } from "@/lib/errors/app-error";
 export type MappedAdminApiError = {
   code: AdminApiErrorCode;
   message: string;
+  /** Seconds until a rate-limited caller may retry; becomes the `Retry-After` header. */
+  retryAfterSeconds?: number;
 };
+
+/**
+ * A request refused at the HTTP boundary itself (wrong origin, wrong content
+ * type, too large, unreadable) — before any domain code ran. It carries the
+ * API error code directly because there is no domain error to translate.
+ */
+export class AdminApiRequestError extends Error {
+  readonly code: AdminApiErrorCode;
+
+  constructor(code: AdminApiErrorCode, message: string) {
+    super(message);
+    this.name = "AdminApiRequestError";
+    this.code = code;
+  }
+}
 
 /**
  * Translates an *expected* failure into the Admin adapter's error codes
@@ -23,6 +40,9 @@ export type MappedAdminApiError = {
  * business but the caller's, and the caller sent it.
  */
 export function mapAdminApiError(error: unknown): MappedAdminApiError | null {
+  if (error instanceof AdminApiRequestError) {
+    return { code: error.code, message: error.message };
+  }
   if (error instanceof z.ZodError) {
     return {
       code: "VALIDATION_FAILED",
@@ -31,9 +51,25 @@ export function mapAdminApiError(error: unknown): MappedAdminApiError | null {
   }
   if (error instanceof AppError || error instanceof AdminError) {
     const code = codeFor(error.code);
-    return code ? { code, message: error.message } : null;
+    if (!code) return null;
+    const retryAfterSeconds = retryAfterOf(error);
+    return {
+      code,
+      message: error.message,
+      ...(retryAfterSeconds ? { retryAfterSeconds } : {}),
+    };
   }
   return null;
+}
+
+/** The rate limiter's own wait, when the domain error carries it (`AdminError` `details`). */
+function retryAfterOf(error: AppError | AdminError): number | undefined {
+  if (!(error instanceof AdminError)) return undefined;
+  const details = error.details as { retryAfterSeconds?: unknown } | undefined;
+  const seconds = details?.retryAfterSeconds;
+  return typeof seconds === "number" && Number.isFinite(seconds) && seconds > 0
+    ? Math.ceil(seconds)
+    : undefined;
 }
 
 function codeFor(domainCode: string): AdminApiErrorCode | null {
@@ -50,6 +86,10 @@ function codeFor(domainCode: string): AdminApiErrorCode | null {
     case "CURRICULUM_VALIDATION_FAILED":
       return "VALIDATION_FAILED";
     case "ADMIN_EDIT_CONFLICT":
+    // Replaying a key with different data, or two copies of one command racing:
+    // both mean "this exact request cannot be applied as sent" — a 409.
+    case "IDEMPOTENCY_KEY_PAYLOAD_MISMATCH":
+    case "IDEMPOTENCY_OPERATION_IN_PROGRESS":
       return "CONFLICT";
     default:
       return null;

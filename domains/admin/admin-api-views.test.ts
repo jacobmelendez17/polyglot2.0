@@ -75,11 +75,12 @@ describe("buildAdminPermissions", () => {
     expect(buildAdminPermissions({ role })).toMatchObject(EXPECTED[role]);
   });
 
-  it("lists the curriculum list only for roles that may manage curriculum", () => {
+  it("lists the curriculum list and review queue only for roles that may manage curriculum", () => {
     for (const role of ["admin", "writer"] as const) {
       expect(buildAdminPermissions({ role }).resources).toEqual({
         overview: ["show"],
         curriculum: ["list"],
+        review: ["list"],
       });
     }
     // A developer reaches /admin but not curriculum.

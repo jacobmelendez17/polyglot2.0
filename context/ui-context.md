@@ -360,6 +360,18 @@ not from a second palette:
   cards, soft borders instead of shadows, `prefers-reduced-motion`, and the four
   interface states (loading, empty, error, forbidden) apply here exactly as
   elsewhere. Loading uses a Tailwind skeleton, not a spinner.
+- **Tables that exist to take an action** (the review queue's **Publish**) keep
+  that column `position: sticky` at the right edge, opaque and in the row's own
+  surface, so a table that scrolls sideways _inside its frame_ at 390px (the page
+  itself never scrolls sideways) cannot scroll its primary action out of reach.
+  Row hover highlights are off for rows that are not clickable.
+- **A change that alters what learners see is confirmed in a dialog first.** It
+  names the item, says in one sentence what will happen to learner-visible
+  content, and shows the facts needed to be sure (meaning, where, who edited it).
+  While the request is in flight the confirm button reads "Publishing…", is
+  disabled, and the dialog cannot be dismissed. A failure changes the buttons to
+  what can actually help: a stale version offers **Reload** only (never a blind
+  retry), a lost permission **Close** only, a transient failure **Try again**.
 
 ---
 

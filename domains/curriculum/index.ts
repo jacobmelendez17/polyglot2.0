@@ -48,7 +48,11 @@ export type {
   AdminCurriculumStatusCounts,
   AdminLevelContentSummary,
   GetAdminCurriculumItemsInput,
+  ReviewQueueEntry,
 } from "./curriculum-admin-types";
+// Type only: the paginator itself uses Node's `Buffer` and belongs to
+// `./server`'s callers, not to this client-safe surface.
+export type { ReviewQueuePage } from "./review-queue-pagination";
 export type {
   AcceptedAnswerInput,
   ArchiveLearningItemInput,

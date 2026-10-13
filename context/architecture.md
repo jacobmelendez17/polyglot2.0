@@ -463,6 +463,46 @@ data-integrity rule stays in `domains/*`.
   the endpoint does not implement. The service derives `previousCursor` from the
   cursor alone (a reverse keyset query), so "Previous" works after a refresh or
   from a pasted link, with no client-held history.
+- **The controller is generic.** Unit 3 (the review queue) is its second
+  consumer, so `useCurriculumList` became a thin wrapper over `useCursorList`
+  (`components/admin/react-admin/use-cursor-list.ts`): a screen supplies only its
+  resource, page size, and a URL codec (`parse` / `serialize` / `applyChange`) and
+  whether a change _refines_ the current view (replace) or opens a new one (push);
+  the cursor-request builder is shared the same way (`cursor-list-query.ts`).
+  The review queue's cursor names the _value_ a page starts after
+  (`levelNumber`, `itemLabel`, `id`; `domains/curriculum/review-queue-pagination.ts`),
+  never a position, so a queue that shrinks as it is worked does not move a
+  bookmarked page. Known limit: each page request still reads the whole queue
+  before slicing it (unpublished work stays small); move the ordering into SQL
+  as `getAdminCurriculumItems` does if an import ever makes it large.
+- **Commands (state-changing requests; spec 26 Unit 3, the pattern every later
+  mutation unit reuses).** A mutation is a _named, typed command_ (for example
+  `POST /api/v1/admin/review/publish`, `publishReviewItem` on the
+  `dataProvider`) that calls the existing domain service — never React Admin's
+  generic `update`. `handleAdminMutation` (`admin-route.ts`) runs one fixed
+  order, cheapest and least informative first, so a hostile request learns
+  nothing: **same origin** (`Sec-Fetch-Site` / `Origin`; a request with neither
+  is refused — _fail closed_, which is how a cross-site `<form>` post is stopped
+  and how the rule in "Supply Chain and Platform Security" about CSRF on
+  cookie-authenticated Route Handlers is met) -> **JSON content type only** (415)
+  -> **no query string** (credentials and commands never ride in URLs) ->
+  **authenticate** -> **authorize from the database role** (so a writer who can
+  read the queue is still refused the command, even with the button forced into
+  the page) -> **size-capped streaming body read** (4 KiB, 413; the stream is
+  cancelled on overflow, not buffered) -> **strict Zod body** (unknown fields,
+  including any attempt to name an actor, are a 422; the actor is always the
+  signed-in user) -> the domain service. Errors map to 401/403/404/409/413/415/
+  422/429 (with a real `Retry-After`) and everything unexpected re-throws to
+  `withRouteTrace`.
+- **A command's idempotency key lives exactly as long as the intent.** The
+  confirmation dialog generates one UUID when it opens and reuses it for every
+  attempt while it stays open, so "Try again" after a lost response replays the
+  stored result instead of publishing twice; closing and reopening is a new
+  intent with a new key. The same key with a different payload is a 409, not a
+  silent second action. A stale `expectedVersion` (409) offers **Reload** and no
+  retry: resending would apply an out-of-date view over whatever changed. A
+  command's success marks every query prefix it made stale (`review`,
+  `curriculum`, `overview`); the screens are not told what changed, only that it did.
 
 ## `media`
 

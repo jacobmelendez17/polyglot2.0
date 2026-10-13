@@ -1,11 +1,15 @@
 import type { PolyglotUser } from "@/domains/users";
 
-import type { AdminCurriculumItemsPage } from "@/domains/curriculum";
+import type {
+  AdminCurriculumItemsPage,
+  ReviewQueuePage,
+} from "@/domains/curriculum";
 
 import {
   ADMIN_OVERVIEW_RECORD_ID,
   type AdminCurriculumPage,
   type AdminCurriculumStatusCounts,
+  type AdminReviewPage,
   type AdminMe,
   type AdminOverview,
   type AdminPermissions,
@@ -45,9 +49,11 @@ function resourceAccess(
     resources.overview = ["show"];
   }
   if (canManageCurriculum(subject)) {
-    // Browsing the curriculum list. Writers may; mutations are separate
-    // commands authorized (and later listed here) one at a time.
+    // Browsing the curriculum list and the review queue. Writers may — they
+    // can see their own work waiting — while *publishing* from the queue is a
+    // separate command (`canPublishCurriculum`), never a resource action here.
     resources.curriculum = ["list"];
+    resources.review = ["list"];
   }
   return resources;
 }
@@ -107,6 +113,38 @@ export function buildAdminCurriculumPage(
       meaningLabel: item.meaningLabel,
       groupId: item.groupId,
       groupName: item.groupName,
+    })),
+    nextCursor: page.nextCursor,
+    hasPreviousPage: page.hasPreviousPage,
+    previousCursor: page.previousCursor,
+  };
+}
+
+/**
+ * The review queue's page, reduced to what the screen shows.
+ *
+ * `authorNameById` is resolved by the caller from `domains/users`; an edit
+ * whose author cannot be found reads "Unknown" (as the page always did)
+ * rather than leaking an id or blanking the column. A new item has no draft
+ * author, so its `authorName` is `null`.
+ */
+export function buildAdminReviewPage(
+  page: ReviewQueuePage,
+  authorNameById: ReadonlyMap<string, string>,
+): AdminReviewPage {
+  return {
+    items: page.entries.map((entry) => ({
+      id: entry.learningItemId,
+      kind: entry.kind,
+      itemLabel: entry.itemLabel,
+      meaningLabel: entry.meaningLabel,
+      levelNumber: entry.levelNumber,
+      groupName: entry.groupName,
+      authorName: entry.authorUserId
+        ? (authorNameById.get(entry.authorUserId) ?? "Unknown")
+        : null,
+      updatedAt: entry.updatedAt.toISOString(),
+      version: entry.version,
     })),
     nextCursor: page.nextCursor,
     hasPreviousPage: page.hasPreviousPage,

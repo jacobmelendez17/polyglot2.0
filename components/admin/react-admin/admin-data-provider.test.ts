@@ -189,6 +189,168 @@ describe("createAdminDataProvider", () => {
     });
   });
 
+  describe("getList('review')", () => {
+    const REVIEW_PAGE = {
+      items: [
+        {
+          id: "item-1",
+          kind: "edit" as const,
+          itemLabel: "el gato",
+          meaningLabel: "cat",
+          levelNumber: 1,
+          groupName: "Animals",
+          authorName: "Ada",
+          updatedAt: "2026-03-04T05:06:07.000Z",
+          version: 4,
+        },
+      ],
+      nextCursor: null,
+      hasPreviousPage: true,
+      previousCursor: "prev",
+    };
+    const LIST_PARAMS = {
+      pagination: { page: 1, perPage: 20 },
+      sort: { field: "review_order", order: "ASC" as const },
+      filter: { language: "lang-1", cursor: "here" },
+    };
+
+    function reviewProvider() {
+      const request = vi.fn<RequestFn>(async () => REVIEW_PAGE as never);
+      return {
+        request,
+        provider: createAdminDataProvider({ request: request as never }),
+      };
+    }
+
+    it("asks the review endpoint, not the curriculum one", async () => {
+      const { provider, request } = reviewProvider();
+      await provider.getList("review", LIST_PARAMS);
+      expect(request.mock.calls[0]?.[0]).toBe(
+        "/review?language=lang-1&cursor=here&limit=20",
+      );
+    });
+
+    it("maps the page onto partial pagination, with the server's cursors and no total", async () => {
+      const { provider } = reviewProvider();
+      const result = await provider.getList("review", LIST_PARAMS);
+      expect(result.data).toEqual(REVIEW_PAGE.items);
+      expect(result.pageInfo).toEqual({
+        hasNextPage: false,
+        hasPreviousPage: true,
+      });
+      expect(result.meta).toEqual({ nextCursor: null, previousCursor: "prev" });
+      expect(result).not.toHaveProperty("total");
+    });
+
+    it.each([
+      ["another sort", { sort: { field: "id", order: "ASC" as const } }],
+      ["a page jump", { pagination: { page: 2, perPage: 20 } }],
+      ["a curriculum filter", { filter: { language: "lang-1", level: "x" } }],
+    ])("refuses %s without calling the server", async (_name, override) => {
+      const { provider, request } = reviewProvider();
+      const error = await rejection(
+        provider.getList("review", { ...LIST_PARAMS, ...override }),
+      );
+      expect(error.kind).toBe("unsupported");
+      expect(request).not.toHaveBeenCalled();
+    });
+
+    it("propagates a denial instead of returning an empty queue", async () => {
+      const denial = new AdminApiError("FORBIDDEN", 403);
+      const provider = createAdminDataProvider({
+        request: (async () => {
+          throw denial;
+        }) as never,
+      });
+      await expect(provider.getList("review", LIST_PARAMS)).rejects.toBe(
+        denial,
+      );
+    });
+  });
+
+  describe("publishReviewItem (an explicit command)", () => {
+    const COMMAND = {
+      itemId: "11111111-1111-4111-8111-111111111111",
+      expectedVersion: 3,
+      idempotencyKey: "22222222-2222-4222-8222-222222222222",
+    };
+
+    it("posts exactly the command — no actor, no role — to the publish endpoint", async () => {
+      const request = vi.fn<RequestFn>(
+        async () => ({ itemId: COMMAND.itemId }) as never,
+      );
+      const provider = createAdminDataProvider({ request: request as never });
+
+      await expect(provider.publishReviewItem(COMMAND)).resolves.toEqual({
+        itemId: COMMAND.itemId,
+      });
+
+      const [path, , options] = request.mock.calls[0] as [
+        string,
+        unknown,
+        { body: unknown },
+      ];
+      expect(path).toBe("/review/publish");
+      expect(options.body).toEqual(COMMAND);
+      expect(Object.keys(options.body as object).sort()).toEqual([
+        "expectedVersion",
+        "idempotencyKey",
+        "itemId",
+      ]);
+    });
+
+    it("validates the answer against the contract", async () => {
+      const request = vi.fn<RequestFn>(async (_path, schema) => {
+        // The real client would reject a payload that does not match; prove the
+        // provider hands it the right schema.
+        return (schema as { parse: (v: unknown) => unknown }).parse({
+          itemId: COMMAND.itemId,
+        }) as never;
+      });
+      const provider = createAdminDataProvider({ request: request as never });
+      await expect(provider.publishReviewItem(COMMAND)).resolves.toEqual({
+        itemId: COMMAND.itemId,
+      });
+      const schema = request.mock.calls[0]?.[1] as {
+        safeParse: (v: unknown) => { success: boolean };
+      };
+      expect(schema.safeParse({}).success).toBe(false);
+    });
+
+    it("propagates a stale-version conflict unchanged, for the dialog to explain", async () => {
+      const conflict = new AdminApiError("CONFLICT", 409, undefined, {
+        serverMessage: "This item changed after you opened it.",
+      });
+      const provider = createAdminDataProvider({
+        request: (async () => {
+          throw conflict;
+        }) as never,
+      });
+      await expect(provider.publishReviewItem(COMMAND)).rejects.toBe(conflict);
+    });
+
+    it("is not reachable through React Admin's generic mutations", async () => {
+      const { provider, request } = (() => {
+        const r = vi.fn<RequestFn>(async () => ({}) as never);
+        return {
+          request: r,
+          provider: createAdminDataProvider({ request: r as never }),
+        };
+      })();
+      for (const attempt of [
+        provider.update("review", { id: "x", data: {}, previousData: {} }),
+        provider.create("review", { data: {} }),
+        provider.delete("review", { id: "x" }),
+        provider.updateMany("review", { ids: ["x"], data: {} }),
+        provider.deleteMany("review", { ids: ["x"] }),
+      ]) {
+        const error = await rejection(attempt);
+        expect(error.kind).toBe("unsupported");
+      }
+      expect(request).not.toHaveBeenCalled();
+    });
+  });
+
   describe("everything not whitelisted", () => {
     it("rejects an unknown resource with a typed UNSUPPORTED_OPERATION, never a guess", async () => {
       const { provider, request } = providerWith();

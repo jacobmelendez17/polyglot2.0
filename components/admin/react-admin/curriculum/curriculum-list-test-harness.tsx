@@ -13,13 +13,13 @@ import type { UserRole } from "@/domains/users";
 import { createAdminAuthProvider } from "../admin-auth-provider";
 import { createAdminDataProvider } from "../admin-data-provider";
 import { ReactAdminProvider } from "../react-admin-provider";
-import { navigation } from "./curriculum-list-test-navigation";
+import { navigation } from "../test-support/next-navigation";
 import { CurriculumListScreen } from "./curriculum-list-screen";
 
 /**
  * Test harness for the curriculum list: the real screen, inside the real
  * React Admin provider stack, over a scripted cursor-paginated fake API. The
- * URL it reads comes from `curriculum-list-test-navigation.ts`, which each
+ * URL it reads comes from `test-support/next-navigation.ts`, which each
  * test file wires into `next/navigation` with `vi.mock`.
  *
  * The navigation state is a separate module on purpose: the `vi.mock` factory

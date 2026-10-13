@@ -202,9 +202,15 @@ export const databaseCurriculumReader = {
     withConfirmedDictionaryData(await getLessonItemsByIds(db, ids)),
 };
 
-/** Everything awaiting Admin verification in one language (spec 17). */
-export async function getReviewQueue(languageId: string) {
-  return adminRepository.getReviewQueue(db, languageId);
+/**
+ * One bounded, cursor-paginated page of what awaits Admin verification in one
+ * language (specs 17 and 26 Unit 3). The whole queue is deliberately not
+ * exported: nothing outside the repository should be able to read it unbounded.
+ */
+export async function getReviewQueuePage(
+  input: Parameters<typeof adminRepository.getReviewQueuePage>[1],
+) {
+  return adminRepository.getReviewQueuePage(db, input);
 }
 
 /** A word's usage-context tabs, in display order (spec 17). */
