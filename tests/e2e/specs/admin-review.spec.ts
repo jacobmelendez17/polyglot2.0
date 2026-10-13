@@ -20,6 +20,7 @@ import {
   seedPendingItem,
   setE2EAdminRole,
 } from "../support/e2e-admin";
+import { spendRateBudget } from "../support/rate-budget";
 import { renewSession } from "../support/e2e-session";
 import { ensureLearnerOnboarded } from "../support/e2e-state";
 
@@ -36,8 +37,9 @@ import { ensureLearnerOnboarded } from "../support/e2e-state";
  *
  * Publishing is rate limited (10 requests / 60s per Admin — a real control,
  * `providers/rate-limit/policies.ts`, never relaxed for tests). This file
- * spends from that budget on purpose, so it keeps its own account of what it
- * has sent and waits out the window rather than tripping it.
+ * spends from that budget on purpose, through the account it shares with the
+ * other specs that publish (`support/rate-budget.ts`), and waits out the window
+ * rather than tripping it.
  */
 
 const ADMIN_AUTH = "playwright/.auth/admin.json";
@@ -67,27 +69,6 @@ test.afterEach(async () => {
   await removeSeededItems(created);
   created = [];
 });
-
-/* -------------------------------------------------------------------------- */
-/* The publish budget                                                         */
-/* -------------------------------------------------------------------------- */
-
-const PUBLISH_BUDGET = 8; // of the policy's 10: leave room for neighbouring specs
-const PUBLISH_WINDOW_MS = 62_000; // the policy's 60s, plus a margin
-const spent: number[] = [];
-
-/** Call before sending `count` requests that will reach the publish service. */
-async function spendPublishBudget(count = 1): Promise<void> {
-  for (;;) {
-    const now = Date.now();
-    while (spent.length > 0 && now - spent[0]! >= PUBLISH_WINDOW_MS)
-      spent.shift();
-    if (spent.length + count <= PUBLISH_BUDGET) break;
-    const wait = spent[0]! + PUBLISH_WINDOW_MS - now;
-    await new Promise((resolve) => setTimeout(resolve, wait));
-  }
-  for (let index = 0; index < count; index++) spent.push(Date.now());
-}
 
 /* -------------------------------------------------------------------------- */
 /* Fixtures and page helpers                                                  */
@@ -325,7 +306,7 @@ test.describe("publishing", () => {
   test("confirming publishes once, announces it, and the row leaves the queue", async ({
     page,
   }) => {
-    await spendPublishBudget();
+    await spendRateBudget("admin-publish");
     const item = await newItem("once");
     await openQueue(page);
 
@@ -354,7 +335,7 @@ test.describe("publishing", () => {
     page,
     browser,
   }) => {
-    await spendPublishBudget();
+    await spendRateBudget("admin-publish");
     await ensureLearnerOnboarded();
     const edit = await editedItem("live", "the edited wording");
 
@@ -399,7 +380,7 @@ test.describe("publishing", () => {
   test("is operable by keyboard alone: focus moves in, Escape returns it, Enter publishes", async ({
     page,
   }) => {
-    await spendPublishBudget();
+    await spendRateBudget("admin-publish");
     const item = await newItem("kbd");
     await openQueue(page);
 
@@ -445,7 +426,7 @@ test.describe("stale versions and races", () => {
   test("a version that went stale offers Reload, publishes nothing, and Reload clears it", async ({
     page,
   }) => {
-    await spendPublishBudget();
+    await spendRateBudget("admin-publish");
     const item = await newItem("stale");
     await openQueue(page);
     await expect(rowOf(page, item.label)).toBeVisible();
@@ -477,7 +458,7 @@ test.describe("stale versions and races", () => {
   test("two Admins confirming at the same moment publish it once", async ({
     browser,
   }) => {
-    await spendPublishBudget(2);
+    await spendRateBudget("admin-publish", 2);
     const item = await newItem("race");
 
     const open = async (): Promise<{ page: Page; dialog: Locator }> => {
@@ -520,7 +501,7 @@ test.describe("stale versions and races", () => {
     page,
     baseURL,
   }) => {
-    await spendPublishBudget(3);
+    await spendRateBudget("admin-publish", 3);
     const item = await newItem("replay");
     const other = await newItem("replayother");
     await renewSession(page);

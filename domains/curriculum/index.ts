@@ -53,6 +53,7 @@ export type {
 // Type only: the paginator itself uses Node's `Buffer` and belongs to
 // `./server`'s callers, not to this client-safe surface.
 export type { ReviewQueuePage } from "./review-queue-pagination";
+export type { LevelContentCounts } from "./curriculum-mutation-repository";
 export type {
   AcceptedAnswerInput,
   ArchiveLearningItemInput,

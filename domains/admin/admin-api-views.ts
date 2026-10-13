@@ -2,13 +2,17 @@ import type { PolyglotUser } from "@/domains/users";
 
 import type {
   AdminCurriculumItemsPage,
+  CurriculumLevel,
+  LevelContentCounts,
   ReviewQueuePage,
 } from "@/domains/curriculum";
 
 import {
   ADMIN_OVERVIEW_RECORD_ID,
+  LEVEL_LIST_MAX,
   type AdminCurriculumPage,
   type AdminCurriculumStatusCounts,
+  type AdminLevelList,
   type AdminReviewPage,
   type AdminMe,
   type AdminOverview,
@@ -54,6 +58,13 @@ function resourceAccess(
     // separate command (`canPublishCurriculum`), never a resource action here.
     resources.curriculum = ["list"];
     resources.review = ["list"];
+    // Levels: a writer may read them, but creating and editing one is
+    // structural (spec 26 §6: "level/group structural mutations" are
+    // Admin-only), so those actions follow `canPublishCurriculum` — the same
+    // predicate the endpoints themselves enforce.
+    resources.levels = canPublishCurriculum(subject)
+      ? ["list", "create", "edit"]
+      : ["list"];
   }
   return resources;
 }
@@ -149,5 +160,38 @@ export function buildAdminReviewPage(
     nextCursor: page.nextCursor,
     hasPreviousPage: page.hasPreviousPage,
     previousCursor: page.previousCursor,
+  };
+}
+
+const NO_CONTENT: LevelContentCounts = {
+  vocabularyItems: 0,
+  grammarItems: 0,
+  vocabularyGroups: 0,
+};
+
+/**
+ * A language's levels with what each holds, by level number, bounded at
+ * `LEVEL_LIST_MAX` (and saying so when it cut anything off). A level with no
+ * entry in `counts` holds nothing — `getLevelContentCountsByLanguage` omits
+ * empty levels.
+ *
+ * Sorted here as well as by the query, so the response never depends on the
+ * order a read happened to come back in.
+ */
+export function buildAdminLevelList(
+  levels: readonly CurriculumLevel[],
+  counts: ReadonlyMap<string, LevelContentCounts>,
+): AdminLevelList {
+  const ordered = [...levels].sort((a, b) => a.levelNumber - b.levelNumber);
+  return {
+    items: ordered.slice(0, LEVEL_LIST_MAX).map((level) => ({
+      id: level.id,
+      levelNumber: level.levelNumber,
+      name: level.name,
+      status: level.status,
+      cefrLevel: level.cefrLevel,
+      ...(counts.get(level.id) ?? NO_CONTENT),
+    })),
+    truncated: ordered.length > LEVEL_LIST_MAX,
   };
 }

@@ -1321,6 +1321,55 @@ export async function getLevelContentCounts(
   };
 }
 
+/**
+ * Every level's content counts for one language, in two grouped queries rather
+ * than three per level — the Admin levels list (spec 26 Unit 4) reads them all
+ * at once, on every refocus of the tab.
+ *
+ * It counts exactly what `getLevelContentCounts` counts (every item in the
+ * level, in any status) so the two cannot disagree; the integration test
+ * compares them level by level. A level that holds nothing has **no entry** —
+ * callers treat a missing level as zero everywhere.
+ */
+export async function getLevelContentCountsByLanguage(
+  db: DbClient,
+  languageId: string,
+): Promise<Map<string, LevelContentCounts>> {
+  const [itemRows, groupRows] = await Promise.all([
+    db
+      .select({
+        levelId: learningItems.levelId,
+        type: learningItems.type,
+        n: count(),
+      })
+      .from(learningItems)
+      .where(eq(learningItems.languageId, languageId))
+      .groupBy(learningItems.levelId, learningItems.type),
+    db
+      .select({ levelId: vocabularyGroups.levelId, n: count() })
+      .from(vocabularyGroups)
+      .where(eq(vocabularyGroups.languageId, languageId))
+      .groupBy(vocabularyGroups.levelId),
+  ]);
+
+  const counts = new Map<string, LevelContentCounts>();
+  const entryFor = (levelId: string): LevelContentCounts => {
+    let entry = counts.get(levelId);
+    if (!entry) {
+      entry = { vocabularyItems: 0, grammarItems: 0, vocabularyGroups: 0 };
+      counts.set(levelId, entry);
+    }
+    return entry;
+  };
+  for (const row of itemRows) {
+    const entry = entryFor(row.levelId);
+    if (row.type === "vocabulary") entry.vocabularyItems = row.n;
+    else entry.grammarItems = row.n;
+  }
+  for (const row of groupRows) entryFor(row.levelId).vocabularyGroups = row.n;
+  return counts;
+}
+
 // --- Vocabulary groups/themes management (spec 11 rewrite's "Vocabulary Groups / Themes") ---
 
 export async function createVocabularyGroup(

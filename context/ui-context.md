@@ -372,6 +372,27 @@ not from a second palette:
   disabled, and the dialog cannot be dismissed. A failure changes the buttons to
   what can actually help: a stale version offers **Reload** only (never a blind
   retry), a lost permission **Close** only, a transient failure **Try again**.
+- **Forms** (spec 26 Unit 4: "Add level", a level's properties) are built from
+  React Admin's form primitives with `noValidate`, so its validators — not the
+  browser's native tooltips — say what is wrong, in the page and in the app's own
+  words (the native `min`/`step` check would otherwise block the submit before
+  they ran). The submit button waits until something has changed and shows its
+  progress; a refusal from the server appears in the form (or the dialog that
+  caused it) with what was typed kept, so it can be fixed and sent again. A
+  successful save says **Saved** in an always-present live region (so assistive
+  technology announces it) and clears itself as soon as there is something new
+  to save.
+- **An optional select says what "none" is.** Use React Admin's `emptyValue` /
+  `emptyText` with a _non-empty_ sentinel value (for example `none` / "Not set"):
+  Material UI shows nothing at all for a select whose value is the empty
+  string, which makes a field that is correctly empty look broken. React Admin
+  names that option "Clear value" for assistive technology — the same built-in
+  empty option the curriculum filters use.
+- **Someone who may see a record but not change it gets it read-only**, not a
+  form full of controls that would only ever be refused: the same facts as a
+  labelled list, and one line saying whose job editing is. The decision follows
+  the server's permissions (`GET /api/v1/admin/me`, refetched on focus), so a
+  role revoked mid-session turns the form read-only on the next focus.
 
 ---
 

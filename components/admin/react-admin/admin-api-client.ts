@@ -19,6 +19,12 @@ type RequestOptions = {
    * is what the server's same-origin check reads — nothing here sets them.
    */
   body?: unknown;
+  /**
+   * The verb of a command: `POST` for one that acts on a collection (publish,
+   * create), `PATCH` for one that changes a single named resource. Meaningless
+   * without a `body` — a request with no body is always a `GET`.
+   */
+  method?: "POST" | "PATCH";
 };
 
 /**
@@ -38,13 +44,18 @@ type RequestOptions = {
 export async function requestAdminApi<S extends z.ZodType>(
   path: string,
   dataSchema: S,
-  { signal, fetcher = fetch, body: commandBody }: RequestOptions = {},
+  {
+    signal,
+    fetcher = fetch,
+    body: commandBody,
+    method: commandMethod = "POST",
+  }: RequestOptions = {},
 ): Promise<z.infer<S>> {
   const isCommand = commandBody !== undefined;
   let response: Response;
   try {
     response = await fetcher(`${ADMIN_API_BASE}${path}`, {
-      method: isCommand ? "POST" : "GET",
+      method: isCommand ? commandMethod : "GET",
       headers: isCommand
         ? { Accept: "application/json", "Content-Type": "application/json" }
         : { Accept: "application/json" },

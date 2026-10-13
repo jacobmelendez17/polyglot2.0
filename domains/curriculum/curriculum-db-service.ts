@@ -9,6 +9,7 @@ import {
   getUsageContexts as repoGetUsageContexts,
   getDraft as repoGetDraft,
   getLevelContentCounts as repoGetLevelContentCounts,
+  getLevelContentCountsByLanguage as repoGetLevelContentCountsByLanguage,
 } from "./curriculum-mutation-repository";
 import {
   getEligibleLessonItems,
@@ -122,6 +123,11 @@ export async function getItemDraft(learningItemId: string) {
 
 export async function getLevelContentCounts(levelId: string) {
   return repoGetLevelContentCounts(db, levelId);
+}
+
+/** Every level's counts for one language in one pass (spec 26 Unit 4); a level absent from the map holds nothing. */
+export async function getLevelContentCountsByLanguage(languageId: string) {
+  return repoGetLevelContentCountsByLanguage(db, languageId);
 }
 
 /**

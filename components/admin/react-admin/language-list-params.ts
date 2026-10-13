@@ -1,28 +1,29 @@
 /**
- * The review queue's URL state: a language and a cursor, nothing else. The
- * queue has no filters of its own — it is "everything waiting" — so this is
- * the smallest instance of the codec `useCursorList` takes.
+ * The URL state of a list whose only filter is a language (spec 26 Units 3-4:
+ * the review queue and the levels list) — the smallest instance of the codec
+ * `useCursorList` takes. Lists with more filters (the curriculum list) have
+ * their own.
  */
 
-export type ReviewListFilters = {
-  /** Always present: the queue is read one language at a time. */
+export type LanguageListFilters = {
+  /** Always present: these lists are read one language at a time. */
   language: string;
 };
 
-export type ReviewListLookups = {
+export type LanguageListLookups = {
   languages: ReadonlyArray<{ id: string }>;
 };
 
 type ParamsLike = { get(name: string): string | null };
 
 /**
- * An unknown or missing `language` falls back to the first, as the page
+ * An unknown or missing `language` falls back to the first, as the pages
  * always did; an empty cursor means no cursor.
  */
-export function parseReviewListParams(
+export function parseLanguageListParams(
   params: ParamsLike,
-  lookups: ReviewListLookups,
-): { filters: ReviewListFilters; cursor: string | undefined } {
+  lookups: LanguageListLookups,
+): { filters: LanguageListFilters; cursor: string | undefined } {
   const requested = params.get("language");
   const language = lookups.languages.some((l) => l.id === requested)
     ? (requested as string)
@@ -30,8 +31,8 @@ export function parseReviewListParams(
   return { filters: { language }, cursor: params.get("cursor") || undefined };
 }
 
-export function serializeReviewListParams(
-  filters: ReviewListFilters,
+export function serializeLanguageListParams(
+  filters: LanguageListFilters,
   cursor?: string,
 ): URLSearchParams {
   const params = new URLSearchParams();
@@ -45,10 +46,10 @@ export function serializeReviewListParams(
  * only meaningful under the language that produced it, so it is never carried
  * over. The mandatory language can never be emptied.
  */
-export function applyReviewFilterChange(
-  previous: ReviewListFilters,
+export function applyLanguageFilterChange(
+  previous: LanguageListFilters,
   requested: Record<string, unknown>,
-): ReviewListFilters {
+): LanguageListFilters {
   const language =
     typeof requested.language === "string" && requested.language !== ""
       ? requested.language

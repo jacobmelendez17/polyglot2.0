@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { forbidden, notFound } from "next/navigation";
 
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
-import { LevelEditForm } from "@/components/admin/curriculum/level-edit-form";
 import { LevelItemBoard } from "@/components/admin/curriculum/level-item-board";
+import { AdminLevelEditApp } from "@/components/admin/react-admin/levels/level-edit-app";
 import { canManageCurriculum } from "@/domains/admin";
 import {
   getAdminCurriculumItems,
@@ -13,6 +13,7 @@ import {
   getVocabularyGroupsByLanguage,
 } from "@/domains/curriculum/server";
 import { requireUser } from "@/domains/users/server";
+import { env } from "@/lib/env";
 
 export async function generateMetadata({
   params,
@@ -33,6 +34,11 @@ export async function generateMetadata({
  * the place a level's whole curriculum is arranged: every vocabulary and
  * grammar item it holds, in lesson-queue order, movable between levels,
  * groups, and positions.
+ *
+ * Spec 26 Unit 4 moved the level's own properties (name, CEFR band, status)
+ * onto a React Admin form — editable for an Admin, read-only for a writer. The
+ * heading and the specialist `LevelItemBoard` stay server-rendered and
+ * unchanged; the form asks the page to re-render after a save.
  *
  * `includeUnpublished` is deliberate — this is the surface an Admin uses to
  * *decide* what to publish, so a pending item that has never been live is
@@ -70,11 +76,20 @@ export default async function LevelDetailPage({
           title={`Level ${level.levelNumber}${level.name ? ` — ${level.name}` : ""}`}
           description="Edit level properties, and arrange everything it teaches."
         />
-        <LevelEditForm
+        {/* `key` remounts the form when navigating to another level, for the
+            same reason as the board's below: Next reuses this page component
+            across two `[levelId]` routes, and the form keeps the previous
+            level's values in its own state. */}
+        <AdminLevelEditApp
+          key={level.id}
+          signInPath={env.NEXT_PUBLIC_CLERK_SIGN_IN_URL}
           levelId={level.id}
-          name={level.name}
-          status={level.status}
-          cefrLevel={level.cefrLevel}
+          levelNumber={level.levelNumber}
+          fields={{
+            name: level.name,
+            cefrLevel: level.cefrLevel,
+            status: level.status,
+          }}
           counts={counts}
         />
       </div>

@@ -6,13 +6,13 @@ import {
 } from "@/domains/admin";
 import {
   getAdminCurriculumItems,
-  getLanguages,
   getLevelsByLanguage,
   getVocabularyGroupsByLanguage,
 } from "@/domains/curriculum/server";
 import { AppError } from "@/lib/errors/app-error";
 
 import { handleAdminGet } from "../_lib/admin-route";
+import { assertLanguageExists } from "../_lib/language";
 
 /**
  * `GET /api/v1/admin/curriculum` (spec 26 §5) — one cursor-paginated page of
@@ -39,13 +39,7 @@ export async function GET(request: Request): Promise<Response> {
         Object.fromEntries(new URL(req.url).searchParams),
       );
 
-      const languages = await getLanguages();
-      if (!languages.some((language) => language.id === query.language)) {
-        throw new AppError(
-          "ITEM_NOT_FOUND",
-          "That language could not be found.",
-        );
-      }
+      await assertLanguageExists(query.language);
 
       const [levels, groups] = await Promise.all([
         query.level ? getLevelsByLanguage(query.language) : null,

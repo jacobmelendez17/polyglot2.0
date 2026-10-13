@@ -13,9 +13,9 @@ import type { AdminReviewRow } from "@/domains/admin";
 import { describeAdminError } from "../admin-api-error";
 import { AdminProblem, blockingError } from "../admin-problem";
 import { CursorPagination } from "../cursor-pagination";
+import { LanguageFilter } from "../language-filter";
 import { useAdminPermissions } from "../use-admin-permissions";
 import { ReviewDataTable } from "./review-data-table";
-import { ReviewFilters } from "./review-filters";
 import { ReviewListSkeleton } from "./review-list-skeleton";
 import { ReviewPublishDialog } from "./review-publish-dialog";
 import { useReviewList } from "./use-review-list";
@@ -67,7 +67,7 @@ export function ReviewListScreen({
   return (
     <ResourceContextProvider value="review">
       <ListContextProvider value={list.listContext}>
-        <ReviewFilters languages={languages} />
+        <LanguageFilter languages={languages} label="Filter review queue" />
         {problem ? (
           <AdminProblem
             error={problem}

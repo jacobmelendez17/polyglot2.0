@@ -1,41 +1,39 @@
-import Link from "next/link";
 import type { Metadata } from "next";
 import { forbidden } from "next/navigation";
 
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
-import { CreateLevelDialog } from "@/components/admin/curriculum/create-level-dialog";
-import { CurriculumStatusBadge } from "@/components/admin/curriculum/curriculum-status-badge";
+import { AdminLevelsListApp } from "@/components/admin/react-admin/levels/levels-list-app";
 import { canManageCurriculum } from "@/domains/admin";
-import {
-  getLanguages,
-  getLevelsByLanguage,
-  getLevelContentCounts,
-} from "@/domains/curriculum/server";
+import { getLanguages } from "@/domains/curriculum/server";
 import { requireUser } from "@/domains/users/server";
+import { env } from "@/lib/env";
 
 export const metadata: Metadata = {
   title: "Levels — Polyglot Admin",
 };
 
-type SearchParams = { language?: string };
-
 /**
- * Spec 11 rewrite's "Levels Management" list — shows every configured
- * level for a language with its live curriculum-validation counts, so an
- * admin can see at a glance which levels are publish-ready without opening
- * each one (§"Show curriculum counts").
+ * Spec 11 rewrite's "Levels Management" list — every configured level for a
+ * language with its live curriculum counts, so an admin can see at a glance
+ * what each holds without opening it (§"Show curriculum counts"). A React Admin
+ * screen since spec 26 Unit 4.
+ *
+ * This page keeps only the server-side guard and the languages. The levels
+ * themselves — with their counts, the "Add level" command, and the language
+ * switch — are fetched by the screen from `/api/v1/admin/levels`, which reads
+ * `?language=` from the real URL. Each level links to its detail page, where
+ * the specialist `LevelItemBoard` stays.
+ *
+ * Visible to anyone who can author, so a writer can see the levels they write
+ * into; adding or editing one requires `canPublishCurriculum`, which the
+ * endpoints re-check from the database role on every call and which the screen
+ * never infers from what rendered.
  */
-export default async function AdminLevelsPage({
-  searchParams,
-}: {
-  searchParams: Promise<SearchParams>;
-}) {
+export default async function AdminLevelsPage() {
   const user = await requireUser();
   if (!canManageCurriculum(user)) forbidden();
 
-  const params = await searchParams;
   const languages = await getLanguages();
-
   if (languages.length === 0) {
     return (
       <div>
@@ -50,59 +48,19 @@ export default async function AdminLevelsPage({
     );
   }
 
-  const languageId = languages.some((l) => l.id === params.language)
-    ? params.language!
-    : languages[0]!.id;
-  const levels = await getLevelsByLanguage(languageId);
-  const contentCounts = await Promise.all(
-    levels.map((level) => getLevelContentCounts(level.id)),
-  );
-
   return (
     <div>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <AdminPageHeader
-          title="Levels"
-          description="Manage level properties, ordering, and publication."
-        />
-        <CreateLevelDialog languageId={languageId} />
-      </div>
-
-      {levels.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          No levels yet for this language.
-        </p>
-      ) : (
-        <ul className="space-y-3">
-          {levels.map((level, index) => (
-            <li
-              key={level.id}
-              className="rounded-xl border border-border bg-card p-4"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <Link
-                    href={`/admin/curriculum/levels/${level.id}`}
-                    className="font-semibold text-foreground hover:underline"
-                  >
-                    Level {level.levelNumber}
-                    {level.name ? ` — ${level.name}` : ""}
-                  </Link>
-                  <div className="mt-1.5">
-                    <CurriculumStatusBadge status={level.status} />
-                  </div>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  {contentCounts[index]!.vocabularyItems} vocabulary ·{" "}
-                  {contentCounts[index]!.grammarItems} grammar ·{" "}
-                  {contentCounts[index]!.vocabularyGroups} group
-                  {contentCounts[index]!.vocabularyGroups === 1 ? "" : "s"}
-                </p>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+      <AdminPageHeader
+        title="Levels"
+        description="Manage level properties, ordering, and publication."
+      />
+      <AdminLevelsListApp
+        signInPath={env.NEXT_PUBLIC_CLERK_SIGN_IN_URL}
+        languages={languages.map((language) => ({
+          id: language.id,
+          name: language.name,
+        }))}
+      />
     </div>
   );
 }

@@ -3,20 +3,25 @@
 import { FilterForm, SelectInput, required } from "react-admin";
 
 /**
- * The language switch — shown only when there is more than one language to
- * switch between. The queue has no other filter, and a lone-option control
- * that can never change anything is just noise. The `?language=` URL
- * parameter works either way.
+ * The language switch for a list read one language at a time (the review
+ * queue, the levels list) — shown only when there is more than one language to
+ * switch between. A lone-option control that can never change anything is just
+ * noise; the `?language=` URL parameter works either way.
+ *
+ * `label` names the search region for assistive technology
+ * ("Filter review queue"), since the control itself is just "Language".
  */
-export function ReviewFilters({
+export function LanguageFilter({
   languages,
+  label,
 }: {
   languages: { id: string; name: string }[];
+  label: string;
 }) {
   if (languages.length < 2) return null;
 
   return (
-    <div role="search" aria-label="Filter review queue">
+    <div role="search" aria-label={label}>
       <FilterForm
         filters={[
           <SelectInput
@@ -24,8 +29,7 @@ export function ReviewFilters({
             source="language"
             label="Language"
             choices={languages}
-            // Required, so there is no "all languages" option: the queue is
-            // read one language at a time.
+            // Required, so there is no "all languages" option.
             validate={required()}
             alwaysOn
             helperText={false}

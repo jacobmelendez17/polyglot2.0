@@ -351,6 +351,193 @@ describe("createAdminDataProvider", () => {
     });
   });
 
+  describe("getList('levels')", () => {
+    const LEVELS = {
+      items: [
+        {
+          id: "level-1",
+          levelNumber: 1,
+          name: "Basics",
+          status: "published" as const,
+          cefrLevel: "A1" as const,
+          vocabularyItems: 45,
+          grammarItems: 12,
+          vocabularyGroups: 4,
+        },
+      ],
+      truncated: false,
+    };
+    const LIST_PARAMS = {
+      pagination: { page: 1, perPage: 100 },
+      sort: { field: "level_number", order: "ASC" as const },
+      filter: { language: "lang-1", cursor: undefined },
+    };
+
+    function levelsProvider(answer: unknown = LEVELS) {
+      const request = vi.fn<RequestFn>(async () => answer as never);
+      return {
+        request,
+        provider: createAdminDataProvider({ request: request as never }),
+      };
+    }
+
+    it("asks the levels endpoint for the language, and for nothing else", async () => {
+      const { provider, request } = levelsProvider();
+      await provider.getList("levels", LIST_PARAMS);
+      expect(request.mock.calls[0]?.[0]).toBe("/levels?language=lang-1");
+    });
+
+    it("answers the one bounded response as a list whose length is its total", async () => {
+      const { provider } = levelsProvider();
+      const result = await provider.getList("levels", LIST_PARAMS);
+      expect(result.data).toEqual(LEVELS.items);
+      expect(result.total).toBe(1);
+      expect(result).not.toHaveProperty("pageInfo");
+      expect(result.meta).toEqual({ truncated: false });
+    });
+
+    it("passes on that the response was cut short", async () => {
+      const { provider } = levelsProvider({ ...LEVELS, truncated: true });
+      const result = await provider.getList("levels", LIST_PARAMS);
+      expect(result.meta).toEqual({ truncated: true });
+    });
+
+    it.each([
+      ["another sort", { sort: { field: "name", order: "ASC" as const } }],
+      ["a page jump", { pagination: { page: 2, perPage: 100 } }],
+      ["a cursor", { filter: { language: "lang-1", cursor: "tok" } }],
+      ["a filter", { filter: { language: "lang-1", status: "draft" } }],
+    ])("refuses %s without calling the server", async (_name, override) => {
+      const { provider, request } = levelsProvider();
+      const error = await rejection(
+        provider.getList("levels", { ...LIST_PARAMS, ...override }),
+      );
+      expect(error.kind).toBe("unsupported");
+      expect(request).not.toHaveBeenCalled();
+    });
+
+    it("propagates a denial instead of returning an empty list", async () => {
+      const denial = new AdminApiError("FORBIDDEN", 403);
+      const provider = createAdminDataProvider({
+        request: (async () => {
+          throw denial;
+        }) as never,
+      });
+      await expect(provider.getList("levels", LIST_PARAMS)).rejects.toBe(
+        denial,
+      );
+    });
+  });
+
+  describe("createLevel and updateLevel (explicit commands)", () => {
+    const CREATE = {
+      languageId: "11111111-1111-4111-8111-111111111111",
+      levelNumber: 4,
+      name: "Colors",
+      idempotencyKey: "22222222-2222-4222-8222-222222222222",
+    };
+    const LEVEL_ID = "33333333-3333-4333-8333-333333333333";
+    const UPDATE = {
+      name: null,
+      status: "published" as const,
+      idempotencyKey: "44444444-4444-4444-8444-444444444444",
+    };
+
+    function commandProvider(answer: unknown) {
+      const request = vi.fn<RequestFn>(async () => answer as never);
+      return {
+        request,
+        provider: createAdminDataProvider({ request: request as never }),
+      };
+    }
+
+    it("posts exactly the create command — no actor, no role — to the collection", async () => {
+      const { provider, request } = commandProvider({ levelId: LEVEL_ID });
+
+      await expect(provider.createLevel(CREATE)).resolves.toEqual({
+        levelId: LEVEL_ID,
+      });
+
+      const [path, , options] = request.mock.calls[0] as [
+        string,
+        unknown,
+        { body: unknown; method?: string },
+      ];
+      expect(path).toBe("/levels");
+      expect(options.body).toEqual(CREATE);
+      // A POST (the client's default), not a PATCH.
+      expect(options.method).toBeUndefined();
+    });
+
+    it("patches exactly the fields it was given, to the one level named in the path", async () => {
+      const { provider, request } = commandProvider({ levelId: LEVEL_ID });
+
+      await expect(provider.updateLevel(LEVEL_ID, UPDATE)).resolves.toEqual({
+        levelId: LEVEL_ID,
+      });
+
+      const [path, , options] = request.mock.calls[0] as [
+        string,
+        unknown,
+        { body: unknown; method: string },
+      ];
+      expect(path).toBe(`/levels/${LEVEL_ID}`);
+      expect(options.method).toBe("PATCH");
+      // `null` survives (it means "clear"); nothing is added (no levelId, no actor).
+      expect(options.body).toEqual(UPDATE);
+      expect(options.body).not.toHaveProperty("levelId");
+      expect(options.body).not.toHaveProperty("languageId");
+    });
+
+    it("encodes the id so it can only ever be one path segment", async () => {
+      const { provider, request } = commandProvider({ levelId: "x" });
+      await provider.updateLevel("a/b?c", UPDATE);
+      expect(request.mock.calls[0]?.[0]).toBe("/levels/a%2Fb%3Fc");
+    });
+
+    it("validates each answer against the contract", async () => {
+      const { provider, request } = commandProvider({ levelId: LEVEL_ID });
+      await provider.createLevel(CREATE);
+      await provider.updateLevel(LEVEL_ID, UPDATE);
+      for (const call of request.mock.calls) {
+        const schema = call[1] as {
+          safeParse: (v: unknown) => { success: boolean };
+        };
+        expect(schema.safeParse({ levelId: LEVEL_ID }).success).toBe(true);
+        expect(schema.safeParse({}).success).toBe(false);
+      }
+    });
+
+    it("propagates a refusal unchanged, for the form to explain", async () => {
+      const refusal = new AdminApiError("VALIDATION_FAILED", 422, undefined, {
+        serverMessage: "Level 4 already exists for this language.",
+      });
+      const provider = createAdminDataProvider({
+        request: (async () => {
+          throw refusal;
+        }) as never,
+      });
+      await expect(provider.createLevel(CREATE)).rejects.toBe(refusal);
+      await expect(provider.updateLevel(LEVEL_ID, UPDATE)).rejects.toBe(
+        refusal,
+      );
+    });
+
+    it("is not reachable through React Admin's generic mutations", async () => {
+      const { provider, request } = commandProvider({});
+      for (const attempt of [
+        provider.update("levels", { id: "x", data: {}, previousData: {} }),
+        provider.create("levels", { data: {} }),
+        provider.delete("levels", { id: "x" }),
+        provider.updateMany("levels", { ids: ["x"], data: {} }),
+        provider.deleteMany("levels", { ids: ["x"] }),
+      ]) {
+        expect((await rejection(attempt)).kind).toBe("unsupported");
+      }
+      expect(request).not.toHaveBeenCalled();
+    });
+  });
+
   describe("everything not whitelisted", () => {
     it("rejects an unknown resource with a typed UNSUPPORTED_OPERATION, never a guess", async () => {
       const { provider, request } = providerWith();

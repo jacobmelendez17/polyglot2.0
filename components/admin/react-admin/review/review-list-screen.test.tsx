@@ -10,6 +10,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AdminApiError } from "../admin-api-error";
+import { DISMISSALS } from "../test-support/dialog-dismissals";
 import { navigation } from "../test-support/next-navigation";
 import {
   TWO_LANGUAGES,
@@ -39,32 +40,6 @@ beforeEach(() => {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const table = () => screen.findByRole("table", { name: "Review queue" });
-
-/**
- * Ways to dismiss a dialog without pressing one of its buttons. They are aimed
- * at the dialog itself, not at whatever has focus: the confirm button is
- * disabled mid-request, so focus has left it, and a keystroke sent "to the
- * page" would never reach the dialog — a test of the in-flight guard would
- * then pass for the wrong reason.
- */
-const DISMISSALS: [string, () => void][] = [
-  [
-    "pressing Escape",
-    () =>
-      fireEvent.keyDown(screen.getByRole("dialog"), {
-        key: "Escape",
-        code: "Escape",
-      }),
-  ],
-  [
-    "clicking outside it",
-    () => {
-      const outside = document.querySelector(".MuiDialog-container")!;
-      fireEvent.mouseDown(outside);
-      fireEvent.click(outside);
-    },
-  ],
-];
 
 /** One new item and one edit, with every field the table shows. */
 const MIXED = {

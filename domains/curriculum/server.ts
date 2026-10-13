@@ -26,6 +26,7 @@ export {
   getLevelItems,
   getLevelsByLanguage,
   getLevelContentCounts,
+  getLevelContentCountsByLanguage,
   getLevelContentSummary,
   getGrammarContentBlocks,
   getItemExamples,

@@ -155,6 +155,8 @@ describe("GET /api/v1/admin/me — payload", () => {
           overview: ["show"],
           curriculum: ["list"],
           review: ["list"],
+          // A writer reads levels; creating and editing them is Admin-only.
+          levels: ["list"],
         },
       },
     });

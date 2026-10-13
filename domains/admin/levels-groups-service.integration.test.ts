@@ -8,6 +8,9 @@ import {
   getVocabularyGroupsByLanguage,
 } from "@/domains/curriculum/curriculum-repository";
 
+import { languages } from "@/db/schema";
+import { AdminError } from "@/lib/errors/admin-errors";
+
 import { getAuditEvents } from "./audit-repository";
 import {
   createLevel,
@@ -40,6 +43,108 @@ describe("createLevel", () => {
         limit: 10,
       });
       expect(audit.items).toHaveLength(1);
+    });
+  });
+});
+
+describe("createLevel — a level number is used once per language (spec 26 Unit 4)", () => {
+  it("refuses a number the language already has, in plain words, and records nothing", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      const first = await createLevel(tx, {
+        languageId,
+        levelNumber: 95,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+      });
+
+      const attempt = createLevel(tx, {
+        languageId,
+        levelNumber: 95,
+        name: "Second try",
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+      });
+
+      await expect(attempt).rejects.toBeInstanceOf(AdminError);
+      await expect(attempt).rejects.toMatchObject({
+        code: "CURRICULUM_VALIDATION_FAILED",
+        message: "Level 95 already exists for this language.",
+      });
+      // Exactly one level 95, and only the first creation was audited.
+      const withNumber = (await getLevelsByLanguage(tx, languageId)).filter(
+        (level) => level.levelNumber === 95,
+      );
+      expect(withNumber.map((level) => level.id)).toEqual([first.levelId]);
+      const audit = await getAuditEvents(tx, {
+        action: "LEVEL_CREATED",
+        limit: 50,
+      });
+      expect(
+        audit.items.filter(
+          (event) =>
+            (event.afterData as { levelNumber?: number } | null)
+              ?.levelNumber === 95,
+        ),
+      ).toHaveLength(1);
+    });
+  });
+
+  it("still allows the same number in another language", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      const [other] = await tx
+        .insert(languages)
+        .values({ code: "xx-LVL", slug: "xx-lvl", name: "Other" })
+        .returning({ id: languages.id });
+      await createLevel(tx, {
+        languageId,
+        levelNumber: 94,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+      });
+
+      await expect(
+        createLevel(tx, {
+          languageId: other!.id,
+          levelNumber: 94,
+          actorUserId: DEVELOPER_ID,
+          idempotencyKey: crypto.randomUUID(),
+        }),
+      ).resolves.toHaveProperty("levelId");
+    });
+  });
+
+  it("lets a failed attempt's idempotency key be used again once the number is fixed", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      await createLevel(tx, {
+        languageId,
+        levelNumber: 93,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+      });
+      const key = crypto.randomUUID();
+
+      await expect(
+        createLevel(tx, {
+          languageId,
+          levelNumber: 93,
+          actorUserId: DEVELOPER_ID,
+          idempotencyKey: key,
+        }),
+      ).rejects.toBeInstanceOf(AdminError);
+
+      // The refusal rolled back with the key; fixing the number and sending
+      // the same key again is a first attempt, not a mismatched replay.
+      await expect(
+        createLevel(tx, {
+          languageId,
+          levelNumber: 92,
+          actorUserId: DEVELOPER_ID,
+          idempotencyKey: key,
+        }),
+      ).resolves.toHaveProperty("levelId");
     });
   });
 });
@@ -98,6 +203,86 @@ describe("updateLevel", () => {
         limit: 10,
       });
       expect(audit.items).toHaveLength(1);
+    });
+  });
+});
+
+describe("updateLevel — what it refuses, and what null and omitted mean (spec 26 Unit 4)", () => {
+  it("refuses a level that does not exist, and writes no audit event for it", async () => {
+    await withTestTransaction(async (tx) => {
+      await seedTestFixtures(tx);
+      const ghost = "99999999-9999-4999-8999-999999999999";
+
+      const attempt = updateLevel(tx, {
+        levelId: ghost,
+        name: "Nobody home",
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+      });
+
+      await expect(attempt).rejects.toMatchObject({
+        code: "CURRICULUM_ITEM_NOT_FOUND",
+        message: "That level could not be found.",
+      });
+      const audit = await getAuditEvents(tx, {
+        action: "LEVEL_UPDATED",
+        resourceId: ghost,
+        limit: 10,
+      });
+      expect(audit.items).toHaveLength(0);
+    });
+  });
+
+  it("clears a name or CEFR band that is sent as null, and leaves one that is omitted alone", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      const { levelId } = await createLevel(tx, {
+        languageId,
+        levelNumber: 91 + 100,
+        name: "Keep me",
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+      });
+      const find = async () =>
+        (await getLevelsByLanguage(tx, languageId)).find(
+          (level) => level.id === levelId,
+        );
+
+      await updateLevel(tx, {
+        levelId,
+        cefrLevel: "B1",
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+      });
+      // The name was omitted: untouched. The band was set.
+      expect(await find()).toMatchObject({ name: "Keep me", cefrLevel: "B1" });
+
+      await updateLevel(tx, {
+        levelId,
+        status: "pending",
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+      });
+      // Neither field was sent: both untouched, only the status moved.
+      expect(await find()).toMatchObject({
+        name: "Keep me",
+        cefrLevel: "B1",
+        status: "pending",
+      });
+
+      await updateLevel(tx, {
+        levelId,
+        name: null,
+        cefrLevel: null,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+      });
+      // `null` is an instruction to clear.
+      expect(await find()).toMatchObject({
+        name: null,
+        cefrLevel: null,
+        status: "pending",
+      });
     });
   });
 });

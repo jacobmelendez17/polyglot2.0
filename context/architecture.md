@@ -503,6 +503,39 @@ data-integrity rule stays in `domains/*`.
   retry: resending would apply an out-of-date view over whatever changed. A
   command's success marks every query prefix it made stale (`review`,
   `curriculum`, `overview`); the screens are not told what changed, only that it did.
+- **A form's request can change between attempts, so its key follows the
+  _request_** (spec 26 Unit 4; `useIntentKey`). The server forgets a key whose
+  transaction rolled back and remembers one whose transaction committed, so:
+  retrying an _identical_ failed request reuses its key (if it did get through,
+  the stored result answers it); a _changed_ request gets a new key (the old one
+  would be refused as "same key, different data"); and a request that
+  _succeeded_ spends its key (reusing it would be answered from the stored
+  result without doing anything).
+- **Commands on one named resource are `PATCH /api/v1/admin/<resource>/[id]`**
+  (Unit 4's `levels/[levelId]`). The `[id]` is read and validated _after_
+  authentication and authorization, like the body, so someone who may not change
+  the resource learns nothing about what a valid id looks like, and nothing in
+  the body can name another resource (strict schema). A partial update's
+  contract says what the two ways of not giving a value mean: a field
+  **omitted** is left alone, a nullable field sent as **`null`** is cleared. A
+  form therefore sends **only the fields a person changed**: where a resource has
+  no version to check (a level has none, and Unit 4 changes no schema), saving
+  is last-write-wins, and sending just the changed fields is what keeps an edit
+  to one field from overwriting another that someone else changed meanwhile.
+- **A level's `published` status gates what learners can reach** — the level
+  page, lessons, official decks, and an item's own page all require it — so
+  setting it, or taking it away, is confirmed first (a plain Save never
+  publishes implicitly), and `updateLevel` rate-limits it as a publication.
+  Level counts are information only: a level holds any number of any kind of
+  item and an empty one can be published. The list reads every level's counts in
+  one grouped query (`getLevelContentCountsByLanguage`), which counts exactly
+  what the per-level function counts.
+- **Bounded reference lists.** A list whose size the domain bounds by nature (a
+  language's levels) is one bounded response — no cursor — capped at a named
+  maximum, with a `truncated` flag if it ever exceeds it, rather than a quiet
+  cut-off. It still uses the shared list controller for the URL-owned language,
+  the standard `ListContext`, and error handling; language-only lists share
+  `language-list-params.ts` and `LanguageFilter`.
 
 ## `media`
 

@@ -13,9 +13,16 @@ import type {
 import {
   ADMIN_OVERVIEW_RECORD_ID,
   adminCurriculumPageSchema,
+  adminLevelCreateResultSchema,
+  adminLevelListSchema,
+  adminLevelUpdateResultSchema,
   adminOverviewSchema,
   adminReviewPageSchema,
   adminReviewPublishResultSchema,
+  type AdminLevelCreateRequest,
+  type AdminLevelCreateResult,
+  type AdminLevelUpdateRequest,
+  type AdminLevelUpdateResult,
   type AdminReviewPublishRequest,
   type AdminReviewPublishResult,
 } from "@/domains/admin";
@@ -23,6 +30,7 @@ import {
 import { requestAdminApi } from "./admin-api-client";
 import { AdminApiError } from "./admin-api-error";
 import { buildCurriculumListQuery } from "./curriculum/curriculum-list-query";
+import { buildLevelsListQuery } from "./levels/levels-list-query";
 import { buildReviewListQuery } from "./review/review-list-query";
 
 type AdminRequest = typeof requestAdminApi;
@@ -38,6 +46,18 @@ export type AdminDataProvider = DataProvider & {
   publishReviewItem: (
     input: AdminReviewPublishRequest,
   ) => Promise<AdminReviewPublishResult>;
+  /** Adds a level (Admin only). A level number is used once per language. */
+  createLevel: (
+    input: AdminLevelCreateRequest,
+  ) => Promise<AdminLevelCreateResult>;
+  /**
+   * Changes one level's name, status, or CEFR band (Admin only). A field left
+   * out is left alone; `name` and `cefrLevel` sent as `null` are cleared.
+   */
+  updateLevel: (
+    levelId: string,
+    input: AdminLevelUpdateRequest,
+  ) => Promise<AdminLevelUpdateResult>;
 };
 
 /** A cursor page, as React Admin's *partial pagination*: no total, and the server's cursors passed through untouched. */
@@ -129,6 +149,20 @@ export function createAdminDataProvider({
           ),
         );
       }
+      if (resource === "levels") {
+        const list = await request(
+          `/levels?${buildLevelsListQuery(params)}`,
+          adminLevelListSchema,
+          { signal: params.signal },
+        );
+        // One bounded response, not a page: its length *is* the total, and
+        // there is no cursor to hand on. `truncated` rides along in `meta`.
+        return {
+          data: list.items as GetListResult["data"],
+          total: list.items.length,
+          meta: { truncated: list.truncated },
+        };
+      }
       return unsupported(resource, "getList");
     },
 
@@ -138,6 +172,19 @@ export function createAdminDataProvider({
       return request("/review/publish", adminReviewPublishResultSchema, {
         body: input,
       });
+    },
+
+    createLevel(input) {
+      // The body is exactly the command: no actor, no role.
+      return request("/levels", adminLevelCreateResultSchema, { body: input });
+    },
+
+    updateLevel(levelId, input) {
+      return request(
+        `/levels/${encodeURIComponent(levelId)}`,
+        adminLevelUpdateResultSchema,
+        { body: input, method: "PATCH" },
+      );
     },
 
     async getMany(resource): Promise<GetManyResult> {

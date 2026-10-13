@@ -258,6 +258,137 @@ export type AdminReviewPublishResult = z.infer<
   typeof adminReviewPublishResultSchema
 >;
 
+/* -------------------------------------------------------------------------- */
+/* Levels (spec 26 Unit 4)                                                    */
+/* -------------------------------------------------------------------------- */
+
+/** The band an item page shows in its hero (spec 18); mirrors the `cefr_level` enum. */
+export const ADMIN_CEFR_LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"] as const;
+
+/**
+ * A language holds a handful of levels, so the list is one bounded response,
+ * not a paged one. The bound exists anyway: a list endpoint is never
+ * unbounded, and if a language ever exceeded it the response says so
+ * (`truncated`) rather than quietly dropping rows.
+ */
+export const LEVEL_LIST_MAX = 100;
+
+/**
+ * The create command's only upper limit is what PostgreSQL's `integer` column
+ * can hold — which is precisely what the Server Action it replaces accepted (it
+ * had no maximum, so a huge number reached the database and failed there).
+ * The *learner-facing* range is narrower (`LEVEL_NUMBER_MAX` in
+ * `domains/curriculum`, 1–50, spec 10): an Admin can create a level that no
+ * learner can open. Tightening that is a rule change, not a presentation
+ * change, so it is left for the owner (see progress-tracker.md).
+ */
+const LEVEL_NUMBER_COLUMN_MAX = 2_147_483_647;
+
+/** A name is optional; when present it is trimmed and not empty. The cap is generous — the legacy action had none beyond the request-size limit. */
+const levelNameSchema = z.string().trim().min(1).max(200);
+
+/** The one ordering of the levels list: by level number. Any other sort is refused, as for the other lists. */
+export const LEVEL_LIST_SORT = {
+  field: "level_number",
+  order: "ASC",
+} as const;
+
+/**
+ * `GET /api/v1/admin/levels` query string. `language` is required (levels are
+ * read one language at a time) and the schema is `.strict()`: a parameter this
+ * endpoint does not implement is a 422, never silently ignored.
+ */
+export const adminLevelListQuerySchema = z
+  .object({ language: uuidLike })
+  .strict();
+export type AdminLevelListQuery = z.infer<typeof adminLevelListQuerySchema>;
+
+/**
+ * One level and what it holds. The counts are information — a level holds any
+ * number of any kind of item, and publishing it is an Admin's decision, not a
+ * threshold being met (spec 17; no 48/12 gate).
+ */
+export const adminLevelRowSchema = z.object({
+  id: z.string().min(1),
+  levelNumber: z.number().int(),
+  name: z.string().nullable(),
+  status: z.enum(CURRICULUM_STATUSES),
+  cefrLevel: z.enum(ADMIN_CEFR_LEVELS).nullable(),
+  vocabularyItems: z.number().int().nonnegative(),
+  grammarItems: z.number().int().nonnegative(),
+  vocabularyGroups: z.number().int().nonnegative(),
+});
+export type AdminLevelRow = z.infer<typeof adminLevelRowSchema>;
+
+export const adminLevelListSchema = z.object({
+  items: z.array(adminLevelRowSchema),
+  /** More levels exist than `LEVEL_LIST_MAX`; `items` is the first of them, by level number. */
+  truncated: z.boolean(),
+});
+export type AdminLevelList = z.infer<typeof adminLevelListSchema>;
+
+/**
+ * `POST /api/v1/admin/levels` — Admin only. A new level starts as a draft with
+ * nothing attached; content is added afterwards. Same rules as the Server
+ * Action this replaces: a whole number of at least 1, and an optional name.
+ */
+export const adminLevelCreateRequestSchema = z
+  .object({
+    languageId: uuidLike,
+    levelNumber: z.number().int().min(1).max(LEVEL_NUMBER_COLUMN_MAX),
+    name: levelNameSchema.nullable().optional(),
+    idempotencyKey: uuidLike,
+  })
+  .strict();
+export type AdminLevelCreateRequest = z.infer<
+  typeof adminLevelCreateRequestSchema
+>;
+
+export const adminLevelCreateResultSchema = z.object({
+  levelId: z.string().min(1),
+});
+export type AdminLevelCreateResult = z.infer<
+  typeof adminLevelCreateResultSchema
+>;
+
+/**
+ * `PATCH /api/v1/admin/levels/[levelId]` — Admin only. A field that is
+ * **omitted** is left alone; `name` and `cefrLevel` set to **`null`** are
+ * cleared; `status` cannot be cleared. At least one field must be present: an
+ * update that changes nothing is a mistake, not a request.
+ *
+ * The level being changed is the one in the URL, and nothing in the body can
+ * name another (`.strict()`).
+ */
+export const adminLevelUpdateRequestSchema = z
+  .object({
+    name: levelNameSchema.nullable().optional(),
+    status: z.enum(CURRICULUM_STATUSES).optional(),
+    cefrLevel: z.enum(ADMIN_CEFR_LEVELS).nullable().optional(),
+    idempotencyKey: uuidLike,
+  })
+  .strict()
+  .refine(
+    (body) =>
+      body.name !== undefined ||
+      body.status !== undefined ||
+      body.cefrLevel !== undefined,
+    { message: "Nothing to change." },
+  );
+export type AdminLevelUpdateRequest = z.infer<
+  typeof adminLevelUpdateRequestSchema
+>;
+
+export const adminLevelUpdateResultSchema = z.object({
+  levelId: z.string().min(1),
+});
+export type AdminLevelUpdateResult = z.infer<
+  typeof adminLevelUpdateResultSchema
+>;
+
+/** The `[levelId]` path segment. */
+export const adminLevelPathSchema = z.object({ levelId: uuidLike });
+
 /**
  * Error codes this adapter can answer with, and the HTTP status each maps
  * to (spec 26 §3 "API errors"). Domain errors (`AppError`/`AdminError`)

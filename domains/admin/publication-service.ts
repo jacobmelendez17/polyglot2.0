@@ -1,4 +1,5 @@
 import type { DbClient } from "@/db/client";
+import { isUniqueViolationOnConstraint } from "@/db/postgres-errors";
 import {
   archiveLearningItem as repoArchiveLearningItem,
   attemptPermanentDelete,
@@ -41,7 +42,10 @@ import {
   updateVocabularyDictionaryFields,
   updateVocabularyGroup as repoUpdateVocabularyGroup,
 } from "@/domains/curriculum/curriculum-mutation-repository";
-import { getGrammarContentBlocks } from "@/domains/curriculum/curriculum-repository";
+import {
+  getGrammarContentBlocks,
+  getLevelById,
+} from "@/domains/curriculum/curriculum-repository";
 import type { CurriculumGrammarContentBlock } from "@/domains/curriculum/curriculum-db-types";
 import { findDuplicateCandidates } from "@/domains/curriculum/curriculum-duplicate-detection";
 import type {
@@ -1223,42 +1227,61 @@ export type CreateLevelServiceInput = CreateLevelInput & {
   idempotencyKey: string;
 };
 
+/**
+ * A level number is used once per language — the database's own unique
+ * constraint is the authority, not a "check, then insert" that two Admins could
+ * race past. When it fires, the person gets an answer they can act on (pick
+ * another number) instead of a raw database failure. The refusal rolls back
+ * with the idempotency key, so the same key is free for the corrected attempt.
+ */
+const LEVEL_NUMBER_CONSTRAINT = "levels_language_id_level_number_key";
+
 export async function createLevel(
   db: DbClient,
   input: CreateLevelServiceInput,
 ): Promise<{ levelId: string }> {
-  return withIdempotency(
-    db,
-    {
-      userId: input.actorUserId,
-      operation: "admin.curriculum.create-level",
-      key: input.idempotencyKey,
-      payload: {
-        languageId: input.languageId,
-        levelNumber: input.levelNumber,
-        name: input.name,
-      },
-    },
-    async (tx) => {
-      const levelId = await repoCreateLevel(tx, {
-        languageId: input.languageId,
-        levelNumber: input.levelNumber,
-        name: input.name,
-      });
-      await recordAuditEvent(tx, {
-        actorUserId: input.actorUserId,
-        action: "LEVEL_CREATED",
-        resourceType: "level",
-        resourceId: levelId,
-        afterData: {
+  try {
+    return await withIdempotency(
+      db,
+      {
+        userId: input.actorUserId,
+        operation: "admin.curriculum.create-level",
+        key: input.idempotencyKey,
+        payload: {
           languageId: input.languageId,
           levelNumber: input.levelNumber,
           name: input.name,
         },
-      });
-      return { levelId };
-    },
-  );
+      },
+      async (tx) => {
+        const levelId = await repoCreateLevel(tx, {
+          languageId: input.languageId,
+          levelNumber: input.levelNumber,
+          name: input.name,
+        });
+        await recordAuditEvent(tx, {
+          actorUserId: input.actorUserId,
+          action: "LEVEL_CREATED",
+          resourceType: "level",
+          resourceId: levelId,
+          afterData: {
+            languageId: input.languageId,
+            levelNumber: input.levelNumber,
+            name: input.name,
+          },
+        });
+        return { levelId };
+      },
+    );
+  } catch (error) {
+    if (isUniqueViolationOnConstraint(error, LEVEL_NUMBER_CONSTRAINT)) {
+      throw new AdminError(
+        "CURRICULUM_VALIDATION_FAILED",
+        `Level ${input.levelNumber} already exists for this language.`,
+      );
+    }
+    throw error;
+  }
 }
 
 export type UpdateLevelServiceInput = UpdateLevelInput & {
@@ -1290,6 +1313,15 @@ export async function updateLevel(
       },
     },
     async (tx) => {
+      // The write below is an `UPDATE ... WHERE id = ?`, which changes nothing —
+      // and says nothing — for an id that is not there; the audit event after
+      // it would then record an edit to a level that does not exist.
+      if (!(await getLevelById(tx, input.levelId))) {
+        throw new AdminError(
+          "CURRICULUM_ITEM_NOT_FOUND",
+          "That level could not be found.",
+        );
+      }
       await repoUpdateLevel(tx, input.levelId, {
         name: input.name,
         status: input.status,

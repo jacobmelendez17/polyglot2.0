@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, count, eq, inArray, sql } from "drizzle-orm";
 
 import {
   curriculumItemDrafts,
@@ -12,8 +12,10 @@ import {
 import { getAuditEvents } from "@/domains/admin/audit-repository";
 import {
   createItem,
+  createLevel,
   publishItem,
   updateItem,
+  updateLevel,
 } from "@/domains/admin/publication-service";
 import type { UserRole } from "@/domains/users";
 
@@ -465,5 +467,258 @@ export async function countE2EPublishAudits(
       limit: 50,
     });
     return page.items.length;
+  });
+}
+
+/* -------------------------------------------------------------------------- */
+/* Level fixtures (spec 26 Unit 4)                                            */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Throwaway levels in the E2E admin's own language, built through the *real*
+ * `createLevel` / `updateLevel` services (they take a database handle and touch
+ * nothing else) — so a fixture is exactly what an Admin's own actions would
+ * have left behind. Only empty levels are ever created here, so removing one is
+ * a plain delete.
+ */
+
+type LevelStatus = "draft" | "pending" | "published" | "archived";
+type CefrBand = "A1" | "A2" | "B1" | "B2" | "C1" | "C2";
+
+export type E2ELevel = {
+  id: string;
+  levelNumber: number;
+  name: string | null;
+  status: LevelStatus;
+  cefrLevel: CefrBand | null;
+};
+
+const levelColumns = {
+  id: levels.id,
+  levelNumber: levels.levelNumber,
+  name: levels.name,
+  status: levels.status,
+  cefrLevel: levels.cefrLevel,
+};
+
+/** The first level number in `[from, to]` the language does not use — a name taken by a crashed earlier run is skipped, not collided with. */
+async function freeLevelNumber(
+  db: Parameters<Parameters<typeof withE2EDb>[0]>[0],
+  languageId: string,
+  from: number,
+  to: number,
+): Promise<number> {
+  const used = new Set(
+    (
+      await db
+        .select({ levelNumber: levels.levelNumber })
+        .from(levels)
+        .where(eq(levels.languageId, languageId))
+    ).map((row) => row.levelNumber),
+  );
+  for (let candidate = from; candidate <= to; candidate++) {
+    if (!used.has(candidate)) return candidate;
+  }
+  throw new Error(`No free level number between ${from} and ${to}.`);
+}
+
+/**
+ * An empty level. By default the number is the first free one from 700 up —
+ * far above anything seeded; pass `from`/`to` to stay inside the learner-facing
+ * range (1-50) when a spec needs a learner to open the level's page.
+ */
+export async function seedLevel(
+  options: {
+    from?: number;
+    to?: number;
+    name?: string | null;
+    status?: LevelStatus;
+    cefrLevel?: CefrBand | null;
+  } = {},
+): Promise<E2ELevel> {
+  const actorUserId = await getE2EAdminUserId();
+  return withE2EDb(async (db) => {
+    const { languageId } = await adminScope(db);
+    const levelNumber = await freeLevelNumber(
+      db,
+      languageId,
+      options.from ?? 700,
+      options.to ?? 899,
+    );
+    const { levelId } = await createLevel(db, {
+      languageId,
+      levelNumber,
+      name: options.name ?? null,
+      actorUserId,
+      idempotencyKey: crypto.randomUUID(),
+    });
+    if (options.status !== undefined || options.cefrLevel !== undefined) {
+      await updateLevel(db, {
+        levelId,
+        status: options.status,
+        cefrLevel: options.cefrLevel,
+        actorUserId,
+        idempotencyKey: crypto.randomUUID(),
+      });
+    }
+    const [row] = await db
+      .select(levelColumns)
+      .from(levels)
+      .where(eq(levels.id, levelId))
+      .limit(1);
+    return row!;
+  });
+}
+
+/** A level as the database holds it, read independently of the code under test; `null` once it is gone. */
+export async function getE2ELevel(levelId: string): Promise<E2ELevel | null> {
+  return withE2EDb(async (db) => {
+    const [row] = await db
+      .select(levelColumns)
+      .from(levels)
+      .where(eq(levels.id, levelId))
+      .limit(1);
+    return row ?? null;
+  });
+}
+
+/** A level of the E2E admin's language by its number — how a spec finds one the UI just created. */
+export async function findE2ELevelByNumber(
+  levelNumber: number,
+): Promise<E2ELevel | null> {
+  return withE2EDb(async (db) => {
+    const { languageId } = await adminScope(db);
+    const [row] = await db
+      .select(levelColumns)
+      .from(levels)
+      .where(
+        and(
+          eq(levels.languageId, languageId),
+          eq(levels.levelNumber, levelNumber),
+        ),
+      )
+      .limit(1);
+    return row ?? null;
+  });
+}
+
+/** Every level of the E2E admin's language, by number — the ground truth for a list. */
+export async function getE2ELevels(): Promise<E2ELevel[]> {
+  return withE2EDb(async (db) => {
+    const { languageId } = await adminScope(db);
+    return db
+      .select(levelColumns)
+      .from(levels)
+      .where(eq(levels.languageId, languageId))
+      .orderBy(levels.levelNumber);
+  });
+}
+
+/**
+ * What a level holds, counted with queries of this file's own — never the
+ * application's `getLevelContentCounts`, so a screen's numbers are checked
+ * against something that does not share their bugs.
+ */
+export async function getE2ELevelCounts(levelId: string): Promise<{
+  vocabularyItems: number;
+  grammarItems: number;
+  vocabularyGroups: number;
+}> {
+  return withE2EDb(async (db) => {
+    const items = await db
+      .select({ type: learningItems.type, n: count() })
+      .from(learningItems)
+      .where(eq(learningItems.levelId, levelId))
+      .groupBy(learningItems.type);
+    const [groups] = await db
+      .select({ n: count() })
+      .from(vocabularyGroups)
+      .where(eq(vocabularyGroups.levelId, levelId));
+    return {
+      vocabularyItems: items.find((row) => row.type === "vocabulary")?.n ?? 0,
+      grammarItems: items.find((row) => row.type === "grammar")?.n ?? 0,
+      vocabularyGroups: groups?.n ?? 0,
+    };
+  });
+}
+
+/** How many audit events of `action` exist for a level — one per real change, never per click. */
+export async function countE2ELevelAudits(
+  action: "LEVEL_CREATED" | "LEVEL_UPDATED",
+  levelId: string,
+): Promise<number> {
+  return withE2EDb(async (db) => {
+    const page = await getAuditEvents(db, {
+      action,
+      resourceId: levelId,
+      limit: 50,
+    });
+    return page.items.length;
+  });
+}
+
+/** Removes levels this module (or the UI, under test) created. They must be empty. */
+export async function removeSeededLevels(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  await withE2EDb(async (db) => {
+    await db.delete(levels).where(inArray(levels.id, ids));
+  });
+}
+
+/**
+ * `howMany` empty draft levels in one statement, numbered from `from` — for a
+ * spec that needs more levels than the list's bound without paying for each
+ * one's audit trail. Returns their ids.
+ */
+export async function seedManyLevels(
+  howMany: number,
+  from: number,
+): Promise<string[]> {
+  return withE2EDb(async (db) => {
+    const { languageId } = await adminScope(db);
+    const rows = await db
+      .insert(levels)
+      .values(
+        Array.from({ length: howMany }, (_, index) => ({
+          languageId,
+          levelNumber: from + index,
+          status: "draft" as const,
+        })),
+      )
+      .returning({ id: levels.id });
+    return rows.map((row) => row.id);
+  });
+}
+
+export type EmptyLanguageFixture = {
+  languageId: string;
+  remove: () => Promise<void>;
+};
+
+/**
+ * A second language with no levels at all — for the empty state, and for proving
+ * a list never mixes languages. (`seedOtherLanguage` gives its language a level
+ * and an item, which is the opposite.) While it exists the Admin screens offer a
+ * language switch.
+ */
+export async function seedEmptyLanguage(): Promise<EmptyLanguageFixture> {
+  const unique = crypto.randomUUID().slice(0, 8);
+  return withE2EDb(async (db) => {
+    const [language] = await db
+      .insert(languages)
+      .values({
+        code: `e2e-${unique}`,
+        slug: `e2e-${unique}`,
+        name: `E2E Empty ${unique}`,
+      })
+      .returning({ id: languages.id });
+    return {
+      languageId: language!.id,
+      remove: async () => {
+        await withE2EDb(async (cleanup) => {
+          await cleanup.delete(languages).where(eq(languages.id, language!.id));
+        });
+      },
+    };
   });
 }

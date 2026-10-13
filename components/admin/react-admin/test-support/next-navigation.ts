@@ -23,12 +23,16 @@ export const navigation = {
   replace: vi.fn<(url: string, options?: unknown) => void>((url) =>
     navigation.go(url),
   ),
+  // Re-renders the server components of the current route; the stand-in only
+  // records that it was asked to.
+  refresh: vi.fn<() => void>(),
   rerender: () => {},
   reset(search = "language=lang-es", pathname = "/admin/curriculum") {
     this.pathname = pathname;
     this.search = search;
     this.push.mockClear();
     this.replace.mockClear();
+    this.refresh.mockClear();
     this.rerender = () => {};
   },
   go(url: string) {
@@ -42,6 +46,7 @@ export const nextNavigationMock = () => ({
     push: (url: string, options?: unknown) => navigation.push(url, options),
     replace: (url: string, options?: unknown) =>
       navigation.replace(url, options),
+    refresh: () => navigation.refresh(),
   }),
   usePathname: () => navigation.pathname,
   useSearchParams: () => new URLSearchParams(navigation.search),

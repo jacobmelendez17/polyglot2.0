@@ -161,6 +161,39 @@ describe("requestAdminApi", () => {
       await requestAdminApi("/x", schema, { fetcher, body: {} });
       expect(vi.mocked(fetcher).mock.calls[0]![1]!.method).toBe("POST");
     });
+
+    it("sends a command that changes one named resource as a PATCH, with the same JSON body and headers", async () => {
+      const fetcher = respond({ data: { answer: 2 } });
+      await requestAdminApi("/levels/abc", schema, {
+        fetcher,
+        method: "PATCH",
+        body: { name: "Renamed" },
+      });
+
+      const [url, init] = vi.mocked(fetcher).mock.calls[0]!;
+      expect(url).toBe("/api/v1/admin/levels/abc");
+      expect(init).toMatchObject({
+        method: "PATCH",
+        credentials: "same-origin",
+        cache: "no-store",
+        body: JSON.stringify({ name: "Renamed" }),
+      });
+      expect(init?.headers).toMatchObject({
+        "Content-Type": "application/json",
+      });
+    });
+
+    it("is a POST unless it says otherwise", async () => {
+      const fetcher = respond({ data: { answer: 1 } });
+      await requestAdminApi("/levels", schema, { fetcher, body: { a: 1 } });
+      expect(vi.mocked(fetcher).mock.calls[0]![1]!.method).toBe("POST");
+    });
+
+    it("never turns a bodiless request into a PATCH", async () => {
+      const fetcher = respond({ data: { answer: 1 } });
+      await requestAdminApi("/levels", schema, { fetcher, method: "PATCH" });
+      expect(vi.mocked(fetcher).mock.calls[0]![1]!.method).toBe("GET");
+    });
   });
 
   describe("failures that carry a reason", () => {

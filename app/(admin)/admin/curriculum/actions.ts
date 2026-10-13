@@ -9,7 +9,6 @@ import {
   bulkMoveItems,
   bulkPublishPendingItems,
   createItem,
-  createLevel,
   createVocabularyGroup,
   deleteItem,
   moveItem,
@@ -24,7 +23,6 @@ import {
   resetDictionaryFieldOverride,
   saveGrammarContentBlocks,
   updateItem,
-  updateLevel,
   updateVocabularyGroup,
 } from "@/domains/admin/server";
 import { DICTIONARY_OVERRIDABLE_FIELDS } from "@/db/schema";
@@ -629,42 +627,6 @@ const curriculumStatusActionSchema = z.enum([
   "published",
   "archived",
 ]);
-
-const createLevelActionSchema = z.object({
-  languageId: z.string().min(1),
-  levelNumber: z.number().int().min(1),
-  name: z.string().trim().min(1).nullish(),
-  idempotencyKey: z.string().min(1),
-});
-
-export async function createLevelAction(
-  input: z.infer<typeof createLevelActionSchema>,
-): Promise<ActionResult<{ levelId: string }>> {
-  return runPublishAction(async () => {
-    const parsed = createLevelActionSchema.parse(input);
-    const user = await requireUser();
-    return createLevel({ ...parsed, actorUserId: user.id });
-  });
-}
-
-const updateLevelActionSchema = z.object({
-  levelId: z.string().min(1),
-  name: z.string().trim().min(1).nullish(),
-  status: curriculumStatusActionSchema.optional(),
-  /** Spec 18 — `null` clears the band, `undefined` leaves it alone. */
-  cefrLevel: z.enum(["A1", "A2", "B1", "B2", "C1", "C2"]).nullish(),
-  idempotencyKey: z.string().min(1),
-});
-
-export async function updateLevelAction(
-  input: z.infer<typeof updateLevelActionSchema>,
-): Promise<ActionResult<void>> {
-  return runPublishAction(async () => {
-    const parsed = updateLevelActionSchema.parse(input);
-    const user = await requireUser();
-    await updateLevel({ ...parsed, actorUserId: user.id });
-  });
-}
 
 const createVocabularyGroupActionSchema = z.object({
   levelId: z.string().min(1),

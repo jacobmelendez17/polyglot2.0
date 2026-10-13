@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { languages } from "@/db/schema";
 import { VOCAB_GROUP_ID, seedTestFixtures } from "@/db/seed/test-fixtures";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
 
@@ -8,6 +9,8 @@ import {
   createLevel,
   createVocabularyGroup,
   getLevelContentCounts,
+  getLevelContentCountsByLanguage,
+  publishPendingItem,
   reorderVocabularyGroups,
   updateLevel,
   updateVocabularyGroup,
@@ -108,6 +111,134 @@ describe("Levels management", () => {
       expect(counts.vocabularyItems).toBe(1);
       expect(counts.grammarItems).toBe(1);
       expect(counts.vocabularyGroups).toBe(1);
+    });
+  });
+});
+
+describe("Level content counts for a whole language (spec 26 Unit 4)", () => {
+  /** A vocabulary item in `levelId`/`groupId`, left `pending` as `createLearningItem` makes it. */
+  async function addVocabulary(
+    tx: Parameters<Parameters<typeof withTestTransaction>[0]>[0],
+    ids: { languageId: string; levelId: string; groupId: string },
+    position: number,
+  ) {
+    return createLearningItem(tx, {
+      languageId: ids.languageId,
+      levelId: ids.levelId,
+      position,
+      lessonPriority: position,
+      type: "vocabulary",
+      fields: {
+        vocabularyGroupId: ids.groupId,
+        term: `conteo-${ids.levelId.slice(0, 4)}-${position}`,
+        primaryMeaning: "count",
+        partOfSpeech: "noun",
+        article: null,
+        definition: null,
+        pronunciation: null,
+        ipa: null,
+        context: null,
+        creatorNotes: null,
+        acceptedAnswers: [],
+      },
+    });
+  }
+
+  it("answers exactly what the per-level count answers, for every level, in any status", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+
+      const emptyId = await createLevel(tx, { languageId, levelNumber: 71 });
+      const filledId = await createLevel(tx, { languageId, levelNumber: 72 });
+      await createVocabularyGroup(tx, {
+        levelId: filledId,
+        languageId,
+        name: "First",
+      });
+      await createVocabularyGroup(tx, {
+        levelId: filledId,
+        languageId,
+        name: "Second",
+      });
+      const groupId = (
+        await getVocabularyGroupsByLanguage(tx, languageId)
+      ).find((g) => g.levelId === filledId)!.id;
+      const ids = { languageId, levelId: filledId, groupId };
+      // Three vocabulary items; one is published, so the count must not be
+      // quietly narrowed to a status (it never has been).
+      await addVocabulary(tx, ids, 1);
+      await addVocabulary(tx, ids, 2);
+      const published = await addVocabulary(tx, ids, 3);
+      await publishPendingItem(tx, published);
+      await createLearningItem(tx, {
+        languageId,
+        levelId: filledId,
+        position: 1,
+        lessonPriority: 1,
+        type: "grammar",
+        fields: {
+          title: null,
+          structure: `estructura-${filledId.slice(0, 4)}`,
+          primaryMeaning: "structure",
+          explanation: "fixture",
+          category: null,
+          creatorNotes: null,
+          requiredQuestions: [
+            { format: "translation", direction: "targetToEnglish" },
+          ],
+          acceptedAnswers: [],
+        },
+      });
+
+      const aggregate = await getLevelContentCountsByLanguage(tx, languageId);
+      const everyLevel = await getLevelsByLanguage(tx, languageId);
+      expect(everyLevel.length).toBeGreaterThanOrEqual(3);
+      for (const level of everyLevel) {
+        // A level with nothing in it has no entry; absent means zero.
+        expect(
+          aggregate.get(level.id) ?? {
+            vocabularyItems: 0,
+            grammarItems: 0,
+            vocabularyGroups: 0,
+          },
+        ).toEqual(await getLevelContentCounts(tx, level.id));
+      }
+      expect(aggregate.get(filledId)).toEqual({
+        vocabularyItems: 3,
+        grammarItems: 1,
+        vocabularyGroups: 2,
+      });
+      expect(aggregate.get(emptyId)).toBeUndefined();
+    });
+  });
+
+  it("never counts another language's levels", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      const [other] = await tx
+        .insert(languages)
+        .values({ code: "xx-OTHER", slug: "xx-other", name: "Other" })
+        .returning({ id: languages.id });
+      const theirLevel = await createLevel(tx, {
+        languageId: other!.id,
+        levelNumber: 1,
+      });
+      await createVocabularyGroup(tx, {
+        levelId: theirLevel,
+        languageId: other!.id,
+        name: "Theirs",
+      });
+
+      const ours = await getLevelContentCountsByLanguage(tx, languageId);
+      expect(ours.has(theirLevel)).toBe(false);
+
+      const theirs = await getLevelContentCountsByLanguage(tx, other!.id);
+      expect([...theirs.keys()]).toEqual([theirLevel]);
+      expect(theirs.get(theirLevel)).toEqual({
+        vocabularyItems: 0,
+        grammarItems: 0,
+        vocabularyGroups: 1,
+      });
     });
   });
 });

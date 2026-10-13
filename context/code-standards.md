@@ -340,6 +340,12 @@ hand-roll the pipeline; it is a named command that calls the existing domain
 service, takes its actor from the session (never the body), and carries an
 idempotency key. See `architecture.md`, "React Admin Console", for the full order.
 
+A command that changes part of one resource (`PATCH /api/v1/admin/<resource>/[id]`)
+states in its contract what a field that is _omitted_ means (left alone) and what
+a nullable field sent as `null` means (cleared), and the form that calls it sends
+only what a person changed. A form whose request can change between attempts
+takes its idempotency key from `useIntentKey`, never one fixed key per screen.
+
 Use meaningful HTTP status codes.
 
 Do not return raw database rows when a safe response model is more appropriate.
