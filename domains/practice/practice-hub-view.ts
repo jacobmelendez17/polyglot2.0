@@ -15,6 +15,7 @@ import {
   type PracticeGroveView,
   type PracticeHubView,
   type PracticeSkillFilter,
+  type PracticeTodayView,
   type PracticeType,
   type PracticeTypeActivity,
   type PracticeWalkView,
@@ -59,6 +60,32 @@ function toCardView(
     lastPracticedLabel: activity
       ? formatRelativeTime(activity.lastCompletedAt, now)
       : null,
+  };
+}
+
+/**
+ * Today's tally for the station train. The total counts every practice type,
+ * so a conjugation drill — which sits outside the four skills — still counts.
+ */
+function buildToday(
+  activityByType: ReadonlyMap<PracticeType, PracticeTypeActivity>,
+): PracticeTodayView {
+  const todayCount = (type: PracticeType) =>
+    activityByType.get(type)?.todaySessionCount ?? 0;
+
+  return {
+    totalSessionCount: [...activityByType.keys()].reduce(
+      (total, type) => total + todayCount(type),
+      0,
+    ),
+    skills: PRACTICE_SKILL_DEFINITIONS.map(({ skill, label, practices }) => ({
+      skill,
+      label,
+      sessionCount: practices.reduce(
+        (total, type) => total + todayCount(type),
+        0,
+      ),
+    })),
   };
 }
 
@@ -139,6 +166,7 @@ export function buildPracticeHubView(
   );
 
   return {
+    today: buildToday(activityByType),
     walk: buildWalk(),
     groves,
     features: buildFeatures(activityByType, now),

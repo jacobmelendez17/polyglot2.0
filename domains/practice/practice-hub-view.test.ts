@@ -16,6 +16,7 @@ function activity(
 ): PracticeTypeActivity {
   return {
     recentSessionCount: 1,
+    todaySessionCount: 0,
     lastCompletedAt: new Date("2026-09-21T12:00:00.000Z"),
     ...overrides,
   };
@@ -98,6 +99,37 @@ describe("buildPracticeHubView", () => {
     const conjugation = view.features.find((f) => f.id === "conjugation");
     expect(conjugation?.lastPracticedLabel).not.toBeNull();
     expect(conjugation?.tags).toContain("Preterite");
+  });
+
+  it("tallies today's sessions per skill, with conjugation in the total only", () => {
+    const { today } = buildPracticeHubView(
+      [
+        activity({ practiceType: "sentences", todaySessionCount: 2 }),
+        activity({ practiceType: "journal", todaySessionCount: 1 }),
+        activity({ practiceType: "listening", todaySessionCount: 1 }),
+        activity({ practiceType: "conjugation", todaySessionCount: 4 }),
+        // Practiced recently, but not today.
+        activity({ practiceType: "speaking", recentSessionCount: 5 }),
+      ],
+      NOW,
+    );
+
+    expect(today.skills).toEqual([
+      { skill: "listening", label: "Listening", sessionCount: 1 },
+      { skill: "speaking", label: "Speaking", sessionCount: 0 },
+      { skill: "reading", label: "Reading", sessionCount: 0 },
+      { skill: "writing", label: "Writing", sessionCount: 3 },
+    ]);
+    expect(today.totalSessionCount).toBe(8);
+  });
+
+  it("starts a learner with no history at zero today", () => {
+    const { today } = buildPracticeHubView([], NOW);
+
+    expect(today.totalSessionCount).toBe(0);
+    expect(today.skills.map((skill) => skill.sessionCount)).toEqual([
+      0, 0, 0, 0,
+    ]);
   });
 
   it("sums the walk's minutes and does not offer it while its routes are unbuilt", () => {

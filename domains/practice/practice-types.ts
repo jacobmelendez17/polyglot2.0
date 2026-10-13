@@ -36,6 +36,8 @@ export type PracticeTypeActivity = {
   practiceType: PracticeType;
   /** Completed sessions inside the recent window (see `PRACTICE_ACTIVITY_WINDOW_DAYS`). */
   recentSessionCount: number;
+  /** Completed sessions since midnight of the learner's current day, in their own timezone. */
+  todaySessionCount: number;
   lastCompletedAt: Date;
 };
 
@@ -83,7 +85,23 @@ export type PracticeFeatureView = {
   tags: string[];
 };
 
+/** One skill's count on the station train: sessions completed today. */
+export type PracticeTodaySkillView = {
+  skill: PracticeSkill;
+  label: string;
+  sessionCount: number;
+};
+
+/** What the learner has completed so far today, in their own timezone. */
+export type PracticeTodayView = {
+  /** Every session completed today, including drills outside the four skills (conjugation). */
+  totalSessionCount: number;
+  skills: PracticeTodaySkillView[];
+};
+
 export type PracticeHubView = {
+  today: PracticeTodayView;
+  /** Still composed, but not rendered: the station replaced the walk card on the hub. */
   walk: PracticeWalkView;
   groves: PracticeGroveView[];
   features: PracticeFeatureView[];

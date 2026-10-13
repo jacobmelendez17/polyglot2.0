@@ -1,6 +1,6 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
-/** Mirrors the hub's real shape (hero, walk, filter, four groves, two feature cards) so nothing shifts when data arrives. */
+/** Mirrors the hub's real shape (hero, station, filter, four groves, two feature cards) so nothing shifts when data arrives. */
 export default function PracticeLoading() {
   return (
     <>
@@ -11,7 +11,10 @@ export default function PracticeLoading() {
         </div>
       </div>
       <div className="mx-auto flex w-full max-w-[1240px] flex-col gap-6 px-3 py-6 sm:px-7">
-        <Skeleton className="h-52 rounded-xl" />
+        <div className="flex flex-col gap-3">
+          <Skeleton className="h-7 w-44" />
+          <Skeleton className="aspect-[16/9] w-full rounded-xl" />
+        </div>
         <div className="flex flex-wrap gap-2.5">
           {[0, 1, 2, 3, 4].map((sign) => (
             <Skeleton key={sign} className="h-9 w-28 rounded-lg" />

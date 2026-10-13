@@ -20,11 +20,11 @@ function renderHub(
 }
 
 describe("PracticeHub", () => {
-  it("renders the walk, all four groves, and both feature cards", () => {
+  it("renders the station, all four groves, and both feature cards", () => {
     renderHub();
 
     expect(
-      screen.getByRole("heading", { name: /today's walk · about 20 minutes/i }),
+      screen.getByRole("heading", { name: "Today's practice" }),
     ).toBeInTheDocument();
     for (const name of ["Listening", "Speaking", "Reading", "Writing"]) {
       expect(
@@ -46,7 +46,45 @@ describe("PracticeHub", () => {
       .map((link) => link.getAttribute("href"));
     expect(hubLinks.every((href) => href?.startsWith("/practice"))).toBe(true);
     expect(screen.getAllByText("Coming soon").length).toBeGreaterThanOrEqual(6);
-    expect(screen.getByRole("button", { name: /start walk/i })).toBeDisabled();
+  });
+
+  it("carries today's tally on the train, with an honest empty state", () => {
+    const { unmount } = renderHub();
+
+    expect(
+      screen.getByText(/nothing practiced yet today/i),
+    ).toBeInTheDocument();
+    unmount();
+
+    renderHub([
+      {
+        practiceType: "journal",
+        recentSessionCount: 3,
+        todaySessionCount: 2,
+        lastCompletedAt: NOW,
+      },
+      {
+        practiceType: "conjugation",
+        recentSessionCount: 1,
+        todaySessionCount: 1,
+        lastCompletedAt: NOW,
+      },
+    ]);
+
+    expect(screen.getByText("3 sessions so far today.")).toBeInTheDocument();
+    const train = screen.getByRole("list", {
+      name: "Sessions completed today, by skill",
+    });
+    expect(
+      within(train)
+        .getAllByRole("listitem")
+        .map((item) => item.textContent),
+    ).toEqual([
+      expect.stringContaining("Listening: 0 sessions"),
+      expect.stringContaining("Speaking: 0 sessions"),
+      expect.stringContaining("Reading: 0 sessions"),
+      expect.stringContaining("Writing: 2 sessions"),
+    ]);
   });
 
   it("shows a learner's real history and an honest empty state", () => {
@@ -54,6 +92,7 @@ describe("PracticeHub", () => {
       {
         practiceType: "sentences",
         recentSessionCount: 4,
+        todaySessionCount: 0,
         lastCompletedAt: new Date("2026-09-21T12:00:00.000Z"),
       },
     ]);

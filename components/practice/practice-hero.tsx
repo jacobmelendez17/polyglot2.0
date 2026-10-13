@@ -39,8 +39,8 @@ export function PracticeHero() {
           Practice
         </h1>
         <p className="mt-1.5 max-w-xl text-sm text-muted-foreground">
-          Start with today&apos;s walk, or pick a skill and choose any practice
-          pinned in its grove.
+          Pick a skill and choose any practice pinned in its grove. Everything
+          you finish today rides the train.
         </p>
       </div>
     </section>

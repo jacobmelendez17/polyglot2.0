@@ -319,7 +319,7 @@ Verb conjugation practice references the base verb's existing vocabulary item ra
 
 Practice may read core curriculum and SRS data but may not mutate core SRS state unless explicitly routed through the `srs` domain.
 
-The Practice hub (`/practice`, 2026-09-23) is a read model over `practice_sessions`, an activity log with one row per completed session. It holds no skill-progression or SRS value, and each practice's own completion flow is what writes to it. A practice whose route is not built is configured with a null `href` in `domains/practice/practice-catalog.ts` and rendered as "Coming soon", never linked.
+The Practice hub (`/practice`, 2026-09-23) is a read model over `practice_sessions`, an activity log with one row per completed session. It holds no skill-progression or SRS value, and each practice's own completion flow is what writes to it. Its "today" tally (2026-10-12) counts sessions since midnight in the learner's own timezone (`users.timezone`), on the sandbox-aware `resolveUserNow` clock. A practice whose route is not built is configured with a null `href` in `domains/practice/practice-catalog.ts` and rendered as "Coming soon", never linked.
 
 ## `tests`
 

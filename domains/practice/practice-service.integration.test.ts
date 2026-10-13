@@ -38,7 +38,7 @@ describe("getPracticeActivity", () => {
       const { userId, languageId } = await seedLearner(tx);
 
       expect(
-        await getPracticeActivity(tx, userId, languageId, daysAgo(7)),
+        await getPracticeActivity(tx, userId, languageId, daysAgo(7), NOW),
       ).toEqual([]);
     });
   });
@@ -78,6 +78,7 @@ describe("getPracticeActivity", () => {
         userId,
         languageId,
         daysAgo(7),
+        NOW,
       );
       const byType = new Map(activity.map((row) => [row.practiceType, row]));
 
@@ -86,6 +87,46 @@ describe("getPracticeActivity", () => {
       // Not practiced in the window: zero recent, but still "last practiced".
       expect(byType.get("journal")?.recentSessionCount).toBe(0);
       expect(byType.get("journal")?.lastCompletedAt).toEqual(daysAgo(20));
+    });
+  });
+
+  it("counts today's sessions from the given start of day only", async () => {
+    await withTestTransaction(async (tx) => {
+      const { userId, languageId } = await seedLearner(tx);
+      // Midnight in New York, 2026-09-23, is 04:00 UTC.
+      const todayStart = new Date("2026-09-23T04:00:00.000Z");
+      await tx.insert(practiceSessions).values([
+        {
+          userId,
+          languageId,
+          practiceType: "listening",
+          completedAt: new Date("2026-09-23T04:00:00.000Z"),
+        },
+        {
+          userId,
+          languageId,
+          practiceType: "listening",
+          completedAt: new Date("2026-09-23T11:00:00.000Z"),
+        },
+        // Already the 23rd in UTC, but still the 22nd in New York.
+        {
+          userId,
+          languageId,
+          practiceType: "listening",
+          completedAt: new Date("2026-09-23T03:59:59.000Z"),
+        },
+      ]);
+
+      const [listening] = await getPracticeActivity(
+        tx,
+        userId,
+        languageId,
+        daysAgo(7),
+        todayStart,
+      );
+
+      expect(listening?.todaySessionCount).toBe(2);
+      expect(listening?.recentSessionCount).toBe(3);
     });
   });
 
@@ -110,7 +151,13 @@ describe("getPracticeActivity", () => {
       ]);
 
       expect(
-        await getPracticeActivity(tx, mine.userId, mine.languageId, daysAgo(7)),
+        await getPracticeActivity(
+          tx,
+          mine.userId,
+          mine.languageId,
+          daysAgo(7),
+          NOW,
+        ),
       ).toEqual([]);
     });
   });
@@ -128,7 +175,11 @@ describe("getPracticeHub", () => {
         completedAt: new Date(now.getTime() - 2 * DAY_MS),
       });
 
-      const view = await getPracticeHub(tx, { userId, languageId });
+      const view = await getPracticeHub(tx, {
+        userId,
+        languageId,
+        timeZone: "UTC",
+      });
       const writing = view.groves.find((grove) => grove.skill === "writing");
 
       expect(writing?.recentSessionCount).toBe(1);
@@ -136,6 +187,7 @@ describe("getPracticeHub", () => {
         writing?.practices.find((practice) => practice.type === "journal")
           ?.lastPracticedLabel,
       ).toBe("2 days ago");
+      expect(view.today.totalSessionCount).toBe(0);
     });
   });
 });

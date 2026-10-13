@@ -13,6 +13,7 @@ import type { PracticeHubView } from "./practice-types";
 export async function getPracticeHub(input: {
   userId: string;
   languageId: string;
+  timeZone: string;
 }): Promise<PracticeHubView> {
   return getPracticeHubInjectable(db, input);
 }

@@ -153,7 +153,11 @@ The Practice hub (`/practice`) is the one place the four practice skills need di
 | Reading   | `--practice-reading`   | `#D4A85F` | `#D8B371` |
 | Writing   | `--practice-writing`   | `#9B7061` | `#B58A7A` |
 
-Like the learning-type colors, these do not change with the Appearance Color Palette. Every use is paired with the skill's label and icon — color is never the only cue. The Grammar conjugations card uses `--learning-grammar`, and Tests/the walk use `--srs-master`, so no other practice invents a color.
+Like the learning-type colors, these do not change with the Appearance Color Palette. Every use is paired with the skill's label and icon — color is never the only cue. The Grammar conjugations card uses `--learning-grammar`, and Tests use `--srs-master`, so no other practice invents a color.
+
+### Practice Station Illustration
+
+The Practice hub's "Today's practice" scene (2026-10-12) uses the user's own drawings, and it is the explicit design decision the Animation section below requires for illustration-heavy motion. Like the onboarding artwork, its paper (`#EAE0D3`), placard (`#FBF7F0`), and ink (`#1F1B16`) colors are fixed in both themes, because the drawing does not change with the theme. They are set as `--station-*` variables on `.practice-station` in `globals.css`. Each window placard's top edge uses its skill's practice color, always next to the skill's icon and number. Text inside the scene is sized in container-query units so it scales with the drawing. Below a 34rem-wide scene, the placard labels and the stripe text are hidden visually, and the heading row and screen-reader text still carry them.
 
 ### Skill Progress Labels
 

@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { PracticeFeatureCard } from "./practice-feature-card";
 import { PracticeGrove } from "./practice-grove";
 import { PracticeSkillFilterNav } from "./practice-skill-filter";
-import { PracticeWalkCard } from "./practice-walk-card";
+import { PracticeStation } from "./practice-station";
 
 type PracticeHubProps = {
   view: PracticeHubView;
@@ -26,7 +26,7 @@ export function PracticeHub({ view, skillFilter }: PracticeHubProps) {
 
   return (
     <div className="mx-auto flex w-full max-w-[1240px] flex-col gap-6 px-3 py-6 sm:px-7">
-      <PracticeWalkCard walk={view.walk} />
+      <PracticeStation today={view.today} />
 
       <PracticeSkillFilterNav groves={view.groves} active={skillFilter} />
 

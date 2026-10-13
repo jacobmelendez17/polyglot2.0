@@ -32,6 +32,7 @@ export default async function PracticePage({
   const view = await getPracticeHub({
     userId: user.id,
     languageId: user.activeLanguageId,
+    timeZone: user.timezone,
   });
 
   return (

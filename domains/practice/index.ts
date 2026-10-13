@@ -22,6 +22,8 @@ export type {
   PracticeHubView,
   PracticeSkill,
   PracticeSkillFilter,
+  PracticeTodaySkillView,
+  PracticeTodayView,
   PracticeType,
   PracticeTypeActivity,
   PracticeWalkStepView,
