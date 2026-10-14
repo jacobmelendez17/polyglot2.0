@@ -602,6 +602,62 @@ data-integrity rule stays in `domains/*`.
   - **Two limits of their own, both failing closed**: reading the list
     (`admin-user-search`, 30 / 60s) and changing a role (`admin-role-change`,
     10 / 60s).
+- **Bulk curriculum commands are three named commands, bounded, in one
+  language, all-or-nothing** (spec 26 Unit 7).
+  `POST /api/v1/admin/curriculum/bulk-publish`, `bulk-archive` and `bulk-move`
+  (`bulkPublishCurriculum` / `bulkArchiveCurriculum` / `bulkMoveCurriculum` on the
+  `dataProvider`) call the existing `bulkPublishPendingItems` / `bulkArchiveItems`
+  / `bulkMoveItems` services and nothing else; the legacy Server Actions and the
+  shadcn selection bar they served are gone. The body is
+  `{ languageId, itemIds, idempotencyKey }` (a move adds `levelId` and/or
+  `groupId`), strict — no actor, no role, no status. All three are **Admin only**
+  (`canPublishCurriculum`) from the database role: a writer, who may read and
+  edit the list, may not publish, archive or move in bulk, and is shown no
+  selection at all. There is **no bulk delete**.
+  - **Bounded and distinct.** One to `CURRICULUM_BULK_ITEM_LIMIT` (100 — the list's
+    largest page, so a selection made from one page cannot exceed it) ids, each
+    named once (compared case-insensitively, as the database does). The limit is
+    one constant shared by the contract, the service schemas and the UI. These
+    are the only commands with their own body cap (8 KiB,
+    `MAX_BULK_COMMAND_BODY_BYTES`, through `maxBodyBytes`): a hundred ids are
+    about 4 KiB compact, and a move naming both a level and a group is past the
+    ordinary cap.
+  - **One language.** The command names the language it acts in; the service
+    refuses the whole batch if any item, or the level or group it is moved to,
+    belongs to another (a 422 in the Admin's own words). Items are checked
+    against the language _after_ they are locked, so the answer stays true.
+  - **Locked in one order, checked before written.** All the named rows are
+    locked in a single `SELECT … ORDER BY id FOR UPDATE`, so two overlapping
+    batches take turns instead of deadlocking (proven with real transactions on
+    separate connections), and every precondition is checked before the first
+    write, inside the transaction `withIdempotency` already opens: a refusal
+    anywhere leaves nothing changed.
+  - **Publish needs every item Pending** and refuses the whole batch with a 409
+    if any is not (somebody published, archived or edited it meanwhile) — it never
+    publishes "the ones that still can". **Archive and move treat a no-op as not a
+    change**: an item already archived, or already in the level or group it is
+    sent to, is left exactly as it was (no write, no audit event) and is reported
+    back (`alreadyArchivedItemIds`, `unchangedItemIds`). An item already in the
+    target level is _not_ re-appended to the end of it.
+  - **A move keeps one order.** A moved item joins the end of its new level and
+    type, in the order the caller named the items, and `position` and
+    `lesson_priority` are set together (lessons are taught by the second; the
+    board shows the first). A grammar item moved to another level without a group
+    becomes ungrouped — a group belongs to one level; vocabulary keeps its group
+    until moved to another.
+  - **Ordering is the specialist tools'.** `reorderItems` is a _complete-set_
+    operation: under a lock on the level and type's items, it refuses a list that
+    leaves out, adds, or repeats any of them (409), and a level and type with more
+    than `CURRICULUM_REORDER_LIMIT` (100) items (422, in its own words) — so a
+    stale or partial view can never leave positions colliding or out of step. The
+    Curriculum page's reorder mode therefore shows **every** item of the level and
+    type (the browse filters do not apply) or, past the limit, says so instead of
+    offering a list that could never be saved; the Level page loads each type
+    separately for the same reason.
+  - **Known limits, unchanged.** The single-item `moveItem` and `reorderItems`
+    Server Actions stay open to a writer (they were never publication). The model
+    does not require a vocabulary item's level to equal its group's level (a bulk
+    move to a group says when they differ and does not forbid it).
 
 ## `media`
 

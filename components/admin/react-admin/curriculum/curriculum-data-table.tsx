@@ -2,13 +2,13 @@
 
 import NextLink from "next/link";
 import { useSearchParams } from "next/navigation";
-import { DataTable, useListContext } from "react-admin";
+import { DataTable } from "react-admin";
 import Link from "@mui/material/Link";
 
 import { CurriculumStatusBadge } from "@/components/admin/curriculum/curriculum-status-badge";
-import { BulkActionsBar } from "@/components/admin/curriculum/bulk-actions-bar";
 import type { AdminCurriculumRow } from "@/domains/admin";
 
+import { CurriculumBulkToolbar } from "./curriculum-bulk-toolbar";
 import { CurriculumListEmpty } from "./curriculum-list-empty";
 import type { CurriculumFilterLookups } from "./curriculum-filters";
 
@@ -53,34 +53,6 @@ function ItemLink({ record }: { record: AdminCurriculumRow }) {
 }
 
 /**
- * The bulk-selection bar, until Unit 7 replaces its chrome. It is the existing
- * shadcn component, fed by React Admin's selection state; after an action it
- * re-fetches the list (the one thing `router.refresh()` cannot do for a list
- * that fetches client-side).
- */
-function BulkToolbar({
-  levels,
-  groups,
-}: Omit<CurriculumFilterLookups, "languages">) {
-  const { data, selectedIds, onUnselectItems, refetch } =
-    useListContext<AdminCurriculumRow>();
-  const selectedItems = (data ?? []).filter((row) =>
-    selectedIds.includes(row.id),
-  );
-  if (selectedItems.length === 0) return null;
-
-  return (
-    <BulkActionsBar
-      selectedItems={selectedItems}
-      levels={levels}
-      groups={groups}
-      onDone={() => onUnselectItems()}
-      onActionComplete={() => void refetch()}
-    />
-  );
-}
-
-/**
  * The curriculum table (spec 26 Unit 2): React Admin's `DataTable`, with the
  * same six columns, order, and meanings as the table it replaces.
  *
@@ -89,19 +61,31 @@ function BulkToolbar({
  * through its own contained router and could never reach a real Next route —
  * the item link above does that. No column sorts: the one ordering is the
  * keyset's, and a cursor is only meaningful under it.
+ *
+ * **Selection exists only for someone who can act on it** (`canBulk`, from the
+ * server's permissions): the bulk commands are an Admin's, so a writer gets no
+ * checkbox column — one that could select rows and then offer nothing, or
+ * offer commands the server would refuse. The bar that acts on a selection is
+ * `CurriculumBulkToolbar` (spec 26 Unit 7).
  */
 export function CurriculumDataTable({
   levels,
   groups,
-}: Omit<CurriculumFilterLookups, "languages">) {
+  canBulk,
+}: Omit<CurriculumFilterLookups, "languages"> & { canBulk: boolean }) {
   return (
     <DataTable<AdminCurriculumRow>
       aria-label="Curriculum items"
       rowClick={false}
       // Truthy so the checkbox column renders (React Admin only shows it when
       // bulk actions exist); the real toolbar is `bulkActionsToolbar` below.
-      bulkActionButtons={<></>}
-      bulkActionsToolbar={<BulkToolbar levels={levels} groups={groups} />}
+      // `false` removes both the column and the toolbar.
+      bulkActionButtons={canBulk ? <></> : false}
+      bulkActionsToolbar={
+        canBulk ? (
+          <CurriculumBulkToolbar levels={levels} groups={groups} />
+        ) : undefined
+      }
       empty={<CurriculumListEmpty />}
       rowSx={() => ({ position: "relative" })}
       sx={{

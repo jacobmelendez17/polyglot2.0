@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { AdminApiRequestError } from "./admin-api-errors";
 import {
+  MAX_BULK_COMMAND_BODY_BYTES,
   MAX_COMMAND_BODY_BYTES,
   assertCommandRequest,
   checkSameOrigin,
@@ -326,6 +327,32 @@ describe("readBodyWithLimit", () => {
     // still be small enough to be a meaningful limit.
     expect(MAX_COMMAND_BODY_BYTES).toBeGreaterThan(512);
     expect(MAX_COMMAND_BODY_BYTES).toBeLessThanOrEqual(16 * 1024);
+  });
+
+  it("gives the bulk curriculum commands a larger, still small, cap", () => {
+    expect(MAX_BULK_COMMAND_BODY_BYTES).toBeGreaterThan(MAX_COMMAND_BODY_BYTES);
+    expect(MAX_BULK_COMMAND_BODY_BYTES).toBeLessThanOrEqual(16 * 1024);
+  });
+
+  it("holds the largest honest bulk request with room to spare, and the ordinary cap does not", () => {
+    // 100 ids, a level *and* a group, every field present, indented: the
+    // fullest request the contract allows, as a hand-written client might send.
+    const id = (n: number) =>
+      `40000000-0000-4000-8000-${n.toString(16).padStart(12, "0")}`;
+    const fullest = JSON.stringify(
+      {
+        languageId: id(1),
+        itemIds: Array.from({ length: 100 }, (_, n) => id(n)),
+        levelId: id(2),
+        groupId: id(3),
+        idempotencyKey: id(4),
+      },
+      null,
+      2,
+    );
+    const bytes = new TextEncoder().encode(fullest).byteLength;
+    expect(bytes).toBeGreaterThan(MAX_COMMAND_BODY_BYTES);
+    expect(bytes).toBeLessThanOrEqual(MAX_BULK_COMMAND_BODY_BYTES);
   });
 });
 

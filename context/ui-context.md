@@ -429,6 +429,31 @@ not from a second palette:
   highlight, no row link). Its one action stays reachable at 390 px: the action
   column is pinned at the table's right edge while the other columns scroll
   inside the table's own frame.
+- **A selection bar says what it will do before anything is sent** (spec 26
+  Unit 7, the curriculum list). Once rows are selected a bar appears above the
+  table with the count and an **Unselect** button, then one button per command
+  (Publish, Move to level, Move to group, Archive — never a delete); each opens a
+  confirmation that lists the selected items and states the impact on _this_
+  selection: how many will change, how many are left alone, what learners lose
+  or gain at once, what is discarded. A command that cannot work is not offered
+  and says why beside the disabled button (Publish needs every item Pending),
+  with a way to narrow the selection the person chooses — never a quiet subset.
+  Archive is the one styled as a warning. The bar wraps at 390 px (every action
+  stays reachable) and is announced as it changes.
+- **Selection exists only for someone who can act on it.** A role that may read a
+  list but not use its commands gets no checkbox column — not a column that
+  selects rows and then offers nothing. The decision follows the server's
+  permissions, and the table waits for them rather than flashing a column that
+  disappears.
+- **A selection is scoped to the view it was made in.** It is cleared when the
+  page or any filter changes; a confirmation open about it closes with it. The
+  confirmation holds a snapshot of the rows from when it opened, so a refresh
+  behind it cannot change what it will send. After a success the selection is
+  cleared and the list is read again; after a stale refusal the only way forward
+  is **Reload the list**, from nothing selected.
+- **Lists inside dialogs keep their markers.** The application's base styles
+  remove list bullets everywhere; a short list of consequences restates them
+  (`listStyle: disc`) so it reads as a list.
 
 ---
 

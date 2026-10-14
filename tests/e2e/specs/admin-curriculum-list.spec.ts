@@ -8,6 +8,7 @@ import {
   setE2EAdminRole,
 } from "../support/e2e-admin";
 import { renewSession } from "../support/e2e-session";
+import { spendRateBudget } from "../support/rate-budget";
 
 /**
  * Spec 26 Unit 2 — the Admin curriculum list, rendered through React Admin,
@@ -88,6 +89,10 @@ async function choose(page: Page, label: RegExp, option: string) {
 }
 
 const noHash = (page: Page) => expect(new URL(page.url()).hash).toBe("");
+
+/** The bar that appears once rows are selected (spec 26 Unit 7). */
+const selectionBar = (page: Page) =>
+  page.getByRole("group", { name: "Actions for the selected items" });
 
 test.describe("rows and paging", () => {
   test("shows the item table with the legacy columns", async ({ page }) => {
@@ -513,7 +518,7 @@ test.describe("stale data and bulk actions", () => {
       await expect.poll(() => labels(page)).toEqual(["zzstale"]);
 
       await table(page).getByRole("checkbox").nth(1).check();
-      await expect(page.getByText("1 selected")).toBeVisible();
+      await expect(selectionBar(page)).toContainText("1 item selected");
 
       await removeSeededItems([extraId!]);
       await page.evaluate(() => {
@@ -522,11 +527,11 @@ test.describe("stale data and bulk actions", () => {
         );
       });
 
-      // Neither the row nor an "N selected" for an id no longer on screen.
+      // Neither the row nor a selection bar for an id no longer on screen.
       await expect(
         page.getByText("No curriculum items match these filters"),
       ).toBeVisible();
-      await expect(page.getByText(/\d+ selected/)).toHaveCount(0);
+      await expect(selectionBar(page)).toHaveCount(0);
     } finally {
       await removeSeededItems([extraId!]);
     }
@@ -542,27 +547,32 @@ test.describe("stale data and bulk actions", () => {
     const row = table(page).getByRole("row").filter({ hasText: "zzp25" });
     await expect(row.getByText("Published")).toBeVisible();
     await row.getByRole("checkbox").check();
-    await expect(page.getByText("1 selected")).toBeVisible();
+    await expect(selectionBar(page)).toContainText("1 item selected");
 
-    await page.getByRole("button", { name: "Archive selected" }).click();
-    await page.getByRole("button", { name: "Archive", exact: true }).click();
+    await selectionBar(page).getByRole("button", { name: "Archive" }).click();
+    await spendRateBudget("admin-mutation");
+    await page
+      .getByRole("dialog", { name: "Archive 1 item?" })
+      .getByRole("button", { name: "Archive", exact: true })
+      .click();
 
-    // `router.refresh()` cannot update a client-fetched list; the new status
-    // appearing proves the list re-fetched, and the bar proves selection cleared.
+    // A client-fetched list is not touched by `router.refresh()`; the new
+    // status appearing proves the list re-fetched, and the bar's absence
+    // proves the selection cleared.
     await expect(row.getByText("Archived")).toBeVisible();
-    await expect(page.getByText(/\d+ selected/)).toHaveCount(0);
+    await expect(selectionBar(page)).toHaveCount(0);
   });
 
   test("selection does not survive a page change", async ({ page }) => {
     await page.goto(`/admin/curriculum?language=${languageId}`);
     await listReady(page);
     await table(page).getByRole("checkbox").nth(1).check();
-    await expect(page.getByText("1 selected")).toBeVisible();
+    await expect(selectionBar(page)).toContainText("1 item selected");
 
     await page.getByRole("button", { name: "Next page" }).click();
     await expect(page).toHaveURL(/cursor=/);
 
-    await expect(page.getByText(/\d+ selected/)).toHaveCount(0);
+    await expect(selectionBar(page)).toHaveCount(0);
   });
 });
 

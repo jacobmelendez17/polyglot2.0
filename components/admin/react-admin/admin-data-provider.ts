@@ -12,6 +12,9 @@ import type {
 
 import {
   ADMIN_OVERVIEW_RECORD_ID,
+  adminCurriculumBulkArchiveResultSchema,
+  adminCurriculumBulkMoveResultSchema,
+  adminCurriculumBulkPublishResultSchema,
   adminCurriculumPageSchema,
   adminGroupCreateResultSchema,
   adminGroupListSchema,
@@ -24,6 +27,12 @@ import {
   adminReviewPublishResultSchema,
   adminUserPageSchema,
   adminUserRoleChangeResultSchema,
+  type AdminCurriculumBulkArchiveRequest,
+  type AdminCurriculumBulkArchiveResult,
+  type AdminCurriculumBulkMoveRequest,
+  type AdminCurriculumBulkMoveResult,
+  type AdminCurriculumBulkPublishRequest,
+  type AdminCurriculumBulkPublishResult,
   type AdminGroupCreateRequest,
   type AdminGroupCreateResult,
   type AdminGroupUpdateRequest,
@@ -59,6 +68,29 @@ export type AdminDataProvider = DataProvider & {
   publishReviewItem: (
     input: AdminReviewPublishRequest,
   ) => Promise<AdminReviewPublishResult>;
+  /**
+   * Publishes several **Pending** items together (Admin only), all or none: one
+   * that is no longer Pending refuses the whole batch with a conflict. At most
+   * `CURRICULUM_BULK_ITEM_LIMIT` distinct items, all in `languageId`.
+   */
+  bulkPublishCurriculum: (
+    input: AdminCurriculumBulkPublishRequest,
+  ) => Promise<AdminCurriculumBulkPublishResult>;
+  /**
+   * Archives several items together (Admin only), all or none. One already
+   * archived is left alone and reported back. There is no bulk delete.
+   */
+  bulkArchiveCurriculum: (
+    input: AdminCurriculumBulkArchiveRequest,
+  ) => Promise<AdminCurriculumBulkArchiveResult>;
+  /**
+   * Moves several items to a level and/or a group of the same language (Admin
+   * only), all or none. Moved items join the end of the new level's order; one
+   * already where it is asked to go is left alone and reported back.
+   */
+  bulkMoveCurriculum: (
+    input: AdminCurriculumBulkMoveRequest,
+  ) => Promise<AdminCurriculumBulkMoveResult>;
   /** Adds a level (Admin only). A level number is used once per language. */
   createLevel: (
     input: AdminLevelCreateRequest,
@@ -232,6 +264,31 @@ export function createAdminDataProvider({
       return request("/review/publish", adminReviewPublishResultSchema, {
         body: input,
       });
+    },
+
+    bulkPublishCurriculum(input) {
+      // The body is exactly the command: the language, the items, the key — no actor.
+      return request(
+        "/curriculum/bulk-publish",
+        adminCurriculumBulkPublishResultSchema,
+        { body: input },
+      );
+    },
+
+    bulkArchiveCurriculum(input) {
+      return request(
+        "/curriculum/bulk-archive",
+        adminCurriculumBulkArchiveResultSchema,
+        { body: input },
+      );
+    },
+
+    bulkMoveCurriculum(input) {
+      return request(
+        "/curriculum/bulk-move",
+        adminCurriculumBulkMoveResultSchema,
+        { body: input },
+      );
     },
 
     createLevel(input) {

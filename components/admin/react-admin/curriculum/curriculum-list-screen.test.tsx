@@ -18,30 +18,8 @@ vi.mock("next/navigation", async () =>
   (await import("../test-support/next-navigation")).nextNavigationMock(),
 );
 
-// The legacy bulk bar is the shadcn component, which imports server actions;
-// it is stubbed here and exercised for real only in the browser. What these
-// tests pin is the contract: what it is given, and what happens afterwards.
-const bulkBar = vi.hoisted(() => ({
-  props: null as null | {
-    selectedItems: { id: string }[];
-    onDone: () => void;
-    onActionComplete?: () => void;
-  },
-}));
-vi.mock("@/components/admin/curriculum/bulk-actions-bar", () => ({
-  BulkActionsBar: (props: NonNullable<typeof bulkBar.props>) => {
-    bulkBar.props = props;
-    return (
-      <div role="toolbar" aria-label="Bulk actions">
-        {props.selectedItems.length} selected
-      </div>
-    );
-  },
-}));
-
 beforeEach(() => {
   navigation.reset();
-  bulkBar.props = null;
 });
 
 describe("CurriculumListScreen — rows", () => {
@@ -456,35 +434,56 @@ describe("CurriculumListScreen — search", () => {
   });
 });
 
+const TOOLBAR = { name: "Actions for the selected items" };
+
 describe("CurriculumListScreen — selection", () => {
   const pages = {
     "": page([row(1), row(2), row(3)], { nextCursor: "after-3" }),
     "after-3": page([row(4)], { hasPreviousPage: true }),
   };
 
-  it("hands the selected rows to the bulk bar, and nothing when none are selected", async () => {
+  it("shows the bar with a count once something is selected, and not before", async () => {
     const user = userEvent.setup();
     renderCurriculumList({ pages });
     await screen.findByRole("table");
-    expect(screen.queryByRole("toolbar")).toBeNull();
+    expect(screen.queryByRole("group", TOOLBAR)).toBeNull();
 
     // Checkbox 0 is the header's "select this page"; 1 is the first row.
     await user.click(screen.getAllByRole("checkbox")[1]!);
 
-    expect(await screen.findByRole("toolbar")).toHaveTextContent("1 selected");
-    expect(bulkBar.props?.selectedItems.map((item) => item.id)).toEqual([
-      "item-1",
-    ]);
+    expect(await screen.findByRole("group", TOOLBAR)).toHaveTextContent(
+      "1 item selected",
+    );
   });
 
-  it("selects every row on the page with the header checkbox", async () => {
+  it("selects every row on the page with the header checkbox — and only that page", async () => {
     const user = userEvent.setup();
     renderCurriculumList({ pages });
     await screen.findByRole("table");
 
     await user.click(screen.getAllByRole("checkbox")[0]!);
 
-    expect(await screen.findByRole("toolbar")).toHaveTextContent("3 selected");
+    // Three rows are on this page; the fourth is on the next and is not selected.
+    expect(await screen.findByRole("group", TOOLBAR)).toHaveTextContent(
+      "3 items selected",
+    );
+  });
+
+  it("clears the selection with Unselect", async () => {
+    const user = userEvent.setup();
+    renderCurriculumList({ pages });
+    await screen.findByRole("table");
+    await user.click(screen.getAllByRole("checkbox")[0]!);
+    await screen.findByRole("group", TOOLBAR);
+
+    await user.click(screen.getByRole("button", { name: "Unselect" }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole("group", TOOLBAR)).toBeNull(),
+    );
+    for (const checkbox of screen.getAllByRole("checkbox")) {
+      expect(checkbox).not.toBeChecked();
+    }
   });
 
   it("clears the selection when the page changes — never carrying ids across a cursor", async () => {
@@ -492,12 +491,30 @@ describe("CurriculumListScreen — selection", () => {
     renderCurriculumList({ pages });
     await screen.findByRole("table");
     await user.click(screen.getAllByRole("checkbox")[0]!);
-    await screen.findByRole("toolbar");
+    await screen.findByRole("group", TOOLBAR);
 
     await user.click(screen.getByRole("button", { name: "Next page" }));
     await screen.findByRole("link", { name: "palabra 4" });
 
-    expect(screen.queryByRole("toolbar")).toBeNull();
+    expect(screen.queryByRole("group", TOOLBAR)).toBeNull();
+  });
+
+  it("does not bring the selection back when returning to the page it was made on", async () => {
+    const user = userEvent.setup();
+    renderCurriculumList({ pages });
+    await screen.findByRole("table");
+    await user.click(screen.getAllByRole("checkbox")[1]!);
+    await screen.findByRole("group", TOOLBAR);
+
+    await user.click(screen.getByRole("button", { name: "Next page" }));
+    await screen.findByRole("link", { name: "palabra 4" });
+    await user.click(screen.getByRole("button", { name: "Previous page" }));
+    await screen.findByRole("link", { name: "palabra 1" });
+
+    expect(screen.queryByRole("group", TOOLBAR)).toBeNull();
+    for (const checkbox of screen.getAllByRole("checkbox")) {
+      expect(checkbox).not.toBeChecked();
+    }
   });
 
   it("clears the selection when a filter changes", async () => {
@@ -505,26 +522,13 @@ describe("CurriculumListScreen — selection", () => {
     renderCurriculumList({ pages });
     await screen.findByRole("table");
     await user.click(screen.getAllByRole("checkbox")[0]!);
-    await screen.findByRole("toolbar");
+    await screen.findByRole("group", TOOLBAR);
 
     await choose(user, /Type/, "Grammar");
     await waitFor(() => expect(navigation.push).toHaveBeenCalled(), DEBOUNCED);
 
-    await waitFor(() => expect(screen.queryByRole("toolbar")).toBeNull());
-  });
-
-  it("re-fetches the list after a bulk action completes — router.refresh() cannot", async () => {
-    const user = userEvent.setup();
-    const { request } = renderCurriculumList({ pages });
-    await screen.findByRole("table");
-    await user.click(screen.getAllByRole("checkbox")[1]!);
-    await screen.findByRole("toolbar");
-    const before = request.mock.calls.length;
-
-    act(() => bulkBar.props?.onActionComplete?.());
-
     await waitFor(() =>
-      expect(request.mock.calls.length).toBeGreaterThan(before),
+      expect(screen.queryByRole("group", TOOLBAR)).toBeNull(),
     );
   });
 
@@ -534,6 +538,59 @@ describe("CurriculumListScreen — selection", () => {
     // Checkbox and link are separate controls with separate names.
     expect(screen.getAllByRole("checkbox").length).toBeGreaterThan(1);
     expect(screen.getByRole("link", { name: "palabra 1" })).toBeVisible();
+  });
+
+  it("offers no selection at all to someone who cannot use the commands", async () => {
+    renderCurriculumList({ pages, role: "writer" });
+
+    // The list is theirs to read and open…
+    expect(
+      await screen.findByRole("link", { name: "palabra 1" }),
+    ).toBeVisible();
+    // …but there is nothing to select, so no checkbox and no bar.
+    expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
+    expect(screen.queryByRole("group", TOOLBAR)).toBeNull();
+    const headers = within(screen.getByRole("table"))
+      .getAllByRole("columnheader")
+      .map((header) => header.textContent);
+    expect(headers).toEqual([
+      "Type",
+      "Item",
+      "Meaning",
+      "Level",
+      "Group",
+      "Status",
+    ]);
+  });
+
+  it("waits for the server's permissions before showing the table, rather than flashing checkboxes", async () => {
+    let resolveMe!: () => void;
+    const gate = new Promise<void>((resolve) => (resolveMe = resolve));
+    const { request } = renderCurriculumList({ meGate: gate });
+
+    // The list's own answer arrives at once; the table still waits, because
+    // whether it has a checkbox column depends on the permissions.
+    await waitFor(() => expect(request).toHaveBeenCalled());
+    await act(async () => {});
+    expect(screen.getByRole("status")).toHaveTextContent("Loading curriculum");
+    expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
+
+    resolveMe();
+    await screen.findByRole("table");
+    expect(screen.getAllByRole("checkbox").length).toBeGreaterThan(0);
+  });
+
+  it("explains a refused permission lookup instead of guessing a role", async () => {
+    renderCurriculumList({
+      meFails: () => new AdminApiError("FORBIDDEN", 403),
+    });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "You don't have access to this part of the admin console.",
+    );
+    expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
   });
 });
 

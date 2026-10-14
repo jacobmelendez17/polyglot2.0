@@ -69,7 +69,7 @@ export function ItemReorderList({
   if (items.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
-        No items match these filters yet.
+        There are no items in this level and type yet.
       </p>
     );
   }

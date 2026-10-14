@@ -3,6 +3,7 @@ import { and, count, eq, inArray, sql } from "drizzle-orm";
 import {
   adminAuditEvents,
   curriculumItemDrafts,
+  grammarItems,
   languages,
   learningItems,
   levels,
@@ -14,6 +15,7 @@ import {
   vocabularyItems,
 } from "@/db/schema";
 import { getAuditEvents } from "@/domains/admin/audit-repository";
+import type { AdminAuditAction } from "@/domains/admin/audit-types";
 import {
   createItem,
   createLevel,
@@ -213,6 +215,7 @@ export async function removeSeededItems(ids: string[]): Promise<void> {
 export type OtherLanguageFixture = {
   languageId: string;
   levelId: string;
+  groupId: string;
   itemId: string;
   remove: () => Promise<void>;
 };
@@ -276,6 +279,7 @@ export async function seedOtherLanguage(
     return {
       languageId: language!.id,
       levelId: level!.id,
+      groupId: group!.id,
       itemId,
       remove: async () => {
         await withE2EDb(async (cleanup) => {
@@ -1157,5 +1161,268 @@ export async function removeSeededUsers(ids: string[]): Promise<void> {
   await removeRoleAudits(ids);
   await withE2EDb(async (db) => {
     await db.delete(users).where(inArray(users.id, ids));
+  });
+}
+
+/* -------------------------------------------------------------------------- */
+/* Bulk-command fixtures (spec 26 Unit 7)                                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Items for the bulk commands, placed in a throwaway level and group (made with
+ * `seedLevel` / `seedGroup`) so that nothing the other specs read — the seeded
+ * Level 1 and its order — is ever touched. Rows are inserted directly, in every
+ * state a selection can contain; the one state with no row of its own — a
+ * published item with an open, unpublished edit — is built through the real
+ * `updateItem`, exactly as an author's own edit would leave it.
+ */
+
+export type BulkFixtureItem = {
+  /** A vocabulary item's term, or a grammar item's structure. */
+  term: string;
+  type?: "vocabulary" | "grammar";
+  /** `draft` is a published item that also carries an unpublished edit. */
+  status?: "pending" | "published" | "draft" | "archived";
+  /** The group it is filed under; `null` for none (grammar only). Default: the fixture's group for vocabulary, none for grammar. */
+  groupId?: string | null;
+  /** Default: the next free position of its level and type. */
+  position?: number;
+  /** Default: its position. A different value builds the drift a move must repair. */
+  lessonPriority?: number;
+};
+
+export type E2EItemRow = {
+  id: string;
+  type: "vocabulary" | "grammar";
+  /** The column as stored: a published item with an open edit is still `published` here (`hasDraft` says it has one). */
+  status: "draft" | "pending" | "published" | "archived";
+  version: number;
+  levelId: string;
+  groupId: string | null;
+  position: number;
+  lessonPriority: number;
+  hasDraft: boolean;
+};
+
+/** Inserts `items` into `levelId`, returning their ids in the same order. Remove them with `removeBulkFixtureItems`. */
+export async function seedBulkItems(
+  levelId: string,
+  groupId: string,
+  items: BulkFixtureItem[],
+): Promise<string[]> {
+  const ids = items.map(() => crypto.randomUUID());
+  await withE2EDb(async (db) => {
+    const [level] = await db
+      .select({ languageId: levels.languageId })
+      .from(levels)
+      .where(eq(levels.id, levelId))
+      .limit(1);
+    if (!level) throw new Error(`No level ${levelId} to put items in.`);
+
+    await db.transaction(async (tx) => {
+      const next = { vocabulary: 1, grammar: 1 };
+      for (const type of ["vocabulary", "grammar"] as const) {
+        const [highest] = await tx
+          .select({
+            position: sql<number>`coalesce(max(${learningItems.position}), 0)::int`,
+          })
+          .from(learningItems)
+          .where(
+            and(
+              eq(learningItems.levelId, levelId),
+              eq(learningItems.type, type),
+            ),
+          );
+        next[type] = (highest?.position ?? 0) + 1;
+      }
+      const positions = items.map(
+        (item) => item.position ?? next[item.type ?? "vocabulary"]++,
+      );
+
+      await tx.insert(learningItems).values(
+        items.map((item, index) => ({
+          id: ids[index]!,
+          languageId: level.languageId,
+          levelId,
+          type: item.type ?? ("vocabulary" as const),
+          status:
+            item.status === undefined || item.status === "draft"
+              ? ("published" as const)
+              : item.status,
+          position: positions[index]!,
+          lessonPriority: item.lessonPriority ?? positions[index]!,
+        })),
+      );
+
+      const filedUnder = (item: BulkFixtureItem) =>
+        item.groupId !== undefined
+          ? item.groupId
+          : (item.type ?? "vocabulary") === "vocabulary"
+            ? groupId
+            : null;
+      const vocabulary = items.flatMap((item, index) =>
+        (item.type ?? "vocabulary") === "vocabulary" ? [{ item, index }] : [],
+      );
+      const grammar = items.flatMap((item, index) =>
+        item.type === "grammar" ? [{ item, index }] : [],
+      );
+      if (vocabulary.length > 0) {
+        await tx.insert(vocabularyItems).values(
+          vocabulary.map(({ item, index }) => {
+            const group = filedUnder(item);
+            if (group === null)
+              throw new Error("A vocabulary item needs a group.");
+            return {
+              learningItemId: ids[index]!,
+              vocabularyGroupId: group,
+              term: item.term,
+              primaryMeaning: `meaning of ${item.term}`,
+              partOfSpeech: "noun" as const,
+            };
+          }),
+        );
+      }
+      if (grammar.length > 0) {
+        await tx.insert(grammarItems).values(
+          grammar.map(({ item, index }) => ({
+            learningItemId: ids[index]!,
+            structure: item.term,
+            primaryMeaning: `meaning of ${item.term}`,
+            explanation: `explanation of ${item.term}`,
+            vocabularyGroupId: filedUnder(item),
+          })),
+        );
+      }
+    });
+  });
+
+  const drafted = items.flatMap((item, index) =>
+    item.status === "draft" ? [{ item, id: ids[index]! }] : [],
+  );
+  if (drafted.length > 0) {
+    const actorUserId = await getE2EAdminUserId();
+    await withE2EDb(async (db) => {
+      for (const { item, id } of drafted) {
+        const { savedAsDraft } = await updateItem(db, {
+          learningItemId: id,
+          actorUserId,
+          idempotencyKey: crypto.randomUUID(),
+          type: "vocabulary",
+          fields: vocabularyFields(
+            item.groupId ?? groupId,
+            item.term,
+            `edited ${item.term}`,
+          ),
+        });
+        if (!savedAsDraft)
+          throw new Error("The edit to a published item was not a draft.");
+      }
+    });
+  }
+  return ids;
+}
+
+/**
+ * The items as the database holds them, read independently of the code under
+ * test, in the order of `ids`; `null` for one that is gone.
+ */
+export async function getE2EItemRows(
+  ids: string[],
+): Promise<(E2EItemRow | null)[]> {
+  if (ids.length === 0) return [];
+  return withE2EDb(async (db) => {
+    const rows = await db
+      .select({
+        id: learningItems.id,
+        type: learningItems.type,
+        status: learningItems.status,
+        version: learningItems.version,
+        levelId: learningItems.levelId,
+        position: learningItems.position,
+        lessonPriority: learningItems.lessonPriority,
+        vocabularyGroupId: vocabularyItems.vocabularyGroupId,
+        grammarGroupId: grammarItems.vocabularyGroupId,
+        draftId: curriculumItemDrafts.id,
+      })
+      .from(learningItems)
+      .leftJoin(
+        vocabularyItems,
+        eq(vocabularyItems.learningItemId, learningItems.id),
+      )
+      .leftJoin(grammarItems, eq(grammarItems.learningItemId, learningItems.id))
+      .leftJoin(
+        curriculumItemDrafts,
+        eq(curriculumItemDrafts.learningItemId, learningItems.id),
+      )
+      .where(inArray(learningItems.id, ids));
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    return ids.map((id) => {
+      const row = byId.get(id);
+      if (!row) return null;
+      return {
+        id: row.id,
+        type: row.type,
+        status: row.status,
+        version: row.version,
+        levelId: row.levelId,
+        groupId:
+          row.type === "vocabulary"
+            ? row.vocabularyGroupId
+            : row.grammarGroupId,
+        position: row.position,
+        lessonPriority: row.lessonPriority,
+        hasDraft: row.draftId !== null,
+      };
+    });
+  });
+}
+
+/** A level's items of one type, by position — the ground truth for an order, and for "nothing else moved". */
+export async function getE2ELevelOrder(
+  levelId: string,
+  type: "vocabulary" | "grammar",
+): Promise<{ id: string; position: number; lessonPriority: number }[]> {
+  return withE2EDb(async (db) =>
+    db
+      .select({
+        id: learningItems.id,
+        position: learningItems.position,
+        lessonPriority: learningItems.lessonPriority,
+      })
+      .from(learningItems)
+      .where(
+        and(eq(learningItems.levelId, levelId), eq(learningItems.type, type)),
+      )
+      .orderBy(learningItems.position),
+  );
+}
+
+/** How many audit events of `action` exist for an item — one per real change, never per click or retry. */
+export async function countE2EItemAudits(
+  action: AdminAuditAction,
+  resourceId: string,
+): Promise<number> {
+  return withE2EDb(async (db) => {
+    const page = await getAuditEvents(db, { action, resourceId, limit: 50 });
+    return page.items.length;
+  });
+}
+
+/** Removes items made by `seedBulkItems` (either type, and any draft), and nothing else. */
+export async function removeBulkFixtureItems(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  await withE2EDb(async (db) => {
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(curriculumItemDrafts)
+        .where(inArray(curriculumItemDrafts.learningItemId, ids));
+      await tx
+        .delete(vocabularyItems)
+        .where(inArray(vocabularyItems.learningItemId, ids));
+      await tx
+        .delete(grammarItems)
+        .where(inArray(grammarItems.learningItemId, ids));
+      await tx.delete(learningItems).where(inArray(learningItems.id, ids));
+    });
   });
 }

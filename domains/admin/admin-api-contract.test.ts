@@ -4,10 +4,17 @@ import { USER_ROLES } from "@/domains/users";
 
 import {
   ADMIN_CEFR_LEVELS,
+  CURRICULUM_BULK_ITEM_LIMIT,
   CURRICULUM_STATUSES,
   USER_LIST_MAX_PAGE_SIZE,
   USER_LIST_PAGE_SIZE,
   USER_ROLE_REASON_MAX,
+  adminCurriculumBulkArchiveRequestSchema,
+  adminCurriculumBulkArchiveResultSchema,
+  adminCurriculumBulkMoveRequestSchema,
+  adminCurriculumBulkMoveResultSchema,
+  adminCurriculumBulkPublishRequestSchema,
+  adminCurriculumBulkPublishResultSchema,
   adminGroupCreateRequestSchema,
   adminGroupListQuerySchema,
   adminGroupPathSchema,
@@ -790,5 +797,220 @@ describe("adminUserRoleChangeResultSchema and adminUserPathSchema", () => {
     for (const userId of ["not-an-id", "", "../1", USER + "x"]) {
       expect(adminUserPathSchema.safeParse({ userId }).success).toBe(false);
     }
+  });
+});
+
+/**
+ * Spec 26 Unit 7: the three bulk curriculum commands share one rule for the
+ * items they name — one to `CURRICULUM_BULK_ITEM_LIMIT`, each once — and one
+ * body shape: the language they act in, the items, and an idempotency key.
+ * Nothing else is accepted: above all, no actor and no role.
+ */
+const ITEM_A = "40000000-0000-4000-8000-00000000000a";
+const ITEM_B = "40000000-0000-4000-8000-00000000000b";
+const GROUP = "50000000-0000-4000-8000-000000000005";
+
+function itemIds(count: number): string[] {
+  return Array.from(
+    { length: count },
+    (_, index) =>
+      `40000000-0000-4000-8000-${index.toString(16).padStart(12, "0")}`,
+  );
+}
+
+describe.each([
+  ["publish", adminCurriculumBulkPublishRequestSchema],
+  ["archive", adminCurriculumBulkArchiveRequestSchema],
+])("the bulk %s request", (_name, schema) => {
+  const base = {
+    languageId: LANGUAGE,
+    itemIds: [ITEM_A, ITEM_B],
+    idempotencyKey: KEY,
+  };
+
+  it("accepts a language, its items and a key", () => {
+    expect(schema.parse(base)).toEqual(base);
+  });
+
+  it("accepts exactly the bound, and refuses one more", () => {
+    expect(CURRICULUM_BULK_ITEM_LIMIT).toBe(100);
+    expect(
+      schema.safeParse({
+        ...base,
+        itemIds: itemIds(CURRICULUM_BULK_ITEM_LIMIT),
+      }).success,
+    ).toBe(true);
+    expect(
+      schema.safeParse({
+        ...base,
+        itemIds: itemIds(CURRICULUM_BULK_ITEM_LIMIT + 1),
+      }).success,
+    ).toBe(false);
+  });
+
+  it("refuses no items", () => {
+    expect(schema.safeParse({ ...base, itemIds: [] }).success).toBe(false);
+  });
+
+  it("refuses an item named twice, whatever its letter case", () => {
+    expect(
+      schema.safeParse({ ...base, itemIds: [ITEM_A, ITEM_A] }).success,
+    ).toBe(false);
+    expect(
+      schema.safeParse({
+        ...base,
+        itemIds: [ITEM_A, ITEM_A.toUpperCase()],
+      }).success,
+    ).toBe(false);
+  });
+
+  it.each(["not-an-id", "", "../1", ITEM_A + "x", 7, null])(
+    "refuses %j as an item id",
+    (id) => {
+      expect(schema.safeParse({ ...base, itemIds: [ITEM_A, id] }).success).toBe(
+        false,
+      );
+    },
+  );
+
+  it("refuses items that are not a list", () => {
+    expect(schema.safeParse({ ...base, itemIds: ITEM_A }).success).toBe(false);
+    expect(schema.safeParse({ ...base, itemIds: undefined }).success).toBe(
+      false,
+    );
+  });
+
+  it.each(["languageId", "idempotencyKey"] as const)(
+    "needs a %s that is a UUID",
+    (field) => {
+      expect(schema.safeParse({ ...base, [field]: undefined }).success).toBe(
+        false,
+      );
+      expect(schema.safeParse({ ...base, [field]: "nope" }).success).toBe(
+        false,
+      );
+    },
+  );
+
+  it("accepts nothing it does not name — an actor, a role, a status", () => {
+    for (const extra of [
+      { actorUserId: "someone" },
+      { role: "admin" },
+      { status: "published" },
+      { learningItemIds: [ITEM_A] },
+      { levelId: LEVEL },
+    ]) {
+      expect(schema.safeParse({ ...base, ...extra }).success).toBe(false);
+    }
+  });
+});
+
+describe("the bulk move request", () => {
+  const base = {
+    languageId: LANGUAGE,
+    itemIds: [ITEM_A, ITEM_B],
+    idempotencyKey: KEY,
+  };
+  const schema = adminCurriculumBulkMoveRequestSchema;
+
+  it("accepts a level, a group, or both", () => {
+    expect(schema.safeParse({ ...base, levelId: LEVEL }).success).toBe(true);
+    expect(schema.safeParse({ ...base, groupId: GROUP }).success).toBe(true);
+    expect(
+      schema.safeParse({ ...base, levelId: LEVEL, groupId: GROUP }).success,
+    ).toBe(true);
+  });
+
+  it("refuses a move that names no target", () => {
+    const result = schema.safeParse(base);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]?.message).toBe(
+        "A move must name a level, a group, or both.",
+      );
+    }
+  });
+
+  it.each([
+    ["levelId", "nope"],
+    ["groupId", "nope"],
+    ["levelId", ""],
+    ["groupId", null],
+  ])("refuses %s %j", (field, value) => {
+    expect(
+      schema.safeParse({ ...base, levelId: LEVEL, [field]: value }).success,
+    ).toBe(false);
+  });
+
+  it("holds the same bound and the same uniqueness as the other commands", () => {
+    expect(
+      schema.safeParse({
+        ...base,
+        levelId: LEVEL,
+        itemIds: itemIds(CURRICULUM_BULK_ITEM_LIMIT),
+      }).success,
+    ).toBe(true);
+    expect(
+      schema.safeParse({
+        ...base,
+        levelId: LEVEL,
+        itemIds: itemIds(CURRICULUM_BULK_ITEM_LIMIT + 1),
+      }).success,
+    ).toBe(false);
+    expect(
+      schema.safeParse({ ...base, levelId: LEVEL, itemIds: [ITEM_A, ITEM_A] })
+        .success,
+    ).toBe(false);
+    expect(
+      schema.safeParse({ ...base, levelId: LEVEL, itemIds: [] }).success,
+    ).toBe(false);
+  });
+
+  it("accepts nothing it does not name", () => {
+    expect(
+      schema.safeParse({ ...base, levelId: LEVEL, actorUserId: "x" }).success,
+    ).toBe(false);
+    expect(
+      schema.safeParse({ ...base, levelId: LEVEL, vocabularyGroupId: GROUP })
+        .success,
+    ).toBe(false);
+  });
+});
+
+describe("the bulk results", () => {
+  it("describe what was done, item by item", () => {
+    expect(
+      adminCurriculumBulkPublishResultSchema.parse({
+        publishedItemIds: [ITEM_A],
+      }),
+    ).toEqual({ publishedItemIds: [ITEM_A] });
+    expect(
+      adminCurriculumBulkArchiveResultSchema.parse({
+        archivedItemIds: [ITEM_A],
+        alreadyArchivedItemIds: [ITEM_B],
+      }),
+    ).toEqual({ archivedItemIds: [ITEM_A], alreadyArchivedItemIds: [ITEM_B] });
+    expect(
+      adminCurriculumBulkMoveResultSchema.parse({
+        movedItemIds: [ITEM_A],
+        unchangedItemIds: [],
+      }),
+    ).toEqual({ movedItemIds: [ITEM_A], unchangedItemIds: [] });
+  });
+
+  it("are not accepted when a part is missing", () => {
+    expect(adminCurriculumBulkPublishResultSchema.safeParse({}).success).toBe(
+      false,
+    );
+    expect(
+      adminCurriculumBulkArchiveResultSchema.safeParse({
+        archivedItemIds: [ITEM_A],
+      }).success,
+    ).toBe(false);
+    expect(
+      adminCurriculumBulkMoveResultSchema.safeParse({
+        movedItemIds: [ITEM_A],
+      }).success,
+    ).toBe(false);
   });
 });

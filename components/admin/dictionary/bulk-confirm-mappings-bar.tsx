@@ -20,7 +20,7 @@ type BulkConfirmMappingsBarProps = {
   onDone: () => void;
 };
 
-/** Spec 13's "batch confirmation of reviewed mappings" — mirrors `components/admin/curriculum/bulk-actions-bar.tsx`'s exact shape. */
+/** Spec 13's "batch confirmation of reviewed mappings" — built in the shape the curriculum list's selection bar had before spec 26 Unit 7 replaced it. */
 export function BulkConfirmMappingsBar({
   vocabularyItemIds,
   onDone,

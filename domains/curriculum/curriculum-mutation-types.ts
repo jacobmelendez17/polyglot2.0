@@ -149,24 +149,55 @@ export type ReorderVocabularyGroupsInput = {
 
 // --- Bulk actions on the curriculum table (spec 11 rewrite's "Bulk Actions" / "Bulk Publish") ---
 
+/**
+ * Every bulk command names the **language** it acts in (spec 26 §3,
+ * "Cross-language isolation"): each item, and any level or group it is moved
+ * to, must belong to it, or the whole batch is refused. At most
+ * `CURRICULUM_BULK_ITEM_LIMIT` distinct items.
+ */
 export type BulkArchiveLearningItemsInput = {
+  languageId: string;
   learningItemIds: string[];
   actorUserId: string;
   reason?: string;
 };
 
-/** A move affecting several items at once — a grammar item in the selection is silently unaffected by `vocabularyGroupId` (grammar items have no group), matching `moveLearningItem`'s existing single-item behavior. */
+/** What a bulk archive did: items already archived are left exactly as they were (no second audit event), and say so. */
+export type BulkArchiveLearningItemsResult = {
+  archivedItemIds: string[];
+  alreadyArchivedItemIds: string[];
+};
+
+/**
+ * A move affecting several items at once, to a level and/or a group (at least
+ * one). A grammar item may be filed under a group too, so both kinds of item
+ * follow `vocabularyGroupId`. An item that is already where it is being moved
+ * is left alone — moving it to "its" level would otherwise send it to the end
+ * of that level's order.
+ */
 export type BulkMoveLearningItemsInput = {
+  languageId: string;
   learningItemIds: string[];
   actorUserId: string;
   levelId?: string;
   vocabularyGroupId?: string;
 };
 
+/** What a bulk move did, item by item: moved, or already where it was asked to be. */
+export type BulkMoveLearningItemsResult = {
+  movedItemIds: string[];
+  unchangedItemIds: string[];
+};
+
 /** Every selected item must actually be `pending` — spec's literal "Pending items may be selected and published together." Transactional: all publish, or none do. */
 export type BulkPublishPendingItemsInput = {
+  languageId: string;
   learningItemIds: string[];
   actorUserId: string;
+};
+
+export type BulkPublishPendingItemsResult = {
+  publishedItemIds: string[];
 };
 
 /**

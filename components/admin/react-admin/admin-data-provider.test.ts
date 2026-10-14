@@ -950,6 +950,141 @@ describe("createAdminDataProvider", () => {
     });
   });
 
+  describe("the bulk curriculum commands (explicit commands)", () => {
+    const LANGUAGE = "10000000-0000-4000-8000-000000000001";
+    const ITEMS = [
+      "40000000-0000-4000-8000-00000000000a",
+      "40000000-0000-4000-8000-00000000000b",
+    ];
+    const KEY = "22222222-2222-4222-8222-222222222222";
+    const BASE = { languageId: LANGUAGE, itemIds: ITEMS, idempotencyKey: KEY };
+
+    type Provider = ReturnType<typeof createAdminDataProvider>;
+    const COMMANDS = [
+      {
+        name: "bulkPublishCurriculum",
+        path: "/curriculum/bulk-publish",
+        send: (p: Provider) => p.bulkPublishCurriculum(BASE),
+        body: BASE,
+        result: { publishedItemIds: ITEMS },
+        broken: { publishedItemIds: "nope" },
+      },
+      {
+        name: "bulkArchiveCurriculum",
+        path: "/curriculum/bulk-archive",
+        send: (p: Provider) => p.bulkArchiveCurriculum(BASE),
+        body: BASE,
+        result: {
+          archivedItemIds: [ITEMS[0]],
+          alreadyArchivedItemIds: [ITEMS[1]],
+        },
+        broken: { archivedItemIds: [ITEMS[0]] },
+      },
+      {
+        name: "bulkMoveCurriculum",
+        path: "/curriculum/bulk-move",
+        send: (p: Provider) =>
+          p.bulkMoveCurriculum({
+            ...BASE,
+            levelId: "30000000-0000-4000-8000-000000000003",
+          }),
+        body: { ...BASE, levelId: "30000000-0000-4000-8000-000000000003" },
+        result: { movedItemIds: [ITEMS[0]], unchangedItemIds: [ITEMS[1]] },
+        broken: { movedItemIds: [ITEMS[0]] },
+      },
+    ];
+
+    function commandProvider(answer: unknown) {
+      const request = vi.fn<RequestFn>(async () => answer as never);
+      return {
+        request,
+        provider: createAdminDataProvider({ request: request as never }),
+      };
+    }
+
+    describe.each(COMMANDS)("$name", (command) => {
+      it("posts exactly the command — no actor, no role — to its own endpoint", async () => {
+        const { provider, request } = commandProvider(command.result);
+
+        await expect(command.send(provider)).resolves.toEqual(command.result);
+
+        const [path, , options] = request.mock.calls[0] as [
+          string,
+          unknown,
+          { body: unknown; method?: string },
+        ];
+        expect(path).toBe(command.path);
+        // A command is a POST: the client's default for a request with a body.
+        expect(options.method ?? "POST").toBe("POST");
+        expect(options.body).toEqual(command.body);
+        for (const key of [
+          "actorUserId",
+          "userId",
+          "role",
+          "learningItemIds",
+        ]) {
+          expect(options.body).not.toHaveProperty(key);
+        }
+      });
+
+      it("validates the answer against the contract", async () => {
+        const { provider, request } = commandProvider(command.result);
+        await command.send(provider);
+        const schema = request.mock.calls[0]?.[1] as {
+          safeParse: (v: unknown) => { success: boolean };
+        };
+        expect(schema.safeParse(command.result).success).toBe(true);
+        expect(schema.safeParse(command.broken).success).toBe(false);
+        expect(schema.safeParse({}).success).toBe(false);
+      });
+
+      it("propagates a refusal unchanged, for the dialog to explain", async () => {
+        const refusal = new AdminApiError("CONFLICT", 409, undefined, {
+          serverMessage: "Some of the selected items are no longer Pending.",
+        });
+        const provider = createAdminDataProvider({
+          request: (async () => {
+            throw refusal;
+          }) as never,
+        });
+        await expect(command.send(provider)).rejects.toBe(refusal);
+      });
+    });
+
+    it("sends a move to a group as `groupId`, and to both as both", async () => {
+      const { provider, request } = commandProvider({
+        movedItemIds: [],
+        unchangedItemIds: [],
+      });
+      await provider.bulkMoveCurriculum({ ...BASE, groupId: "g-1" });
+      await provider.bulkMoveCurriculum({
+        ...BASE,
+        levelId: "l-1",
+        groupId: "g-1",
+      });
+      const bodies = request.mock.calls.map(
+        (call) => (call[2] as { body: Record<string, unknown> }).body,
+      );
+      expect(bodies[0]).toEqual({ ...BASE, groupId: "g-1" });
+      expect(bodies[1]).toEqual({ ...BASE, levelId: "l-1", groupId: "g-1" });
+    });
+
+    it("has no bulk delete, and the generic mutations still reach nothing", async () => {
+      const { provider, request } = commandProvider({});
+      expect(provider).not.toHaveProperty("bulkDeleteCurriculum");
+      for (const attempt of [
+        provider.update("curriculum", { id: "x", data: {}, previousData: {} }),
+        provider.create("curriculum", { data: {} }),
+        provider.delete("curriculum", { id: "x" }),
+        provider.updateMany("curriculum", { ids: ["x"], data: {} }),
+        provider.deleteMany("curriculum", { ids: ["x"] }),
+      ]) {
+        expect((await rejection(attempt)).kind).toBe("unsupported");
+      }
+      expect(request).not.toHaveBeenCalled();
+    });
+  });
+
   describe("everything not whitelisted", () => {
     it("rejects an unknown resource with a typed UNSUPPORTED_OPERATION, never a guess", async () => {
       const { provider, request } = providerWith();

@@ -378,6 +378,31 @@ trying to break the first one:
    provider id, email or flag the screen does not need. The console never calls
    the identity provider for something the database already decides.
 
+A **bulk command** — one request that changes several records (spec 26 Unit 7:
+publish, archive or move many curriculum items) — is held to this list as well:
+
+1. The contract bounds the set (`min(1)`, a named maximum shared with the UI and
+   the service schema) and requires each id once, compared the way the database
+   compares them. Nothing about "all matching" exists; the caller names ids.
+2. The body names the scope it acts in (the language), and the service verifies
+   that every record, and every target, belongs to it _after_ locking them.
+3. Lock every named row up front in one fixed order, check every precondition
+   before the first write, and write all or nothing inside the idempotency
+   transaction. A command that must not partially apply (publish) refuses the
+   batch on the first record that no longer qualifies — as a 409 — rather than
+   applying the rest.
+4. A record already in the wanted state is **not** changed: no write, no audit
+   event, and the result says so. Re-doing it would move it (a move re-appends
+   to the end of the order) or record a change that did not happen.
+5. A command whose honest maximum does not fit the default 4 KiB body says so with
+   `maxBodyBytes` on its route; every other command keeps the default.
+6. The UI tells the person the impact on _this_ selection before sending, does
+   not offer a command it knows would be refused (and says why), holds a snapshot
+   of what it will send, clears the selection when the view changes, and keeps
+   one idempotency key per _request_ (`useIntentKey`).
+7. Destructive commands are archives or reversible moves. A bulk **delete** is not
+   built.
+
 Use meaningful HTTP status codes.
 
 Do not return raw database rows when a safe response model is more appropriate.

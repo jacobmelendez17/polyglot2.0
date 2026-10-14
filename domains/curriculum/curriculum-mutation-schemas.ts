@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+import {
+  CURRICULUM_BULK_ITEM_LIMIT,
+  CURRICULUM_REORDER_LIMIT,
+} from "./curriculum-bulk-limits";
+
 /** Same permissive UUID-shape reasoning as `domains/admin/audit-schemas.ts`. */
 const uuidLike = z
   .string()
@@ -109,11 +114,19 @@ export const moveLearningItemInputSchema = z
     message: "A move must change at least the level or the group",
   });
 
+/** Each item at most once — a repeated id would be archived, moved or numbered twice. Compared without regard to case, as the database does. */
+const namedOnce = (ids: string[]) =>
+  new Set(ids.map((id) => id.toLowerCase())).size === ids.length;
+
 export const reorderLearningItemsInputSchema = z.object({
   actorUserId: uuidLike,
   levelId: uuidLike,
   type: z.enum(["vocabulary", "grammar"]),
-  orderedLearningItemIds: z.array(uuidLike).min(1),
+  orderedLearningItemIds: z
+    .array(uuidLike)
+    .min(1)
+    .max(CURRICULUM_REORDER_LIMIT)
+    .refine(namedOnce, { message: "Each item can be named only once." }),
 });
 
 const curriculumStatusSchema = z.enum([
@@ -172,15 +185,24 @@ export const reorderVocabularyGroupsInputSchema = z.object({
   orderedGroupIds: z.array(uuidLike).min(1),
 });
 
+/** A bulk command names between one and `CURRICULUM_BULK_ITEM_LIMIT` distinct items. */
+const bulkLearningItemIdsSchema = z
+  .array(uuidLike)
+  .min(1)
+  .max(CURRICULUM_BULK_ITEM_LIMIT)
+  .refine(namedOnce, { message: "Each item can be named only once." });
+
 export const bulkArchiveLearningItemsInputSchema = z.object({
-  learningItemIds: z.array(uuidLike).min(1),
+  languageId: uuidLike,
+  learningItemIds: bulkLearningItemIdsSchema,
   actorUserId: uuidLike,
   reason: z.string().trim().min(1).optional(),
 });
 
 export const bulkMoveLearningItemsInputSchema = z
   .object({
-    learningItemIds: z.array(uuidLike).min(1),
+    languageId: uuidLike,
+    learningItemIds: bulkLearningItemIdsSchema,
     actorUserId: uuidLike,
     levelId: uuidLike.optional(),
     vocabularyGroupId: uuidLike.optional(),
@@ -190,6 +212,7 @@ export const bulkMoveLearningItemsInputSchema = z
   });
 
 export const bulkPublishPendingItemsInputSchema = z.object({
-  learningItemIds: z.array(uuidLike).min(1),
+  languageId: uuidLike,
+  learningItemIds: bulkLearningItemIdsSchema,
   actorUserId: uuidLike,
 });

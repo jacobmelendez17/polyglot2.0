@@ -133,6 +133,8 @@ type AdminMutationRoute<TBody, TResult> = {
   authorize: (user: Pick<PolyglotUser, "role">) => boolean;
   /** The command's JSON body. Strict schemas reject anything unexpected. */
   body: z.ZodType<TBody>;
+  /** The most bytes the body may have. Defaults to `MAX_COMMAND_BODY_BYTES`; only a command that honestly needs more says so. */
+  maxBodyBytes?: number;
   /**
    * Runs only after every guard passed. This calls the *same* domain service
    * the equivalent Server Action does — rate limiting, idempotency, the
@@ -164,6 +166,7 @@ export async function handleAdminMutation<TBody, TResult>(
     route,
     authorize,
     body: bodySchema,
+    maxBodyBytes = MAX_COMMAND_BODY_BYTES,
     execute,
   }: AdminMutationRoute<TBody, TResult>,
 ): Promise<Response> {
@@ -196,7 +199,7 @@ export async function handleAdminMutation<TBody, TResult>(
       }
 
       const parsed = bodySchema.parse(
-        parseJsonBody(await readBodyWithLimit(request, MAX_COMMAND_BODY_BYTES)),
+        parseJsonBody(await readBodyWithLimit(request, maxBodyBytes)),
       );
       return adminJson({ data: await execute(user, parsed) }, 200);
     } catch (error) {

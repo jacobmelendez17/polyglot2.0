@@ -13,6 +13,7 @@ import {
   CURRICULUM_STATUSES,
   canManageCurriculum,
 } from "@/domains/admin";
+import { CURRICULUM_REORDER_LIMIT } from "@/domains/curriculum";
 import {
   getAdminCurriculumItems,
   getLanguages,
@@ -27,14 +28,15 @@ export const metadata: Metadata = {
   title: "Curriculum — Polyglot Admin",
 };
 
-// getAdminCurriculumItemsInputSchema caps `limit` at 100 — this is that cap,
-// used as-is (not a separate, larger constant) so reorder mode never
-// exceeds it. Still comfortably above CURRICULUM_VALIDATION_CONFIG's
-// 48-vocabulary-per-level target: reorder mode needs every item in the
-// level+type at once (not one paginated page), since `reorderItems`
-// assigns positions 1..N to whatever list it's given — leaving items out of
-// that list would desync their position from the ones that were reordered.
-const REORDER_LIMIT = 100;
+// Reorder mode shows *every* item of one level and type — never the subset the
+// browse filters would pick. `reorderItems` assigns positions 1..N to exactly
+// the list it is given, and (spec 26 Unit 7) refuses a list that leaves any
+// item of that level and type out, because an item left out would be left with
+// a position that collides with, or is out of step with, the ones that moved.
+// `getAdminCurriculumItemsInputSchema` caps `limit` at 100, which is also the
+// most `reorderItems` accepts (`CURRICULUM_REORDER_LIMIT`): a level and type
+// with more than that is told so (see `reorderPage.nextCursor` below) instead
+// of being shown a list that could never be saved.
 
 type SearchParams = {
   language?: string;
@@ -119,11 +121,7 @@ export default async function AdminCurriculumPage({
           languageId,
           levelId: params.level,
           type,
-          status,
-          groupId: params.group,
-          search: params.search,
-          needs,
-          limit: REORDER_LIMIT,
+          limit: CURRICULUM_REORDER_LIMIT,
         })
       : Promise.resolve(null),
     // Spec 25 §15's per-level summary only makes sense scoped to one level.
@@ -156,6 +154,15 @@ export default async function AdminCurriculumPage({
 
   const reorderParams = new URLSearchParams(baseParams);
   reorderParams.set("mode", "reorder");
+
+  // Reorder mode ignores these (see `CURRICULUM_REORDER_LIMIT` above); they
+  // stay in the address so "Back to browsing" returns to the same view.
+  const hasBrowseFilters = Boolean(
+    status || params.group || params.search || needs,
+  );
+  // `nextCursor` is set only when the level and type hold more items than were
+  // asked for.
+  const tooManyToReorder = Boolean(reorderPage?.nextCursor);
 
   return (
     <div>
@@ -208,19 +215,34 @@ export default async function AdminCurriculumPage({
       ) : null}
 
       {reorderMode ? (
-        // `key` forces a remount when the level/type scope changes — same
-        // fix, same reason, as GroupReorderList's own key (see that
-        // component's render site for the full explanation): without it, a
-        // link that changes `level`/`type` while staying in reorder mode
-        // would leave ItemReorderList's own `order` state pointing at the
-        // previous scope's item ids, which are missing from the new scope's
-        // id→item map, silently rendering every row as null.
-        <ItemReorderList
-          key={`${params.level}-${type}`}
-          levelId={params.level!}
-          type={type!}
-          items={reorderPage?.items ?? []}
-        />
+        <>
+          {hasBrowseFilters ? (
+            <p className="mb-3 text-sm text-muted-foreground">
+              Reordering always shows every item in this level and type. Your
+              search and filters apply again when you go back to browsing.
+            </p>
+          ) : null}
+          {tooManyToReorder ? (
+            <p className="rounded-xl border border-border bg-muted/40 px-3 py-2 text-sm text-foreground">
+              This level has more than {CURRICULUM_REORDER_LIMIT} {type} items,
+              which is more than the order tool can arrange at once.
+            </p>
+          ) : (
+            // `key` forces a remount when the level/type scope changes — same
+            // fix, same reason, as GroupReorderList's own key (see that
+            // component's render site for the full explanation): without it,
+            // a link that changes `level`/`type` while staying in reorder
+            // mode would leave ItemReorderList's own `order` state pointing
+            // at the previous scope's item ids, which are missing from the
+            // new scope's id→item map, silently rendering every row as null.
+            <ItemReorderList
+              key={`${params.level}-${type}`}
+              levelId={params.level!}
+              type={type!}
+              items={reorderPage?.items ?? []}
+            />
+          )}
+        </>
       ) : (
         <AdminCurriculumListApp
           signInPath={env.NEXT_PUBLIC_CLERK_SIGN_IN_URL}

@@ -5,6 +5,7 @@ import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { LevelItemBoard } from "@/components/admin/curriculum/level-item-board";
 import { AdminLevelEditApp } from "@/components/admin/react-admin/levels/level-edit-app";
 import { canManageCurriculum } from "@/domains/admin";
+import { CURRICULUM_REORDER_LIMIT } from "@/domains/curriculum";
 import {
   getAdminCurriculumItems,
   getLevelById,
@@ -56,18 +57,39 @@ export default async function LevelDetailPage({
   const level = await getLevelById(levelId);
   if (!level) notFound();
 
-  const [counts, itemsPage, levels, groups] = await Promise.all([
-    getLevelContentCounts(levelId),
-    // A level's whole contents, not a page of them: this view is the level's
-    // running order, and an order with a page break in it is not an order.
-    getAdminCurriculumItems({
-      languageId: level.languageId,
-      levelId,
-      limit: 100,
-    }),
-    getLevelsByLanguage(level.languageId),
-    getVocabularyGroupsByLanguage(level.languageId),
-  ]);
+  const [counts, vocabularyPage, grammarPage, levels, groups] =
+    await Promise.all([
+      getLevelContentCounts(levelId),
+      // A level's whole contents, not a page of them: this view is the level's
+      // running order, and an order with a page break in it is not an order.
+      // One query per type, because the order is a level *and type's*
+      // (`position` is unique within the pair) and saving one is refused unless
+      // the list holds every item of the pair — at most
+      // `CURRICULUM_REORDER_LIMIT` of them (spec 26 Unit 7). A single query
+      // for both types would run out at that many items in total, and cut
+      // each type's list short while neither type was over the limit.
+      getAdminCurriculumItems({
+        languageId: level.languageId,
+        levelId,
+        type: "vocabulary",
+        limit: CURRICULUM_REORDER_LIMIT,
+      }),
+      getAdminCurriculumItems({
+        languageId: level.languageId,
+        levelId,
+        type: "grammar",
+        limit: CURRICULUM_REORDER_LIMIT,
+      }),
+      getLevelsByLanguage(level.languageId),
+      getVocabularyGroupsByLanguage(level.languageId),
+    ]);
+  const items = [...vocabularyPage.items, ...grammarPage.items];
+  // A type with more items than that cannot be arranged here; say so rather
+  // than offer a list whose save is always refused.
+  const overLimitTypes = [
+    vocabularyPage.nextCursor ? "vocabulary" : null,
+    grammarPage.nextCursor ? "grammar" : null,
+  ].filter((type) => type !== null);
 
   return (
     <div className="flex flex-col gap-8">
@@ -102,10 +124,19 @@ export default async function LevelDetailPage({
           LevelItemBoard's nested per-type reorder state would keep the
           previous level's item ids and silently render every row as null
           for the level actually being viewed. */}
+      {overLimitTypes.length > 0 ? (
+        <p className="rounded-xl border border-border bg-muted/40 px-3 py-2 text-sm text-foreground">
+          This level has more than {CURRICULUM_REORDER_LIMIT}{" "}
+          {overLimitTypes.join(" or ")} items, which is more than the order tool
+          can arrange at once. The board shows the first{" "}
+          {CURRICULUM_REORDER_LIMIT} of each, and saving an order is refused.
+        </p>
+      ) : null}
+
       <LevelItemBoard
         key={level.id}
         levelId={level.id}
-        items={itemsPage.items}
+        items={items}
         levels={levels.map((option) => ({
           id: option.id,
           levelNumber: option.levelNumber,

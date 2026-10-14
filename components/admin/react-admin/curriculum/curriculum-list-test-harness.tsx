@@ -75,28 +75,64 @@ export function page(
   };
 }
 
+/** A scripted answer to one bulk command: given the body it was sent, return the result or throw the refusal. */
+export type CommandHandler = (
+  body: Record<string, unknown>,
+) => unknown | Promise<unknown>;
+
 type RenderOptions = {
   pages?: FakePages;
-  role?: UserRole;
+  /** The signed-in person's role; a function is read on every permission lookup, so a test can revoke it mid-session. */
+  role?: UserRole | (() => UserRole);
   fail?: () => Error | null;
+  /** Answers to the bulk commands, by endpoint path (`/curriculum/bulk-publish`). A command with no handler fails the test. */
+  commands?: Record<string, CommandHandler>;
+  /** Makes the permission lookup (`/api/v1/admin/me`) fail, as a refusal or an outage. */
+  meFails?: () => Error | null;
+  /** Holds the permission lookup until this settles, while the list itself is already answered. */
+  meGate?: Promise<unknown>;
 };
 
 export function renderCurriculumList({
   pages = { "": page([row(1), row(2), row(3)]) },
   role = "admin",
   fail = () => null,
+  commands = {},
+  meFails = () => null,
+  meGate,
 }: RenderOptions = {}) {
   const requests: string[] = [];
-  const request = vi.fn(async (path: string) => {
-    const failure = fail();
+  /** Every command sent, in order, with the body it carried. */
+  const commandCalls: { path: string; body: Record<string, unknown> }[] = [];
+  const request = vi.fn(
+    async (path: string, _schema?: unknown, options?: { body?: unknown }) => {
+      if (options?.body !== undefined) {
+        // A command, not a list read: its own scripted answer, and recorded.
+        const body = options.body as Record<string, unknown>;
+        commandCalls.push({ path, body });
+        const handler = commands[path];
+        if (!handler) throw new Error(`no scripted command for "${path}"`);
+        return handler(body);
+      }
+      const failure = fail();
+      if (failure) throw failure;
+      requests.push(path);
+      const cursor =
+        new URLSearchParams(path.split("?")[1]).get("cursor") ?? "";
+      const found = pages[cursor];
+      if (!found) throw new Error(`no scripted page for cursor "${cursor}"`);
+      return found;
+    },
+  );
+  const fetchMe = vi.fn(async () => {
+    await meGate;
+    const failure = meFails();
     if (failure) throw failure;
-    requests.push(path);
-    const cursor = new URLSearchParams(path.split("?")[1]).get("cursor") ?? "";
-    const found = pages[cursor];
-    if (!found) throw new Error(`no scripted page for cursor "${cursor}"`);
-    return found;
+    return buildAdminMe({
+      id: "u",
+      role: typeof role === "function" ? role() : role,
+    });
   });
-  const fetchMe = vi.fn(async () => buildAdminMe({ id: "u", role }));
   const redirect = vi.fn();
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -126,5 +162,13 @@ export function renderCurriculumList({
   }
 
   const view = render(<Harness />);
-  return { ...view, request, requests, fetchMe, redirect, queryClient };
+  return {
+    ...view,
+    request,
+    requests,
+    commandCalls,
+    fetchMe,
+    redirect,
+    queryClient,
+  };
 }

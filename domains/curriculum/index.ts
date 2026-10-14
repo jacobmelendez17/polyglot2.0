@@ -54,14 +54,21 @@ export type {
 // `./server`'s callers, not to this client-safe surface.
 export type { ReviewQueuePage } from "./review-queue-pagination";
 export type { LevelContentCounts } from "./curriculum-mutation-repository";
+export {
+  CURRICULUM_BULK_ITEM_LIMIT,
+  CURRICULUM_REORDER_LIMIT,
+} from "./curriculum-bulk-limits";
 export type {
   AcceptedAnswerInput,
   ArchiveLearningItemInput,
   BulkArchiveLearningItemsInput,
+  BulkArchiveLearningItemsResult,
   BulkMoveLearningItemsInput,
+  BulkMoveLearningItemsResult,
   BulkPublishDraftedItemsInput,
   BulkPublishDraftedItemsResult,
   BulkPublishPendingItemsInput,
+  BulkPublishPendingItemsResult,
   CreateLearningItemInput,
   CreateLevelInput,
   CreateVocabularyGroupInput,

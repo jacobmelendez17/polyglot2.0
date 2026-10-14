@@ -14,8 +14,19 @@ import { AdminApiRequestError } from "./admin-api-errors";
  * on its own.
  */
 
-/** The largest body any Admin command needs. A publish command is ~120 bytes. */
+/** The largest body most Admin commands need. A publish command is ~120 bytes. */
 export const MAX_COMMAND_BODY_BYTES = 4096;
+
+/**
+ * The cap for the bulk curriculum commands, which carry up to
+ * `CURRICULUM_BULK_ITEM_LIMIT` ids. A hundred ids are about 4 KiB compact, so
+ * the default cap holds them only by a few dozen bytes: a move that names a
+ * level *and* a group is already past it, and so is any request with a space or
+ * a newline in it. These are the one kind of command whose honest maximum does
+ * not fit with room to spare. Still small, and still enforced while the body
+ * streams in.
+ */
+export const MAX_BULK_COMMAND_BODY_BYTES = 8192;
 
 export type OriginVerdict =
   | { ok: true }

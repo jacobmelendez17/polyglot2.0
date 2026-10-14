@@ -1,6 +1,10 @@
 import { z } from "zod";
 
+import { CURRICULUM_BULK_ITEM_LIMIT } from "@/domains/curriculum/curriculum-bulk-limits";
 import { ADMIN_USER_LIST_MAX_PAGE_SIZE, USER_ROLES } from "@/domains/users";
+
+// Re-exported so a screen can say "up to N" without importing the curriculum domain.
+export { CURRICULUM_BULK_ITEM_LIMIT };
 
 /**
  * Wire contract for the Admin HTTP adapter under `/api/v1/admin/*` (spec 26
@@ -257,6 +261,105 @@ export const adminReviewPublishResultSchema = z.object({
 });
 export type AdminReviewPublishResult = z.infer<
   typeof adminReviewPublishResultSchema
+>;
+
+/* -------------------------------------------------------------------------- */
+/* Curriculum bulk commands (spec 26 Unit 7)                                  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The items a bulk command acts on: one to `CURRICULUM_BULK_ITEM_LIMIT` ids,
+ * each named once (ids are compared without regard to case, as the database
+ * does). The limit equals the list's largest page, so no selection made from one
+ * page can exceed it; the server refuses more rather than doing unbounded work.
+ */
+const bulkItemIdsSchema = z
+  .array(uuidLike)
+  .min(1)
+  .max(CURRICULUM_BULK_ITEM_LIMIT)
+  .refine(
+    (ids) => new Set(ids.map((id) => id.toLowerCase())).size === ids.length,
+    { message: "Each item can be named only once." },
+  );
+
+/**
+ * `POST /api/v1/admin/curriculum/bulk-publish` — publish several **Pending**
+ * items together, all or none. `languageId` names the language the command acts
+ * in (every item must belong to it); the actor is the session, never the body.
+ * `idempotencyKey` is one UUID per intent: a retry of the same attempt is
+ * answered from the stored result instead of publishing twice.
+ */
+export const adminCurriculumBulkPublishRequestSchema = z
+  .object({
+    languageId: uuidLike,
+    itemIds: bulkItemIdsSchema,
+    idempotencyKey: uuidLike,
+  })
+  .strict();
+export type AdminCurriculumBulkPublishRequest = z.infer<
+  typeof adminCurriculumBulkPublishRequestSchema
+>;
+export const adminCurriculumBulkPublishResultSchema = z.object({
+  publishedItemIds: z.array(z.string().min(1)),
+});
+export type AdminCurriculumBulkPublishResult = z.infer<
+  typeof adminCurriculumBulkPublishResultSchema
+>;
+
+/**
+ * `POST /api/v1/admin/curriculum/bulk-archive` — archive several items together,
+ * all or none. Items already archived are left as they were and reported back.
+ * There is deliberately **no bulk delete**: nothing here destroys content.
+ */
+export const adminCurriculumBulkArchiveRequestSchema = z
+  .object({
+    languageId: uuidLike,
+    itemIds: bulkItemIdsSchema,
+    idempotencyKey: uuidLike,
+  })
+  .strict();
+export type AdminCurriculumBulkArchiveRequest = z.infer<
+  typeof adminCurriculumBulkArchiveRequestSchema
+>;
+export const adminCurriculumBulkArchiveResultSchema = z.object({
+  archivedItemIds: z.array(z.string().min(1)),
+  alreadyArchivedItemIds: z.array(z.string().min(1)),
+});
+export type AdminCurriculumBulkArchiveResult = z.infer<
+  typeof adminCurriculumBulkArchiveResultSchema
+>;
+
+/**
+ * `POST /api/v1/admin/curriculum/bulk-move` — move several items to a level
+ * and/or a group of the same language, all or none. Moved items join the end of
+ * the new level's order. An item already where it is being moved is left alone
+ * and reported back.
+ */
+export const adminCurriculumBulkMoveRequestSchema = z
+  .object({
+    languageId: uuidLike,
+    itemIds: bulkItemIdsSchema,
+    levelId: uuidLike.optional(),
+    groupId: uuidLike.optional(),
+    idempotencyKey: uuidLike,
+  })
+  .strict()
+  .refine(
+    (request) => request.levelId !== undefined || request.groupId !== undefined,
+    {
+      message: "A move must name a level, a group, or both.",
+      path: ["levelId"],
+    },
+  );
+export type AdminCurriculumBulkMoveRequest = z.infer<
+  typeof adminCurriculumBulkMoveRequestSchema
+>;
+export const adminCurriculumBulkMoveResultSchema = z.object({
+  movedItemIds: z.array(z.string().min(1)),
+  unchangedItemIds: z.array(z.string().min(1)),
+});
+export type AdminCurriculumBulkMoveResult = z.infer<
+  typeof adminCurriculumBulkMoveResultSchema
 >;
 
 /* -------------------------------------------------------------------------- */

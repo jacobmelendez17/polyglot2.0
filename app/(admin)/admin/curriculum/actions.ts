@@ -5,9 +5,6 @@ import { z } from "zod";
 import { canManageCurriculum, canPublishCurriculum } from "@/domains/admin";
 import {
   archiveItem,
-  bulkArchiveItems,
-  bulkMoveItems,
-  bulkPublishPendingItems,
   createItem,
   deleteItem,
   moveItem,
@@ -632,53 +629,5 @@ export async function reorderVocabularyGroupsAction(
     const parsed = reorderVocabularyGroupsActionSchema.parse(input);
     const user = await requireUser();
     await reorderVocabularyGroups({ ...parsed, actorUserId: user.id });
-  });
-}
-
-const bulkArchiveItemsActionSchema = z.object({
-  learningItemIds: z.array(z.string().min(1)).min(1),
-  reason: z.string().trim().min(1).optional(),
-  idempotencyKey: z.string().min(1),
-});
-
-export async function bulkArchiveItemsAction(
-  input: z.infer<typeof bulkArchiveItemsActionSchema>,
-): Promise<ActionResult<void>> {
-  return runPublishAction(async () => {
-    const parsed = bulkArchiveItemsActionSchema.parse(input);
-    const user = await requireUser();
-    await bulkArchiveItems({ ...parsed, actorUserId: user.id });
-  });
-}
-
-const bulkMoveItemsActionSchema = z.object({
-  learningItemIds: z.array(z.string().min(1)).min(1),
-  levelId: z.string().min(1).optional(),
-  vocabularyGroupId: z.string().min(1).optional(),
-  idempotencyKey: z.string().min(1),
-});
-
-export async function bulkMoveItemsAction(
-  input: z.infer<typeof bulkMoveItemsActionSchema>,
-): Promise<ActionResult<void>> {
-  return runPublishAction(async () => {
-    const parsed = bulkMoveItemsActionSchema.parse(input);
-    const user = await requireUser();
-    await bulkMoveItems({ ...parsed, actorUserId: user.id });
-  });
-}
-
-const bulkPublishPendingItemsActionSchema = z.object({
-  learningItemIds: z.array(z.string().min(1)).min(1),
-  idempotencyKey: z.string().min(1),
-});
-
-export async function bulkPublishPendingItemsAction(
-  input: z.infer<typeof bulkPublishPendingItemsActionSchema>,
-): Promise<ActionResult<void>> {
-  return runPublishAction(async () => {
-    const parsed = bulkPublishPendingItemsActionSchema.parse(input);
-    const user = await requireUser();
-    await bulkPublishPendingItems({ ...parsed, actorUserId: user.id });
   });
 }

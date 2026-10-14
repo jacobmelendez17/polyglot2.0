@@ -29,8 +29,13 @@ import {
   getDuplicateCandidateRows,
   getGrammarContentBlockIds,
   replaceGrammarContentBlocks,
+  getLearningItemGroupIds,
+  getLevelLanguageId,
   getNextPosition,
+  getVocabularyGroupLanguageId,
   lockLearningItemForEdit,
+  lockLearningItemsForEdit,
+  lockLevelTypeItems,
   moveLearningItem as repoMoveLearningItem,
   publishDraft as repoPublishDraft,
   publishPendingItem,
@@ -58,14 +63,24 @@ import {
   DICTIONARY_OVERRIDABLE_FIELDS,
   type DictionaryOverridableField,
 } from "@/db/schema";
+import { CURRICULUM_REORDER_LIMIT } from "@/domains/curriculum/curriculum-bulk-limits";
+import {
+  bulkArchiveLearningItemsInputSchema,
+  bulkMoveLearningItemsInputSchema,
+  bulkPublishPendingItemsInputSchema,
+  reorderLearningItemsInputSchema,
+} from "@/domains/curriculum/curriculum-mutation-schemas";
 import type { VocabularyFieldsInput } from "@/domains/curriculum/curriculum-mutation-types";
 import type {
   ArchiveLearningItemInput,
   BulkArchiveLearningItemsInput,
+  BulkArchiveLearningItemsResult,
   BulkMoveLearningItemsInput,
+  BulkMoveLearningItemsResult,
   BulkPublishDraftedItemsInput,
   BulkPublishDraftedItemsResult,
   BulkPublishPendingItemsInput,
+  BulkPublishPendingItemsResult,
   CreateLearningItemInput,
   CreateLevelInput,
   CreateVocabularyGroupInput,
@@ -106,6 +121,73 @@ import { invalidateCurriculumCache } from "./cache-invalidation";
 
 function itemResourceType(type: "vocabulary" | "grammar"): string {
   return type === "vocabulary" ? "vocabulary_item" : "grammar_item";
+}
+
+/**
+ * A level or group a move names must exist **in the language the items are
+ * in** (spec 26 §3, "Cross-language isolation"). A level of another language
+ * would be refused by the database, but as a bare constraint failure; a *group*
+ * of another language would not be refused at all — nothing ties an item's
+ * group to its language — and the item would quietly sit in a stranger's
+ * curriculum. "No such level" and "another language's level" get one answer, so
+ * a caller learns nothing about ids they did not name correctly.
+ */
+async function assertMoveTargetsInLanguage(
+  db: DbClient,
+  languageId: string,
+  targets: { levelId?: string; vocabularyGroupId?: string },
+): Promise<void> {
+  if (
+    targets.levelId &&
+    (await getLevelLanguageId(db, targets.levelId)) !== languageId
+  ) {
+    throw new AdminError(
+      "CURRICULUM_VALIDATION_FAILED",
+      "That level doesn't belong to the selected language.",
+    );
+  }
+  if (
+    targets.vocabularyGroupId &&
+    (await getVocabularyGroupLanguageId(db, targets.vocabularyGroupId)) !==
+      languageId
+  ) {
+    throw new AdminError(
+      "CURRICULUM_VALIDATION_FAILED",
+      "That group doesn't belong to the selected language.",
+    );
+  }
+}
+
+/**
+ * The items a bulk command names, row-locked (in one fixed order, so two
+ * overlapping batches take turns instead of deadlocking) and returned **in the
+ * order the caller named them** — which is the order a move appends them in.
+ * Every one must exist and belong to the language the command acts in; a batch
+ * with a stranger in it is refused whole, before anything is written.
+ */
+async function lockBulkItems(
+  db: DbClient,
+  languageId: string,
+  learningItemIds: string[],
+) {
+  const locked = await lockLearningItemsForEdit(db, learningItemIds);
+  const byId = new Map(locked.map((row) => [row.id.toLowerCase(), row]));
+  return learningItemIds.map((id) => {
+    const row = byId.get(id.toLowerCase());
+    if (!row) {
+      throw new AdminError(
+        "CURRICULUM_ITEM_NOT_FOUND",
+        "One of the selected items no longer exists. Reload the list and try again.",
+      );
+    }
+    if (row.languageId !== languageId) {
+      throw new AdminError(
+        "CURRICULUM_VALIDATION_FAILED",
+        "Some of the selected items aren't in this language. Reload the list and try again.",
+      );
+    }
+    return row;
+  });
 }
 
 async function checkDuplicates(
@@ -1158,6 +1240,7 @@ export async function moveItem(
     async (tx) => {
       const locked = await lockLearningItemForEdit(tx, input.learningItemId);
       if (!locked) throw new AdminError("CURRICULUM_ITEM_NOT_FOUND");
+      await assertMoveTargetsInLanguage(tx, locked.languageId, input);
 
       await repoMoveLearningItem(tx, {
         learningItemId: input.learningItemId,
@@ -1189,6 +1272,7 @@ export async function reorderItems(
   db: DbClient,
   input: ReorderItemsServiceInput,
 ): Promise<void> {
+  reorderLearningItemsInputSchema.parse(input);
   return withIdempotency(
     db,
     {
@@ -1202,6 +1286,30 @@ export async function reorderItems(
       },
     },
     async (tx) => {
+      // An order is *all* of a level+type's items, once each. `position` is
+      // unique within the pair, so a list that leaves one out would number the
+      // rest into its place and fail on the constraint, and one that names an
+      // item from elsewhere would be skipped without a word — either way a
+      // partial order. The set is locked first, so it cannot change under us.
+      const current = await lockLevelTypeItems(tx, input.levelId, input.type);
+      if (current.length > CURRICULUM_REORDER_LIMIT) {
+        throw new AdminError(
+          "CURRICULUM_VALIDATION_FAILED",
+          `This level has more than ${CURRICULUM_REORDER_LIMIT} ${input.type} items, which is more than the order tool can arrange at once.`,
+        );
+      }
+      const named = new Set(
+        input.orderedLearningItemIds.map((id) => id.toLowerCase()),
+      );
+      if (
+        current.length !== named.size ||
+        current.some((id) => !named.has(id.toLowerCase()))
+      ) {
+        throw new AdminError(
+          "ADMIN_EDIT_CONFLICT",
+          "This level's items changed while you were arranging them. Reload to see the current order, then try again.",
+        );
+      }
       await repoReorderLearningItems(
         tx,
         input.levelId,
@@ -1465,17 +1573,28 @@ export async function reorderVocabularyGroups(
   );
 }
 
-// --- Bulk actions on the curriculum table (spec 11 rewrite's "Bulk Actions" / "Bulk Publish") ---
+// --- Bulk actions on the curriculum table (spec 11 rewrite's "Bulk Actions" / "Bulk Publish"; spec 26 Unit 7) ---
 //
-// Each function loops the same single-item repository calls the non-bulk
-// versions above use, inside the one transaction `withIdempotency` already
-// opens — a failure on any item rolls back the whole batch (the spec's
-// literal "all selected publish, or none publish, after an unexpected
-// database failure"), and every affected item still gets its own audit
-// event (never a single combined one — matches the existing per-item audit
-// action set, which has no BULK_* actions), tied together with a shared
-// `correlationId` (the idempotency key) so the log shows they happened as
-// one batch.
+// Each function works through the named items inside the one transaction
+// `withIdempotency` already opens — a failure on any item rolls back the whole
+// batch (the spec's literal "all selected publish, or none publish, after an
+// unexpected database failure"), and every affected item still gets its own
+// audit event (never a single combined one — matches the existing per-item
+// audit action set, which has no BULK_* actions), tied together with a shared
+// `correlationId` (the idempotency key) so the log shows they happened as one
+// batch.
+//
+// What a batch guards, beyond the single-item versions:
+// - **Bounded and distinct**: one to `CURRICULUM_BULK_ITEM_LIMIT` items, each
+//   named once (the input schemas), so a request cannot ask for unbounded work
+//   or have an item archived, moved or numbered twice.
+// - **One language**: the command names the language it acts in, and every
+//   item — and any level or group it is moved to — must belong to it.
+// - **Locked in one order**: all rows are locked up front, sorted by id, so two
+//   overlapping batches wait for each other instead of deadlocking.
+// - **A no-op is not a change**: an item already where the command would put it
+//   is left exactly as it was, with no write and no audit event, and the result
+//   says so.
 
 export type BulkArchiveItemsServiceInput = BulkArchiveLearningItemsInput & {
   idempotencyKey: string;
@@ -1484,31 +1603,48 @@ export type BulkArchiveItemsServiceInput = BulkArchiveLearningItemsInput & {
 export async function bulkArchiveItems(
   db: DbClient,
   input: BulkArchiveItemsServiceInput,
-): Promise<void> {
+): Promise<BulkArchiveLearningItemsResult> {
+  const parsed = bulkArchiveLearningItemsInputSchema.parse(input);
   return withIdempotency(
     db,
     {
       userId: input.actorUserId,
       operation: "admin.curriculum.bulk-archive-items",
       key: input.idempotencyKey,
-      payload: { learningItemIds: input.learningItemIds, reason: input.reason },
+      payload: {
+        languageId: parsed.languageId,
+        learningItemIds: parsed.learningItemIds,
+        reason: parsed.reason,
+      },
     },
     async (tx) => {
-      for (const learningItemId of input.learningItemIds) {
-        const locked = await lockLearningItemForEdit(tx, learningItemId);
-        if (!locked) throw new AdminError("CURRICULUM_ITEM_NOT_FOUND");
-
-        await repoArchiveLearningItem(tx, learningItemId);
+      const result: BulkArchiveLearningItemsResult = {
+        archivedItemIds: [],
+        alreadyArchivedItemIds: [],
+      };
+      const items = await lockBulkItems(
+        tx,
+        parsed.languageId,
+        parsed.learningItemIds,
+      );
+      for (const locked of items) {
+        if (locked.status === "archived") {
+          result.alreadyArchivedItemIds.push(locked.id);
+          continue;
+        }
+        await repoArchiveLearningItem(tx, locked.id);
         await recordAuditEvent(tx, {
           actorUserId: input.actorUserId,
           action: "CURRICULUM_ITEM_ARCHIVED",
           resourceType: itemResourceType(locked.type),
-          resourceId: learningItemId,
-          reason: input.reason,
+          resourceId: locked.id,
+          reason: parsed.reason,
           correlationId: input.idempotencyKey,
         });
-        invalidateCurriculumCache(locked.languageId);
+        result.archivedItemIds.push(locked.id);
       }
+      invalidateCurriculumCache(parsed.languageId);
+      return result;
     },
   );
 }
@@ -1520,7 +1656,8 @@ export type BulkMoveItemsServiceInput = BulkMoveLearningItemsInput & {
 export async function bulkMoveItems(
   db: DbClient,
   input: BulkMoveItemsServiceInput,
-): Promise<void> {
+): Promise<BulkMoveLearningItemsResult> {
+  const parsed = bulkMoveLearningItemsInputSchema.parse(input);
   return withIdempotency(
     db,
     {
@@ -1528,36 +1665,79 @@ export async function bulkMoveItems(
       operation: "admin.curriculum.bulk-move-items",
       key: input.idempotencyKey,
       payload: {
-        learningItemIds: input.learningItemIds,
-        levelId: input.levelId,
-        vocabularyGroupId: input.vocabularyGroupId,
+        languageId: parsed.languageId,
+        learningItemIds: parsed.learningItemIds,
+        levelId: parsed.levelId,
+        vocabularyGroupId: parsed.vocabularyGroupId,
       },
     },
     async (tx) => {
-      for (const learningItemId of input.learningItemIds) {
-        const locked = await lockLearningItemForEdit(tx, learningItemId);
-        if (!locked) throw new AdminError("CURRICULUM_ITEM_NOT_FOUND");
+      await assertMoveTargetsInLanguage(tx, parsed.languageId, parsed);
+      const result: BulkMoveLearningItemsResult = {
+        movedItemIds: [],
+        unchangedItemIds: [],
+      };
+      const items = await lockBulkItems(
+        tx,
+        parsed.languageId,
+        parsed.learningItemIds,
+      );
+      const groupOf = parsed.vocabularyGroupId
+        ? await getLearningItemGroupIds(
+            tx,
+            items.map((item) => item.id),
+          )
+        : new Map<string, string | null>();
+
+      for (const locked of items) {
+        const sameId = (a: string | null | undefined, b: string) =>
+          a?.toLowerCase() === b.toLowerCase();
+        // An item already in the target level would be re-appended to the end
+        // of it (and a grammar item would lose its group) — so it is left alone.
+        const levelChange =
+          parsed.levelId && !sameId(locked.levelId, parsed.levelId)
+            ? parsed.levelId
+            : undefined;
+        const previousGroupId = groupOf.get(locked.id) ?? null;
+        const groupChanges =
+          parsed.vocabularyGroupId !== undefined &&
+          !sameId(previousGroupId, parsed.vocabularyGroupId);
+
+        if (!levelChange && !groupChanges) {
+          result.unchangedItemIds.push(locked.id);
+          continue;
+        }
 
         await repoMoveLearningItem(tx, {
-          learningItemId,
+          learningItemId: locked.id,
           type: locked.type,
-          levelId: input.levelId,
-          vocabularyGroupId: input.vocabularyGroupId,
+          levelId: levelChange,
+          // Passed whenever the command named a group, even one the item is
+          // already in: a grammar item moved to another level is otherwise
+          // ungrouped, and the command said which group it should end up in.
+          vocabularyGroupId: parsed.vocabularyGroupId,
         });
         await recordAuditEvent(tx, {
           actorUserId: input.actorUserId,
           action: "CURRICULUM_ITEM_MOVED",
           resourceType: itemResourceType(locked.type),
-          resourceId: learningItemId,
-          beforeData: { levelId: locked.levelId },
+          resourceId: locked.id,
+          beforeData: {
+            levelId: locked.levelId,
+            ...(parsed.vocabularyGroupId !== undefined
+              ? { vocabularyGroupId: previousGroupId }
+              : {}),
+          },
           afterData: {
-            levelId: input.levelId ?? locked.levelId,
-            vocabularyGroupId: input.vocabularyGroupId,
+            levelId: levelChange ?? locked.levelId,
+            vocabularyGroupId: parsed.vocabularyGroupId,
           },
           correlationId: input.idempotencyKey,
         });
-        invalidateCurriculumCache(locked.languageId);
+        result.movedItemIds.push(locked.id);
       }
+      invalidateCurriculumCache(parsed.languageId);
+      return result;
     },
   );
 }
@@ -1565,41 +1745,57 @@ export async function bulkMoveItems(
 export type BulkPublishPendingItemsServiceInput =
   BulkPublishPendingItemsInput & { idempotencyKey: string };
 
-/** Rejects the whole batch if any selected item isn't actually `pending` right now — the spec's "Pending items may be selected and published together," not any item in any status. */
+/**
+ * Rejects the whole batch if any selected item isn't actually `pending` right
+ * now — the spec's "Pending items may be selected and published together," not
+ * any item in any status. That refusal is a *conflict* (the list the Admin
+ * selected from is out of date), not a malformed request.
+ */
 export async function bulkPublishPendingItems(
   db: DbClient,
   input: BulkPublishPendingItemsServiceInput,
-): Promise<void> {
+): Promise<BulkPublishPendingItemsResult> {
+  const parsed = bulkPublishPendingItemsInputSchema.parse(input);
   return withIdempotency(
     db,
     {
       userId: input.actorUserId,
       operation: "admin.curriculum.bulk-publish-pending-items",
       key: input.idempotencyKey,
-      payload: { learningItemIds: input.learningItemIds },
+      payload: {
+        languageId: parsed.languageId,
+        learningItemIds: parsed.learningItemIds,
+      },
     },
     async (tx) => {
-      for (const learningItemId of input.learningItemIds) {
-        const locked = await lockLearningItemForEdit(tx, learningItemId);
-        if (!locked) throw new AdminError("CURRICULUM_ITEM_NOT_FOUND");
-        if (locked.status !== "pending") {
-          throw new AdminError(
-            "CURRICULUM_VALIDATION_FAILED",
-            "Every selected item must be Pending to bulk-publish. Reload and try again.",
-          );
-        }
+      const items = await lockBulkItems(
+        tx,
+        parsed.languageId,
+        parsed.learningItemIds,
+      );
+      // Everything is checked before anything is written: nothing is half-published.
+      if (items.some((locked) => locked.status !== "pending")) {
+        throw new AdminError(
+          "ADMIN_EDIT_CONFLICT",
+          "Some of the selected items are no longer Pending — someone else may have published, archived or changed them. Reload the list and try again.",
+        );
+      }
 
-        await publishPendingItem(tx, learningItemId);
+      const result: BulkPublishPendingItemsResult = { publishedItemIds: [] };
+      for (const locked of items) {
+        await publishPendingItem(tx, locked.id);
         await recordAuditEvent(tx, {
           actorUserId: input.actorUserId,
           action: "CURRICULUM_ITEM_PUBLISHED",
           resourceType: itemResourceType(locked.type),
-          resourceId: learningItemId,
+          resourceId: locked.id,
           beforeData: { version: locked.version },
           correlationId: input.idempotencyKey,
         });
-        invalidateCurriculumCache(locked.languageId);
+        result.publishedItemIds.push(locked.id);
       }
+      invalidateCurriculumCache(parsed.languageId);
+      return result;
     },
   );
 }

@@ -3,6 +3,7 @@ import {
   asc,
   count,
   eq,
+  inArray,
   sql,
   TransactionRollbackError,
 } from "drizzle-orm";
@@ -94,6 +95,25 @@ export async function lockLearningItemForEdit(
     .where(eq(learningItems.id, learningItemId))
     .for("update");
   return row ?? null;
+}
+
+/**
+ * Row-locks several items at once, **in id order** (`SELECT … FOR UPDATE`),
+ * and returns the ones that exist. Two batches that name overlapping items in
+ * different orders would otherwise each hold what the other is waiting for;
+ * taking every lock in one fixed order means they simply take turns.
+ */
+export async function lockLearningItemsForEdit(
+  db: DbClient,
+  learningItemIds: string[],
+): Promise<LockedLearningItem[]> {
+  if (learningItemIds.length === 0) return [];
+  return db
+    .select()
+    .from(learningItems)
+    .where(inArray(learningItems.id, learningItemIds))
+    .orderBy(asc(learningItems.id))
+    .for("update");
 }
 
 /** The next free `position` (and, by the same convention, `lesson_priority`) within one level+type — "append at the end," matching `moveLearningItem`'s identical convention for an item moved into a new level. */
@@ -1041,9 +1061,17 @@ export async function moveLearningItem(
           eq(learningItems.type, input.type),
         ),
       );
+    // An item joins the end of its new level's order: `position` and
+    // `lesson_priority` are one order (spec 17) — lessons are taught by the
+    // second, and a moved item that kept its old level's priority would be
+    // taught somewhere in the middle of a level whose board shows it last.
     await db
       .update(learningItems)
-      .set({ levelId: input.levelId, position: maxPosition + 1 })
+      .set({
+        levelId: input.levelId,
+        position: maxPosition + 1,
+        lessonPriority: maxPosition + 1,
+      })
       .where(eq(learningItems.id, input.learningItemId));
     // A grammar item's group belongs to its old level; without a new group
     // it becomes ungrouped rather than keeping another level's group.
@@ -1067,6 +1095,92 @@ export async function moveLearningItem(
         .where(eq(vocabularyItems.learningItemId, input.learningItemId));
     }
   }
+}
+
+/** The language a level belongs to; `null` if there is no such level. Takes the caller's transaction, unlike the curriculum read model's own lookup. */
+export async function getLevelLanguageId(
+  db: DbClient,
+  levelId: string,
+): Promise<string | null> {
+  const [row] = await db
+    .select({ languageId: levels.languageId })
+    .from(levels)
+    .where(eq(levels.id, levelId))
+    .limit(1);
+  return row?.languageId ?? null;
+}
+
+/** The language a vocabulary group belongs to; `null` if there is no such group. */
+export async function getVocabularyGroupLanguageId(
+  db: DbClient,
+  groupId: string,
+): Promise<string | null> {
+  const [row] = await db
+    .select({ languageId: vocabularyGroups.languageId })
+    .from(vocabularyGroups)
+    .where(eq(vocabularyGroups.id, groupId))
+    .limit(1);
+  return row?.languageId ?? null;
+}
+
+/**
+ * The group each of these items is filed under right now (`null`: none) — a
+ * vocabulary item's, or the one a grammar item is filed under. Used to tell an
+ * item that is already in the group it is being moved to from one that is not.
+ */
+export async function getLearningItemGroupIds(
+  db: DbClient,
+  learningItemIds: string[],
+): Promise<Map<string, string | null>> {
+  const groups = new Map<string, string | null>();
+  if (learningItemIds.length === 0) return groups;
+  const vocabulary = await db
+    .select({
+      id: vocabularyItems.learningItemId,
+      groupId: vocabularyItems.vocabularyGroupId,
+    })
+    .from(vocabularyItems)
+    .where(inArray(vocabularyItems.learningItemId, learningItemIds));
+  const grammar = await db
+    .select({
+      id: grammarItems.learningItemId,
+      groupId: grammarItems.vocabularyGroupId,
+    })
+    .from(grammarItems)
+    .where(inArray(grammarItems.learningItemId, learningItemIds));
+  for (const row of [...vocabulary, ...grammar])
+    groups.set(row.id, row.groupId);
+  return groups;
+}
+
+/**
+ * Every item of one level+type, **row-locked** — the complete set an order must
+ * be made of. The lock holds the set still for the rest of the caller's
+ * transaction, so two arrangements of the same level+type take turns instead of
+ * interleaving.
+ *
+ * Locked **in id order**, the one order every batch takes its locks in
+ * (`lockLearningItemsForEdit`). Locking in position order — the order an
+ * arrangement is *about* — made a reorder and a bulk command that overlap on
+ * the same rows cross each other: one held the lowest position and waited for
+ * the lowest id, the other the reverse, and Postgres aborted one as a deadlock
+ * (a test holds one row and sends both at once). The order the ids are returned
+ * in carries no meaning: the caller compares sets.
+ */
+export async function lockLevelTypeItems(
+  db: DbClient,
+  levelId: string,
+  type: "vocabulary" | "grammar",
+): Promise<string[]> {
+  const rows = await db
+    .select({ id: learningItems.id })
+    .from(learningItems)
+    .where(
+      and(eq(learningItems.levelId, levelId), eq(learningItems.type, type)),
+    )
+    .orderBy(asc(learningItems.id))
+    .for("update");
+  return rows.map((row) => row.id);
 }
 
 /**

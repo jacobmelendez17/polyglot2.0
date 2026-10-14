@@ -10,6 +10,7 @@ import {
 import { describeAdminError } from "../admin-api-error";
 import { AdminProblem, blockingError } from "../admin-problem";
 import { CursorPagination } from "../cursor-pagination";
+import { useAdminPermissions } from "../use-admin-permissions";
 import { CurriculumDataTable } from "./curriculum-data-table";
 import {
   CurriculumFilters,
@@ -28,6 +29,12 @@ import { useCurriculumList } from "./use-curriculum-list";
  * page, which already loads them; they only populate the filter dropdowns and
  * validate what the URL asks for.
  *
+ * What each role gets follows the *server's* permissions, never a role name
+ * held here: `canPublishCurriculum` (an Admin) additionally gets row selection
+ * and the bulk commands it feeds (spec 26 Unit 7); a writer reads the list and
+ * opens items, with no checkbox column. The endpoints refuse a writer's bulk
+ * request regardless.
+ *
  * States, per ui-context.md: loading (a skeleton shaped like the table),
  * empty (told apart from "no match", with a next step), error (in place, with
  * a retry only when one could help), and forbidden — and a denial always
@@ -45,8 +52,11 @@ export function CurriculumListScreen({
     [languages, levels, groups],
   );
   const list = useCurriculumList(lookups);
+  const permissions = useAdminPermissions();
 
-  const problem = blockingError(list.error, Boolean(list.rows));
+  const problem =
+    blockingError(list.error, Boolean(list.rows)) ??
+    blockingError(permissions.error, Boolean(permissions.permissions));
 
   const refreshFailed = list.isRefetchError && !problem;
   const refreshError = list.error;
@@ -55,6 +65,8 @@ export function CurriculumListScreen({
       notify(describeAdminError(refreshError).message, { type: "warning" });
     }
   }, [refreshFailed, refreshError, notify]);
+
+  const canBulk = Boolean(permissions.permissions?.canPublishCurriculum);
 
   return (
     <ResourceContextProvider value="curriculum">
@@ -65,12 +77,22 @@ export function CurriculumListScreen({
           groups={groups}
         />
         {problem ? (
-          <AdminProblem error={problem} onRetry={() => void list.refetch()} />
-        ) : list.isPending ? (
+          <AdminProblem
+            error={problem}
+            onRetry={() => {
+              void list.refetch();
+              void permissions.refetch();
+            }}
+          />
+        ) : list.isPending || !permissions.permissions ? (
           <CurriculumListSkeleton withFilters={false} />
         ) : (
           <>
-            <CurriculumDataTable levels={levels} groups={groups} />
+            <CurriculumDataTable
+              levels={levels}
+              groups={groups}
+              canBulk={canBulk}
+            />
             <CursorPagination
               hasPreviousPage={list.pagination.hasPreviousPage}
               hasNextPage={list.pagination.hasNextPage}
