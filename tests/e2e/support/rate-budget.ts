@@ -13,19 +13,39 @@
  * a failure, starts empty; by then the window has long passed.)
  */
 
-export type AdminRatePolicy = "admin-publish" | "admin-mutation";
+export type AdminRatePolicy =
+  | "admin-publish"
+  | "admin-mutation"
+  | "admin-role-change"
+  | "admin-user-search";
 
 const POLICY: Record<AdminRatePolicy, { limit: number; spend: number }> = {
   // Spend at most 80% of the limit, leaving room for neighbouring specs.
   "admin-publish": { limit: 10, spend: 8 },
   "admin-mutation": { limit: 30, spend: 24 },
+  // Spec 26 Unit 6: role changes (10 / 60s) and every read of the account list (30 / 60s).
+  "admin-role-change": { limit: 10, spend: 8 },
+  "admin-user-search": { limit: 30, spend: 24 },
 };
 const WINDOW_MS = 62_000; // the policy's 60s, plus a margin
 
 const spent: Record<AdminRatePolicy, number[]> = {
   "admin-publish": [],
   "admin-mutation": [],
+  "admin-role-change": [],
+  "admin-user-search": [],
 };
+
+/**
+ * Records that a spec has just used up `policy`'s *whole* limit on purpose (to
+ * see the real 429), so every later spend waits out the window rather than
+ * being refused by a limit that still holds the burst.
+ */
+export function markRateLimitExhausted(policy: AdminRatePolicy): void {
+  const now = Date.now();
+  for (let index = 0; index < POLICY[policy].limit; index++)
+    spent[policy].push(now);
+}
 
 /** Call before sending `count` requests that will reach the service under `policy`. */
 export async function spendRateBudget(

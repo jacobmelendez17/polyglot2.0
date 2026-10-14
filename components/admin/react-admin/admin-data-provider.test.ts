@@ -754,6 +754,202 @@ describe("createAdminDataProvider", () => {
     });
   });
 
+  describe("getList('users')", () => {
+    const ROW = {
+      id: "11111111-1111-4111-8111-111111111111",
+      displayName: "Ana Lopez",
+      username: "ana_lopez",
+      role: "writer" as const,
+      createdAt: "2026-03-01T12:00:00.000100Z",
+      updatedAt: "2026-03-02T09:30:15.123456Z",
+    };
+    const PAGE = {
+      items: [ROW],
+      nextCursor: "next",
+      hasPreviousPage: true,
+      previousCursor: "prev",
+    };
+    const LIST_PARAMS = {
+      pagination: { page: 1, perPage: 20 },
+      sort: { field: "created_at", order: "DESC" as const },
+      filter: { search: "ana", cursor: "abc" },
+    };
+
+    function usersProvider(answer: unknown = PAGE) {
+      const request = vi.fn<RequestFn>(async () => answer as never);
+      return {
+        request,
+        provider: createAdminDataProvider({ request: request as never }),
+      };
+    }
+
+    it("asks the users endpoint for the search and the cursor, and the page size", async () => {
+      const { provider, request } = usersProvider();
+      await provider.getList("users", LIST_PARAMS);
+      expect(request.mock.calls[0]?.[0]).toBe(
+        "/users?search=ana&cursor=abc&limit=20",
+      );
+    });
+
+    it("answers a cursor page: no total, and the server's own cursors passed through", async () => {
+      const { provider } = usersProvider();
+      const result = await provider.getList("users", LIST_PARAMS);
+      expect(result.data).toEqual([ROW]);
+      expect(result).not.toHaveProperty("total");
+      expect(result.pageInfo).toEqual({
+        hasNextPage: true,
+        hasPreviousPage: true,
+      });
+      expect(result.meta).toEqual({
+        nextCursor: "next",
+        previousCursor: "prev",
+      });
+    });
+
+    it("validates the answer against the contract: a role that is not one of the five is an error", async () => {
+      const { provider, request } = usersProvider();
+      await provider.getList("users", LIST_PARAMS);
+      const schema = request.mock.calls[0]?.[1] as {
+        safeParse: (v: unknown) => { success: boolean };
+      };
+      expect(schema.safeParse(PAGE).success).toBe(true);
+      expect(
+        schema.safeParse({
+          ...PAGE,
+          items: [{ ...ROW, role: "superadmin" }],
+        }).success,
+      ).toBe(false);
+    });
+
+    it.each([
+      ["another sort", { sort: { field: "id", order: "ASC" as const } }],
+      ["a page jump", { pagination: { page: 2, perPage: 20 } }],
+      ["a role filter", { filter: { role: "admin" } }],
+      // There is no way to ask for them.
+      [
+        "a request for sandbox personas",
+        { filter: { includeSandbox: "true" } },
+      ],
+    ])("refuses %s without calling the server", async (_name, override) => {
+      const { provider, request } = usersProvider();
+      const error = await rejection(
+        provider.getList("users", { ...LIST_PARAMS, ...override }),
+      );
+      expect(error.kind).toBe("unsupported");
+      expect(request).not.toHaveBeenCalled();
+    });
+
+    it("propagates a denial instead of returning an empty list", async () => {
+      const denial = new AdminApiError("FORBIDDEN", 403);
+      const provider = createAdminDataProvider({
+        request: (async () => {
+          throw denial;
+        }) as never,
+      });
+      await expect(provider.getList("users", LIST_PARAMS)).rejects.toBe(denial);
+    });
+  });
+
+  describe("changeUserRole (an explicit command)", () => {
+    const USER_ID = "11111111-1111-4111-8111-111111111111";
+    const CHANGE = {
+      role: "writer" as const,
+      expectedUpdatedAt: "2026-03-02T09:30:15.123456Z",
+      reason: "Joined the content team",
+      idempotencyKey: "22222222-2222-4222-8222-222222222222",
+    };
+    const RESULT = {
+      userId: USER_ID,
+      role: "writer" as const,
+      updatedAt: "2026-03-02T09:31:00.000001Z",
+    };
+
+    function commandProvider(answer: unknown = RESULT) {
+      const request = vi.fn<RequestFn>(async () => answer as never);
+      return {
+        request,
+        provider: createAdminDataProvider({ request: request as never }),
+      };
+    }
+
+    it("patches exactly the command to the role of the one account named in the path", async () => {
+      const { provider, request } = commandProvider();
+
+      await expect(provider.changeUserRole(USER_ID, CHANGE)).resolves.toEqual(
+        RESULT,
+      );
+
+      const [path, , options] = request.mock.calls[0] as [
+        string,
+        unknown,
+        { body: unknown; method: string },
+      ];
+      expect(path).toBe(`/users/${USER_ID}/role`);
+      expect(options.method).toBe("PATCH");
+      expect(options.body).toEqual(CHANGE);
+      // Nothing is added: no actor, no target in the body, no Clerk id.
+      for (const key of [
+        "actorUserId",
+        "userId",
+        "targetUserId",
+        "clerkUserId",
+      ]) {
+        expect(options.body).not.toHaveProperty(key);
+      }
+    });
+
+    it("encodes the id so it can only ever be one path segment", async () => {
+      const { provider, request } = commandProvider();
+      await provider.changeUserRole("a/b?c", CHANGE);
+      expect(request.mock.calls[0]?.[0]).toBe("/users/a%2Fb%3Fc/role");
+    });
+
+    it("validates the answer against the contract", async () => {
+      const { provider, request } = commandProvider();
+      await provider.changeUserRole(USER_ID, CHANGE);
+      const schema = request.mock.calls[0]?.[1] as {
+        safeParse: (v: unknown) => { success: boolean };
+      };
+      expect(schema.safeParse(RESULT).success).toBe(true);
+      expect(schema.safeParse({ ...RESULT, role: "owner" }).success).toBe(
+        false,
+      );
+      expect(
+        schema.safeParse({ userId: USER_ID, role: "writer" }).success,
+      ).toBe(false);
+    });
+
+    it("propagates a refusal unchanged, for the dialog to explain", async () => {
+      const refusal = new AdminApiError("CONFLICT", 409, undefined, {
+        serverMessage: "This account changed after you opened the list.",
+      });
+      const provider = createAdminDataProvider({
+        request: (async () => {
+          throw refusal;
+        }) as never,
+      });
+      await expect(provider.changeUserRole(USER_ID, CHANGE)).rejects.toBe(
+        refusal,
+      );
+    });
+
+    it("is not reachable through React Admin's generic mutations", async () => {
+      const { provider, request } = commandProvider({});
+      for (const attempt of [
+        provider.update("users", { id: "x", data: {}, previousData: {} }),
+        provider.create("users", { data: {} }),
+        provider.delete("users", { id: "x" }),
+        provider.updateMany("users", { ids: ["x"], data: {} }),
+        provider.deleteMany("users", { ids: ["x"] }),
+        provider.getOne("users", { id: "x" }),
+        provider.getMany("users", { ids: ["x"] }),
+      ]) {
+        expect((await rejection(attempt)).kind).toBe("unsupported");
+      }
+      expect(request).not.toHaveBeenCalled();
+    });
+  });
+
   describe("everything not whitelisted", () => {
     it("rejects an unknown resource with a typed UNSUPPORTED_OPERATION, never a guess", async () => {
       const { provider, request } = providerWith();

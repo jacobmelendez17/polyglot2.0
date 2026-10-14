@@ -12,6 +12,7 @@ const WRITER: AdminMe = {
     canAccessAdminArea: true,
     canManageCurriculum: true,
     canPublishCurriculum: false,
+    canManageUsers: false,
     canUseDeveloperTools: false,
     resources: { overview: ["show"], review: ["list", "show"] },
   },

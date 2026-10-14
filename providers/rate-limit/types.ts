@@ -3,6 +3,8 @@ export type RateLimitPolicyName =
   | "review-submit"
   | "admin-mutation"
   | "admin-publish"
+  | "admin-role-change"
+  | "admin-user-search"
   | "sandbox-mutation"
   | "deck-mutation"
   | "deck-practice-answer"

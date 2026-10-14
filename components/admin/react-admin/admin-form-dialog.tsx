@@ -37,6 +37,7 @@ export function AdminFormDialog<Values extends Record<string, unknown>>({
   pending,
   failure,
   onClose,
+  closeOnly,
   children,
 }: {
   titleId: string;
@@ -49,9 +50,15 @@ export function AdminFormDialog<Values extends Record<string, unknown>>({
   pending: boolean;
   failure: AdminErrorDescription | null;
   onClose: () => void;
+  /**
+   * Whether this failure can only be answered by closing. By default that is a
+   * lost permission; a screen adds the refusals it knows a retry cannot fix (a
+   * stale view, "that would leave no Admin").
+   */
+  closeOnly?: boolean;
   children: ReactNode;
 }) {
-  const denied = isDenial(failure);
+  const denied = closeOnly ?? isDenial(failure);
 
   return (
     <Dialog

@@ -82,10 +82,18 @@ function codeFor(domainCode: string): AdminApiErrorCode | null {
       return "RATE_LIMITED";
     case "ITEM_NOT_FOUND":
     case "CURRICULUM_ITEM_NOT_FOUND":
+    case "USER_NOT_FOUND":
       return "NOT_FOUND";
     case "CURRICULUM_VALIDATION_FAILED":
+    // The target cannot be given a role through this command (yourself, a
+    // sandbox persona, an account with no Clerk identity, the role it already
+    // has): the request is understood and refused — not a lack of access.
+    case "USER_ROLE_CHANGE_NOT_ALLOWED":
       return "VALIDATION_FAILED";
     case "ADMIN_EDIT_CONFLICT":
+    // The change would remove the last Admin: a state the request collides
+    // with, which another Admin could resolve — a conflict, not a mistake.
+    case "LAST_ADMIN":
     // Replaying a key with different data, or two copies of one command racing:
     // both mean "this exact request cannot be applied as sent" — a 409.
     case "IDEMPOTENCY_KEY_PAYLOAD_MISMATCH":

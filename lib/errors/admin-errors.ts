@@ -20,6 +20,11 @@ export const ADMIN_ERROR_CODES = [
   "SANDBOX_OPERATION_FORBIDDEN",
   "LEVEL_ONE_NOT_CONFIGURED",
   "RATE_LIMITED",
+  // Spec 26 Unit 6 — role management. Kept apart from the curriculum codes:
+  // each is a distinct, expected refusal the screen explains in words.
+  "USER_NOT_FOUND",
+  "USER_ROLE_CHANGE_NOT_ALLOWED",
+  "LAST_ADMIN",
 ] as const;
 
 export type AdminErrorCode = (typeof ADMIN_ERROR_CODES)[number];
@@ -43,6 +48,10 @@ const DEFAULT_MESSAGES: Record<AdminErrorCode, string> = {
   SANDBOX_OPERATION_FORBIDDEN: "That sandbox operation isn't allowed.",
   LEVEL_ONE_NOT_CONFIGURED: "Level 1 is not configured for this language yet.",
   RATE_LIMITED: "Please slow down and try again shortly.",
+  USER_NOT_FOUND: "That user could not be found.",
+  USER_ROLE_CHANGE_NOT_ALLOWED: "That person's role can't be changed here.",
+  LAST_ADMIN:
+    "That would leave Polyglot without an Admin. Make someone else an Admin first.",
 };
 
 /** Thrown for expected Admin-mutation failures. Never carries SQL errors, stack traces, or internal DB structures (architecture.md's Sentry/PostHog restrictions apply here too). */

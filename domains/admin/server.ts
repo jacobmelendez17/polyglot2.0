@@ -17,6 +17,7 @@ export {
   bulkImportVocabulary,
   bulkMoveItems,
   bulkPublishPendingItems,
+  changeUserRole,
   confirmCurriculumImport,
   createCurriculumImportUpload,
   createItem,
@@ -25,6 +26,7 @@ export {
   deleteItem,
   getCurriculumImportStatus,
   listActiveCurriculumImports,
+  listAdminUsers,
   listArchivedCurriculumImportsForHistory,
   listCurriculumImportRowsForReview,
   moveItem,
@@ -65,6 +67,10 @@ export type {
   CurriculumImportStatus,
 } from "./curriculum-import-types";
 export type { ResetOwnAccountProgressServiceInput } from "./account-reset-service";
+export type {
+  ChangeUserRoleResult,
+  ChangeUserRoleServiceInput,
+} from "./user-role-service";
 export type {
   BulkImportVocabularyResult,
   BulkImportVocabularyServiceInput,

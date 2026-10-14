@@ -146,7 +146,9 @@ export function useCursorList<F extends object, Row extends RaRecord>({
       if (query === codec.serialize(state.filters, state.cursor).toString()) {
         return;
       }
-      const url = `${pathname}?${query}`;
+      // A list whose state can be empty (the account list with no search and
+      // no cursor) is the bare path, not one with a dangling `?`.
+      const url = query ? `${pathname}?${query}` : pathname;
       if (how === "replace") router.replace(url, { scroll });
       else router.push(url, { scroll });
     },

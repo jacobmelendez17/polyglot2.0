@@ -8,6 +8,7 @@ import { EnvironmentBadge } from "@/components/admin/environment-badge";
 import {
   canAccessAdminArea,
   canManageCurriculum,
+  canManageUsers,
   canUseDeveloperTools,
 } from "@/domains/admin";
 import { requireUser } from "@/domains/users/server";
@@ -38,6 +39,7 @@ export default async function AdminLayout({
   }
   const canManage = canManageCurriculum(user);
   const canUseTools = canUseDeveloperTools(user);
+  const canManageAccounts = canManageUsers(user);
 
   return (
     <div className="flex min-h-svh flex-col bg-background">
@@ -46,6 +48,7 @@ export default async function AdminLayout({
           <AdminMobileNav
             canManageCurriculum={canManage}
             canUseDeveloperTools={canUseTools}
+            canManageUsers={canManageAccounts}
           />
           {/* "Polyglot" is dropped below `sm:` — at mobile widths the full
               wordmark plus the environment badge and Exit link don't fit
@@ -74,6 +77,7 @@ export default async function AdminLayout({
           <AdminSidebarNav
             canManageCurriculum={canManage}
             canUseDeveloperTools={canUseTools}
+            canManageUsers={canManageAccounts}
           />
         </aside>
         <main className="min-w-0 flex-1 px-4 py-6 sm:px-6">{children}</main>

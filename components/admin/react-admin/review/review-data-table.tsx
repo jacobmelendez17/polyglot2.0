@@ -11,6 +11,7 @@ import type { AdminReviewRow } from "@/domains/admin";
 import { formatRelativeTime } from "@/lib/time/format-relative-time";
 
 import { ReviewListEmpty } from "./review-list-empty";
+import { STICKY_ACTION_SX } from "../sticky-action";
 
 const KIND_LABEL = {
   new: "New item",
@@ -26,25 +27,6 @@ function Updated({ iso }: { iso: string }) {
     </time>
   );
 }
-
-/**
- * Keeps the Publish column in view when a narrow screen scrolls the table
- * sideways: the table scrolls inside its own frame (the page never does), but
- * the one thing this screen is for must not scroll out of reach.
- *
- * Opaque, so the cells scrolling beneath it do not show through, and painted
- * with the same surface as the row it sits in (the header row is the paper
- * colour, body rows the page colour). The edge shadow appears only on phones,
- * where the table always overflows; on a wide screen nothing slides under it.
- */
-const STICKY_ACTION_SX = {
-  position: "sticky",
-  right: 0,
-  backgroundColor: "background.default",
-  "thead &": { backgroundColor: "background.paper" },
-  boxShadow: { xs: "-8px 0 8px -8px rgba(0, 0, 0, 0.2)", sm: "none" },
-} as const;
-
 /**
  * The review queue's table (spec 26 Unit 3): React Admin's `DataTable`, with
  * the same facts the list of cards it replaces showed — item, meaning, level,

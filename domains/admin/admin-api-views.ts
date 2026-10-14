@@ -1,4 +1,4 @@
-import type { PolyglotUser } from "@/domains/users";
+import type { AdminUsersPage, PolyglotUser } from "@/domains/users";
 
 import type {
   AdminCurriculumItemsPage,
@@ -17,6 +17,7 @@ import {
   type AdminGroupList,
   type AdminLevelList,
   type AdminReviewPage,
+  type AdminUserPage,
   type AdminMe,
   type AdminOverview,
   type AdminPermissions,
@@ -25,6 +26,7 @@ import {
 import {
   canAccessAdminArea,
   canManageCurriculum,
+  canManageUsers,
   canPublishCurriculum,
   canUseDeveloperTools,
 } from "./authorization";
@@ -76,6 +78,12 @@ function resourceAccess(
       ? ["list", "create", "edit"]
       : ["list"];
   }
+  if (canManageUsers(subject)) {
+    // Spec 26 Unit 6. The `users` resource exists only for an Admin: for anyone
+    // else it is absent, not an empty list, so "no access" is never confused with
+    // "no accounts". `edit` is changing a role — the only change there is.
+    resources.users = ["list", "edit"];
+  }
   return resources;
 }
 
@@ -84,6 +92,7 @@ export function buildAdminPermissions(subject: RoleSubject): AdminPermissions {
     canAccessAdminArea: canAccessAdminArea(subject),
     canManageCurriculum: canManageCurriculum(subject),
     canPublishCurriculum: canPublishCurriculum(subject),
+    canManageUsers: canManageUsers(subject),
     canUseDeveloperTools: canUseDeveloperTools(subject),
     resources: resourceAccess(subject),
   };
@@ -227,5 +236,27 @@ export function buildAdminGroupList(
       position: group.position,
     })),
     truncated: ordered.length > GROUP_LIST_MAX,
+  };
+}
+
+/**
+ * The account page, reduced to exactly what the console may show — field by
+ * field, never a spread, so a column added to the read model tomorrow reaches
+ * the wire only when someone adds it here on purpose. The route validates the
+ * result against `adminUserPageSchema` as well, which would strip it anyway.
+ */
+export function buildAdminUserPage(page: AdminUsersPage): AdminUserPage {
+  return {
+    items: page.items.map((user) => ({
+      id: user.id,
+      displayName: user.displayName,
+      username: user.username,
+      role: user.role,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    })),
+    nextCursor: page.nextCursor,
+    hasPreviousPage: page.hasPreviousPage,
+    previousCursor: page.previousCursor,
   };
 }

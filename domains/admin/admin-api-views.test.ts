@@ -18,6 +18,7 @@ import {
   adminLevelListSchema,
   adminMeSchema,
   adminOverviewSchema,
+  adminUserPageSchema,
   type AdminCurriculumStatusCounts,
 } from "./admin-api-contract";
 import {
@@ -27,6 +28,7 @@ import {
   buildAdminMe,
   buildAdminOverview,
   buildAdminPermissions,
+  buildAdminUserPage,
 } from "./admin-api-views";
 
 const COUNTS: AdminCurriculumStatusCounts = {
@@ -95,6 +97,8 @@ describe("buildAdminPermissions", () => {
       review: ["list"],
       levels: ["list", "create", "edit"],
       groups: ["list", "create", "edit"],
+      // Spec 26 Unit 6: only an Admin has the account list at all.
+      users: ["list", "edit"],
     });
     expect(buildAdminPermissions({ role: "writer" }).resources).toEqual({
       overview: ["show"],
@@ -108,6 +112,19 @@ describe("buildAdminPermissions", () => {
       overview: ["show"],
     });
   });
+
+  // The spec's role matrix: "Change user role" is the one row with a single Yes.
+  it.each(USER_ROLES)(
+    "gives %s the users resource, and canManageUsers, only if they are an Admin",
+    (role) => {
+      const permissions = buildAdminPermissions({ role });
+      expect(permissions.canManageUsers).toBe(role === "admin");
+      // Absent — not an empty list — so "no access" is never read as "no accounts".
+      expect(Object.hasOwn(permissions.resources, "users")).toBe(
+        role === "admin",
+      );
+    },
+  );
 
   it("lists nothing for roles outside the Admin area", () => {
     expect(buildAdminPermissions({ role: "user" }).resources).toEqual({});
@@ -465,5 +482,90 @@ describe("buildAdminGroupList", () => {
         buildAdminGroupList([group(1), group(2, { status: "published" })]),
       ).success,
     ).toBe(true);
+  });
+});
+
+describe("buildAdminUserPage (spec 26 Unit 6)", () => {
+  const record = {
+    id: "11111111-1111-4111-8111-111111111111",
+    displayName: "Ana Lopez",
+    username: "ana_lopez",
+    role: "writer" as const,
+    createdAt: "2026-03-01T12:00:00.000100Z",
+    updatedAt: "2026-03-02T09:30:15.123456Z",
+  };
+
+  it("passes the page through, field for field, and satisfies the contract", () => {
+    const page = buildAdminUserPage({
+      items: [record],
+      nextCursor: "next",
+      hasPreviousPage: true,
+      previousCursor: "prev",
+    });
+
+    expect(page).toEqual({
+      items: [record],
+      nextCursor: "next",
+      hasPreviousPage: true,
+      previousCursor: "prev",
+    });
+    expect(adminUserPageSchema.safeParse(page).success).toBe(true);
+  });
+
+  it("carries only the six fields the console may show — whatever else the read model grows", () => {
+    const page = buildAdminUserPage({
+      items: [
+        {
+          ...record,
+          // Present at runtime, absent from the type: what a careless spread would leak.
+          clerkUserId: "user_must_never_appear",
+          email: "private@example.com",
+          timezone: "Europe/Madrid",
+          isSandbox: false,
+        } as typeof record,
+      ],
+      nextCursor: null,
+      hasPreviousPage: false,
+      previousCursor: null,
+    });
+
+    expect(Object.keys(page.items[0]!).sort()).toEqual([
+      "createdAt",
+      "displayName",
+      "id",
+      "role",
+      "updatedAt",
+      "username",
+    ]);
+    const text = JSON.stringify(page);
+    expect(text).not.toContain("user_must_never_appear");
+    expect(text).not.toContain("private@example.com");
+    expect(text).not.toContain("Europe/Madrid");
+  });
+
+  it("keeps the version token exactly as the database gave it — microseconds and all", () => {
+    const [row] = buildAdminUserPage({
+      items: [record],
+      nextCursor: null,
+      hasPreviousPage: false,
+      previousCursor: null,
+    }).items;
+    expect(row!.updatedAt).toBe("2026-03-02T09:30:15.123456Z");
+  });
+
+  it("handles an empty page", () => {
+    expect(
+      buildAdminUserPage({
+        items: [],
+        nextCursor: null,
+        hasPreviousPage: false,
+        previousCursor: null,
+      }),
+    ).toEqual({
+      items: [],
+      nextCursor: null,
+      hasPreviousPage: false,
+      previousCursor: null,
+    });
   });
 });

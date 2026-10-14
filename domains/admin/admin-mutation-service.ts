@@ -11,6 +11,8 @@ import { getCurriculumImportQueue } from "@/providers/queue";
 import { getRateLimiter } from "@/providers/rate-limit";
 import { AdminError } from "@/lib/errors/admin-errors";
 
+import * as userRole from "./user-role-service";
+import type { ChangeUserRoleServiceInput } from "./user-role-service";
 import * as accountReset from "./account-reset-service";
 import type { ResetOwnAccountProgressServiceInput } from "./account-reset-service";
 import * as bulkImport from "./bulk-import-service";
@@ -22,6 +24,8 @@ import {
   listCurriculumImportRows,
   listCurriculumImports,
 } from "./curriculum-import-repository";
+import { listAdminUsers as listAdminUsersFromRepository } from "@/domains/users/admin-user-repository";
+import type { ListAdminUsersInput } from "@/domains/users/admin-user-types";
 import * as publication from "./publication-service";
 import type {
   ApplyDictionaryFieldsServiceInput,
@@ -63,7 +67,11 @@ export type PreviewVocabularyImportServiceInput = {
  */
 
 async function checkRateLimit(
-  policy: "admin-mutation" | "admin-publish",
+  policy:
+    | "admin-mutation"
+    | "admin-publish"
+    | "admin-role-change"
+    | "admin-user-search",
   userId: string,
 ): Promise<void> {
   const decision = await getRateLimiter().check({ policy, subject: userId });
@@ -193,6 +201,28 @@ export async function reorderVocabularyGroups(
 ) {
   await checkRateLimit("admin-mutation", input.actorUserId);
   return publication.reorderVocabularyGroups(db, input);
+}
+
+/**
+ * Spec 26 Unit 6 — change another real account's role. Rate limited on its own,
+ * tight policy: of everything the console does it is the most privileged.
+ */
+export async function changeUserRole(input: ChangeUserRoleServiceInput) {
+  await checkRateLimit("admin-role-change", input.actorUserId);
+  return userRole.changeUserRole(db, input);
+}
+
+/**
+ * Spec 26 Unit 6 — the account list. Every read is counted: knowing who has an
+ * account is itself something to enumerate carefully. The caller has already
+ * been authorized (`canManageUsers`); `actorUserId` is only whose budget this is.
+ */
+export async function listAdminUsers(
+  input: ListAdminUsersInput & { actorUserId: string },
+) {
+  const { actorUserId, ...query } = input;
+  await checkRateLimit("admin-user-search", actorUserId);
+  return listAdminUsersFromRepository(db, query);
 }
 
 export async function bulkArchiveItems(input: BulkArchiveItemsServiceInput) {

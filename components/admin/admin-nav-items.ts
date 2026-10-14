@@ -30,6 +30,11 @@ const DEVELOPER_TOOLS_NAV: AdminNavItem[] = [
   { label: "Sandbox", href: "/admin/sandbox" },
 ];
 
+/** Spec 26 Unit 6 — the account list and role changes. Admin only, and never a writer or developer. */
+const USER_MANAGEMENT_NAV: AdminNavItem[] = [
+  { label: "Users", href: "/admin/users" },
+];
+
 /**
  * Shared nav-item list, used by both `admin-sidebar-nav.tsx` (desktop) and
  * `admin-mobile-nav.tsx` (mobile sheet) so the permission-based item set
@@ -39,11 +44,13 @@ const DEVELOPER_TOOLS_NAV: AdminNavItem[] = [
 export function getAdminNavItems(
   canManageCurriculum: boolean,
   canUseDeveloperTools = true,
+  canManageUsers = false,
 ): AdminNavItem[] {
   return [
     { label: "Overview", href: "/admin" },
     ...(canManageCurriculum ? CURRICULUM_ONLY_NAV : []),
     ...(canUseDeveloperTools ? DEVELOPER_TOOLS_NAV : []),
+    ...(canManageUsers ? USER_MANAGEMENT_NAV : []),
   ];
 }
 

@@ -10,6 +10,8 @@ type AdminSidebarNavProps = {
   canManageCurriculum: boolean;
   /** Admin and developer only — a writer never sees Logs or the Sandbox (spec 17). */
   canUseDeveloperTools: boolean;
+  /** Admin only (spec 26 Unit 6): the account list, where roles are assigned. */
+  canManageUsers?: boolean;
 };
 
 /**
@@ -25,9 +27,14 @@ type AdminSidebarNavProps = {
 export function AdminSidebarNav({
   canManageCurriculum,
   canUseDeveloperTools,
+  canManageUsers = false,
 }: AdminSidebarNavProps) {
   const pathname = usePathname();
-  const items = getAdminNavItems(canManageCurriculum, canUseDeveloperTools);
+  const items = getAdminNavItems(
+    canManageCurriculum,
+    canUseDeveloperTools,
+    canManageUsers,
+  );
 
   return (
     <nav aria-label="Admin" className="flex flex-col gap-1 p-3">

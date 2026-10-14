@@ -28,7 +28,8 @@ function hasSqlState(error: unknown, sqlState: string): boolean {
   );
 }
 
-function isLockTimeout(error: unknown): boolean {
+/** Whether `error` is Postgres's `lock_timeout` firing (`55P03`) — a wait that ran out, however the driver wrapped it. Exported for the other places that wait on a lock inside the same transaction. */
+export function isLockTimeout(error: unknown): boolean {
   return hasSqlState(error, LOCK_NOT_AVAILABLE_SQLSTATE);
 }
 

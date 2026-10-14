@@ -1,10 +1,14 @@
 import { and, count, eq, inArray, sql } from "drizzle-orm";
 
 import {
+  adminAuditEvents,
   curriculumItemDrafts,
   languages,
   learningItems,
   levels,
+  userItemProgress,
+  userLanguageSettings,
+  userLevelProgress,
   users,
   vocabularyGroups,
   vocabularyItems,
@@ -881,5 +885,277 @@ export async function seedManyGroups(
       )
       .returning({ id: vocabularyGroups.id });
     return rows.map((row) => row.id);
+  });
+}
+
+/* -------------------------------------------------------------------------- */
+/* User fixtures (spec 26 Unit 6)                                             */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Throwaway accounts in the isolated E2E database, for the Users console. They
+ * have a *fake* Clerk id (the database never checks one against Clerk) — they
+ * can be listed and given a role, but nobody can sign in as them, which is
+ * exactly what a test of role management wants: the Admin's own view of a
+ * person, with no real identity to disturb.
+ *
+ * Also the awkward cases the console must refuse: a **sandbox persona** (a user
+ * row with no sign-in, owned by someone) and an **unlinked** row (no Clerk
+ * identity, not a persona). Neither is ever listed, and neither may be a target.
+ */
+
+export type E2EUser = {
+  id: string;
+  role: UserRole;
+  displayName: string | null;
+  username: string | null;
+  clerkLinked: boolean;
+  isSandbox: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+const userColumns = {
+  id: users.id,
+  role: users.role,
+  displayName: users.displayName,
+  username: users.username,
+  clerkUserId: users.clerkUserId,
+  isSandbox: users.isSandbox,
+  createdAt: users.createdAt,
+  updatedAt: users.updatedAt,
+};
+
+function toE2EUser(row: {
+  id: string;
+  role: UserRole;
+  displayName: string | null;
+  username: string | null;
+  clerkUserId: string | null;
+  isSandbox: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}): E2EUser {
+  return {
+    id: row.id,
+    role: row.role,
+    displayName: row.displayName,
+    username: row.username,
+    clerkLinked: row.clerkUserId !== null,
+    isSandbox: row.isSandbox,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+/** One account. Real and Clerk-linked by default; `sandbox` makes a persona, `clerkLinked: false` an unlinked row. */
+export async function seedUser(
+  options: {
+    displayName?: string | null;
+    username?: string | null;
+    role?: UserRole;
+    clerkLinked?: boolean;
+    sandbox?: boolean;
+    createdAt?: Date;
+  } = {},
+): Promise<E2EUser> {
+  const ownerId = await getE2EAdminUserId();
+  return withE2EDb(async (db) => {
+    const { languageId } = await adminScope(db);
+    const sandbox = options.sandbox ?? false;
+    const [row] = await db
+      .insert(users)
+      .values({
+        clerkUserId:
+          sandbox || options.clerkLinked === false
+            ? null
+            : `e2e-fixture-${crypto.randomUUID()}`,
+        role: options.role ?? "user",
+        displayName: options.displayName ?? null,
+        username: options.username ?? null,
+        activeLanguageId: languageId,
+        isSandbox: sandbox,
+        sandboxOwnerUserId: sandbox ? ownerId : null,
+        ...(options.createdAt ? { createdAt: options.createdAt } : {}),
+      })
+      .returning(userColumns);
+    return toE2EUser(row!);
+  });
+}
+
+/**
+ * `howMany` real accounts in one statement, named `<tag> #1` … `<tag> #n`,
+ * created one second apart with #1 the newest — for a spec that needs more
+ * accounts than a page holds without paying a round trip for each.
+ */
+export async function seedManyUsers(
+  tag: string,
+  howMany: number,
+): Promise<string[]> {
+  return withE2EDb(async (db) => {
+    const { languageId } = await adminScope(db);
+    const base = Date.now() - 60_000;
+    const rows = await db
+      .insert(users)
+      .values(
+        Array.from({ length: howMany }, (_, index) => ({
+          clerkUserId: `e2e-fixture-${crypto.randomUUID()}`,
+          role: "user" as const,
+          displayName: `${tag} #${index + 1}`,
+          activeLanguageId: languageId,
+          createdAt: new Date(base - index * 1000),
+        })),
+      )
+      .returning({ id: users.id });
+    return rows.map((row) => row.id);
+  });
+}
+
+/** An account as the database holds it, read independently of the code under test; `null` once it is gone. */
+export async function getE2EUser(userId: string): Promise<E2EUser | null> {
+  return withE2EDb(async (db) => {
+    const [row] = await db
+      .select(userColumns)
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    return row ? toE2EUser(row) : null;
+  });
+}
+
+/**
+ * Real accounts whose name contains `tag`, newest first (then by id) — the
+ * ground truth for what the list should show, written separately from the
+ * list's own query.
+ */
+export async function getE2EUsersTagged(tag: string): Promise<E2EUser[]> {
+  return withE2EDb(async (db) => {
+    const rows = await db
+      .select(userColumns)
+      .from(users)
+      .where(
+        and(
+          sql`${users.displayName} ilike ${`%${tag}%`}`,
+          eq(users.isSandbox, false),
+          sql`${users.clerkUserId} is not null`,
+        ),
+      )
+      .orderBy(sql`${users.createdAt} desc`, sql`${users.id} desc`);
+    return rows.map(toE2EUser);
+  });
+}
+
+/**
+ * An account's version token as the database writes it: microsecond ISO text,
+ * which a JS `Date` cannot hold. Read straight from SQL, apart from the code
+ * under test, so a spec can build a *valid* role-change request by hand.
+ */
+export async function getE2EVersionToken(userId: string): Promise<string> {
+  return withE2EDb(async (db) => {
+    const [row] = await db
+      .select({
+        token: sql<string>`to_char(${users.updatedAt} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    if (!row) throw new Error(`No user ${userId} in the E2E database.`);
+    return row.token;
+  });
+}
+
+/**
+ * Everything about an account that a role change must leave alone: every column
+ * of its row except the two a change is allowed to move (`role`, `updatedAt`),
+ * and how much learning data hangs off it. Two snapshots, before and after, must
+ * be equal — "no arbitrary progress mutation".
+ */
+export async function getE2EUserFootprint(userId: string) {
+  return withE2EDb(async (db) => {
+    const [row] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    if (!row) throw new Error(`No user ${userId} in the E2E database.`);
+    const unchanged = Object.fromEntries(
+      Object.entries(row).filter(
+        ([key]) => key !== "role" && key !== "updatedAt",
+      ),
+    );
+    const rowsOf = async (
+      table:
+        | typeof userItemProgress
+        | typeof userLevelProgress
+        | typeof userLanguageSettings,
+    ) => {
+      const [counted] = await db
+        .select({ rows: count() })
+        .from(table)
+        .where(eq(table.userId, userId));
+      return counted?.rows ?? 0;
+    };
+    return {
+      row: unchanged,
+      itemProgressRows: await rowsOf(userItemProgress),
+      levelProgressRows: await rowsOf(userLevelProgress),
+      languageSettingsRows: await rowsOf(userLanguageSettings),
+    };
+  });
+}
+
+/** Sets an account's role straight in the database — another Admin acting behind the screen's back, or a restore. */
+export async function setE2EUserRole(
+  userId: string,
+  role: UserRole,
+): Promise<void> {
+  await withE2EDb(async (db) => {
+    await db.update(users).set({ role }).where(eq(users.id, userId));
+  });
+}
+
+/** Renames an account, which moves its version token — "something else changed it" since the Admin looked. */
+export async function renameE2EUser(
+  userId: string,
+  displayName: string,
+): Promise<void> {
+  await withE2EDb(async (db) => {
+    await db.update(users).set({ displayName }).where(eq(users.id, userId));
+  });
+}
+
+/** The `USER_ROLE_CHANGED` audit events for an account, newest first. */
+export async function getE2ERoleAudits(userId: string) {
+  return withE2EDb(async (db) => {
+    const page = await getAuditEvents(db, {
+      action: "USER_ROLE_CHANGED",
+      resourceId: userId,
+      limit: 50,
+    });
+    return page.items;
+  });
+}
+
+/** Removes the role-change audit events about these accounts (the trail is disposable here; a real one never is). */
+export async function removeRoleAudits(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  await withE2EDb(async (db) => {
+    await db
+      .delete(adminAuditEvents)
+      .where(
+        and(
+          eq(adminAuditEvents.action, "USER_ROLE_CHANGED"),
+          inArray(adminAuditEvents.resourceId, ids),
+        ),
+      );
+  });
+}
+
+/** Removes accounts this module created, and the audit events that name them. */
+export async function removeSeededUsers(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  await removeRoleAudits(ids);
+  await withE2EDb(async (db) => {
+    await db.delete(users).where(inArray(users.id, ids));
   });
 }

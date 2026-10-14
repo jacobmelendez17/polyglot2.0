@@ -150,6 +150,8 @@ describe("GET /api/v1/admin/me — payload", () => {
         canAccessAdminArea: true,
         canManageCurriculum: true,
         canPublishCurriculum: false,
+        // The account list and role changes are Admin-only: a writer has neither.
+        canManageUsers: false,
         canUseDeveloperTools: false,
         resources: {
           overview: ["show"],

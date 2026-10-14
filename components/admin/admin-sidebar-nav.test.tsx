@@ -84,4 +84,32 @@ describe("AdminSidebarNav", () => {
       screen.getByRole("link", { name: "Curriculum" }),
     ).not.toHaveAttribute("aria-current");
   });
+
+  it("shows Users to an Admin, linking to the account list (spec 26 Unit 6)", () => {
+    mockPathname = "/admin/users";
+    render(
+      <AdminSidebarNav
+        canManageCurriculum
+        canUseDeveloperTools
+        canManageUsers
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: "Users" })).toHaveAttribute(
+      "href",
+      "/admin/users",
+    );
+    expect(screen.getByRole("link", { name: "Users" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+  });
+
+  it("shows no Users link unless it is asked for — a writer and a developer never see one", () => {
+    mockPathname = "/admin";
+    render(<AdminSidebarNav canManageCurriculum canUseDeveloperTools />);
+    expect(
+      screen.queryByRole("link", { name: "Users" }),
+    ).not.toBeInTheDocument();
+  });
 });

@@ -127,6 +127,16 @@ describe("InMemoryRateLimiter", () => {
         "review-submit": { windowSeconds: 60, maxRequests: 5, failOpen: true },
         "admin-mutation": { windowSeconds: 60, maxRequests: 5, failOpen: true },
         "admin-publish": { windowSeconds: 60, maxRequests: 5, failOpen: true },
+        "admin-role-change": {
+          windowSeconds: 60,
+          maxRequests: 5,
+          failOpen: true,
+        },
+        "admin-user-search": {
+          windowSeconds: 60,
+          maxRequests: 5,
+          failOpen: true,
+        },
         "sandbox-mutation": {
           windowSeconds: 60,
           maxRequests: 5,

@@ -22,6 +22,8 @@ import {
   adminOverviewSchema,
   adminReviewPageSchema,
   adminReviewPublishResultSchema,
+  adminUserPageSchema,
+  adminUserRoleChangeResultSchema,
   type AdminGroupCreateRequest,
   type AdminGroupCreateResult,
   type AdminGroupUpdateRequest,
@@ -32,6 +34,8 @@ import {
   type AdminLevelUpdateResult,
   type AdminReviewPublishRequest,
   type AdminReviewPublishResult,
+  type AdminUserRoleChangeRequest,
+  type AdminUserRoleChangeResult,
 } from "@/domains/admin";
 
 import { requestAdminApi } from "./admin-api-client";
@@ -40,6 +44,7 @@ import { buildCurriculumListQuery } from "./curriculum/curriculum-list-query";
 import { buildGroupsListQuery } from "./groups/groups-list-query";
 import { buildLevelsListQuery } from "./levels/levels-list-query";
 import { buildReviewListQuery } from "./review/review-list-query";
+import { buildUsersListQuery } from "./users/users-list-query";
 
 type AdminRequest = typeof requestAdminApi;
 
@@ -81,6 +86,16 @@ export type AdminDataProvider = DataProvider & {
     groupId: string,
     input: AdminGroupUpdateRequest,
   ) => Promise<AdminGroupUpdateResult>;
+  /**
+   * Sets one account's role (Admin only). `expectedUpdatedAt` is the version
+   * token the Admin last saw for that account — a changed account is a conflict,
+   * not an overwrite. The body names no actor and no other account: who asks is
+   * the session, who is changed is `userId`.
+   */
+  changeUserRole: (
+    userId: string,
+    input: AdminUserRoleChangeRequest,
+  ) => Promise<AdminUserRoleChangeResult>;
 };
 
 /** A cursor page, as React Admin's *partial pagination*: no total, and the server's cursors passed through untouched. */
@@ -199,6 +214,15 @@ export function createAdminDataProvider({
           meta: { truncated: list.truncated },
         };
       }
+      if (resource === "users") {
+        return toListResult(
+          await request(
+            `/users?${buildUsersListQuery(params)}`,
+            adminUserPageSchema,
+            { signal: params.signal },
+          ),
+        );
+      }
       return unsupported(resource, "getList");
     },
 
@@ -232,6 +256,15 @@ export function createAdminDataProvider({
       return request(
         `/groups/${encodeURIComponent(groupId)}`,
         adminGroupUpdateResultSchema,
+        { body: input, method: "PATCH" },
+      );
+    },
+
+    changeUserRole(userId, input) {
+      // The body is exactly the command: no actor, no role claim, no target.
+      return request(
+        `/users/${encodeURIComponent(userId)}/role`,
+        adminUserRoleChangeResultSchema,
         { body: input, method: "PATCH" },
       );
     },

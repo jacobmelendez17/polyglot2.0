@@ -10,6 +10,7 @@
 export {
   canAccessAdminArea,
   canManageCurriculum,
+  canManageUsers,
   canPublishCurriculum,
   canUseDeveloperTools,
 } from "./authorization";
@@ -33,6 +34,11 @@ export {
   REVIEW_LIST_MAX_PAGE_SIZE,
   REVIEW_LIST_PAGE_SIZE,
   REVIEW_LIST_SORT,
+  USER_LIST_MAX_PAGE_SIZE,
+  USER_LIST_PAGE_SIZE,
+  USER_LIST_SORT,
+  USER_ROLE_REASON_MAX,
+  USER_SEARCH_MAX,
   adminApiErrorSchema,
   adminGroupCreateRequestSchema,
   adminGroupCreateResultSchema,
@@ -55,6 +61,12 @@ export {
   adminReviewPublishRequestSchema,
   adminReviewPublishResultSchema,
   adminReviewRowSchema,
+  adminUserListQuerySchema,
+  adminUserPageSchema,
+  adminUserPathSchema,
+  adminUserRoleChangeRequestSchema,
+  adminUserRoleChangeResultSchema,
+  adminUserRowSchema,
   adminCurriculumListQuerySchema,
   adminCurriculumPageSchema,
   adminCurriculumRowSchema,
@@ -92,6 +104,11 @@ export type {
   AdminReviewPublishRequest,
   AdminReviewPublishResult,
   AdminReviewRow,
+  AdminUserListQuery,
+  AdminUserPage,
+  AdminUserRoleChangeRequest,
+  AdminUserRoleChangeResult,
+  AdminUserRow,
 } from "./admin-api-contract";
 export {
   buildAdminCurriculumPage,
@@ -101,6 +118,7 @@ export {
   buildAdminReviewPage,
   buildAdminOverview,
   buildAdminPermissions,
+  buildAdminUserPage,
 } from "./admin-api-views";
 export { ADMIN_AUDIT_ACTIONS } from "./audit-types";
 export type {

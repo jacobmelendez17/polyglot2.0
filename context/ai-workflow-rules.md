@@ -332,6 +332,26 @@ If a verification step fails, Claude must say so explicitly.
 
 Claude must not claim a task is fully complete if required verification failed or was skipped.
 
+### Tiered verification while Spec 26 is in progress (owner decision, 2026-10-13)
+
+The whole-suite runs (integration ≈ 23 min, the full Playwright suite ≈ 18 min, the production-mode run of the admin specs ≈ 13 min) took about an hour of every Spec 26 unit, and in Unit 5 none of them found a defect that the unit's own checks had not already found. So verification is tiered. This changes **when** the slow suites run, not what counts as verified, and CI remains the final gate.
+
+**Every unit** — before it is reported:
+
+1. `tsc`, `eslint .`, and `prettier --check .`, with no file added to the known unformatted baseline.
+2. Unit tests for everything the unit touched, including the whole `components/admin/react-admin` and admin route test folders.
+3. `npm run build`, and the bundle check when client routes changed.
+4. The unit's own new E2E spec under `next dev`, with its screenshots reviewed in light, dark, and at 390px.
+5. Mutation checks on the unit's safety-critical lines (authorization, idempotency, only-what-changed, scoping).
+
+**Also, when the unit touches** the domain, a repository, the schema, idempotency, or audit: the integration suite.
+
+**Also, when the unit changes code shared with earlier units** (the shared form hooks, the data provider, API client or auth provider, `useCursorList`, the theme, the command pipeline): the E2E specs of the units that share it (the `admin-*` specs).
+
+**Once per batch** — by default after Unit 8 and after Unit 11 of Spec 26, or whenever the owner asks: the full integration suite, the full Playwright suite under `next dev`, and the production-mode run of the admin specs, each from a freshly reset E2E database (`npm run e2e:setup`; a spec that consumes seeded state fails on a second run otherwise). Record the results in `progress-tracker.md`.
+
+**Reporting.** A unit that has not yet had its batch run is reported as _implemented and unit-verified; whole-suite checks pending until the batch run_ — never as "verified" or "complete" without that qualifier — and its report names each suite not run and when it will be. Failures in a batch run are triaged like any other: caused by a unit in the batch, or pre-existing, and reported as such.
+
 ---
 
 ## Handling Failed Verification

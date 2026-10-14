@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { USER_ROLES } from "@/domains/users";
+import { ADMIN_USER_LIST_MAX_PAGE_SIZE, USER_ROLES } from "@/domains/users";
 
 /**
  * Wire contract for the Admin HTTP adapter under `/api/v1/admin/*` (spec 26
@@ -34,6 +34,7 @@ export const adminPermissionsSchema = z.object({
   canAccessAdminArea: z.boolean(),
   canManageCurriculum: z.boolean(),
   canPublishCurriculum: z.boolean(),
+  canManageUsers: z.boolean(),
   canUseDeveloperTools: z.boolean(),
   resources: z.record(z.string(), z.array(z.enum(ADMIN_RESOURCE_ACTIONS))),
 });
@@ -500,6 +501,117 @@ export type AdminGroupUpdateResult = z.infer<
 
 /** The `[groupId]` path segment. */
 export const adminGroupPathSchema = z.object({ groupId: uuidLike });
+
+/* -------------------------------------------------------------------------- */
+/* Users and roles (spec 26 Unit 6)                                           */
+/* -------------------------------------------------------------------------- */
+
+/** What the account list shows per page. The server caps any request at `USER_LIST_MAX_PAGE_SIZE`. */
+export const USER_LIST_PAGE_SIZE = 20;
+export const USER_LIST_MAX_PAGE_SIZE = ADMIN_USER_LIST_MAX_PAGE_SIZE;
+
+/**
+ * The account list's one ordering: newest account first. Creation time never
+ * changes, so a role edit cannot move a row while someone pages. Any other
+ * sort is refused — a cursor only means something under the order that made it.
+ */
+export const USER_LIST_SORT = { field: "created_at", order: "DESC" } as const;
+
+/** The longest reason an Admin may give for a role change. Recorded in the audit event. */
+export const USER_ROLE_REASON_MAX = 200;
+
+/** The longest search the account list accepts; the screen cuts a longer one rather than send a request the server would refuse. */
+export const USER_SEARCH_MAX = 100;
+
+/**
+ * An instant as ISO-8601 UTC text, with whatever sub-second precision it has.
+ * An account's `updatedAt` is the **version token** of a role change: Postgres
+ * keeps microseconds, so it travels as text and is sent back unchanged — a
+ * value rounded to milliseconds could never equal the row it came from.
+ */
+const instant = z.iso.datetime();
+
+/**
+ * `GET /api/v1/admin/users` query string. Accounts are found by `search` (a
+ * username or display name, or an exact account id) and paged by `cursor`.
+ * `.strict()`: a `sort`, a `role` filter, an `includeSandbox` flag, or anything
+ * else this endpoint does not implement is a 422, never quietly ignored — in
+ * particular there is **no** way to ask for sandbox personas.
+ */
+export const adminUserListQuerySchema = z
+  .object({
+    search: z.string().trim().min(1).max(USER_SEARCH_MAX).optional(),
+    cursor: z.string().trim().min(1).max(512).optional(),
+    limit: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(USER_LIST_MAX_PAGE_SIZE)
+      .default(USER_LIST_PAGE_SIZE),
+  })
+  .strict();
+export type AdminUserListQuery = z.infer<typeof adminUserListQuerySchema>;
+
+/**
+ * One account, as the Admin console may see it. There is deliberately no Clerk
+ * id, no email, no timezone and nothing about learning progress — see
+ * `AdminUserRecord`. (A response object that gained a field would have it
+ * stripped here, by `parse`, even if a builder forgot to leave it out.)
+ */
+export const adminUserRowSchema = z.object({
+  id: z.string().min(1),
+  displayName: z.string().nullable(),
+  username: z.string().nullable(),
+  role: z.enum(USER_ROLES),
+  createdAt: instant,
+  /** The version token: send it back as `expectedUpdatedAt`. */
+  updatedAt: instant,
+});
+export type AdminUserRow = z.infer<typeof adminUserRowSchema>;
+
+/** A cursor page; like the other lists, no total. Read `previousCursor` with `hasPreviousPage`. */
+export const adminUserPageSchema = z.object({
+  items: z.array(adminUserRowSchema),
+  nextCursor: z.string().nullable(),
+  hasPreviousPage: z.boolean(),
+  previousCursor: z.string().nullable(),
+});
+export type AdminUserPage = z.infer<typeof adminUserPageSchema>;
+
+/**
+ * `PATCH /api/v1/admin/users/[userId]/role` — Admin only. Sets one account's
+ * single role. `.strict()`, so the body cannot name an actor, another account,
+ * a Clerk id, or anything but these four fields: who is asking is the session,
+ * and who is being changed is the path.
+ *
+ * `expectedUpdatedAt` is the `updatedAt` the Admin last saw for that account;
+ * if the account has changed since, the answer is a 409 rather than a silent
+ * overwrite. `reason` is optional, and is written to the audit event.
+ */
+export const adminUserRoleChangeRequestSchema = z
+  .object({
+    role: z.enum(USER_ROLES),
+    expectedUpdatedAt: instant,
+    reason: z.string().trim().min(1).max(USER_ROLE_REASON_MAX).optional(),
+    idempotencyKey: uuidLike,
+  })
+  .strict();
+export type AdminUserRoleChangeRequest = z.infer<
+  typeof adminUserRoleChangeRequestSchema
+>;
+
+export const adminUserRoleChangeResultSchema = z.object({
+  userId: z.string().min(1),
+  role: z.enum(USER_ROLES),
+  /** The account's new version token. */
+  updatedAt: instant,
+});
+export type AdminUserRoleChangeResult = z.infer<
+  typeof adminUserRoleChangeResultSchema
+>;
+
+/** The `[userId]` path segment. */
+export const adminUserPathSchema = z.object({ userId: uuidLike });
 
 /**
  * Error codes this adapter can answer with, and the HTTP status each maps

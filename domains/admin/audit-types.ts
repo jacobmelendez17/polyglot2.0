@@ -84,6 +84,12 @@ export const ADMIN_AUDIT_ACTIONS = [
   "CURRICULUM_IMPORT_ARCHIVED",
   "CURRICULUM_IMPORT_RESTORED",
   "CURRICULUM_IMPORT_DELETED",
+  // Spec 26 Unit 6 — an Admin changed another real account's role. Recorded
+  // in the same transaction as the role update itself (actor, target, before
+  // and after role, reason, correlation id), so a role can never change
+  // without a trace nor leave a trace of a change that did not happen. The
+  // target is the Polyglot `users.id`, never a Clerk id or an email.
+  "USER_ROLE_CHANGED",
 ] as const;
 
 export type AdminAuditAction = (typeof ADMIN_AUDIT_ACTIONS)[number];

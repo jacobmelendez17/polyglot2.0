@@ -411,6 +411,24 @@ not from a second palette:
   only to someone who may use it** (the "Reorder groups" link: Admins, and only
   when the level has at least two groups). The tool stays reachable by address
   only for those allowed; anyone else who types it gets the ordinary list.
+- **A change that takes access away says exactly what is lost before it can be
+  confirmed** (spec 26 Unit 6, the role dialog). Choosing a role writes out what
+  the person will gain, and — as a _warning_, not a footnote — what they will no
+  longer be able to do, taken from the spec's role matrix; the confirm button
+  stays disabled until a different role has been chosen, and the dialog says that
+  the change takes effect on their next request and touches no progress. "Learner"
+  is the word for the database role `user`. A role is always shown as an icon and
+  its name together, never colour alone.
+- **An action that would only be refused is not offered, and says why.** Your own
+  row in the account list reads "That's you" instead of a button (the server
+  refuses a self-change regardless). A failure that pressing again cannot fix —
+  the account changed since the list was read, it is gone, it would leave no
+  Admin — offers **Close** only, and closing re-reads the list so the Admin sees
+  what the account is now.
+- **A list whose rows have no detail page is not styled as clickable** (no hover
+  highlight, no row link). Its one action stays reachable at 390 px: the action
+  column is pinned at the table's right edge while the other columns scroll
+  inside the table's own frame.
 
 ---
 

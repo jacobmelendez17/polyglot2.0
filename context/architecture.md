@@ -560,6 +560,48 @@ data-integrity rule stays in `domains/*`.
   dismissal mid-request). A new form states its fields, how it reads and diffs
   them, and what needs confirming — not its own state machine. Levels and groups
   are the two consumers.
+- **Roles are assigned in one place, to one person at a time, in one
+  transaction** (spec 26 Unit 6). `PATCH /api/v1/admin/users/[userId]/role`
+  (`{ role, expectedUpdatedAt, reason?, idempotencyKey }`) calls `changeUserRole`
+  in `domains/admin/user-role-service.ts`; `GET /api/v1/admin/users?search=&cursor=`
+  reads the accounts. Both are **Admin only** (`canManageUsers`) from the
+  database role on every request, and nothing else in the console can change a
+  role. Nothing here touches Clerk — the database role is the authority, and it
+  takes effect on the person's very next server request because every check
+  reads it fresh (there is no session claim or cache to wait out).
+  - **One lock serializes every role change.** The service's first act, inside
+    the transaction, is `pg_advisory_xact_lock` on a fixed key. Under it, in this
+    order: the person asking is **still** an Admin (a demoted Admin must not
+    finish a change they began as one); the target exists and is a **real
+    account**; it is not the person asking; its version still matches; the role
+    actually changes; and an Admin is not demoted if they are the last real one.
+    The last-Admin rule is a statement about the _set_ of Admins, so a row lock
+    on the target cannot enforce it — two Admins demoting each other would both
+    see "another Admin exists". The lock makes the count true when the update
+    runs; it is proven with two real connections, not mocks.
+  - **A real account** is a row with a Clerk identity that is not a sandbox
+    persona. The list, the target check and the last-Admin count all use that one
+    definition, so a persona can neither be given a role nor keep the last real
+    Admin company.
+  - **The role change and its `USER_ROLE_CHANGED` audit event commit together**
+    (the idempotency key row too): a role never changes without a trace, and a
+    trace never describes a change that did not happen. Action names are code,
+    not a database enum, so a new one needs no migration.
+  - **The list is a sanitized read model**: id, display name, username, role and
+    two timestamps — never a Clerk id, an email, a timezone or anything about
+    learning progress. It is built field by field and then stripped again by the
+    response schema. Newest account first, keyset-paginated; a search matches
+    part of a name or username, or an **exact** account id (what an audit entry
+    names), never part of an id. There is no parameter to ask for personas.
+  - **A version token must be an exact instant.** The token for a role change is
+    the account's `updated_at`, and the list's keyset cursor runs over
+    `(created_at, id)`. Postgres keeps microseconds and a JavaScript `Date` keeps
+    milliseconds, so both travel as microsecond ISO text and are compared in SQL
+    as instants — a value rounded through a `Date` can never equal the row it came
+    from, and a rounded cursor can skip rows.
+  - **Two limits of their own, both failing closed**: reading the list
+    (`admin-user-search`, 30 / 60s) and changing a role (`admin-role-change`,
+    10 / 60s).
 
 ## `media`
 
@@ -679,6 +721,13 @@ The Polyglot database is authoritative for roles and permissions.
 Clerk metadata may mirror role information for convenient UI or route gating, but sensitive server operations must verify the authoritative database role.
 
 An admin may also use Polyglot as a normal learner.
+
+**Roles are assigned in the Admin console** (spec 26 Unit 6): an Admin changes
+another real account's single role from the Users screen, and that is the only
+in-app way to do it. The change writes the database role and nothing else —
+never Clerk metadata — so it applies on the person's next server request. See
+"React Admin Console" for the rules (one person at a time, never your own role,
+never the last Admin, every change audited).
 
 Developer-only tools may be restricted separately from normal administrative content-management features.
 

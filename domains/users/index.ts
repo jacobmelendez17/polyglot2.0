@@ -32,5 +32,11 @@ export type {
   LanguageSettings,
 } from "./curriculum-preference";
 export { getDefaultLanguageCode } from "./provisioning-config";
+export { ADMIN_USER_LIST_MAX_PAGE_SIZE } from "./admin-user-types";
+export type {
+  AdminUserRecord,
+  AdminUsersPage,
+  ListAdminUsersInput,
+} from "./admin-user-types";
 export { USER_ROLES } from "./user-types";
 export type { PolyglotUser, UserRole } from "./user-types";

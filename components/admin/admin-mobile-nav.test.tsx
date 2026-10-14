@@ -60,4 +60,31 @@ describe("AdminMobileNav", () => {
       "/admin/curriculum/groups",
     );
   });
+
+  it("lists Users in the sheet for an Admin only (spec 26 Unit 6)", async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(
+      <AdminMobileNav
+        canManageCurriculum
+        canUseDeveloperTools
+        canManageUsers
+      />,
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Open Admin navigation" }),
+    );
+    expect(screen.getByRole("link", { name: "Users" })).toHaveAttribute(
+      "href",
+      "/admin/users",
+    );
+    unmount();
+
+    render(<AdminMobileNav canManageCurriculum canUseDeveloperTools />);
+    await user.click(
+      screen.getByRole("button", { name: "Open Admin navigation" }),
+    );
+    expect(
+      screen.queryByRole("link", { name: "Users" }),
+    ).not.toBeInTheDocument();
+  });
 });

@@ -3,10 +3,11 @@ import { describe, expect, it } from "vitest";
 import {
   canAccessAdminArea,
   canManageCurriculum,
+  canManageUsers,
   canPublishCurriculum,
   canUseDeveloperTools,
 } from "./authorization";
-import type { PolyglotUser, UserRole } from "@/domains/users";
+import { USER_ROLES, type PolyglotUser, type UserRole } from "@/domains/users";
 
 function withRole(role: UserRole): Pick<PolyglotUser, "role"> {
   return { role };
@@ -78,5 +79,21 @@ describe("the writer role (spec 17)", () => {
   it("does not let a developer author or publish curriculum (spec 11 §4, unchanged)", () => {
     expect(canManageCurriculum(developer)).toBe(false);
     expect(canPublishCurriculum(developer)).toBe(false);
+  });
+});
+
+describe("canManageUsers (spec 26 Unit 6)", () => {
+  // The spec's role matrix: "Change user role" is the one row with a single
+  // Yes. Every role is checked by name, so a sixth role added to the enum
+  // cannot quietly inherit it.
+  it.each(USER_ROLES)("answers %s as the matrix does", (role) => {
+    expect(canManageUsers(withRole(role))).toBe(role === "admin");
+  });
+
+  it("keeps people who already work in the console out of it: a writer and a developer cannot manage users", () => {
+    for (const role of ["writer", "developer"] as const) {
+      expect(canAccessAdminArea(withRole(role))).toBe(true);
+      expect(canManageUsers(withRole(role))).toBe(false);
+    }
   });
 });

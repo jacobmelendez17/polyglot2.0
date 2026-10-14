@@ -50,6 +50,19 @@ export function canPublishCurriculum(
 }
 
 /**
+ * Can this user see the account list and change another person's role?
+ *
+ * Admin only (spec 26 §6: "Change user role" is the one capability only an
+ * Admin has). A role decides who can author, publish, read the logs and
+ * simulate learners, so assigning one is the most privileged thing in the
+ * console: a writer or developer, who can already enter it, cannot even see
+ * who the accounts are.
+ */
+export function canManageUsers(user: Pick<PolyglotUser, "role">): boolean {
+  return hasRole(user, "admin");
+}
+
+/**
  * Can this user reach the Sandbox and the operational logs? Admin and
  * developer — a writer authors content and has no business simulating
  * learners or reading the audit log.

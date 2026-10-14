@@ -42,6 +42,25 @@ export const RATE_LIMIT_POLICIES: Record<RateLimitPolicyName, RateLimitPolicy> =
       maxRequests: 10,
       failOpen: false,
     },
+    // Spec 26 Unit 6 — changing another account's role. The most privileged
+    // thing the console does (a role decides who may publish, read the logs,
+    // or change roles), so it gets its own tight budget instead of sharing
+    // "admin-mutation"'s: a compromised session cannot churn roles, and an
+    // Admin working through a handful of people never comes near it.
+    "admin-role-change": {
+      windowSeconds: 60,
+      maxRequests: 10,
+      failOpen: false,
+    },
+    // Spec 26 Unit 6 — listing and searching accounts. Enumerating who has an
+    // account is itself sensitive, so every read is counted. Sized for a person
+    // typing into the search box (React Admin debounces it) and paging — not for
+    // a script walking the whole table.
+    "admin-user-search": {
+      windowSeconds: 60,
+      maxRequests: 30,
+      failOpen: false,
+    },
     "sandbox-mutation": {
       windowSeconds: 60,
       maxRequests: 30,

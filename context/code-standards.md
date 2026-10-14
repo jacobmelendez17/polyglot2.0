@@ -355,6 +355,29 @@ unit test of its own that exercises every role and the request's validation
 (`app/(admin)/admin/curriculum/actions.test.ts`); hiding its link from someone is
 a convenience, never the control.
 
+A **privileged mutation** — one that changes who may do what, like assigning a
+role (spec 26 Unit 6) — is held to this list, because each item was found by
+trying to break the first one:
+
+1. Authorize from the database role on every request, **and again inside the
+   transaction**, under the lock that makes the answer stay true.
+2. The body can name neither who acts (the session) nor whom (the path): a strict
+   schema, so an extra field is a 422, never ignored.
+3. When a rule is about a _set_ ("never the last Admin"), serialize with a
+   transaction-scoped advisory lock — a row lock cannot protect a count. Prove it
+   with two real connections, not a mock.
+4. A version token is an exact instant (microsecond text compared in SQL), never a
+   `Date` rounded to milliseconds.
+5. The change and its audit event commit together; a test injects an audit
+   failure and checks the change rolled back too.
+6. It has a rate limit of its own that fails closed, **and a fast test that the
+   service applies that policy** — not the general mutation one. (A missing or
+   wrong limit passes every other fast test and only shows in the end-to-end
+   tier.)
+7. Responses are built field by field and validated; they carry no identity
+   provider id, email or flag the screen does not need. The console never calls
+   the identity provider for something the database already decides.
+
 Use meaningful HTTP status codes.
 
 Do not return raw database rows when a safe response model is more appropriate.

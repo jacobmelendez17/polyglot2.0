@@ -40,6 +40,45 @@ describe("getAdminNavItems", () => {
   });
 });
 
+describe("getAdminNavItems — Users (spec 26 Unit 6)", () => {
+  it("adds Users, last, for an Admin — who has every other section too", () => {
+    const labels = getAdminNavItems(true, true, true).map((item) => item.label);
+    expect(labels.at(-1)).toBe("Users");
+    expect(labels).toContain("Curriculum");
+    expect(labels).toContain("Sandbox");
+  });
+
+  it("links Users to its page", () => {
+    expect(
+      getAdminNavItems(true, true, true).find((item) => item.label === "Users")
+        ?.href,
+    ).toBe("/admin/users");
+  });
+
+  it.each([
+    ["a writer", true, false, false],
+    ["a developer without the admin role", false, true, false],
+    // Not asked for: the default is no.
+    ["anyone, when nothing says otherwise", true, true, undefined],
+  ] as const)(
+    "does not offer Users to %s",
+    (_who, curriculum, tools, accounts) => {
+      const labels = getAdminNavItems(curriculum, tools, accounts).map(
+        (item) => item.label,
+      );
+      expect(labels).not.toContain("Users");
+    },
+  );
+
+  it("marks Users current on its page, and Overview not", () => {
+    const items = getAdminNavItems(true, true, true);
+    const users = items.find((item) => item.label === "Users")!;
+    const overview = items.find((item) => item.label === "Overview")!;
+    expect(isAdminNavItemCurrent(users, "/admin/users", items)).toBe(true);
+    expect(isAdminNavItemCurrent(overview, "/admin/users", items)).toBe(false);
+  });
+});
+
 describe("isAdminNavItemCurrent", () => {
   it("matches Overview only on the exact /admin path, not every /admin-prefixed route", () => {
     const overview = { label: "Overview", href: "/admin" };

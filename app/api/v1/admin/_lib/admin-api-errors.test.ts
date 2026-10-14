@@ -15,6 +15,10 @@ describe("mapAdminApiError", () => {
     [new AdminError("CURRICULUM_ITEM_NOT_FOUND"), "NOT_FOUND", 404],
     [new AppError("CURRICULUM_VALIDATION_FAILED"), "VALIDATION_FAILED", 422],
     [new AdminError("ADMIN_EDIT_CONFLICT"), "CONFLICT", 409],
+    // Spec 26 Unit 6 — role management's own refusals.
+    [new AdminError("USER_NOT_FOUND"), "NOT_FOUND", 404],
+    [new AdminError("USER_ROLE_CHANGE_NOT_ALLOWED"), "VALIDATION_FAILED", 422],
+    [new AdminError("LAST_ADMIN"), "CONFLICT", 409],
     [new AdminError("RATE_LIMITED"), "RATE_LIMITED", 429],
     // Replaying a key with other data, or two copies racing: both are a 409.
     [new AppError("IDEMPOTENCY_KEY_PAYLOAD_MISMATCH"), "CONFLICT", 409],

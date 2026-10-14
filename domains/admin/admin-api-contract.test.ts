@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 
+import { USER_ROLES } from "@/domains/users";
+
 import {
   ADMIN_CEFR_LEVELS,
   CURRICULUM_STATUSES,
+  USER_LIST_MAX_PAGE_SIZE,
+  USER_LIST_PAGE_SIZE,
+  USER_ROLE_REASON_MAX,
   adminGroupCreateRequestSchema,
   adminGroupListQuerySchema,
   adminGroupPathSchema,
@@ -13,6 +18,12 @@ import {
   adminLevelPathSchema,
   adminLevelRowSchema,
   adminLevelUpdateRequestSchema,
+  adminUserListQuerySchema,
+  adminUserPageSchema,
+  adminUserPathSchema,
+  adminUserRoleChangeRequestSchema,
+  adminUserRoleChangeResultSchema,
+  adminUserRowSchema,
 } from "./admin-api-contract";
 
 const LANGUAGE = "10000000-0000-4000-8000-000000000001";
@@ -511,5 +522,273 @@ describe("adminGroupRowSchema", () => {
     expect(
       adminGroupRowSchema.safeParse({ ...row, position: 1.5 }).success,
     ).toBe(false);
+  });
+});
+
+/**
+ * Spec 26 Unit 6 — who may be listed, and what a role change may carry. What
+ * matters most is what is *not* a field: an actor, another account, a Clerk id,
+ * a sandbox flag. Who is asking is the session; who is being changed is the path.
+ */
+const USER = "40000000-0000-4000-8000-000000000004";
+/** A version token: the row's `updated_at`, with its microseconds. */
+const TOKEN = "2026-03-02T09:30:15.123456Z";
+
+describe("adminUserListQuerySchema", () => {
+  it("accepts no parameters at all, and defaults the page size", () => {
+    expect(adminUserListQuerySchema.parse({}).limit).toBe(USER_LIST_PAGE_SIZE);
+  });
+
+  it("accepts a search and a cursor, and trims the search", () => {
+    expect(
+      adminUserListQuerySchema.parse({ search: "  ana  ", cursor: "abc" }),
+    ).toMatchObject({ search: "ana", cursor: "abc" });
+  });
+
+  it("reads the limit from a query string's text", () => {
+    expect(adminUserListQuerySchema.parse({ limit: "5" }).limit).toBe(5);
+  });
+
+  it.each([
+    ["an empty search", { search: "" }],
+    ["a search of only spaces", { search: "   " }],
+    ["an over-long search", { search: "x".repeat(101) }],
+    ["an empty cursor", { cursor: "" }],
+    ["an over-long cursor", { cursor: "x".repeat(513) }],
+    ["a limit of zero", { limit: "0" }],
+    ["a limit over the cap", { limit: String(USER_LIST_MAX_PAGE_SIZE + 1) }],
+    ["a fractional limit", { limit: "2.5" }],
+  ])("refuses %s", (_label, query) => {
+    expect(adminUserListQuerySchema.safeParse(query).success).toBe(false);
+  });
+
+  // Not ignored: a parameter this endpoint does not implement is a 422. In
+  // particular there is no way to ask for sandbox personas, or to filter by role.
+  it.each([
+    ["a sort", { sort: "name" }],
+    ["a page number", { page: "2" }],
+    ["a role filter", { role: "admin" }],
+    ["a request for sandbox personas", { includeSandbox: "true" }],
+    ["a language", { language: LANGUAGE }],
+  ])("refuses %s", (_label, query) => {
+    expect(adminUserListQuerySchema.safeParse(query).success).toBe(false);
+  });
+});
+
+describe("adminUserRowSchema and adminUserPageSchema", () => {
+  const row = {
+    id: USER,
+    displayName: "Ana Lopez",
+    username: "ana_lopez",
+    role: "writer",
+    createdAt: "2026-03-01T12:00:00.000100Z",
+    updatedAt: TOKEN,
+  };
+
+  it("accepts a row, with microsecond timestamps", () => {
+    expect(adminUserRowSchema.safeParse(row).success).toBe(true);
+  });
+
+  it("accepts an account that has set neither a display name nor a username", () => {
+    expect(
+      adminUserRowSchema.safeParse({
+        ...row,
+        displayName: null,
+        username: null,
+      }).success,
+    ).toBe(true);
+  });
+
+  it.each(USER_ROLES)("accepts the %s role", (role) => {
+    expect(adminUserRowSchema.safeParse({ ...row, role }).success).toBe(true);
+  });
+
+  it("refuses a role that is not one of the five", () => {
+    for (const role of ["superadmin", "", "ADMIN", null]) {
+      expect(adminUserRowSchema.safeParse({ ...row, role }).success).toBe(
+        false,
+      );
+    }
+  });
+
+  it("refuses a timestamp that is not an ISO instant — a token must be one", () => {
+    for (const updatedAt of ["yesterday", "", "2026-03-02", null]) {
+      expect(adminUserRowSchema.safeParse({ ...row, updatedAt }).success).toBe(
+        false,
+      );
+    }
+  });
+
+  it("drops anything a row was not meant to carry, rather than passing it on", () => {
+    const parsed = adminUserRowSchema.parse({
+      ...row,
+      clerkUserId: "user_must_never_appear",
+      email: "private@example.com",
+      isSandbox: false,
+    });
+    expect(Object.keys(parsed).sort()).toEqual([
+      "createdAt",
+      "displayName",
+      "id",
+      "role",
+      "updatedAt",
+      "username",
+    ]);
+  });
+
+  it("describes a page with cursors and no total", () => {
+    const page = {
+      items: [row],
+      nextCursor: "n",
+      hasPreviousPage: true,
+      previousCursor: null,
+    };
+    expect(adminUserPageSchema.safeParse(page).success).toBe(true);
+    expect(adminUserPageSchema.parse({ ...page, total: 9 })).not.toHaveProperty(
+      "total",
+    );
+  });
+});
+
+describe("adminUserRoleChangeRequestSchema", () => {
+  const base = {
+    role: "writer",
+    expectedUpdatedAt: TOKEN,
+    idempotencyKey: KEY,
+  };
+
+  it("accepts a role, the version token it was read at, and a key", () => {
+    expect(adminUserRoleChangeRequestSchema.safeParse(base).success).toBe(true);
+  });
+
+  it.each(USER_ROLES)("accepts the %s role", (role) => {
+    expect(
+      adminUserRoleChangeRequestSchema.safeParse({ ...base, role }).success,
+    ).toBe(true);
+  });
+
+  it.each([
+    ["superadmin"],
+    [""],
+    ["ADMIN"],
+    ["Admin"],
+    [null],
+    [["admin"]],
+    [{ role: "admin" }],
+  ])("refuses the role %j — the role is one of the five, exactly", (role) => {
+    expect(
+      adminUserRoleChangeRequestSchema.safeParse({ ...base, role }).success,
+    ).toBe(false);
+  });
+
+  it("accepts a token with any sub-second precision, and refuses one that is not an instant", () => {
+    for (const expectedUpdatedAt of [
+      "2026-03-02T09:30:15Z",
+      "2026-03-02T09:30:15.123Z",
+      TOKEN,
+    ]) {
+      expect(
+        adminUserRoleChangeRequestSchema.safeParse({
+          ...base,
+          expectedUpdatedAt,
+        }).success,
+      ).toBe(true);
+    }
+    for (const expectedUpdatedAt of ["now", "", 0, null, "2026-03-02"]) {
+      expect(
+        adminUserRoleChangeRequestSchema.safeParse({
+          ...base,
+          expectedUpdatedAt,
+        }).success,
+      ).toBe(false);
+    }
+  });
+
+  it("makes the version token mandatory: there is no unconditional role change", () => {
+    const rest: Record<string, unknown> = { ...base };
+    delete rest.expectedUpdatedAt;
+    expect(adminUserRoleChangeRequestSchema.safeParse(rest).success).toBe(
+      false,
+    );
+  });
+
+  it("requires a role and a key", () => {
+    for (const field of ["role", "idempotencyKey"]) {
+      const rest: Record<string, unknown> = { ...base };
+      delete rest[field];
+      expect(adminUserRoleChangeRequestSchema.safeParse(rest).success).toBe(
+        false,
+      );
+    }
+  });
+
+  it("trims an optional reason, and refuses an empty, blank or over-long one", () => {
+    expect(
+      adminUserRoleChangeRequestSchema.parse({ ...base, reason: "  Joined  " })
+        .reason,
+    ).toBe("Joined");
+    for (const reason of [
+      "",
+      "   ",
+      "x".repeat(USER_ROLE_REASON_MAX + 1),
+      null,
+    ]) {
+      expect(
+        adminUserRoleChangeRequestSchema.safeParse({ ...base, reason }).success,
+      ).toBe(false);
+    }
+    expect(
+      adminUserRoleChangeRequestSchema.safeParse({
+        ...base,
+        reason: "x".repeat(USER_ROLE_REASON_MAX),
+      }).success,
+    ).toBe(true);
+  });
+
+  it("requires a UUID for the key", () => {
+    expect(
+      adminUserRoleChangeRequestSchema.safeParse({
+        ...base,
+        idempotencyKey: "retry-1",
+      }).success,
+    ).toBe(false);
+  });
+
+  it.each([
+    ["an actor", { actorUserId: USER }],
+    ["another account", { userId: USER }],
+    ["a target", { targetUserId: USER }],
+    ["a Clerk id", { clerkUserId: "user_123" }],
+    ["a sandbox flag", { isSandbox: true }],
+    ["a second role", { roles: ["admin", "writer"] }],
+    ["a progress field", { srsStage: 5 }],
+    ["anything else", { bulk: true }],
+  ])("refuses a body that also carries %s", (_label, extra) => {
+    expect(
+      adminUserRoleChangeRequestSchema.safeParse({ ...base, ...extra }).success,
+    ).toBe(false);
+  });
+});
+
+describe("adminUserRoleChangeResultSchema and adminUserPathSchema", () => {
+  it("describes the new role and the account's next version token", () => {
+    expect(
+      adminUserRoleChangeResultSchema.safeParse({
+        userId: USER,
+        role: "admin",
+        updatedAt: TOKEN,
+      }).success,
+    ).toBe(true);
+    expect(
+      adminUserRoleChangeResultSchema.safeParse({ userId: USER, role: "admin" })
+        .success,
+    ).toBe(false);
+  });
+
+  it("requires a UUID in the path", () => {
+    expect(adminUserPathSchema.safeParse({ userId: USER }).success).toBe(true);
+    for (const userId of ["not-an-id", "", "../1", USER + "x"]) {
+      expect(adminUserPathSchema.safeParse({ userId }).success).toBe(false);
+    }
   });
 });
