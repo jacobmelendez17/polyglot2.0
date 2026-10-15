@@ -454,6 +454,66 @@ not from a second palette:
 - **Lists inside dialogs keep their markers.** The application's base styles
   remove list bullets everywhere; a short list of consequences restates them
   (`listStyle: disc`) so it reads as a list.
+- **A status is a badge, an icon and a few words — never colour alone** (spec 26
+  Unit 8, the import history). An import's status is the same kind of badge the
+  curriculum's statuses use: "Processing" for the five states in which the
+  background pipeline holds it (uploading, queued, previewing, importing),
+  "Needs review", "Ready to import", "Completed", "Failed" — and under it a few
+  words on where it is ("Validating rows", "Waiting for confirmation"). The list
+  and the import's own page use one view model, so a status never reads two ways.
+  Counts are worded as what the import _would do_ ("30 to create") until it has
+  completed ("43 created"); an import that has not been read yet, or failed before
+  anything was counted, says "Not counted yet" instead of claiming zero rows.
+- **A list of things that change in the background reads itself again — only while
+  something is changing.** The import history is read again every few seconds
+  while any listed import is being worked on, so "Processing" becomes "Needs
+  review" with no reload, and stops when everything waits for a person or is
+  final; a refresh that fails keeps the rows and warns, rather than asking again
+  every few seconds of an outage. The import's own page announces a change in a
+  polite status region.
+- **A command that is reversible has no dialog; one that is not asks for the
+  word.** Archive and Restore are one click and say what they did ("Archived
+  “x”. It is under Archived now."). Permanently deleting asks the person to type
+  `DELETE` — exactly, case and spaces included — and says what it removes (the
+  record, stored row results, remaining source file) and what it does not (the
+  curriculum changes the import made). The button waits for the word, Enter does
+  not get round it, and a press made before the first is answered is ignored, so
+  one click is one request.
+- **On a phone a table keeps what it is for and lets the rest give way.** The
+  import history shows file, status and the action at 390 px; the dates appear
+  from 600 px and the counts from 900 px, the archived history's two buttons
+  stack, and a file name breaks at its hyphens rather than at every letter.
+  (The import's own page — the specialist review table — still scrolls sideways
+  inside its frame at 390 px, so its Fix, Skip and Approve buttons are out of
+  sight until it is scrolled; unchanged by Unit 8.)
+- **A list that pages by offset says where the page is, and what a page past the
+  end means** (spec 26 Unit 9, the dictionary queue). It reads "1–25 of 130"
+  with Previous and Next only — no jump to a page number, which would only invite
+  landing past the end. An address that names a page past the end (what was
+  there has since been removed) says "There is nothing more on this page" and how
+  many there are in all ("130 in all"), never a range like "0–1000 of 27" and
+  never "no vocabulary", and Previous is the way back; an offset between pages
+  is read as the page that holds it.
+- **In a table with a selection, a row that cannot be ticked shows a _disabled_
+  checkbox, not a missing one** — the column stays aligned, and "Select all"
+  takes only the rows that can be chosen (in the queue: a candidate that is not
+  confirmed yet). The row's name is the link, **and the row is not a click
+  target**: a link stretched over the whole row, as the lists without a selection
+  use (levels, decks), would sit on top of the checkbox.
+- **On a phone the way into a row must never be a column of its own.** The
+  dictionary queue's separate "Review" column was the first thing pushed out of
+  sight at 390 px, so the word itself is the link (named "Review" plus the word
+  for assistive technology) and the table keeps word and status; the lookup form appears from
+  900 px, the candidate and regional columns from 600 px. The decks list keeps
+  name, size and availability and gives its description up first. A status badge
+  may wrap its confidence under its label on a phone ("Auto-matched" over
+  "· High"), never inside the label, and stays on one line from 600 px.
+- **A navigation link offers only what would open.** The sidebar and the phone
+  menu show a link when the person's effective permissions include its resource,
+  so a writer's menu has no Decks or Users, and a developer's is Overview, Logs
+  and the Sandbox. The section a nested page belongs to is marked current
+  (`aria-current="page"` on exactly one link) — an import's own page marks Imports,
+  a deck's editor marks Decks.
 
 ---
 

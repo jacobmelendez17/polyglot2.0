@@ -1057,7 +1057,10 @@ describe("the selection's limits and scope", () => {
     expect(toolbar()).toHaveTextContent(
       `These actions take up to ${CURRICULUM_BULK_ITEM_LIMIT} items at a time — ${CURRICULUM_BULK_ITEM_LIMIT + 1} are selected.`,
     );
-  });
+    // It renders two tables of 100+ rows and ticks one of them: ~2.5 s alone,
+    // but more than the 5 s default when the whole suite is running in parallel
+    // (it timed out there once in a full run, and passed on its own).
+  }, 30_000);
 
   it("closes the question when the selection it was about is gone — a decision made on one view is not carried to another", async () => {
     const user = userEvent.setup();

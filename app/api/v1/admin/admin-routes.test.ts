@@ -160,6 +160,10 @@ describe("GET /api/v1/admin/me — payload", () => {
           // A writer reads levels and groups; creating and editing them is Admin-only.
           levels: ["list"],
           groups: ["list"],
+          // A writer reads the import history; starting and managing imports is Admin-only.
+          imports: ["list"],
+          // A writer authors dictionary mappings; official decks are not theirs at all.
+          dictionary: ["list", "edit"],
         },
       },
     });

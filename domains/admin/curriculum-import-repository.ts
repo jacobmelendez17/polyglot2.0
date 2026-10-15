@@ -6,9 +6,10 @@ import {
   gt,
   isNotNull,
   isNull,
-  lt,
   or,
   sql,
+  type AnyColumn,
+  type SQL,
 } from "drizzle-orm";
 
 import type { DbClient } from "@/db/client";
@@ -162,20 +163,64 @@ export async function lockCurriculumImportForUpdate(
   return row ? toCurriculumImportRecord(row) : null;
 }
 
-type Cursor = { createdAt: string; id: string };
+/**
+ * A timestamp as microsecond-precision ISO text in UTC. Postgres keeps
+ * microseconds and JavaScript's `Date` only milliseconds, so a keyset cursor
+ * that has to match a row *exactly* travels as this text instead of being
+ * rounded through a `Date` — rounded, it skips every row that shares the cursor
+ * row's millisecond (several imports made by one statement share an instant).
+ * Same reasoning, and same SQL, as the account list's cursor.
+ */
+const isoMicros = (column: AnyColumn) =>
+  sql<string>`to_char(${column} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
 
-function encodeCursor(cursor: Cursor): string {
+const UUID_SHAPE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ISO_MICROS_SHAPE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/;
+
+/** Opaque keyset cursor over `(created_at, id)`; the timestamp keeps its microseconds. */
+type Cursor = { c: string; i: string };
+
+function encodeCursor(row: { createdAt: string; id: string }): string {
+  const cursor: Cursor = { c: row.createdAt, i: row.id };
   return Buffer.from(JSON.stringify(cursor), "utf8").toString("base64url");
 }
 
-function decodeCursor(value: string): Cursor {
-  const parsed = JSON.parse(Buffer.from(value, "base64url").toString("utf8"));
-  if (typeof parsed?.createdAt !== "string" || typeof parsed?.id !== "string") {
-    throw new Error("Invalid curriculum import cursor");
-  }
-  return parsed;
+function invalidCursor(): AdminError {
+  return new AdminError(
+    "CURRICULUM_VALIDATION_FAILED",
+    "That page link is not valid. Go back to the first page.",
+  );
 }
 
+function decodeCursor(value: string): Cursor {
+  let candidate: unknown;
+  try {
+    candidate = JSON.parse(Buffer.from(value, "base64url").toString("utf8"));
+  } catch {
+    throw invalidCursor();
+  }
+  const { c, i } = (candidate ?? {}) as Partial<Cursor>;
+  if (
+    typeof c !== "string" ||
+    typeof i !== "string" ||
+    !ISO_MICROS_SHAPE.test(c) ||
+    !UUID_SHAPE.test(i)
+  ) {
+    throw invalidCursor();
+  }
+  return { c, i };
+}
+
+/**
+ * One page of the history, newest first. The order is the import's creation,
+ * which never changes, so archiving, confirming or retrying an import cannot
+ * move a row between pages while an Admin pages through.
+ *
+ * A cursor is the key of the last row of the page before it. `hasPreviousPage`
+ * and `previousCursor` are computed from that cursor alone, so "Previous" works
+ * on a refresh or a pasted link with no client-held history.
+ */
 async function listByArchivedState(
   db: DbClient,
   {
@@ -190,44 +235,87 @@ async function listByArchivedState(
     archived: boolean;
   },
 ): Promise<CurriculumImportsPage> {
-  const conditions = [
+  const filters: SQL[] = [
     eq(curriculumImports.languageId, languageId),
     archived
       ? isNotNull(curriculumImports.archivedAt)
       : isNull(curriculumImports.archivedAt),
   ];
-
-  if (cursor) {
-    const decoded = decodeCursor(cursor);
-    const cursorCreatedAt = new Date(decoded.createdAt);
-    conditions.push(
-      or(
-        lt(curriculumImports.createdAt, cursorCreatedAt),
-        and(
-          eq(curriculumImports.createdAt, cursorCreatedAt),
-          lt(curriculumImports.id, decoded.id),
-        ),
-      )!,
-    );
-  }
+  const decoded = cursor ? decodeCursor(cursor) : null;
 
   const rows = await db
-    .select()
+    .select({
+      row: curriculumImports,
+      createdAtIso: isoMicros(curriculumImports.createdAt).as("created_at_iso"),
+    })
     .from(curriculumImports)
-    .where(and(...conditions))
+    .where(
+      and(
+        ...filters,
+        ...(decoded
+          ? [
+              sql`(${curriculumImports.createdAt}, ${curriculumImports.id}) < (${decoded.c}::timestamptz, ${decoded.i}::uuid)`,
+            ]
+          : []),
+      ),
+    )
     .orderBy(desc(curriculumImports.createdAt), desc(curriculumImports.id))
+    // One extra row says whether a next page exists, without a count query.
     .limit(limit + 1);
 
   const hasNextPage = rows.length > limit;
   const pageRows = hasNextPage ? rows.slice(0, limit) : rows;
   const last = pageRows[pageRows.length - 1];
 
+  const previous = decoded
+    ? await findPreviousPage(db, filters, decoded, limit)
+    : { hasPreviousPage: false, previousCursor: null };
+
   return {
-    items: pageRows.map(toCurriculumImportRecord),
+    items: pageRows.map(({ row }) => toCurriculumImportRecord(row)),
     nextCursor:
       hasNextPage && last
-        ? encodeCursor({ createdAt: last.createdAt.toISOString(), id: last.id })
+        ? encodeCursor({ createdAt: last.createdAtIso, id: last.row.id })
         : null,
+    ...previous,
+  };
+}
+
+/**
+ * The page *before* the one a cursor starts. The cursor row and everything
+ * newer (same filters) are read in reverse: the first `limit` of them *are* the
+ * previous page, and the `limit + 1`-th, when there is one, is the row that page
+ * starts after — its own cursor. With none, the previous page is the first page,
+ * which needs no cursor (`null`) but does exist.
+ *
+ * Keyed on values, not row identity, so it stays right if the cursor's own row
+ * was deleted in the meantime.
+ */
+async function findPreviousPage(
+  db: DbClient,
+  filters: SQL[],
+  cursor: Cursor,
+  limit: number,
+): Promise<{ hasPreviousPage: boolean; previousCursor: string | null }> {
+  const rows = await db
+    .select({
+      id: curriculumImports.id,
+      createdAt: isoMicros(curriculumImports.createdAt).as("created_at_iso"),
+    })
+    .from(curriculumImports)
+    .where(
+      and(
+        ...filters,
+        sql`(${curriculumImports.createdAt}, ${curriculumImports.id}) >= (${cursor.c}::timestamptz, ${cursor.i}::uuid)`,
+      ),
+    )
+    .orderBy(asc(curriculumImports.createdAt), asc(curriculumImports.id))
+    .limit(limit + 1);
+
+  const anchor = rows[limit];
+  return {
+    hasPreviousPage: rows.length > 0,
+    previousCursor: anchor ? encodeCursor(anchor) : null,
   };
 }
 

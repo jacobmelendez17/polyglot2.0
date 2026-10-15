@@ -174,7 +174,7 @@ const bulkConfirmSchema = z.object({
   idempotencyKey: z.string().min(1),
 });
 
-/** Spec 13's "batch confirmation of reviewed mappings" — confirms several already-matched, already-reviewed items in one call instead of once per item. Never decides *which* candidate is right; that judgment still only happens per item in the mapping panel (see `mapping-queue-table.tsx`'s own docstring). */
+/** Spec 13's "batch confirmation of reviewed mappings" — confirms several already-matched, already-reviewed items in one call instead of once per item. Never decides *which* candidate is right; that judgment still only happens per item in the mapping panel (see `dictionary-data-table.tsx`'s own docstring). */
 export async function bulkConfirmVocabularyMappingsAction(
   input: z.infer<typeof bulkConfirmSchema>,
 ): Promise<ActionResult<{ confirmed: string[] }>> {

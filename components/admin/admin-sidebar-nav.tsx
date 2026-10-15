@@ -4,37 +4,31 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { cn } from "@/lib/utils";
-import { getAdminNavItems, isAdminNavItemCurrent } from "./admin-nav-items";
+import {
+  getAdminNavItems,
+  isAdminNavItemCurrent,
+  type AdminNavPermissions,
+} from "./admin-nav-items";
 
 type AdminSidebarNavProps = {
-  canManageCurriculum: boolean;
-  /** Admin and developer only — a writer never sees Logs or the Sandbox (spec 17). */
-  canUseDeveloperTools: boolean;
-  /** Admin only (spec 26 Unit 6): the account list, where roles are assigned. */
-  canManageUsers?: boolean;
+  /** The person's effective permissions — what the server says they may open (`buildAdminPermissions`). */
+  permissions: AdminNavPermissions;
 };
 
 /**
  * Persistent desktop Admin navigation (spec 11 §6), rendered inside the
- * layout's `<aside>`. Curriculum is omitted entirely for a developer-only
- * user rather than shown disabled — real enforcement still
+ * layout's `<aside>`. A link is shown only for what the server's effective
+ * permissions list for this person — the same ones the React Admin screens use
+ * (spec 26 Unit 11) — rather than shown disabled: real enforcement still
  * happens server-side on every route (`forbidden()` in each page), this is
  * presentation only, per code-standards.md's "hiding UI is never
  * authorization." See `admin-mobile-nav.tsx` for the small-viewport
  * equivalent — desktop is the primary Admin target (spec 11 §74), but
  * mobile must stay navigable, not merely present.
  */
-export function AdminSidebarNav({
-  canManageCurriculum,
-  canUseDeveloperTools,
-  canManageUsers = false,
-}: AdminSidebarNavProps) {
+export function AdminSidebarNav({ permissions }: AdminSidebarNavProps) {
   const pathname = usePathname();
-  const items = getAdminNavItems(
-    canManageCurriculum,
-    canUseDeveloperTools,
-    canManageUsers,
-  );
+  const items = getAdminNavItems(permissions);
 
   return (
     <nav aria-label="Admin" className="flex flex-col gap-1 p-3">

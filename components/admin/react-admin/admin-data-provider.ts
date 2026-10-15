@@ -16,9 +16,13 @@ import {
   adminCurriculumBulkMoveResultSchema,
   adminCurriculumBulkPublishResultSchema,
   adminCurriculumPageSchema,
+  adminDeckListSchema,
+  adminDictionaryPageSchema,
   adminGroupCreateResultSchema,
   adminGroupListSchema,
   adminGroupUpdateResultSchema,
+  adminImportCommandResultSchema,
+  adminImportPageSchema,
   adminLevelCreateResultSchema,
   adminLevelListSchema,
   adminLevelUpdateResultSchema,
@@ -37,6 +41,8 @@ import {
   type AdminGroupCreateResult,
   type AdminGroupUpdateRequest,
   type AdminGroupUpdateResult,
+  type AdminImportCommandResult,
+  type AdminImportDeleteRequest,
   type AdminLevelCreateRequest,
   type AdminLevelCreateResult,
   type AdminLevelUpdateRequest,
@@ -50,7 +56,10 @@ import {
 import { requestAdminApi } from "./admin-api-client";
 import { AdminApiError } from "./admin-api-error";
 import { buildCurriculumListQuery } from "./curriculum/curriculum-list-query";
+import { buildDecksListQuery } from "./decks/decks-list-query";
+import { buildDictionaryListQuery } from "./dictionary/dictionary-list-query";
 import { buildGroupsListQuery } from "./groups/groups-list-query";
+import { buildImportsListQuery } from "./imports/imports-list-query";
 import { buildLevelsListQuery } from "./levels/levels-list-query";
 import { buildReviewListQuery } from "./review/review-list-query";
 import { buildUsersListQuery } from "./users/users-list-query";
@@ -91,6 +100,23 @@ export type AdminDataProvider = DataProvider & {
   bulkMoveCurriculum: (
     input: AdminCurriculumBulkMoveRequest,
   ) => Promise<AdminCurriculumBulkMoveResult>;
+  /**
+   * Takes an import out of the normal history (Admin only). History only: the
+   * curriculum the import made or changed is untouched, and it can be restored.
+   * Archiving an archived import is a no-op, so there is no idempotency key.
+   */
+  archiveImport: (importId: string) => Promise<AdminImportCommandResult>;
+  /** Returns an archived import to the normal history (Admin only). Restoring a restored one is a no-op. */
+  restoreImport: (importId: string) => Promise<AdminImportCommandResult>;
+  /**
+   * Permanently deletes an *archived* import's history (Admin only): its record
+   * and stored rows, never the curriculum it made. The body carries the
+   * confirmation the person typed; the endpoint checks it again.
+   */
+  deleteImport: (
+    importId: string,
+    input: AdminImportDeleteRequest,
+  ) => Promise<AdminImportCommandResult>;
   /** Adds a level (Admin only). A level number is used once per language. */
   createLevel: (
     input: AdminLevelCreateRequest,
@@ -246,6 +272,47 @@ export function createAdminDataProvider({
           meta: { truncated: list.truncated },
         };
       }
+      if (resource === "dictionary") {
+        const page = await request(
+          `/dictionary?${buildDictionaryListQuery(params)}`,
+          adminDictionaryPageSchema,
+          { signal: params.signal },
+        );
+        // An offset-paginated queue with a real total (the repository counts it).
+        // The status counts and the region the regional column means ride along
+        // in `meta`, where the screen's header reads them.
+        return {
+          data: page.items as GetListResult["data"],
+          total: page.total,
+          meta: {
+            counts: page.counts,
+            regionCode: page.regionCode,
+            regionCodes: page.regionCodes,
+          },
+        };
+      }
+      if (resource === "decks") {
+        const list = await request(
+          `/decks?${buildDecksListQuery(params)}`,
+          adminDeckListSchema,
+          { signal: params.signal },
+        );
+        // A language's official decks are one bounded response, like its levels.
+        return {
+          data: list.items as GetListResult["data"],
+          total: list.items.length,
+          meta: { truncated: list.truncated },
+        };
+      }
+      if (resource === "imports") {
+        return toListResult(
+          await request(
+            `/imports?${buildImportsListQuery(params)}`,
+            adminImportPageSchema,
+            { signal: params.signal },
+          ),
+        );
+      }
       if (resource === "users") {
         return toListResult(
           await request(
@@ -287,6 +354,31 @@ export function createAdminDataProvider({
       return request(
         "/curriculum/bulk-move",
         adminCurriculumBulkMoveResultSchema,
+        { body: input },
+      );
+    },
+
+    archiveImport(importId) {
+      // The import is the path and the body is empty: who is asking is the session.
+      return request(
+        `/imports/${encodeURIComponent(importId)}/archive`,
+        adminImportCommandResultSchema,
+        { body: {} },
+      );
+    },
+
+    restoreImport(importId) {
+      return request(
+        `/imports/${encodeURIComponent(importId)}/restore`,
+        adminImportCommandResultSchema,
+        { body: {} },
+      );
+    },
+
+    deleteImport(importId, input) {
+      return request(
+        `/imports/${encodeURIComponent(importId)}/delete`,
+        adminImportCommandResultSchema,
         { body: input },
       );
     },

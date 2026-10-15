@@ -352,6 +352,16 @@ The whole-suite runs (integration ≈ 23 min, the full Playwright suite ≈ 18 m
 
 **Reporting.** A unit that has not yet had its batch run is reported as _implemented and unit-verified; whole-suite checks pending until the batch run_ — never as "verified" or "complete" without that qualifier — and its report names each suite not run and when it will be. Failures in a batch run are triaged like any other: caused by a unit in the batch, or pre-existing, and reported as such.
 
+### Spec 26 Units 9–11 — built together, verified once (owner decision, 2026-10-14)
+
+Unit 8 took about four hours of test runs, two of its whole-suite runs lost to the machine sleeping and to the network dropping. The owner asked for the remaining units to be **built together and tested once, after**. So for Units 9, 10 and 11 of Spec 26 this replaces the per-unit list above:
+
+- The three units are implemented in one turn, in order, with each unit's own unit tests written alongside its code. Nothing slow runs between them.
+- Verification runs once, after Unit 11: `tsc`, `eslint .`, `prettier --check .` (no file added to the known unformatted baseline), the unit suite, `npm run build` and the bundle check, the new E2E specs, the integration suite if the domain was touched, then the full Playwright suite under `next dev` and the production-mode run of the admin specs, each from a freshly reset E2E database. Mutation checks cover the safety-critical lines of all three units, and only those.
+- Each unit still gets its own report in the required format, and the tracker says plainly that they were built together and verified together. A unit is not reported verified until that run has passed, and a failure is triaged as caused by one of the three, or pre-existing.
+
+**How it went (recorded 2026-10-14).** Units 9–11 were built in one turn and verified once, and the pass found real things: the first run of the three new E2E specs failed 6 of 21 (one a product defect, found only by the 390 px assertion), the 34 mutation checks found two missing unit tests, and the batch run found one failure of its own (a test helper). All were fixed, and the affected specs re-run, inside the same verification pass. So **plan one fix-and-rerun cycle in a pass like this — not zero** — and keep the planned mutation count (it was ~15 and became 34).
+
 ---
 
 ## Handling Failed Verification

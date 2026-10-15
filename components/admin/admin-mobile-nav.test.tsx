@@ -2,21 +2,29 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+import { buildAdminPermissions } from "@/domains/admin";
+import type { UserRole } from "@/domains/users";
+
 import { AdminMobileNav } from "./admin-mobile-nav";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/admin",
 }));
 
+const as = (role: UserRole) => buildAdminPermissions({ role });
+
+async function open(role: UserRole) {
+  const user = userEvent.setup();
+  render(<AdminMobileNav permissions={as(role)} />);
+  await user.click(
+    screen.getByRole("button", { name: "Open Admin navigation" }),
+  );
+}
+
 describe("AdminMobileNav", () => {
   it("opens a sheet with every permitted nav item on trigger click", async () => {
     const user = userEvent.setup();
-    render(
-      <AdminMobileNav
-        canManageCurriculum={false}
-        canUseDeveloperTools={true}
-      />,
-    );
+    render(<AdminMobileNav permissions={as("developer")} />);
 
     const trigger = screen.getByRole("button", {
       name: "Open Admin navigation",
@@ -40,51 +48,32 @@ describe("AdminMobileNav", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("includes Curriculum, Levels, and Groups when the user can manage curriculum", async () => {
-    const user = userEvent.setup();
-    render(<AdminMobileNav canManageCurriculum canUseDeveloperTools />);
+  it("gives an Admin the same links as the sidebar, each to its own page", async () => {
+    await open("admin");
 
-    await user.click(
-      screen.getByRole("button", { name: "Open Admin navigation" }),
-    );
-    expect(screen.getByRole("link", { name: "Curriculum" })).toHaveAttribute(
-      "href",
-      "/admin/curriculum",
-    );
-    expect(screen.getByRole("link", { name: "Levels" })).toHaveAttribute(
-      "href",
-      "/admin/curriculum/levels",
-    );
-    expect(screen.getByRole("link", { name: "Groups" })).toHaveAttribute(
-      "href",
-      "/admin/curriculum/groups",
-    );
+    const expected: [string, string][] = [
+      ["Curriculum", "/admin/curriculum"],
+      ["Levels", "/admin/curriculum/levels"],
+      ["Groups", "/admin/curriculum/groups"],
+      ["Imports", "/admin/curriculum/imports"],
+      ["Dictionary", "/admin/dictionary"],
+      ["Decks", "/admin/decks"],
+      ["Users", "/admin/users"],
+    ];
+    for (const [name, href] of expected) {
+      expect(screen.getByRole("link", { name })).toHaveAttribute("href", href);
+    }
   });
 
-  it("lists Users in the sheet for an Admin only (spec 26 Unit 6)", async () => {
-    const user = userEvent.setup();
-    const { unmount } = render(
-      <AdminMobileNav
-        canManageCurriculum
-        canUseDeveloperTools
-        canManageUsers
-      />,
-    );
-    await user.click(
-      screen.getByRole("button", { name: "Open Admin navigation" }),
-    );
-    expect(screen.getByRole("link", { name: "Users" })).toHaveAttribute(
-      "href",
-      "/admin/users",
-    );
-    unmount();
+  it("offers a writer no link to a page that would refuse them — not Decks, Users, Logs or the Sandbox", async () => {
+    await open("writer");
 
-    render(<AdminMobileNav canManageCurriculum canUseDeveloperTools />);
-    await user.click(
-      screen.getByRole("button", { name: "Open Admin navigation" }),
+    for (const name of ["Decks", "Users", "Logs", "Sandbox"]) {
+      expect(screen.queryByRole("link", { name })).not.toBeInTheDocument();
+    }
+    expect(screen.getByRole("link", { name: "Dictionary" })).toHaveAttribute(
+      "href",
+      "/admin/dictionary",
     );
-    expect(
-      screen.queryByRole("link", { name: "Users" }),
-    ).not.toBeInTheDocument();
   });
 });

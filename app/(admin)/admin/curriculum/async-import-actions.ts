@@ -4,25 +4,19 @@ import { z } from "zod";
 
 import { canPublishCurriculum } from "@/domains/admin";
 import {
-  archiveCurriculumImport,
   confirmCurriculumImport,
   createCurriculumImportUpload,
   getCurriculumImportStatus,
-  listActiveCurriculumImports,
-  listArchivedCurriculumImportsForHistory,
   listCurriculumImportRowsForReview,
-  permanentlyDeleteCurriculumImport,
   publishImportedDraftChanges,
   resolveCurriculumImportRow,
   reviseCurriculumImportRow,
   retryCurriculumImport,
-  unarchiveCurriculumImport,
 } from "@/domains/admin/server";
 import type {
   BulkPublishDraftedItemsResult,
   CurriculumImportRecord,
   CurriculumImportRowsPage,
-  CurriculumImportsPage,
 } from "@/domains/admin/server";
 import { IMPORT_COLUMNS } from "@/domains/curriculum/vocabulary-import-parsing";
 import { requireUser } from "@/domains/users/server";
@@ -43,6 +37,13 @@ import { AdminError } from "@/lib/errors/admin-errors";
  *
  * Zod-validated, re-authenticates and re-checks `canPublishCurriculum` on
  * every call, matching this codebase's per-workflow action-file shape.
+ *
+ * What is *not* here since spec 26 Unit 8: the import **history** (listing the
+ * normal and the archived history, archiving, restoring and permanently
+ * deleting an import). That is the React Admin list's, over
+ * `/api/v1/admin/imports`. Everything that works *on one import* — watching it,
+ * reviewing and correcting its rows, confirming, retrying, publishing what it
+ * drafted — stays an action here, because those are the specialist screens.
  */
 
 export type ActionResult<T> =
@@ -216,77 +217,5 @@ export async function retryAsyncCurriculumImportAction(
   return runAsyncImportAction(async (actorUserId) => {
     const { importId } = importIdSchema.parse(input);
     await retryCurriculumImport({ importId, actorUserId });
-  });
-}
-
-const listImportsInputSchema = z.object({
-  languageId: z.string().min(1),
-  cursor: z.string().nullish(),
-});
-
-/** Spec 19 §19 — normal (non-archived) import history, newest first. */
-export async function listCurriculumImportsAction(
-  input: z.infer<typeof listImportsInputSchema>,
-): Promise<ActionResult<CurriculumImportsPage>> {
-  return runAsyncImportAction(async () => {
-    const parsed = listImportsInputSchema.parse(input);
-    return listActiveCurriculumImports({
-      languageId: parsed.languageId,
-      cursor: parsed.cursor,
-      limit: 20,
-    });
-  });
-}
-
-/** Spec 19 §25 — archived import history. */
-export async function listArchivedCurriculumImportsAction(
-  input: z.infer<typeof listImportsInputSchema>,
-): Promise<ActionResult<CurriculumImportsPage>> {
-  return runAsyncImportAction(async () => {
-    const parsed = listImportsInputSchema.parse(input);
-    return listArchivedCurriculumImportsForHistory({
-      languageId: parsed.languageId,
-      cursor: parsed.cursor,
-      limit: 20,
-    });
-  });
-}
-
-/** Spec 19 §25 — removes the import from normal history; never touches curriculum. */
-export async function archiveCurriculumImportAction(
-  input: z.infer<typeof importIdSchema>,
-): Promise<ActionResult<void>> {
-  return runAsyncImportAction(async (actorUserId) => {
-    const { importId } = importIdSchema.parse(input);
-    await archiveCurriculumImport({ importId, actorUserId });
-  });
-}
-
-export async function unarchiveCurriculumImportAction(
-  input: z.infer<typeof importIdSchema>,
-): Promise<ActionResult<void>> {
-  return runAsyncImportAction(async (actorUserId) => {
-    const { importId } = importIdSchema.parse(input);
-    await unarchiveCurriculumImport({ importId, actorUserId });
-  });
-}
-
-const permanentDeleteInputSchema = z.object({
-  importId: z.string().uuid(),
-  confirmation: z.literal("DELETE"),
-});
-
-/**
- * Spec 19 §26 — requires the caller to have typed "DELETE" (the same strong
- * confirmation the UI itself renders); this action re-validates it rather
- * than trusting that the UI enforced it, matching the boundary-validation
- * rule for every other destructive admin action in this codebase.
- */
-export async function permanentlyDeleteCurriculumImportAction(
-  input: z.infer<typeof permanentDeleteInputSchema>,
-): Promise<ActionResult<void>> {
-  return runAsyncImportAction(async (actorUserId) => {
-    const { importId } = permanentDeleteInputSchema.parse(input);
-    await permanentlyDeleteCurriculumImport({ importId, actorUserId });
   });
 }

@@ -1,13 +1,13 @@
-import Link from "next/link";
 import type { Metadata } from "next";
 import { forbidden } from "next/navigation";
 
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { CreatePolyglotDeckDialog } from "@/components/admin/decks/create-polyglot-deck-dialog";
+import { AdminDecksListApp } from "@/components/admin/react-admin/decks/decks-list-app";
 import { canPublishCurriculum } from "@/domains/admin";
 import { getLanguages, getLevelsByLanguage } from "@/domains/curriculum/server";
-import { listPolyglotDecks } from "@/domains/decks/server";
 import { requireUser } from "@/domains/users/server";
+import { env } from "@/lib/env";
 
 export const metadata: Metadata = {
   title: "Decks — Polyglot Admin",
@@ -19,6 +19,14 @@ type SearchParams = { language?: string };
  * Spec 14's Admin deck management. Only official Polyglot decks appear here
  * — a learner's personal deck is their own private content and is never
  * administrable, so it is not listed and the mutations reject it outright.
+ *
+ * A React Admin list since spec 26 Unit 10. This page keeps the server-side
+ * guard (Admin only), the languages and the "Add deck" dialog — creating a deck
+ * means choosing its items, which is the specialist picker, so it stays here —
+ * and the list itself is fetched by the screen from `/api/v1/admin/decks`, which
+ * reads `?language=` from the real URL. Each deck links to its own page, where
+ * membership, order and deletion (with its explicit confirmation) are edited;
+ * those screens and their Server Actions are unchanged.
  */
 export default async function AdminDecksPage({
   searchParams,
@@ -50,10 +58,7 @@ export default async function AdminDecksPage({
   )
     ? params.language!
     : languages[0]!.id;
-  const [decks, levels] = await Promise.all([
-    listPolyglotDecks(languageId),
-    getLevelsByLanguage(languageId),
-  ]);
+  const levels = await getLevelsByLanguage(languageId);
 
   return (
     <div>
@@ -71,43 +76,13 @@ export default async function AdminDecksPage({
         />
       </div>
 
-      {decks.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          No Polyglot decks yet for this language. Add one to give learners a
-          curated set of published items to practice.
-        </p>
-      ) : (
-        <ul className="space-y-3">
-          {decks.map((deck) => (
-            <li
-              key={deck.id}
-              className="rounded-xl border border-border bg-card p-4"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <Link
-                    href={`/admin/decks/${deck.id}`}
-                    className="font-heading text-base font-semibold text-foreground underline-offset-4 hover:underline"
-                  >
-                    {deck.name}
-                  </Link>
-                  {deck.description ? (
-                    <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
-                      {deck.description}
-                    </p>
-                  ) : null}
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {deck.itemCount} {deck.itemCount === 1 ? "item" : "items"} ·{" "}
-                    {deck.availability === "level"
-                      ? `Hidden until Level ${deck.gateLevelNumber ?? "?"}`
-                      : "Theme — reveals learned items"}
-                  </p>
-                </div>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+      <AdminDecksListApp
+        signInPath={env.NEXT_PUBLIC_CLERK_SIGN_IN_URL}
+        languages={languages.map((language) => ({
+          id: language.id,
+          name: language.name,
+        }))}
+      />
     </div>
   );
 }

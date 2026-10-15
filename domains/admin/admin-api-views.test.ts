@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import { USER_ROLES, type UserRole } from "@/domains/users";
 
+import type { MappingQueueRow } from "@/domains/lexicon";
+
+import type { CurriculumImportRecord } from "./curriculum-import-types";
 import type {
   AdminCurriculumItemsPage,
   CurriculumLevel,
@@ -11,10 +14,14 @@ import type {
 
 import {
   ADMIN_CEFR_LEVELS,
+  DECK_LIST_MAX,
   GROUP_LIST_MAX,
   LEVEL_LIST_MAX,
   adminCurriculumPageSchema,
+  adminDeckListSchema,
+  adminDictionaryPageSchema,
   adminGroupListSchema,
+  adminImportPageSchema,
   adminLevelListSchema,
   adminMeSchema,
   adminOverviewSchema,
@@ -23,7 +30,10 @@ import {
 } from "./admin-api-contract";
 import {
   buildAdminCurriculumPage,
+  buildAdminDeckList,
+  buildAdminDictionaryPage,
   buildAdminGroupList,
+  buildAdminImportPage,
   buildAdminLevelList,
   buildAdminMe,
   buildAdminOverview,
@@ -97,6 +107,13 @@ describe("buildAdminPermissions", () => {
       review: ["list"],
       levels: ["list", "create", "edit"],
       groups: ["list", "create", "edit"],
+      // Spec 26 Unit 8: an Admin starts an import (`create`), archives and
+      // restores one (`edit`), and permanently deletes its history (`delete`).
+      imports: ["list", "create", "edit", "delete"],
+      // Spec 26 Unit 9: finding work and confirming reviewed mappings is authoring.
+      dictionary: ["list", "edit"],
+      // Spec 26 Unit 10: official decks are an Admin's end to end.
+      decks: ["list", "create", "edit", "delete"],
       // Spec 26 Unit 6: only an Admin has the account list at all.
       users: ["list", "edit"],
     });
@@ -106,6 +123,11 @@ describe("buildAdminPermissions", () => {
       review: ["list"],
       levels: ["list"],
       groups: ["list"],
+      // A writer reads what has been imported; none of the commands are theirs.
+      imports: ["list"],
+      // A writer authors mappings (`edit` is confirming a reviewed match) — and,
+      // unlike for an Admin, there is no `decks` at all: absent, not empty.
+      dictionary: ["list", "edit"],
     });
     // A developer reaches /admin but not curriculum.
     expect(buildAdminPermissions({ role: "developer" }).resources).toEqual({
@@ -566,6 +588,346 @@ describe("buildAdminUserPage (spec 26 Unit 6)", () => {
       nextCursor: null,
       hasPreviousPage: false,
       previousCursor: null,
+    });
+  });
+});
+
+describe("buildAdminImportPage (spec 26 Unit 8)", () => {
+  const record: CurriculumImportRecord = {
+    id: "00000000-0000-4000-8000-000000000001",
+    environment: "development",
+    languageId: "00000000-0000-4000-8000-0000000000aa",
+    originalFilename: "spanish-level-2.csv",
+    fileExtension: "csv",
+    s3Bucket: "polyglot-private-bucket",
+    s3Key: "imports/private-key/source.csv",
+    sourceSha256: "deadbeef".repeat(8),
+    uploadedByUserId: "00000000-0000-4000-8000-0000000000bb",
+    status: "needs_review",
+    totalRows: 61,
+    createCount: 43,
+    updateCount: 8,
+    moveCount: 2,
+    unchangedCount: 6,
+    reviewCount: 2,
+    skippedCount: 0,
+    previewVersion: 1,
+    confirmedPreviewVersion: null,
+    draftedItemIds: ["00000000-0000-4000-8000-0000000000cc"],
+    attemptCount: 1,
+    lastErrorCode: "S3_READ_FAILED",
+    lastErrorSummary: "Could not read the object from the private bucket.",
+    sourceImportId: null,
+    uploadedAt: new Date("2026-09-10T12:00:00.000Z"),
+    previewStartedAt: null,
+    previewCompletedAt: null,
+    confirmedAt: null,
+    importStartedAt: null,
+    completedAt: null,
+    archivedAt: null,
+    archivedByUserId: null,
+    createdAt: new Date("2026-09-10T11:59:00.123Z"),
+    updatedAt: new Date("2026-09-10T12:05:00.000Z"),
+  };
+
+  const page = (items: CurriculumImportRecord[]) => ({
+    items,
+    nextCursor: "next",
+    hasPreviousPage: true,
+    previousCursor: "previous",
+  });
+
+  it("keeps the cursors exactly as the service gave them, and nothing else about the paging", () => {
+    expect(buildAdminImportPage(page([record]))).toMatchObject({
+      nextCursor: "next",
+      hasPreviousPage: true,
+      previousCursor: "previous",
+    });
+  });
+
+  it("shows what an import found, and when — dates as ISO text", () => {
+    const [row] = buildAdminImportPage(page([record])).items;
+    expect(row).toEqual({
+      id: record.id,
+      originalFilename: "spanish-level-2.csv",
+      status: "needs_review",
+      totalRows: 61,
+      createCount: 43,
+      updateCount: 8,
+      moveCount: 2,
+      unchangedCount: 6,
+      reviewCount: 2,
+      skippedCount: 0,
+      attemptCount: 1,
+      createdAt: "2026-09-10T11:59:00.123Z",
+      archivedAt: null,
+    });
+  });
+
+  it("says when an archived import was archived", () => {
+    const [row] = buildAdminImportPage(
+      page([{ ...record, archivedAt: new Date("2026-10-01T08:30:00.000Z") }]),
+    ).items;
+    expect(row!.archivedAt).toBe("2026-10-01T08:30:00.000Z");
+  });
+
+  it("carries no storage location, checksum, uploader, error text or drafted item — whatever the record holds", () => {
+    const built = buildAdminImportPage(page([record]));
+    expect(Object.keys(built.items[0]!).sort()).toEqual([
+      "archivedAt",
+      "attemptCount",
+      "createCount",
+      "createdAt",
+      "id",
+      "moveCount",
+      "originalFilename",
+      "reviewCount",
+      "skippedCount",
+      "status",
+      "totalRows",
+      "unchangedCount",
+      "updateCount",
+    ]);
+    const text = JSON.stringify(built);
+    for (const secret of [
+      "polyglot-private-bucket",
+      "private-key",
+      "deadbeef",
+      "S3_READ_FAILED",
+      "private bucket",
+      record.uploadedByUserId,
+      record.languageId,
+    ]) {
+      expect(text, secret).not.toContain(secret);
+    }
+  });
+
+  it("builds a page the contract accepts, and the contract would strip anything extra", () => {
+    const built = buildAdminImportPage(page([record]));
+    expect(adminImportPageSchema.safeParse(built).success).toBe(true);
+    const sneaky = {
+      ...built,
+      items: [{ ...built.items[0]!, s3Key: record.s3Key }],
+    };
+    expect(adminImportPageSchema.parse(sneaky).items[0]).not.toHaveProperty(
+      "s3Key",
+    );
+  });
+
+  it("handles an empty history", () => {
+    expect(
+      buildAdminImportPage({
+        items: [],
+        nextCursor: null,
+        hasPreviousPage: false,
+        previousCursor: null,
+      }),
+    ).toEqual({
+      items: [],
+      nextCursor: null,
+      hasPreviousPage: false,
+      previousCursor: null,
+    });
+  });
+});
+
+describe("who has the dictionary and decks resources (spec 26 Units 9-10)", () => {
+  it.each(USER_ROLES)(
+    "gives %s the dictionary resource only if they may author",
+    (role) => {
+      const { resources } = buildAdminPermissions({ role });
+      expect(Object.hasOwn(resources, "dictionary")).toBe(
+        role === "admin" || role === "writer",
+      );
+    },
+  );
+
+  it.each(USER_ROLES)(
+    "gives %s the decks resource only if they are an Admin — absent, not empty, for anyone else",
+    (role) => {
+      const { resources } = buildAdminPermissions({ role });
+      expect(Object.hasOwn(resources, "decks")).toBe(role === "admin");
+    },
+  );
+});
+
+describe("buildAdminDictionaryPage (spec 26 Unit 9)", () => {
+  const row = (overrides: Partial<MappingQueueRow> = {}): MappingQueueRow => ({
+    vocabularyItemId: "90000000-0000-4000-8000-000000000001",
+    displayWord: "el gato",
+    translation: "cat",
+    levelNumber: 1,
+    groupName: "Animals",
+    curriculumPartOfSpeech: "noun",
+    lookupForm: "gato",
+    matchStatus: "auto_matched",
+    confidence: "high",
+    reviewReason: null,
+    manualLock: false,
+    entryId: "a0000000-0000-4000-8000-000000000001",
+    entryLemma: "gato",
+    entryPartOfSpeech: "noun",
+    regionalStatus: "recognized",
+    ...overrides,
+  });
+  const counts = {
+    unmatched: 3,
+    source_data_not_imported: 1,
+    auto_matched: 20,
+    review_required: 4,
+    manual: 9,
+    no_mapping: 2,
+  };
+  const build = (rows: MappingQueueRow[], total = rows.length) =>
+    buildAdminDictionaryPage({
+      page: { rows, total },
+      counts,
+      regionCode: "es-MX",
+      regionCodes: ["es-MX", "es"],
+    });
+
+  it("is a page the contract accepts", () => {
+    expect(() => adminDictionaryPageSchema.parse(build([row()]))).not.toThrow();
+  });
+
+  it("names a word by its learning-item id, and carries the total and the region as given", () => {
+    const page = build([row()], 130);
+    expect(page.items[0]!.id).toBe("90000000-0000-4000-8000-000000000001");
+    expect(page.total).toBe(130);
+    expect(page.regionCode).toBe("es-MX");
+    expect(page.regionCodes).toEqual(["es-MX", "es"]);
+  });
+
+  it("leaves out the dictionary entry's id and the curriculum's part of speech — field by field, never a spread", () => {
+    const [item] = build([row()]).items;
+    expect(item).not.toHaveProperty("entryId");
+    expect(item).not.toHaveProperty("vocabularyItemId");
+    expect(item).not.toHaveProperty("curriculumPartOfSpeech");
+    expect(Object.keys(item!).sort()).toEqual([
+      "confidence",
+      "confirmable",
+      "displayWord",
+      "entryLemma",
+      "entryPartOfSpeech",
+      "groupName",
+      "id",
+      "levelNumber",
+      "lookupForm",
+      "manualLock",
+      "matchStatus",
+      "regionalStatus",
+      "reviewReason",
+      "translation",
+    ]);
+  });
+
+  it.each([
+    [
+      "a candidate that is not confirmed",
+      { matchStatus: "auto_matched" },
+      true,
+    ],
+    ["a candidate that needs review", { matchStatus: "review_required" }, true],
+    ["a confirmed (manual) match", { matchStatus: "manual" }, false],
+    [
+      "a word with no candidate",
+      { entryId: null, matchStatus: "unmatched" },
+      false,
+    ],
+    [
+      "a word nothing has looked at",
+      { entryId: null, matchStatus: null },
+      false,
+    ],
+  ] as const)("says %s is confirmable: %s", (_name, override, confirmable) => {
+    expect(
+      build([row(override as Partial<MappingQueueRow>)]).items[0]!.confirmable,
+    ).toBe(confirmable);
+  });
+
+  it("keeps the counts to the six it names, whatever else the service returned", () => {
+    const page = buildAdminDictionaryPage({
+      page: { rows: [], total: 0 },
+      counts: { ...counts, internal: 99 } as typeof counts,
+      regionCode: null,
+      regionCodes: [],
+    });
+    expect(page.counts).toEqual(counts);
+    expect(page.regionCode).toBeNull();
+  });
+});
+
+describe("buildAdminDeckList (spec 26 Unit 10)", () => {
+  const deck = (n: number, overrides: Record<string, unknown> = {}) => ({
+    id: `d0000000-0000-4000-8000-${String(n).padStart(12, "0")}`,
+    name: `Deck ${String(n).padStart(3, "0")}`,
+    description: "Colors and shapes" as string | null,
+    itemCount: 12,
+    availability: "theme" as const,
+    gateLevelNumber: null as number | null,
+    ...overrides,
+  });
+
+  it("is a list the contract accepts, by name then id, whatever order the read came in", () => {
+    const list = buildAdminDeckList([deck(3), deck(1), deck(2)]);
+    expect(() => adminDeckListSchema.parse(list)).not.toThrow();
+    expect(list.items.map((item) => item.name)).toEqual([
+      "Deck 001",
+      "Deck 002",
+      "Deck 003",
+    ]);
+    expect(list.truncated).toBe(false);
+  });
+
+  it("orders decks of the same name by id, so the order is total", () => {
+    const list = buildAdminDeckList([
+      deck(2, { name: "Same" }),
+      deck(1, { name: "Same" }),
+    ]);
+    expect(list.items.map((item) => item.id)).toEqual([
+      "d0000000-0000-4000-8000-000000000001",
+      "d0000000-0000-4000-8000-000000000002",
+    ]);
+  });
+
+  it("is built field by field — an owner, a gate level's id and a kind never reach it", () => {
+    const list = buildAdminDeckList([
+      {
+        ...deck(1),
+        ownerUserId: "someone",
+        gateLevelId: "a-level",
+        kind: "polyglot",
+      } as ReturnType<typeof deck>,
+    ]);
+    expect(Object.keys(list.items[0]!).sort()).toEqual([
+      "availability",
+      "description",
+      "gateLevelNumber",
+      "id",
+      "itemCount",
+      "name",
+    ]);
+  });
+
+  it("cuts at the bound and says so", () => {
+    const list = buildAdminDeckList(
+      Array.from({ length: DECK_LIST_MAX + 3 }, (_, n) => deck(n + 1)),
+    );
+    expect(list.items).toHaveLength(DECK_LIST_MAX);
+    expect(list.truncated).toBe(true);
+    // The first by name — not whichever the read happened to return first.
+    expect(list.items[0]!.name).toBe("Deck 001");
+  });
+
+  it("carries a gated deck's level number, and nothing for a theme deck", () => {
+    const [gated, theme] = buildAdminDeckList([
+      deck(1, { availability: "level", gateLevelNumber: 4 }),
+      deck(2),
+    ]).items;
+    expect(gated).toMatchObject({ availability: "level", gateLevelNumber: 4 });
+    expect(theme).toMatchObject({
+      availability: "theme",
+      gateLevelNumber: null,
     });
   });
 });

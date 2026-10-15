@@ -403,6 +403,52 @@ publish, archive or move many curriculum items) — is held to this list as well
 7. Destructive commands are archives or reversible moves. A bulk **delete** is not
    built.
 
+A **command on a row a state machine owns** — one that begins by locking the row
+to read its state (spec 26 Unit 8: archive, restore and permanently delete an
+import) — is held to this list:
+
+1. A row lock lasts only as long as the transaction that took it. The service that
+   binds the command to the database runs it in `db.transaction` and hands the
+   transaction to the domain function; on the pool, `SELECT … FOR UPDATE` releases
+   the moment it returns and two simultaneous requests both pass the check. A fast
+   test tells the pool and the transaction apart, and a real concurrency test (two
+   committed transactions on separate connections, never the rolled-back harness)
+   proves one change and one audit event.
+2. Repeating the command is a no-op — not an error, and not a second audit event;
+   a command on something that is gone is a 404 in plain words.
+3. A best-effort step (deleting a stored file after its record is gone) happens
+   after the commit and cannot fail the command — including the step of building
+   its client, which throws when the storage is not configured.
+4. The UI that sends it ignores a press made before the first answer arrives, with
+   a ref set in the same breath as the click: disabling the button works only
+   after React has drawn again, and a fast double click does not wait for that. A
+   test sends the presses with no render in between, then waits a turn so "no
+   second request" is a fact and not just "not yet".
+5. A test that walks a cursor bounds its loop, so a cursor that does not advance
+   fails the test instead of hanging the run.
+
+A **list read model** for the Admin console (spec 26 Units 8–10: imports,
+dictionary, decks) is held to this list:
+
+1. Choose the controller by what the repository can honestly give: a keyset
+   cursor (`useCursorList`) when it cannot count, offset and a real total
+   (`useOffsetList`) when it does. Both keep their whole state in the page's real
+   URL, never in React Admin's contained router.
+2. The query is strict: a parameter nothing honours is a 422, a reference to
+   something of another language (a level, a group, a region) is a 422 and never
+   ignored, and a language that does not exist is a 404.
+3. A row is built field by field from the domain's row. The response carries
+   nothing the screen has no use for — no deck owner, storage key or raw
+   dictionary data — and a contract test pins the exact keys.
+4. What a list shows as "can be acted on" (`confirmable`) is decided on the
+   server by the same rule the command enforces, and the table's
+   `isRowSelectable` reads it.
+5. In a test or a fixture, a Drizzle `select` from a single table leaves table
+   names off every column, including inside a `sql` template, so a correlated
+   subquery such as `(select count(*) from items where items.deck_id = decks.id)`
+   compares the inner table's own columns and returns 0. Join, or run a second
+   grouped query.
+
 Use meaningful HTTP status codes.
 
 Do not return raw database rows when a safe response model is more appropriate.

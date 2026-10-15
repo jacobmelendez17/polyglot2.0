@@ -1,11 +1,31 @@
 import { describe, expect, it } from "vitest";
 
+import {
+  MATCH_CONFIDENCE_LABELS,
+  MATCH_STATUS_LABELS,
+  MAPPING_REVIEW_REASONS,
+  REGIONAL_STATUS_LABELS,
+  REVIEW_REASON_LABELS,
+} from "@/domains/lexicon";
 import { USER_ROLES } from "@/domains/users";
 
 import {
   ADMIN_CEFR_LEVELS,
   CURRICULUM_BULK_ITEM_LIMIT,
   CURRICULUM_STATUSES,
+  DECK_AVAILABILITIES,
+  DECK_LIST_MAX,
+  DICTIONARY_LIST_MAX_PAGE_SIZE,
+  DICTIONARY_LIST_PAGE_SIZE,
+  IMPORT_DELETE_CONFIRMATION,
+  IMPORT_LIST_MAX_PAGE_SIZE,
+  IMPORT_LIST_PAGE_SIZE,
+  IMPORT_STATUSES,
+  MAPPING_CONFIDENCES,
+  MAPPING_MATCH_STATUSES,
+  MAPPING_PARTS_OF_SPEECH,
+  MAPPING_REGIONAL_STATUSES,
+  MAPPING_REVIEW_REASON_CODES,
   USER_LIST_MAX_PAGE_SIZE,
   USER_LIST_PAGE_SIZE,
   USER_ROLE_REASON_MAX,
@@ -15,11 +35,26 @@ import {
   adminCurriculumBulkMoveResultSchema,
   adminCurriculumBulkPublishRequestSchema,
   adminCurriculumBulkPublishResultSchema,
+  adminDeckListQuerySchema,
+  adminDeckListSchema,
+  adminDeckRowSchema,
+  adminDictionaryCountsSchema,
+  adminDictionaryListQuerySchema,
+  adminDictionaryPageSchema,
+  adminDictionaryRowSchema,
   adminGroupCreateRequestSchema,
   adminGroupListQuerySchema,
   adminGroupPathSchema,
   adminGroupRowSchema,
   adminGroupUpdateRequestSchema,
+  adminImportArchiveRequestSchema,
+  adminImportCommandResultSchema,
+  adminImportDeleteRequestSchema,
+  adminImportListQuerySchema,
+  adminImportPageSchema,
+  adminImportPathSchema,
+  adminImportRestoreRequestSchema,
+  adminImportRowSchema,
   adminLevelCreateRequestSchema,
   adminLevelListQuerySchema,
   adminLevelPathSchema,
@@ -1012,5 +1047,531 @@ describe("the bulk results", () => {
         movedItemIds: [ITEM_A],
       }).success,
     ).toBe(false);
+  });
+});
+
+/**
+ * Spec 26 Unit 8: the import history. A strict query (one language, which
+ * history, a cursor and a size — nothing the endpoint would ignore), a row with
+ * no storage location or uploader in it, and three commands whose bodies carry
+ * no data but a typed confirmation.
+ */
+describe("adminImportListQuerySchema", () => {
+  const base = { language: LANGUAGE };
+
+  it("needs a language, and nothing else", () => {
+    const parsed = adminImportListQuerySchema.parse(base);
+    expect(parsed).toEqual({
+      language: LANGUAGE,
+      limit: IMPORT_LIST_PAGE_SIZE,
+    });
+    for (const language of [undefined, "", "es", "not-a-uuid"]) {
+      expect(adminImportListQuerySchema.safeParse({ language }).success).toBe(
+        false,
+      );
+    }
+  });
+
+  it("asks for the normal history unless it says `archived=true` — and says only true or false", () => {
+    expect(
+      adminImportListQuerySchema.parse({ ...base, archived: "true" }).archived,
+    ).toBe("true");
+    expect(
+      adminImportListQuerySchema.parse({ ...base, archived: "false" }).archived,
+    ).toBe("false");
+    for (const archived of ["1", "yes", "TRUE", "", true, false]) {
+      expect(
+        adminImportListQuerySchema.safeParse({ ...base, archived }).success,
+        String(archived),
+      ).toBe(false);
+    }
+  });
+
+  it("takes the query string's numbers as text, within the bounds", () => {
+    expect(
+      adminImportListQuerySchema.parse({ ...base, limit: "50" }).limit,
+    ).toBe(50);
+    expect(
+      adminImportListQuerySchema.safeParse({
+        ...base,
+        limit: String(IMPORT_LIST_MAX_PAGE_SIZE + 1),
+      }).success,
+    ).toBe(false);
+    for (const limit of ["0", "-1", "1.5", "many"]) {
+      expect(
+        adminImportListQuerySchema.safeParse({ ...base, limit }).success,
+        limit,
+      ).toBe(false);
+    }
+  });
+
+  it("refuses a filter, a sort or a page that nothing here would honour", () => {
+    for (const extra of [
+      { status: "failed" },
+      { search: "level" },
+      { sort: "status" },
+      { page: "2" },
+      { order: "ASC" },
+      { uploadedBy: "someone" },
+    ]) {
+      expect(
+        adminImportListQuerySchema.safeParse({ ...base, ...extra }).success,
+      ).toBe(false);
+    }
+  });
+
+  it("bounds the cursor", () => {
+    expect(
+      adminImportListQuerySchema.safeParse({ ...base, cursor: "abc" }).success,
+    ).toBe(true);
+    for (const cursor of ["", "   ", "x".repeat(513)]) {
+      expect(
+        adminImportListQuerySchema.safeParse({ ...base, cursor }).success,
+      ).toBe(false);
+    }
+  });
+});
+
+describe("adminImportRowSchema and adminImportPageSchema", () => {
+  const row = {
+    id: "60000000-0000-4000-8000-000000000001",
+    originalFilename: "spanish-level-2.csv",
+    status: "completed" as const,
+    totalRows: 61,
+    createCount: 43,
+    updateCount: 8,
+    moveCount: 2,
+    unchangedCount: 6,
+    reviewCount: 0,
+    skippedCount: 2,
+    attemptCount: 1,
+    createdAt: "2026-09-10T11:59:00.123Z",
+    archivedAt: null,
+  };
+
+  it("describes an import by what it found and when", () => {
+    expect(adminImportRowSchema.parse(row)).toEqual(row);
+    expect(
+      adminImportRowSchema.parse({
+        ...row,
+        archivedAt: "2026-10-01T08:30:00.000Z",
+      }).archivedAt,
+    ).toBe("2026-10-01T08:30:00.000Z");
+  });
+
+  it("knows every status the pipeline has, and no other", () => {
+    for (const status of IMPORT_STATUSES) {
+      expect(adminImportRowSchema.safeParse({ ...row, status }).success).toBe(
+        true,
+      );
+    }
+    for (const status of ["pending", "COMPLETED", "done", "", null]) {
+      expect(adminImportRowSchema.safeParse({ ...row, status }).success).toBe(
+        false,
+      );
+    }
+  });
+
+  it("refuses a count that is negative, fractional or missing", () => {
+    for (const field of [
+      "totalRows",
+      "createCount",
+      "updateCount",
+      "moveCount",
+      "unchangedCount",
+      "reviewCount",
+      "skippedCount",
+      "attemptCount",
+    ] as const) {
+      for (const value of [-1, 1.5, "3", undefined]) {
+        expect(
+          adminImportRowSchema.safeParse({ ...row, [field]: value }).success,
+          `${field} ${String(value)}`,
+        ).toBe(false);
+      }
+    }
+  });
+
+  it("strips what an import record holds but a row must never carry", () => {
+    const parsed = adminImportRowSchema.parse({
+      ...row,
+      s3Bucket: "bucket",
+      s3Key: "imports/key",
+      sourceSha256: "abc",
+      uploadedByUserId: "someone",
+      lastErrorSummary: "private detail",
+    });
+    expect(Object.keys(parsed).sort()).toEqual(Object.keys(row).sort());
+  });
+
+  it("is a cursor page like the others, with no total", () => {
+    const page = {
+      items: [row],
+      nextCursor: "next",
+      hasPreviousPage: true,
+      previousCursor: null,
+    };
+    expect(adminImportPageSchema.parse(page)).toEqual(page);
+    expect(adminImportPageSchema.safeParse({ items: [row] }).success).toBe(
+      false,
+    );
+  });
+});
+
+describe("the import history commands", () => {
+  const IMPORT = "60000000-0000-4000-8000-000000000001";
+
+  it("take an import by its path, which must be an id", () => {
+    expect(adminImportPathSchema.safeParse({ importId: IMPORT }).success).toBe(
+      true,
+    );
+    for (const importId of ["", "not-an-id", "../1", IMPORT + "x", undefined]) {
+      expect(adminImportPathSchema.safeParse({ importId }).success).toBe(false);
+    }
+  });
+
+  it.each([
+    ["archive", adminImportArchiveRequestSchema],
+    ["restore", adminImportRestoreRequestSchema],
+  ])(
+    "%s carries no data at all — the body is {} and nothing else",
+    (_name, schema) => {
+      expect(schema.safeParse({}).success).toBe(true);
+      for (const body of [
+        { importId: IMPORT },
+        { actorUserId: "someone" },
+        { archived: true },
+        { confirmation: IMPORT_DELETE_CONFIRMATION },
+        { idempotencyKey: "0881836c-de9a-4dc5-84f7-1dd28b8fa439" },
+      ]) {
+        expect(schema.safeParse(body).success, JSON.stringify(body)).toBe(
+          false,
+        );
+      }
+    },
+  );
+
+  it("delete needs the exact word the person types, and nothing else", () => {
+    expect(IMPORT_DELETE_CONFIRMATION).toBe("DELETE");
+    expect(
+      adminImportDeleteRequestSchema.safeParse({ confirmation: "DELETE" })
+        .success,
+    ).toBe(true);
+    for (const confirmation of [
+      "delete",
+      "Delete",
+      " DELETE",
+      "DELETE ",
+      "DELETED",
+      "",
+      true,
+      undefined,
+    ]) {
+      expect(
+        adminImportDeleteRequestSchema.safeParse({ confirmation }).success,
+        String(confirmation),
+      ).toBe(false);
+    }
+    expect(
+      adminImportDeleteRequestSchema.safeParse({
+        confirmation: "DELETE",
+        importId: IMPORT,
+      }).success,
+    ).toBe(false);
+    expect(adminImportDeleteRequestSchema.safeParse({}).success).toBe(false);
+  });
+
+  it("answer with the import they acted on", () => {
+    expect(adminImportCommandResultSchema.parse({ importId: IMPORT })).toEqual({
+      importId: IMPORT,
+    });
+    expect(adminImportCommandResultSchema.safeParse({}).success).toBe(false);
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* Dictionary mapping queue (spec 26 Unit 9)                                  */
+/* -------------------------------------------------------------------------- */
+
+describe("the dictionary contract mirrors the lexicon it describes", () => {
+  // The contract is value-imported by the browser and cannot import the
+  // lexicon's server graph, so these lists are copies. A copy that drifts would
+  // make the queue refuse (or silently drop) a state the lexicon really has.
+  it("names exactly the match states the lexicon labels", () => {
+    expect([...MAPPING_MATCH_STATUSES].sort()).toEqual(
+      Object.keys(MATCH_STATUS_LABELS).sort(),
+    );
+  });
+
+  it("names exactly the regional statuses, confidences and review reasons the lexicon labels", () => {
+    expect([...MAPPING_REGIONAL_STATUSES].sort()).toEqual(
+      Object.keys(REGIONAL_STATUS_LABELS).sort(),
+    );
+    expect([...MAPPING_CONFIDENCES].sort()).toEqual(
+      Object.keys(MATCH_CONFIDENCE_LABELS).sort(),
+    );
+    expect([...MAPPING_REVIEW_REASON_CODES]).toEqual([
+      ...MAPPING_REVIEW_REASONS,
+    ]);
+    expect(Object.keys(REVIEW_REASON_LABELS).sort()).toEqual(
+      [...MAPPING_REVIEW_REASON_CODES].sort(),
+    );
+  });
+});
+
+describe("adminDictionaryListQuerySchema", () => {
+  it("takes a language and defaults the page: the first, at the default size", () => {
+    expect(
+      adminDictionaryListQuerySchema.parse({ language: LANGUAGE }),
+    ).toEqual({
+      language: LANGUAGE,
+      offset: 0,
+      limit: DICTIONARY_LIST_PAGE_SIZE,
+    });
+  });
+
+  it("takes every filter the page always had, and the numbers as text", () => {
+    expect(
+      adminDictionaryListQuerySchema.parse({
+        language: LANGUAGE,
+        level: LEVEL,
+        group: KEY,
+        status: "review_required",
+        pos: "verb",
+        region: " es-MX ",
+        regional: "not_listed",
+        offset: "50",
+        limit: "10",
+      }),
+    ).toEqual({
+      language: LANGUAGE,
+      level: LEVEL,
+      group: KEY,
+      status: "review_required",
+      pos: "verb",
+      region: "es-MX",
+      regional: "not_listed",
+      offset: 50,
+      limit: 10,
+    });
+  });
+
+  it.each([
+    ["no language", {}],
+    ["a level that is not an id", { language: LANGUAGE, level: "1" }],
+    ["a group that is not an id", { language: LANGUAGE, group: "animals" }],
+    [
+      "a match state that does not exist",
+      { language: LANGUAGE, status: "done" },
+    ],
+    [
+      "a part of speech outside the offered set",
+      { language: LANGUAGE, pos: "noun phrase" },
+    ],
+    [
+      "a regional status that does not exist",
+      { language: LANGUAGE, regional: "yes" },
+    ],
+    ["a region of one letter", { language: LANGUAGE, region: "e" }],
+    [
+      "a region of seventeen characters",
+      { language: LANGUAGE, region: "x".repeat(17) },
+    ],
+    ["a negative offset", { language: LANGUAGE, offset: "-1" }],
+    ["a fractional offset", { language: LANGUAGE, offset: "2.5" }],
+    ["a size of zero", { language: LANGUAGE, limit: "0" }],
+    [
+      "a size over the cap",
+      { language: LANGUAGE, limit: String(DICTIONARY_LIST_MAX_PAGE_SIZE + 1) },
+    ],
+    ["a sort", { language: LANGUAGE, sort: "word" }],
+    ["a search", { language: LANGUAGE, search: "gato" }],
+    ["a cursor", { language: LANGUAGE, cursor: "x" }],
+  ])("refuses %s", (_name, query) => {
+    expect(adminDictionaryListQuerySchema.safeParse(query).success).toBe(false);
+  });
+
+  it("offers every part of speech the curriculum editors offer", () => {
+    expect([...MAPPING_PARTS_OF_SPEECH]).toEqual([
+      "noun",
+      "verb",
+      "adjective",
+      "adverb",
+      "pronoun",
+      "preposition",
+      "conjunction",
+      "phrase",
+    ]);
+  });
+});
+
+describe("adminDictionaryRowSchema and adminDictionaryPageSchema", () => {
+  const row = {
+    id: KEY,
+    displayWord: "el gato",
+    translation: "cat",
+    levelNumber: 1,
+    groupName: "Animals",
+    lookupForm: "gato",
+    matchStatus: "auto_matched",
+    confidence: "high",
+    reviewReason: null,
+    manualLock: false,
+    entryLemma: "gato",
+    entryPartOfSpeech: "noun",
+    confirmable: true,
+    regionalStatus: "recognized",
+  };
+  const counts = {
+    unmatched: 0,
+    source_data_not_imported: 0,
+    auto_matched: 1,
+    review_required: 0,
+    manual: 0,
+    no_mapping: 0,
+  };
+
+  it("describes a word that has been matched, and one nothing has looked at", () => {
+    expect(adminDictionaryRowSchema.parse(row)).toEqual(row);
+    expect(
+      adminDictionaryRowSchema.safeParse({
+        ...row,
+        matchStatus: null,
+        confidence: null,
+        lookupForm: null,
+        entryLemma: null,
+        entryPartOfSpeech: null,
+        regionalStatus: null,
+        confirmable: false,
+      }).success,
+    ).toBe(true);
+  });
+
+  it("strips what the queue was never meant to carry — a dictionary entry's id, source text", () => {
+    const parsed = adminDictionaryRowSchema.parse({
+      ...row,
+      entryId: "a0000000-0000-4000-8000-000000000001",
+      rawSource: "<entry/>",
+    });
+    expect(parsed).not.toHaveProperty("entryId");
+    expect(parsed).not.toHaveProperty("rawSource");
+  });
+
+  it.each([
+    ["a match state that does not exist", { matchStatus: "done" }],
+    ["a confidence that does not exist", { confidence: "certain" }],
+    ["a review reason that does not exist", { reviewReason: "bored" }],
+    ["a regional status that does not exist", { regionalStatus: "yes" }],
+    ["no `confirmable`", { confirmable: undefined }],
+  ])("refuses %s", (_name, override) => {
+    expect(
+      adminDictionaryRowSchema.safeParse({ ...row, ...override }).success,
+    ).toBe(false);
+  });
+
+  it("is a page with a real total, the language's counts, and the region it speaks about", () => {
+    const page = {
+      items: [row],
+      total: 130,
+      counts,
+      regionCode: "es-MX",
+      regionCodes: ["es-MX", "es"],
+    };
+    expect(adminDictionaryPageSchema.parse(page)).toEqual(page);
+    expect(
+      adminDictionaryPageSchema.safeParse({ ...page, total: -1 }).success,
+    ).toBe(false);
+    expect(
+      adminDictionaryPageSchema.safeParse({ ...page, regionCode: undefined })
+        .success,
+    ).toBe(false);
+    expect(
+      adminDictionaryCountsSchema.safeParse({ ...counts, no_mapping: -1 })
+        .success,
+    ).toBe(false);
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* Official decks (spec 26 Unit 10)                                           */
+/* -------------------------------------------------------------------------- */
+
+describe("adminDeckListQuerySchema", () => {
+  it("takes a language and nothing else", () => {
+    expect(adminDeckListQuerySchema.parse({ language: LANGUAGE })).toEqual({
+      language: LANGUAGE,
+    });
+  });
+
+  it.each([
+    ["no language", {}],
+    ["a language that is not an id", { language: "es" }],
+    // Only official decks exist here: there is no way to ask for another kind.
+    ["a kind of deck", { language: LANGUAGE, kind: "personal" }],
+    ["an owner", { language: LANGUAGE, owner: KEY }],
+    ["a sort", { language: LANGUAGE, sort: "name" }],
+    ["a size", { language: LANGUAGE, limit: "5" }],
+    ["a cursor", { language: LANGUAGE, cursor: "x" }],
+  ])("refuses %s", (_name, query) => {
+    expect(adminDeckListQuerySchema.safeParse(query).success).toBe(false);
+  });
+});
+
+describe("adminDeckRowSchema and adminDeckListSchema", () => {
+  const deck = {
+    id: KEY,
+    name: "Colors",
+    description: "Colors and shapes",
+    itemCount: 8,
+    availability: "theme",
+    gateLevelNumber: null,
+  };
+
+  it("describes a deck that reveals as items are learned, and one gated by a level", () => {
+    expect(adminDeckRowSchema.parse(deck)).toEqual(deck);
+    expect(
+      adminDeckRowSchema.parse({
+        ...deck,
+        description: null,
+        availability: "level",
+        gateLevelNumber: 3,
+      }),
+    ).toMatchObject({ availability: "level", gateLevelNumber: 3 });
+  });
+
+  it("names exactly the availabilities decks have", () => {
+    expect([...DECK_AVAILABILITIES].sort()).toEqual(["level", "theme"]);
+  });
+
+  it("strips an owner, a gate level's id and a kind — a list of official decks has no use for them", () => {
+    const parsed = adminDeckRowSchema.parse({
+      ...deck,
+      ownerUserId: "someone",
+      gateLevelId: "level",
+      kind: "polyglot",
+    });
+    for (const field of ["ownerUserId", "gateLevelId", "kind"]) {
+      expect(parsed).not.toHaveProperty(field);
+    }
+  });
+
+  it.each([
+    ["an availability that does not exist", { availability: "sometimes" }],
+    ["a negative item count", { itemCount: -1 }],
+    ["a fractional item count", { itemCount: 1.5 }],
+  ])("refuses %s", (_name, override) => {
+    expect(adminDeckRowSchema.safeParse({ ...deck, ...override }).success).toBe(
+      false,
+    );
+  });
+
+  it("is a bounded list that says whether it was cut", () => {
+    expect(DECK_LIST_MAX).toBe(100);
+    expect(
+      adminDeckListSchema.parse({ items: [deck], truncated: false }),
+    ).toEqual({ items: [deck], truncated: false });
+    expect(adminDeckListSchema.safeParse({ items: [deck] }).success).toBe(
+      false,
+    );
   });
 });

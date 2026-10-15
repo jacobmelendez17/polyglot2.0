@@ -432,12 +432,24 @@ export async function listArchivedCurriculumImportsForHistory(input: {
   return listArchivedCurriculumImports(db, input);
 }
 
+/**
+ * Archiving, restoring and permanently deleting an import (spec 26 Unit 8) each
+ * change the import and write the audit trail, and each begins by locking the
+ * import's row (`lockCurriculumImportForUpdate`) so that two requests for the
+ * same import take turns rather than both acting on the same stale view. A row
+ * lock lasts only as long as the caller's transaction, so each runs in one:
+ * outside it the lock is released the moment the `SELECT ... FOR UPDATE`
+ * returns, and two requests sent at once — a double click, a retried request,
+ * two Admins — would both archive it and both write the audit event.
+ */
 export async function archiveCurriculumImport(input: {
   importId: string;
   actorUserId: string;
 }) {
   await checkRateLimit("admin-mutation", input.actorUserId);
-  return curriculumImport.archiveCurriculumImport(db, input);
+  return db.transaction((tx) =>
+    curriculumImport.archiveCurriculumImport(tx, input),
+  );
 }
 
 export async function unarchiveCurriculumImport(input: {
@@ -445,7 +457,9 @@ export async function unarchiveCurriculumImport(input: {
   actorUserId: string;
 }) {
   await checkRateLimit("admin-mutation", input.actorUserId);
-  return curriculumImport.unarchiveCurriculumImport(db, input);
+  return db.transaction((tx) =>
+    curriculumImport.unarchiveCurriculumImport(tx, input),
+  );
 }
 
 /**
@@ -461,10 +475,17 @@ export async function permanentlyDeleteCurriculumImport(input: {
 }) {
   await checkRateLimit("admin-mutation", input.actorUserId);
   const record = await getCurriculumImportById(db, input.importId);
-  await curriculumImport.permanentlyDeleteCurriculumImport(db, input);
+  await db.transaction((tx) =>
+    curriculumImport.permanentlyDeleteCurriculumImport(tx, input),
+  );
   if (record) {
-    await getCurriculumImportStorage()
-      .deleteObject(record.s3Key)
-      .catch(() => {});
+    // Best effort in full: the history is already gone, so nothing here may
+    // fail the command — not the delete, and not building the storage client
+    // (which throws when `IMPORT_BUCKET` is not configured).
+    try {
+      await getCurriculumImportStorage().deleteObject(record.s3Key);
+    } catch {
+      // The bucket's own lifecycle rule expires the object regardless.
+    }
   }
 }

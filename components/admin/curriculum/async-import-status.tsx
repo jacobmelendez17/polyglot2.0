@@ -14,6 +14,9 @@ import type {
   CurriculumImportStatus,
 } from "@/domains/admin/server";
 
+import { importStatusView } from "./import-status";
+import { ImportStatusBadge } from "./import-status-badge";
+
 import {
   confirmAsyncCurriculumImportAction,
   getCurriculumImportStatusAction,
@@ -317,9 +320,20 @@ export function AsyncImportStatus({
       !row.adminDisposition,
   ).length;
   const message = statusMessage(record.status);
+  const { stage } = importStatusView(record.status);
 
   return (
     <div className="flex flex-col gap-4">
+      {/* The same badge the import history shows (spec 26 Unit 8), live: polling
+          updates `record`, and a polite status region announces the change. */}
+      <div role="status" className="flex flex-wrap items-center gap-2">
+        <span className="text-sm text-muted-foreground">Status</span>
+        <ImportStatusBadge status={record.status} />
+        {stage ? (
+          <span className="text-sm text-muted-foreground">{stage}</span>
+        ) : null}
+      </div>
+
       {message ? (
         <p className="text-sm text-muted-foreground">{message}</p>
       ) : null}

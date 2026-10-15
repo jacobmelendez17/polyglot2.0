@@ -13,14 +13,15 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { getAdminNavItems, isAdminNavItemCurrent } from "./admin-nav-items";
+import {
+  getAdminNavItems,
+  isAdminNavItemCurrent,
+  type AdminNavPermissions,
+} from "./admin-nav-items";
 
 type AdminMobileNavProps = {
-  canManageCurriculum: boolean;
-  /** Admin and developer only — a writer never sees Logs or the Sandbox (spec 17). */
-  canUseDeveloperTools: boolean;
-  /** Admin only (spec 26 Unit 6): the account list, where roles are assigned. */
-  canManageUsers?: boolean;
+  /** The person's effective permissions — what the server says they may open (`buildAdminPermissions`). */
+  permissions: AdminNavPermissions;
 };
 
 /**
@@ -28,19 +29,12 @@ type AdminMobileNavProps = {
  * mirroring `app-nav-mobile.tsx`'s "More" sheet. Rendered directly in the
  * layout's header (not inside the desktop `<aside>`, which is `hidden`
  * below `sm:` and would hide this trigger too) so it stays reachable at
- * every viewport width the desktop sidebar itself is hidden at.
+ * every viewport width the desktop sidebar itself is hidden at. The same
+ * links as the sidebar, from the same permissions (spec 26 Unit 11).
  */
-export function AdminMobileNav({
-  canManageCurriculum,
-  canUseDeveloperTools,
-  canManageUsers = false,
-}: AdminMobileNavProps) {
+export function AdminMobileNav({ permissions }: AdminMobileNavProps) {
   const pathname = usePathname();
-  const items = getAdminNavItems(
-    canManageCurriculum,
-    canUseDeveloperTools,
-    canManageUsers,
-  );
+  const items = getAdminNavItems(permissions);
 
   return (
     <Sheet>

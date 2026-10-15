@@ -1,5 +1,8 @@
 import type { AdminUsersPage, PolyglotUser } from "@/domains/users";
 
+import type { CurriculumImportsPage } from "./curriculum-import-types";
+import type { MappingQueuePage } from "@/domains/lexicon";
+
 import type {
   AdminCurriculumItemsPage,
   CurriculumLevel,
@@ -10,11 +13,16 @@ import type {
 
 import {
   ADMIN_OVERVIEW_RECORD_ID,
+  DECK_LIST_MAX,
   GROUP_LIST_MAX,
   LEVEL_LIST_MAX,
   type AdminCurriculumPage,
   type AdminCurriculumStatusCounts,
+  type AdminDeckList,
+  type AdminDictionaryCounts,
+  type AdminDictionaryPage,
   type AdminGroupList,
+  type AdminImportPage,
   type AdminLevelList,
   type AdminReviewPage,
   type AdminUserPage,
@@ -77,6 +85,24 @@ function resourceAccess(
     resources.groups = canPublishCurriculum(subject)
       ? ["list", "create", "edit"]
       : ["list"];
+    // The import history (spec 26 Unit 8): a writer may read it, but starting
+    // an import (`create`), archiving or restoring one (`edit`) and permanently
+    // deleting its history (`delete`) are Admin-only (spec 26 §6: "imports").
+    resources.imports = canPublishCurriculum(subject)
+      ? ["list", "create", "edit", "delete"]
+      : ["list"];
+    // The dictionary mapping queue (spec 26 Unit 9): finding work and confirming
+    // reviewed mappings are authoring, so a writer has both (`edit` is the
+    // confirmation — the same `canManageCurriculum` the Server Actions check).
+    // Nothing in it publishes: a confirmed mapping reaches a published item as a
+    // draft, and releasing that is `canPublishCurriculum`'s review queue.
+    resources.dictionary = ["list", "edit"];
+  }
+  if (canPublishCurriculum(subject)) {
+    // Official decks (spec 26 Unit 10) are an Admin's end to end — reading the
+    // list included, as the page always was (spec 11 §4: "Official decks
+    // management"). For a writer the resource is absent, not an empty list.
+    resources.decks = ["list", "create", "edit", "delete"];
   }
   if (canManageUsers(subject)) {
     // Spec 26 Unit 6. The `users` resource exists only for an Admin: for anyone
@@ -258,5 +284,129 @@ export function buildAdminUserPage(page: AdminUsersPage): AdminUserPage {
     nextCursor: page.nextCursor,
     hasPreviousPage: page.hasPreviousPage,
     previousCursor: page.previousCursor,
+  };
+}
+
+/**
+ * The import history's page, reduced to what the list shows — field by field,
+ * never a spread, so a column added to the import record tomorrow (it already
+ * holds a storage bucket and key, a checksum, an uploader and error text)
+ * reaches the wire only when someone adds it here on purpose. The route
+ * validates the result against `adminImportPageSchema` as well, which would
+ * strip it anyway.
+ */
+export function buildAdminImportPage(
+  page: CurriculumImportsPage,
+): AdminImportPage {
+  return {
+    items: page.items.map((record) => ({
+      id: record.id,
+      originalFilename: record.originalFilename,
+      status: record.status,
+      totalRows: record.totalRows,
+      createCount: record.createCount,
+      updateCount: record.updateCount,
+      moveCount: record.moveCount,
+      unchangedCount: record.unchangedCount,
+      reviewCount: record.reviewCount,
+      skippedCount: record.skippedCount,
+      attemptCount: record.attemptCount,
+      createdAt: record.createdAt.toISOString(),
+      archivedAt: record.archivedAt?.toISOString() ?? null,
+    })),
+    nextCursor: page.nextCursor,
+    hasPreviousPage: page.hasPreviousPage,
+    previousCursor: page.previousCursor,
+  };
+}
+
+/**
+ * The dictionary mapping queue's page (spec 26 Unit 9), reduced to what the
+ * queue shows — field by field. The repository's row carries the dictionary
+ * entry's id and the curriculum's part of speech; the queue needs neither (the
+ * item's own page holds the mapping panel that decides which entry is right),
+ * so neither reaches the wire. `confirmable` is decided here, once, from the
+ * rule the batch confirmation itself relies on: there is a candidate to
+ * confirm, and it is not confirmed already.
+ */
+export function buildAdminDictionaryPage(input: {
+  page: MappingQueuePage;
+  counts: Record<
+    | "unmatched"
+    | "source_data_not_imported"
+    | "auto_matched"
+    | "review_required"
+    | "manual"
+    | "no_mapping",
+    number
+  >;
+  regionCode: string | null;
+  regionCodes: readonly string[];
+}): AdminDictionaryPage {
+  const { page, counts } = input;
+  const exactCounts: AdminDictionaryCounts = {
+    unmatched: counts.unmatched,
+    source_data_not_imported: counts.source_data_not_imported,
+    auto_matched: counts.auto_matched,
+    review_required: counts.review_required,
+    manual: counts.manual,
+    no_mapping: counts.no_mapping,
+  };
+  return {
+    items: page.rows.map((row) => ({
+      id: row.vocabularyItemId,
+      displayWord: row.displayWord,
+      translation: row.translation,
+      levelNumber: row.levelNumber,
+      groupName: row.groupName,
+      lookupForm: row.lookupForm,
+      matchStatus: row.matchStatus,
+      confidence: row.confidence,
+      reviewReason: row.reviewReason,
+      manualLock: row.manualLock,
+      entryLemma: row.entryLemma,
+      entryPartOfSpeech: row.entryPartOfSpeech,
+      confirmable: row.entryId !== null && row.matchStatus !== "manual",
+      regionalStatus: row.regionalStatus,
+    })),
+    total: page.total,
+    counts: exactCounts,
+    regionCode: input.regionCode,
+    regionCodes: [...input.regionCodes],
+  };
+}
+
+/** What the decks list needs of an official deck — never its owner, never its items. */
+type DeckListSource = {
+  id: string;
+  name: string;
+  description: string | null;
+  itemCount: number;
+  availability: "theme" | "level";
+  gateLevelNumber: number | null;
+};
+
+/**
+ * The official decks of one language, by name (then id, so the order is total),
+ * bounded at `DECK_LIST_MAX` and saying so when it cut anything off. Built field
+ * by field: the deck record carries its owner and its gate level's id, which a
+ * list of *official* decks has no business sending.
+ */
+export function buildAdminDeckList(
+  decks: readonly DeckListSource[],
+): AdminDeckList {
+  const ordered = [...decks].sort(
+    (a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id),
+  );
+  return {
+    items: ordered.slice(0, DECK_LIST_MAX).map((deck) => ({
+      id: deck.id,
+      name: deck.name,
+      description: deck.description,
+      itemCount: deck.itemCount,
+      availability: deck.availability,
+      gateLevelNumber: deck.gateLevelNumber,
+    })),
+    truncated: ordered.length > DECK_LIST_MAX,
   };
 }

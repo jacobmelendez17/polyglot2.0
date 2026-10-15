@@ -3,20 +3,36 @@ import type { Metadata } from "next";
 import { forbidden } from "next/navigation";
 
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
-import { CurriculumImportHistoryTable } from "@/components/admin/curriculum/curriculum-import-history-table";
+import { AdminImportsListApp } from "@/components/admin/react-admin/imports/imports-list-app";
 import { Button } from "@/components/ui/button";
-import { canManageCurriculum } from "@/domains/admin";
-import { listActiveCurriculumImports } from "@/domains/admin/server";
+import { canManageCurriculum, canPublishCurriculum } from "@/domains/admin";
 import { getLanguages } from "@/domains/curriculum/server";
 import { requireUser } from "@/domains/users/server";
+import { env } from "@/lib/env";
 
 export const metadata: Metadata = {
   title: "Curriculum Imports — Polyglot Admin",
 };
 
-type SearchParams = { language?: string; cursor?: string };
+type SearchParams = { language?: string };
 
-/** Spec 19 §19/§48 step 18 — normal (non-archived) import history, newest first. */
+/**
+ * Spec 19 §19/§48 step 18 — normal (non-archived) import history, newest first.
+ * A React Admin list since spec 26 Unit 8.
+ *
+ * This page keeps the server-side guard, the languages and the header's way
+ * into the other import screens. The history itself — status badges, what each
+ * import found, Archive — is fetched by the screen from
+ * `/api/v1/admin/imports`, which reads `?language=` and `?cursor=` from the real
+ * URL. Each file links to its own page, where the specialist screens stay (rows
+ * that need a decision, corrections, Confirm, Retry, the explicit publish of
+ * what an import drafted); "New Import" is the upload screen, unchanged.
+ *
+ * Visible to anyone who can author, as it always was, so a writer can see what
+ * has been imported. Starting an import and managing the history need
+ * `canPublishCurriculum` — the endpoints re-check it from the database role on
+ * every call, and "New Import" is simply not offered to someone it would refuse.
+ */
 export default async function CurriculumImportsPage({
   searchParams,
 }: {
@@ -46,14 +62,6 @@ export default async function CurriculumImportsPage({
   const languageId = languages.some((l) => l.id === params.language)
     ? params.language!
     : languages[0]!.id;
-  const page = await listActiveCurriculumImports({
-    languageId,
-    cursor: params.cursor,
-    limit: 20,
-  });
-
-  const nextParams = new URLSearchParams({ language: languageId });
-  if (page.nextCursor) nextParams.set("cursor", page.nextCursor);
 
   return (
     <div>
@@ -64,42 +72,32 @@ export default async function CurriculumImportsPage({
         />
         <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline">
-            <Link href="/admin/curriculum/imports/archived">Archived</Link>
-          </Button>
-          <Button asChild>
-            <Link href={`/admin/curriculum/imports/new?language=${languageId}`}>
-              New Import
+            <Link
+              href={`/admin/curriculum/imports/archived?language=${languageId}`}
+            >
+              Archived
             </Link>
           </Button>
+          {canPublishCurriculum(user) ? (
+            <Button asChild>
+              <Link
+                href={`/admin/curriculum/imports/new?language=${languageId}`}
+              >
+                New Import
+              </Link>
+            </Button>
+          ) : null}
         </div>
       </div>
 
-      {page.items.length === 0 ? (
-        <div className="rounded-xl border border-border bg-card p-8 text-center">
-          <p className="font-medium text-foreground">No imports yet</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Start one from &ldquo;New Import&rdquo; above.
-          </p>
-        </div>
-      ) : (
-        <>
-          <CurriculumImportHistoryTable
-            imports={page.items}
-            showArchiveAction
-          />
-          {page.nextCursor ? (
-            <div className="mt-4">
-              <Button asChild variant="outline" size="sm">
-                <Link
-                  href={`/admin/curriculum/imports?${nextParams.toString()}`}
-                >
-                  Next page
-                </Link>
-              </Button>
-            </div>
-          ) : null}
-        </>
-      )}
+      <AdminImportsListApp
+        signInPath={env.NEXT_PUBLIC_CLERK_SIGN_IN_URL}
+        languages={languages.map((language) => ({
+          id: language.id,
+          name: language.name,
+        }))}
+        archived={false}
+      />
     </div>
   );
 }

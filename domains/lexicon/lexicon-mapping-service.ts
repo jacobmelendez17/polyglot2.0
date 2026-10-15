@@ -334,7 +334,7 @@ export type BulkConfirmVocabularyMappingsInput = {
 
 /**
  * Spec 13's "batch confirmation of reviewed mappings" — the queue stays
- * read-only in the sense `mapping-queue-table.tsx`'s docstring means
+ * read-only in the sense `dictionary-data-table.tsx`'s docstring means
  * (nothing there decides *which* candidate is right; that judgment still
  * only happens in the per-item mapping panel). This batches the exact same
  * terminal step `confirmVocabularyMapping` performs — one call instead of

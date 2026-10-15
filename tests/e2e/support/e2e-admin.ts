@@ -1,16 +1,23 @@
-import { and, count, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, like, sql } from "drizzle-orm";
 
 import {
   adminAuditEvents,
+  curriculumImportRows,
+  curriculumImports,
   curriculumItemDrafts,
+  deckItems,
+  decks,
+  dictionaryEntries,
   grammarItems,
   languages,
   learningItems,
+  lexicalSources,
   levels,
   userItemProgress,
   userLanguageSettings,
   userLevelProgress,
   users,
+  vocabularyDictionaryMappings,
   vocabularyGroups,
   vocabularyItems,
 } from "@/db/schema";
@@ -1424,5 +1431,768 @@ export async function removeBulkFixtureItems(ids: string[]): Promise<void> {
         .where(inArray(grammarItems.learningItemId, ids));
       await tx.delete(learningItems).where(inArray(learningItems.id, ids));
     });
+  });
+}
+
+/* -------------------------------------------------------------------------- */
+/* Import-history fixtures (spec 26 Unit 8)                                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Rows of the curriculum-import history, inserted directly in every state the
+ * pipeline can leave one in. The pipeline itself — S3, SQS, the preview and
+ * commit Lambdas — is not what this screen is about and is never started here:
+ * a fixture's `s3Key` names no object and sits outside the `imports/` prefix the
+ * bucket's upload trigger watches. The one AWS call a spec can cause is the call
+ * the product itself makes when an archived import is permanently deleted — a
+ * best-effort `DeleteObject` of that made-up key, which removes nothing.
+ *
+ * Every import carries its spec run's tag at the front of the file's name, so a
+ * spec finds its own rows among any others and removes exactly them, together
+ * with the audit events that name them.
+ */
+
+export type E2EImportStatus =
+  | "uploading"
+  | "queued_for_preview"
+  | "previewing"
+  | "needs_review"
+  | "ready_to_import"
+  | "queued_for_import"
+  | "importing"
+  | "completed"
+  | "failed";
+
+export type SeedImportOptions = {
+  /** The file's name as the history shows it; start it with the spec's tag. */
+  filename: string;
+  /** Default `completed`. */
+  status?: E2EImportStatus;
+  /** Default: the E2E admin's own language. */
+  languageId?: string;
+  /** In the archived history, archived by the E2E admin. */
+  archived?: boolean;
+  /** Default: the database's own clock — the same instant for every row of one insert. */
+  createdAt?: Date;
+  totalRows?: number;
+  createCount?: number;
+  updateCount?: number;
+  moveCount?: number;
+  unchangedCount?: number;
+  reviewCount?: number;
+  skippedCount?: number;
+  previewVersion?: number;
+  confirmedPreviewVersion?: number | null;
+  attemptCount?: number;
+  lastErrorCode?: string | null;
+  lastErrorSummary?: string | null;
+  draftedItemIds?: string[] | null;
+};
+
+export type E2EImport = {
+  id: string;
+  filename: string;
+  status: E2EImportStatus;
+  languageId: string;
+  totalRows: number;
+  createCount: number;
+  updateCount: number;
+  moveCount: number;
+  unchangedCount: number;
+  reviewCount: number;
+  skippedCount: number;
+  previewVersion: number;
+  confirmedPreviewVersion: number | null;
+  attemptCount: number;
+  lastErrorCode: string | null;
+  lastErrorSummary: string | null;
+  draftedItemIds: string[] | null;
+  s3Key: string;
+  confirmedAt: Date | null;
+  archivedAt: Date | null;
+  archivedByUserId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+const importColumns = {
+  id: curriculumImports.id,
+  filename: curriculumImports.originalFilename,
+  status: curriculumImports.status,
+  languageId: curriculumImports.languageId,
+  totalRows: curriculumImports.totalRows,
+  createCount: curriculumImports.createCount,
+  updateCount: curriculumImports.updateCount,
+  moveCount: curriculumImports.moveCount,
+  unchangedCount: curriculumImports.unchangedCount,
+  reviewCount: curriculumImports.reviewCount,
+  skippedCount: curriculumImports.skippedCount,
+  previewVersion: curriculumImports.previewVersion,
+  confirmedPreviewVersion: curriculumImports.confirmedPreviewVersion,
+  attemptCount: curriculumImports.attemptCount,
+  lastErrorCode: curriculumImports.lastErrorCode,
+  lastErrorSummary: curriculumImports.lastErrorSummary,
+  draftedItemIds: curriculumImports.draftedItemIds,
+  s3Key: curriculumImports.s3Key,
+  confirmedAt: curriculumImports.confirmedAt,
+  archivedAt: curriculumImports.archivedAt,
+  archivedByUserId: curriculumImports.archivedByUserId,
+  createdAt: curriculumImports.createdAt,
+  updatedAt: curriculumImports.updatedAt,
+};
+
+/** What the pipeline would have left at each status, for a field a spec did not name. */
+function importDefaults(status: E2EImportStatus) {
+  const previewed = status !== "uploading" && status !== "queued_for_preview";
+  const reviewed = previewed && status !== "previewing";
+  const confirmed =
+    status === "queued_for_import" ||
+    status === "importing" ||
+    status === "completed" ||
+    status === "failed";
+  return {
+    previewVersion: reviewed ? 1 : 0,
+    confirmedPreviewVersion: confirmed ? 1 : null,
+    attemptCount: status === "failed" ? 1 : 0,
+  };
+}
+
+/** One import in the given state — `needs_review` and later have a preview to show. Remove it with `removeSeededImports`. */
+export async function seedImport(
+  options: SeedImportOptions,
+): Promise<E2EImport> {
+  const [made] = await seedImports([options]);
+  return made!;
+}
+
+/** Several imports in one statement — so they share the database's clock unless a `createdAt` says otherwise. */
+export async function seedImports(
+  all: SeedImportOptions[],
+): Promise<E2EImport[]> {
+  const uploadedByUserId = await getE2EAdminUserId();
+  return withE2EDb(async (db) => {
+    const { languageId: ownLanguageId } = await adminScope(db);
+    const rows = await db
+      .insert(curriculumImports)
+      .values(
+        all.map((options) => {
+          const status = options.status ?? "completed";
+          const defaults = importDefaults(status);
+          return {
+            environment: "development",
+            languageId: options.languageId ?? ownLanguageId,
+            originalFilename: options.filename,
+            fileExtension: "csv",
+            s3Bucket: "e2e-fixture",
+            // Names no object, and is outside `imports/` — see the note above.
+            s3Key: `e2e-fixtures/${crypto.randomUUID()}/source.csv`,
+            uploadedByUserId,
+            status,
+            totalRows: options.totalRows ?? 0,
+            createCount: options.createCount ?? 0,
+            updateCount: options.updateCount ?? 0,
+            moveCount: options.moveCount ?? 0,
+            unchangedCount: options.unchangedCount ?? 0,
+            reviewCount: options.reviewCount ?? 0,
+            skippedCount: options.skippedCount ?? 0,
+            previewVersion: options.previewVersion ?? defaults.previewVersion,
+            confirmedPreviewVersion:
+              options.confirmedPreviewVersion === undefined
+                ? defaults.confirmedPreviewVersion
+                : options.confirmedPreviewVersion,
+            attemptCount: options.attemptCount ?? defaults.attemptCount,
+            lastErrorCode: options.lastErrorCode ?? null,
+            lastErrorSummary: options.lastErrorSummary ?? null,
+            draftedItemIds: options.draftedItemIds ?? null,
+            ...(options.archived
+              ? { archivedAt: new Date(), archivedByUserId: uploadedByUserId }
+              : {}),
+            ...(options.createdAt ? { createdAt: options.createdAt } : {}),
+          };
+        }),
+      )
+      .returning(importColumns);
+    return rows;
+  });
+}
+
+/**
+ * `howMany` imports named `<tag> #1.csv` … `<tag> #n.csv` in one statement. With
+ * no `createdAt` every one has the *same* instant, to the microsecond — what
+ * several uploads made by one statement look like, and what a cursor that rounds
+ * to the millisecond gets wrong.
+ */
+export async function seedManyImports(
+  tag: string,
+  howMany: number,
+  options: {
+    archived?: boolean;
+    languageId?: string;
+    createdAt?: (index: number) => Date;
+  } = {},
+): Promise<string[]> {
+  const made = await seedImports(
+    Array.from({ length: howMany }, (_, index) => ({
+      filename: `${tag} #${index + 1}.csv`,
+      status: "completed" as const,
+      archived: options.archived,
+      languageId: options.languageId,
+      createdAt: options.createdAt?.(index),
+    })),
+  );
+  return made.map((record) => record.id);
+}
+
+/** A preview row for an import that needs review. */
+export type SeedImportRow = {
+  rowNumber: number;
+  displayTerm: string;
+  classification: "create" | "update" | "move" | "unchanged" | "blocked";
+  levelNumber?: number;
+  groupNumber?: number;
+  reviewReason?: string;
+  adminDisposition?: "skip" | "approve_move";
+};
+
+/** Preview rows for an import, as the preview job leaves them. They go with the import. */
+export async function seedImportRows(
+  importId: string,
+  rows: SeedImportRow[],
+): Promise<void> {
+  if (rows.length === 0) return;
+  await withE2EDb(async (db) => {
+    await db.insert(curriculumImportRows).values(
+      rows.map((row) => ({
+        importId,
+        rowNumber: row.rowNumber,
+        itemType: "vocabulary" as const,
+        displayTerm: row.displayTerm,
+        levelNumber: row.levelNumber ?? 1,
+        groupNumber: row.groupNumber ?? 1,
+        classification: row.classification,
+        reviewReason: row.reviewReason ?? null,
+        adminDisposition: row.adminDisposition ?? null,
+      })),
+    );
+  });
+}
+
+/** An import as the database holds it, read independently of the code under test; `null` once it is gone. */
+export async function getE2EImport(
+  importId: string,
+): Promise<E2EImport | null> {
+  return withE2EDb(async (db) => {
+    const [row] = await db
+      .select(importColumns)
+      .from(curriculumImports)
+      .where(eq(curriculumImports.id, importId))
+      .limit(1);
+    return row ?? null;
+  });
+}
+
+/**
+ * What the pipeline does between two reads of the history: moves an import on.
+ * Written straight to the table, as the Lambda's own writes are — never through
+ * the Admin console, which has no such command.
+ */
+export async function advanceE2EImport(
+  importId: string,
+  to: {
+    status: E2EImportStatus;
+    totalRows?: number;
+    createCount?: number;
+    updateCount?: number;
+    moveCount?: number;
+    reviewCount?: number;
+    previewVersion?: number;
+    attemptCount?: number;
+    lastErrorCode?: string | null;
+    lastErrorSummary?: string | null;
+  },
+): Promise<void> {
+  await withE2EDb(async (db) => {
+    const updated = await db
+      .update(curriculumImports)
+      .set({ ...to, updatedAt: new Date() })
+      .where(eq(curriculumImports.id, importId))
+      .returning({ id: curriculumImports.id });
+    if (updated.length !== 1) throw new Error(`No import ${importId} to move.`);
+  });
+}
+
+/** The imports of a spec run (named from `tag`), in the order the history shows them: newest first, then by id. */
+export async function getE2EImportsTagged(
+  tag: string,
+  options: { archived?: boolean; languageId?: string } = {},
+): Promise<E2EImport[]> {
+  return withE2EDb(async (db) => {
+    const { languageId: ownLanguageId } = await adminScope(db);
+    const rows = await db
+      .select(importColumns)
+      .from(curriculumImports)
+      .where(
+        and(
+          like(curriculumImports.originalFilename, `${tag}%`),
+          eq(curriculumImports.languageId, options.languageId ?? ownLanguageId),
+        ),
+      )
+      .orderBy(desc(curriculumImports.createdAt), desc(curriculumImports.id));
+    return rows.filter((row) =>
+      options.archived === undefined
+        ? true
+        : options.archived
+          ? row.archivedAt !== null
+          : row.archivedAt === null,
+    );
+  });
+}
+
+/** How many audit events of `action` name an import — one per real change, never per click or retry. */
+export async function countE2EImportAudits(
+  action: AdminAuditAction,
+  importId: string,
+): Promise<number> {
+  return withE2EDb(async (db) => {
+    const page = await getAuditEvents(db, {
+      action,
+      resourceId: importId,
+      limit: 50,
+    });
+    return page.items.length;
+  });
+}
+
+/** Every audit event that names an import, oldest first — what the trail says happened to it. */
+export async function getE2EImportAuditActions(
+  importId: string,
+): Promise<string[]> {
+  return withE2EDb(async (db) => {
+    const rows = await db
+      .select({ action: adminAuditEvents.action })
+      .from(adminAuditEvents)
+      .where(
+        and(
+          eq(adminAuditEvents.resourceType, "curriculum_import"),
+          eq(adminAuditEvents.resourceId, importId),
+        ),
+      )
+      .orderBy(asc(adminAuditEvents.createdAt), asc(adminAuditEvents.id));
+    return rows.map((row) => row.action);
+  });
+}
+
+/** Removes imports this module created (their preview rows go with them), and the audit events that name them. */
+export async function removeSeededImports(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  await withE2EDb(async (db) => {
+    await db
+      .delete(adminAuditEvents)
+      .where(
+        and(
+          eq(adminAuditEvents.resourceType, "curriculum_import"),
+          inArray(adminAuditEvents.resourceId, ids),
+        ),
+      );
+    await db
+      .delete(curriculumImports)
+      .where(inArray(curriculumImports.id, ids));
+  });
+}
+
+/** Archives or restores an import directly — what another Admin's click would do while a page still shows the old state. */
+export async function setE2EImportArchived(
+  importId: string,
+  archived: boolean,
+): Promise<void> {
+  const archivedByUserId = await getE2EAdminUserId();
+  await withE2EDb(async (db) => {
+    const updated = await db
+      .update(curriculumImports)
+      .set(
+        archived
+          ? { archivedAt: new Date(), archivedByUserId, updatedAt: new Date() }
+          : { archivedAt: null, archivedByUserId: null, updatedAt: new Date() },
+      )
+      .where(eq(curriculumImports.id, importId))
+      .returning({ id: curriculumImports.id });
+    if (updated.length !== 1)
+      throw new Error(`No import ${importId} to archive or restore.`);
+  });
+}
+
+/** Removes every import whose file name starts with `prefix` (and the audit events that name them) — what an aborted run may have left behind. */
+export async function removeImportsNamed(prefix: string): Promise<void> {
+  const left = await withE2EDb((db) =>
+    db
+      .select({ id: curriculumImports.id })
+      .from(curriculumImports)
+      .where(like(curriculumImports.originalFilename, `${prefix}%`)),
+  );
+  await removeSeededImports(left.map((row) => row.id));
+}
+
+/** What an Admin has decided about each preview row of an import, in row order — `null` where nothing has been. */
+export async function getE2EImportRowDispositions(
+  importId: string,
+): Promise<
+  { rowNumber: number; adminDisposition: "skip" | "approve_move" | null }[]
+> {
+  return withE2EDb((db) =>
+    db
+      .select({
+        rowNumber: curriculumImportRows.rowNumber,
+        adminDisposition: curriculumImportRows.adminDisposition,
+      })
+      .from(curriculumImportRows)
+      .where(eq(curriculumImportRows.importId, importId))
+      .orderBy(asc(curriculumImportRows.rowNumber)),
+  );
+}
+
+/** How many preview rows an import still has — what permanently deleting it must take with it. */
+export async function countE2EImportRows(importId: string): Promise<number> {
+  return withE2EDb(async (db) => {
+    const [row] = await db
+      .select({ rows: count() })
+      .from(curriculumImportRows)
+      .where(eq(curriculumImportRows.importId, importId));
+    return row?.rows ?? 0;
+  });
+}
+
+/* -------------------------------------------------------------------------- */
+/* Dictionary-queue fixtures (spec 26 Unit 9)                                 */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Mapping rows — with the dictionary entries and the source they name — for
+ * words made with `seedBulkItems`, inserted directly in each state the queue can
+ * show. The importer and the matcher are not what this screen is about and are
+ * never started: a fixture is the row they would have left behind.
+ *
+ * One source per call, under a code of its own, so a spec's rows never meet the
+ * source another run — or a real import — made. A word with no row at all is
+ * simply a word never passed to `seedMappings`: the queue lists it as "never
+ * matched".
+ */
+
+export type E2EMatchStatus =
+  | "unmatched"
+  | "source_data_not_imported"
+  | "auto_matched"
+  | "review_required"
+  | "manual";
+
+export type SeedMapping = {
+  /** The vocabulary item the mapping belongs to. */
+  itemId: string;
+  matchStatus: E2EMatchStatus;
+  confidence?: "high" | "medium" | "low";
+  reviewReason?: string;
+  manualLock?: boolean;
+  /** The candidate entry's headword. Omit for a mapping that names none — one that cannot be confirmed. */
+  entryLemma?: string;
+};
+
+export type SeededMappings = { sourceId: string; entryIds: string[] };
+
+export type E2EMapping = {
+  vocabularyItemId: string;
+  matchStatus: E2EMatchStatus;
+  confidence: "high" | "medium" | "low" | null;
+  reviewReason: string | null;
+  manualLock: boolean;
+  dictionaryEntryId: string | null;
+  mappedByUserId: string | null;
+};
+
+/** Inserts a source, an entry for each mapping that names one, and the mappings. Remove them with `removeSeededMappings`. */
+export async function seedMappings(
+  mappings: SeedMapping[],
+): Promise<SeededMappings> {
+  const actorUserId = await getE2EAdminUserId();
+  return withE2EDb(async (db) =>
+    db.transaction(async (tx) => {
+      const [source] = await tx
+        .insert(lexicalSources)
+        .values({
+          code: `e2e-${crypto.randomUUID().slice(0, 8)}`,
+          provider: "e2e",
+          sourceType: "dictionary",
+          sourceLanguage: "es",
+          entryLanguage: "en",
+          licenseMetadata: {},
+          attributionText: "Playwright fixture — not a real dictionary.",
+        })
+        .returning({ id: lexicalSources.id });
+
+      const entryIds: string[] = [];
+      for (const mapping of mappings) {
+        const [item] = await tx
+          .select({ languageId: learningItems.languageId })
+          .from(learningItems)
+          .where(eq(learningItems.id, mapping.itemId))
+          .limit(1);
+        if (!item) throw new Error(`No item ${mapping.itemId} to map.`);
+
+        let entryId: string | null = null;
+        if (mapping.entryLemma) {
+          const [entry] = await tx
+            .insert(dictionaryEntries)
+            .values({
+              languageId: item.languageId,
+              sourceId: source!.id,
+              lemma: mapping.entryLemma,
+              normalizedLemma: mapping.entryLemma.toLowerCase(),
+              partOfSpeech: "noun",
+              sourceEntryKey: `${mapping.entryLemma}#noun#${entryIds.length}`,
+            })
+            .returning({ id: dictionaryEntries.id });
+          entryId = entry!.id;
+          entryIds.push(entryId);
+        }
+
+        const manual = mapping.matchStatus === "manual";
+        await tx.insert(vocabularyDictionaryMappings).values({
+          vocabularyItemId: mapping.itemId,
+          dictionaryEntryId: entryId,
+          lookupForm: mapping.entryLemma ?? "e2e",
+          matchStatus: mapping.matchStatus,
+          confidence: mapping.confidence ?? null,
+          reviewReason: mapping.reviewReason ?? null,
+          manualLock: mapping.manualLock ?? false,
+          mappedByUserId: manual ? actorUserId : null,
+          mappedAt: manual ? new Date() : null,
+        });
+      }
+      return { sourceId: source!.id, entryIds };
+    }),
+  );
+}
+
+/**
+ * The mappings as the database holds them, read independently of the code under
+ * test, in the order of `itemIds`; `null` for a word that has none.
+ */
+export async function getE2EMappings(
+  itemIds: string[],
+): Promise<(E2EMapping | null)[]> {
+  if (itemIds.length === 0) return [];
+  return withE2EDb(async (db) => {
+    const rows = await db
+      .select({
+        vocabularyItemId: vocabularyDictionaryMappings.vocabularyItemId,
+        matchStatus: vocabularyDictionaryMappings.matchStatus,
+        confidence: vocabularyDictionaryMappings.confidence,
+        reviewReason: vocabularyDictionaryMappings.reviewReason,
+        manualLock: vocabularyDictionaryMappings.manualLock,
+        dictionaryEntryId: vocabularyDictionaryMappings.dictionaryEntryId,
+        mappedByUserId: vocabularyDictionaryMappings.mappedByUserId,
+      })
+      .from(vocabularyDictionaryMappings)
+      .where(inArray(vocabularyDictionaryMappings.vocabularyItemId, itemIds));
+    const byItem = new Map(rows.map((row) => [row.vocabularyItemId, row]));
+    return itemIds.map((id) => byItem.get(id) ?? null);
+  });
+}
+
+/** What another Admin's rematch would leave behind while a page still shows the old queue: the word names no candidate, so there is nothing to confirm. */
+export async function clearE2EMappingEntry(itemId: string): Promise<void> {
+  await withE2EDb(async (db) => {
+    const updated = await db
+      .update(vocabularyDictionaryMappings)
+      .set({
+        dictionaryEntryId: null,
+        matchStatus: "unmatched",
+        confidence: null,
+        reviewReason: null,
+        manualLock: false,
+        updatedAt: new Date(),
+      })
+      .where(eq(vocabularyDictionaryMappings.vocabularyItemId, itemId))
+      .returning({ id: vocabularyDictionaryMappings.id });
+    if (updated.length !== 1)
+      throw new Error(`No mapping of ${itemId} to clear.`);
+  });
+}
+
+/**
+ * Removes what `seedMappings` made — the mappings of `itemIds` first (they
+ * reference the entries), then the entries and the source — and the audit
+ * events that name those words. Call it before removing the words themselves.
+ */
+export async function removeSeededMappings(
+  seeded: SeededMappings,
+  itemIds: string[],
+): Promise<void> {
+  await withE2EDb(async (db) => {
+    if (itemIds.length > 0) {
+      await db
+        .delete(vocabularyDictionaryMappings)
+        .where(inArray(vocabularyDictionaryMappings.vocabularyItemId, itemIds));
+      await db
+        .delete(adminAuditEvents)
+        .where(
+          and(
+            eq(adminAuditEvents.resourceType, "vocabulary_dictionary_mapping"),
+            inArray(adminAuditEvents.resourceId, itemIds),
+          ),
+        );
+    }
+    if (seeded.entryIds.length > 0)
+      await db
+        .delete(dictionaryEntries)
+        .where(inArray(dictionaryEntries.id, seeded.entryIds));
+    await db
+      .delete(lexicalSources)
+      .where(eq(lexicalSources.id, seeded.sourceId));
+  });
+}
+
+/* -------------------------------------------------------------------------- */
+/* Deck fixtures (spec 26 Unit 10)                                            */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Decks inserted directly: an official Polyglot deck in either availability, and
+ * a learner's personal deck — which the Admin list must never show. Deck
+ * *content* is not what this screen is about (the specialist editor owns it), so
+ * a deck is whatever rows the editor would have left, items in the order given.
+ */
+
+export type E2EDeck = {
+  id: string;
+  languageId: string;
+  kind: "polyglot" | "personal";
+  name: string;
+  description: string | null;
+  availability: "theme" | "level";
+  gateLevelId: string | null;
+  ownerUserId: string | null;
+  itemCount: number;
+};
+
+export type SeedDeckOptions = {
+  name: string;
+  description?: string | null;
+  /** Official decks only; a personal deck is always `theme`. Default `theme`. */
+  availability?: "theme" | "level";
+  /** The level that unlocks a `level` deck. */
+  gateLevelId?: string;
+  /** Published items of the deck's language, in deck order. */
+  itemIds?: string[];
+  /** Makes it a learner's personal deck, owned by this user. Omit for an official deck. */
+  ownerUserId?: string;
+  /** Default: the E2E admin's own language. */
+  languageId?: string;
+};
+
+/** Inserts a deck and its items. Remove it with `removeSeededDecks`. */
+export async function seedDeck(options: SeedDeckOptions): Promise<E2EDeck> {
+  return withE2EDb(async (db) => {
+    const languageId = options.languageId ?? (await adminScope(db)).languageId;
+    const personal = options.ownerUserId !== undefined;
+    const availability = personal ? "theme" : (options.availability ?? "theme");
+    if (availability === "level" && !options.gateLevelId)
+      throw new Error("A level deck needs the level that unlocks it.");
+    const itemIds = options.itemIds ?? [];
+
+    return db.transaction(async (tx) => {
+      const [deck] = await tx
+        .insert(decks)
+        .values({
+          languageId,
+          kind: personal ? ("personal" as const) : ("polyglot" as const),
+          ownerUserId: options.ownerUserId ?? null,
+          name: options.name,
+          description: options.description ?? null,
+          availability,
+          gateLevelId: availability === "level" ? options.gateLevelId! : null,
+        })
+        .returning({ id: decks.id });
+      if (itemIds.length > 0) {
+        await tx.insert(deckItems).values(
+          itemIds.map((learningItemId, index) => ({
+            deckId: deck!.id,
+            languageId,
+            learningItemId,
+            position: index + 1,
+          })),
+        );
+      }
+      return {
+        id: deck!.id,
+        languageId,
+        kind: personal ? ("personal" as const) : ("polyglot" as const),
+        name: options.name,
+        description: options.description ?? null,
+        availability,
+        gateLevelId: availability === "level" ? options.gateLevelId! : null,
+        ownerUserId: options.ownerUserId ?? null,
+        itemCount: itemIds.length,
+      };
+    });
+  });
+}
+
+/**
+ * Every deck — official or personal, any language — whose name starts with
+ * `prefix`, by name, as the database holds it. How a spec finds the decks it made
+ * (or the one the UI under test just made), and reads them independently of the
+ * code under test.
+ */
+export async function getE2EDecksNamed(prefix: string): Promise<E2EDeck[]> {
+  return withE2EDb(async (db) => {
+    const found = await db
+      .select({
+        id: decks.id,
+        languageId: decks.languageId,
+        kind: decks.kind,
+        name: decks.name,
+        description: decks.description,
+        availability: decks.availability,
+        gateLevelId: decks.gateLevelId,
+        ownerUserId: decks.ownerUserId,
+      })
+      .from(decks)
+      .where(like(decks.name, `${prefix}%`))
+      .orderBy(asc(decks.name), asc(decks.id));
+    if (found.length === 0) return [];
+
+    // A second query, not a correlated subquery in the first: Drizzle leaves
+    // table names off every column of a single-table query, so `deck_id = id`
+    // inside the subquery would compare the items' own columns and count 0.
+    const counts = await db
+      .select({ deckId: deckItems.deckId, itemCount: count() })
+      .from(deckItems)
+      .where(
+        inArray(
+          deckItems.deckId,
+          found.map((deck) => deck.id),
+        ),
+      )
+      .groupBy(deckItems.deckId);
+    const countOf = new Map(counts.map((row) => [row.deckId, row.itemCount]));
+    return found.map((deck) => ({
+      ...deck,
+      itemCount: countOf.get(deck.id) ?? 0,
+    }));
+  });
+}
+
+/** Removes decks (their items go with them) and the audit events that name them. */
+export async function removeSeededDecks(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  await withE2EDb(async (db) => {
+    await db
+      .delete(adminAuditEvents)
+      .where(
+        and(
+          like(adminAuditEvents.action, "DECK_%"),
+          inArray(adminAuditEvents.resourceId, ids),
+        ),
+      );
+    await db.delete(decks).where(inArray(decks.id, ids));
   });
 }

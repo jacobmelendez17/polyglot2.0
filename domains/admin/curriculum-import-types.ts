@@ -120,6 +120,10 @@ export type CurriculumImportRowPreviewInput = {
 export type CurriculumImportsPage = {
   items: CurriculumImportRecord[];
   nextCursor: string | null;
+  /** Whether a page exists before the one on `cursor` — never true on the first page. */
+  hasPreviousPage: boolean;
+  /** The cursor of the page before this one; `null` with `hasPreviousPage` meaning "the first page". */
+  previousCursor: string | null;
 };
 export type CurriculumImportRowsPage = {
   items: CurriculumImportRowRecord[];

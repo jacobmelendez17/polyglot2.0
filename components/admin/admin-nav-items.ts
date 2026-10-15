@@ -1,38 +1,57 @@
+import type { AdminPermissions } from "@/domains/admin";
+
 export type AdminNavItem = {
   label: string;
   href: string;
 };
 
-const CURRICULUM_ONLY_NAV: AdminNavItem[] = [
-  { label: "Curriculum", href: "/admin/curriculum" },
+/**
+ * What the navigation reads of a person's effective permissions — the same
+ * object `GET /api/v1/admin/me` returns and every React Admin screen asks
+ * (`buildAdminPermissions`), so the sidebar and the screens cannot disagree
+ * about what someone may open (spec 26 Unit 11). A link is shown when its
+ * *resource* is one the server lists for them, or — for the operational tools,
+ * which are not React Admin resources — when they may use developer tools.
+ */
+export type AdminNavPermissions = Pick<
+  AdminPermissions,
+  "resources" | "canUseDeveloperTools"
+>;
+
+type NavEntry = AdminNavItem & {
+  /** The resource this link opens; shown when the server lists it. Absent for the developer tools. */
+  resource?: string;
+};
+
+/**
+ * Every link, in the order the sidebar shows them. Curriculum, Review, Levels,
+ * Groups, Imports, Dictionary and Decks, Overview and Users are React Admin
+ * screens; Logs and the Sandbox are retained specialist tools (spec 26 §4).
+ * Hiding a link is never authorization — each page and endpoint re-checks.
+ */
+const NAV: NavEntry[] = [
+  { label: "Overview", href: "/admin", resource: "overview" },
+  { label: "Curriculum", href: "/admin/curriculum", resource: "curriculum" },
   // Spec 17 — everything a writer has left waiting for Admin verification.
-  { label: "Review", href: "/admin/curriculum/review" },
-  { label: "Levels", href: "/admin/curriculum/levels" },
-  { label: "Groups", href: "/admin/curriculum/groups" },
+  { label: "Review", href: "/admin/curriculum/review", resource: "review" },
+  { label: "Levels", href: "/admin/curriculum/levels", resource: "levels" },
+  { label: "Groups", href: "/admin/curriculum/groups", resource: "groups" },
   // Spec 19 §19 — asynchronous curriculum import history. Nested under
   // /admin/curriculum like Levels/Groups above, so isAdminNavItemCurrent's
   // longest-prefix rule highlights this instead of falling back to
   // "Curriculum" on /admin/curriculum/imports and its sub-routes.
-  { label: "Imports", href: "/admin/curriculum/imports" },
-  // Spec 12 — dictionary mapping review. Curriculum-only, like the three
-  // above: it reads and mutates official curriculum mappings, so a developer
+  { label: "Imports", href: "/admin/curriculum/imports", resource: "imports" },
+  // Spec 12 — dictionary mapping review. A writer authors mappings; a developer
   // without the admin role must not see it.
-  { label: "Dictionary", href: "/admin/dictionary" },
-  // Spec 14 — official Polyglot decks reference published curriculum and are
-  // official content, so they sit with the other curriculum-only items: a
-  // developer without the admin role must not see or reach this.
-  { label: "Decks", href: "/admin/decks" },
-];
-
-/** Operational surfaces — Admin and developer, never a writer (spec 17). */
-const DEVELOPER_TOOLS_NAV: AdminNavItem[] = [
+  { label: "Dictionary", href: "/admin/dictionary", resource: "dictionary" },
+  // Spec 14 — official Polyglot decks are official content and an Admin's end
+  // to end: a writer's menu does not offer a page that would refuse them.
+  { label: "Decks", href: "/admin/decks", resource: "decks" },
+  // Operational surfaces — Admin and developer, never a writer (spec 17).
   { label: "Logs", href: "/admin/logs" },
   { label: "Sandbox", href: "/admin/sandbox" },
-];
-
-/** Spec 26 Unit 6 — the account list and role changes. Admin only, and never a writer or developer. */
-const USER_MANAGEMENT_NAV: AdminNavItem[] = [
-  { label: "Users", href: "/admin/users" },
+  // Spec 26 Unit 6 — the account list and role changes. Admin only.
+  { label: "Users", href: "/admin/users", resource: "users" },
 ];
 
 /**
@@ -42,16 +61,13 @@ const USER_MANAGEMENT_NAV: AdminNavItem[] = [
  * between the header dropdown and the mobile sheet in spec 10.
  */
 export function getAdminNavItems(
-  canManageCurriculum: boolean,
-  canUseDeveloperTools = true,
-  canManageUsers = false,
+  permissions: AdminNavPermissions,
 ): AdminNavItem[] {
-  return [
-    { label: "Overview", href: "/admin" },
-    ...(canManageCurriculum ? CURRICULUM_ONLY_NAV : []),
-    ...(canUseDeveloperTools ? DEVELOPER_TOOLS_NAV : []),
-    ...(canManageUsers ? USER_MANAGEMENT_NAV : []),
-  ];
+  return NAV.filter((entry) =>
+    entry.resource
+      ? Boolean(permissions.resources[entry.resource])
+      : permissions.canUseDeveloperTools,
+  ).map(({ label, href }) => ({ label, href }));
 }
 
 /**

@@ -716,6 +716,336 @@ export type AdminUserRoleChangeResult = z.infer<
 /** The `[userId]` path segment. */
 export const adminUserPathSchema = z.object({ userId: uuidLike });
 
+/* -------------------------------------------------------------------------- */
+/* Import history (spec 26 Unit 8)                                            */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Where an asynchronous curriculum import is in its life (spec 19 §18). Mirrors
+ * the `curriculum_import_status` enum — this module cannot import the schema (it
+ * is value-imported by the browser), so a unit test keeps the two in step.
+ */
+export const IMPORT_STATUSES = [
+  "uploading",
+  "queued_for_preview",
+  "previewing",
+  "needs_review",
+  "ready_to_import",
+  "queued_for_import",
+  "importing",
+  "completed",
+  "failed",
+] as const;
+export type AdminImportStatus = (typeof IMPORT_STATUSES)[number];
+
+/** What the history shows per page. The server caps any request at `IMPORT_LIST_MAX_PAGE_SIZE`. */
+export const IMPORT_LIST_PAGE_SIZE = 20;
+export const IMPORT_LIST_MAX_PAGE_SIZE = 100;
+
+/**
+ * The history's one ordering: newest import first (creation time, then id).
+ * Creation never changes, so archiving, confirming or retrying an import cannot
+ * move a row while someone pages. Any other sort is refused.
+ */
+export const IMPORT_LIST_SORT = { field: "created_at", order: "DESC" } as const;
+
+/** What a person types to permanently delete an import's history (spec 19 §26). Case matters. */
+export const IMPORT_DELETE_CONFIRMATION = "DELETE";
+
+/**
+ * `GET /api/v1/admin/imports` — one language's import history, one state at a
+ * time: the normal history (`archived` absent or `false`) or the archived one
+ * (`true`). Strict, like the other lists: a status filter, a sort or any other
+ * parameter is a 422, since nothing here would honour it.
+ */
+export const adminImportListQuerySchema = z
+  .object({
+    language: uuidLike,
+    archived: z.enum(["true", "false"]).optional(),
+    cursor: z.string().trim().min(1).max(512).optional(),
+    limit: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(IMPORT_LIST_MAX_PAGE_SIZE)
+      .default(IMPORT_LIST_PAGE_SIZE),
+  })
+  .strict();
+export type AdminImportListQuery = z.infer<typeof adminImportListQuerySchema>;
+
+/**
+ * One import, as the history shows it: the file's name, where it is, what it
+ * found, and when. There is deliberately no storage bucket or key, no checksum,
+ * no uploader, and no error text — those belong to the import's own page, which
+ * is for someone who may act on it. (A response object that gained a field
+ * would have it stripped here by `parse`, even if a builder forgot to leave it
+ * out.)
+ */
+export const adminImportRowSchema = z.object({
+  id: z.string().min(1),
+  originalFilename: z.string(),
+  status: z.enum(IMPORT_STATUSES),
+  totalRows: z.number().int().nonnegative(),
+  createCount: z.number().int().nonnegative(),
+  updateCount: z.number().int().nonnegative(),
+  moveCount: z.number().int().nonnegative(),
+  unchangedCount: z.number().int().nonnegative(),
+  reviewCount: z.number().int().nonnegative(),
+  skippedCount: z.number().int().nonnegative(),
+  /** How many times the import has been attempted — what a failed one says. */
+  attemptCount: z.number().int().nonnegative(),
+  createdAt: z.iso.datetime(),
+  /** `null` in the normal history; when the import was archived in the archived one. */
+  archivedAt: z.iso.datetime().nullable(),
+});
+export type AdminImportRow = z.infer<typeof adminImportRowSchema>;
+
+/** A cursor page; like the other lists, no total. Read `previousCursor` with `hasPreviousPage`. */
+export const adminImportPageSchema = z.object({
+  items: z.array(adminImportRowSchema),
+  nextCursor: z.string().nullable(),
+  hasPreviousPage: z.boolean(),
+  previousCursor: z.string().nullable(),
+});
+export type AdminImportPage = z.infer<typeof adminImportPageSchema>;
+
+/** The `[importId]` path segment of the three history commands. */
+export const adminImportPathSchema = z.object({ importId: uuidLike });
+
+/**
+ * `POST /api/v1/admin/imports/[importId]/archive` and `/restore` — Admin only.
+ * Neither carries data: which import is the path, who is asking is the session,
+ * so the body is `{}` and nothing else (`.strict()`). Both are naturally
+ * idempotent in the service (archiving an archived import, or restoring a
+ * restored one, is a no-op, not an error), so neither needs an idempotency key.
+ */
+export const adminImportArchiveRequestSchema = z.object({}).strict();
+export type AdminImportArchiveRequest = z.infer<
+  typeof adminImportArchiveRequestSchema
+>;
+export const adminImportRestoreRequestSchema = z.object({}).strict();
+export type AdminImportRestoreRequest = z.infer<
+  typeof adminImportRestoreRequestSchema
+>;
+
+/**
+ * `POST /api/v1/admin/imports/[importId]/delete` — Admin only, and only for an
+ * archived import. The one field is the confirmation the person typed; the
+ * service re-checks it here rather than trusting the dialog (spec 19 §26).
+ */
+export const adminImportDeleteRequestSchema = z
+  .object({ confirmation: z.literal(IMPORT_DELETE_CONFIRMATION) })
+  .strict();
+export type AdminImportDeleteRequest = z.infer<
+  typeof adminImportDeleteRequestSchema
+>;
+
+/** The three commands answer with the import they acted on. */
+export const adminImportCommandResultSchema = z.object({
+  importId: z.string().min(1),
+});
+export type AdminImportCommandResult = z.infer<
+  typeof adminImportCommandResultSchema
+>;
+
+/* -------------------------------------------------------------------------- */
+/* Dictionary mapping queue (spec 26 Unit 9)                                  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Where a curriculum word stands against the imported dictionary (spec 12).
+ * Mirrors `DictionaryMatchStatus` — this module cannot import the lexicon's
+ * types at runtime without the server graph, so a unit test keeps the lists in
+ * step with the labels the lexicon actually defines.
+ */
+export const MAPPING_MATCH_STATUSES = [
+  "unmatched",
+  "source_data_not_imported",
+  "auto_matched",
+  "review_required",
+  "manual",
+] as const;
+export type AdminMappingMatchStatus = (typeof MAPPING_MATCH_STATUSES)[number];
+
+export const MAPPING_REGIONAL_STATUSES = [
+  "recognized",
+  "not_listed",
+  "unknown",
+] as const;
+export type AdminMappingRegionalStatus =
+  (typeof MAPPING_REGIONAL_STATUSES)[number];
+
+export const MAPPING_CONFIDENCES = ["high", "medium", "low"] as const;
+
+/** Mirrors `MAPPING_REVIEW_REASONS`. */
+export const MAPPING_REVIEW_REASON_CODES = [
+  "multiple_candidates",
+  "part_of_speech_conflict",
+  "phrase_ambiguity",
+  "selected_sense_missing",
+  "entry_missing_from_source",
+  "regional_mismatch",
+] as const;
+
+/**
+ * The parts of speech the queue can be filtered by: the set the curriculum
+ * editors actually offer, not a `SELECT DISTINCT` over every item (curriculum
+ * stores this as free text, so that list would grow with every typo).
+ */
+export const MAPPING_PARTS_OF_SPEECH = [
+  "noun",
+  "verb",
+  "adjective",
+  "adverb",
+  "pronoun",
+  "preposition",
+  "conjunction",
+  "phrase",
+] as const;
+
+/** What the queue shows per page. The server caps any request at `DICTIONARY_LIST_MAX_PAGE_SIZE` (the lexicon service's own bound). */
+export const DICTIONARY_LIST_PAGE_SIZE = 25;
+export const DICTIONARY_LIST_MAX_PAGE_SIZE = 100;
+
+/** The queue's one ordering — level, then the group's place in the lesson order, then the word — which is the repository's. Any other sort is refused. */
+export const DICTIONARY_LIST_SORT = {
+  field: "level_group_term",
+  order: "ASC",
+} as const;
+
+/**
+ * `GET /api/v1/admin/dictionary` query string — the filters the page always
+ * had (`language, level, group, status, pos, region, regional`) and where in
+ * the queue to start. Strict, like every list: a parameter nothing here honours
+ * is a 422, never ignored. This queue pages by `offset` and reports a real
+ * `total` (the repository counts, as it always did), unlike the keyset lists.
+ */
+export const adminDictionaryListQuerySchema = z
+  .object({
+    language: uuidLike,
+    level: uuidLike.optional(),
+    group: uuidLike.optional(),
+    status: z.enum(MAPPING_MATCH_STATUSES).optional(),
+    pos: z.enum(MAPPING_PARTS_OF_SPEECH).optional(),
+    region: z.string().trim().min(2).max(16).optional(),
+    regional: z.enum(MAPPING_REGIONAL_STATUSES).optional(),
+    offset: z.coerce.number().int().min(0).default(0),
+    limit: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(DICTIONARY_LIST_MAX_PAGE_SIZE)
+      .default(DICTIONARY_LIST_PAGE_SIZE),
+  })
+  .strict();
+export type AdminDictionaryListQuery = z.infer<
+  typeof adminDictionaryListQuerySchema
+>;
+
+/**
+ * One curriculum word and where its mapping stands. There is deliberately no
+ * dictionary entry id, no source text and no raw import data — the queue finds
+ * work; the item's own page holds the mapping panel, which owns every decision
+ * about *which* entry, sense or pronunciation is right.
+ */
+export const adminDictionaryRowSchema = z.object({
+  /** The vocabulary item (its learning-item id). */
+  id: z.string().min(1),
+  displayWord: z.string(),
+  translation: z.string(),
+  levelNumber: z.number().int(),
+  groupName: z.string(),
+  lookupForm: z.string().nullable(),
+  /** `null`: nothing has looked at the word yet (it has no mapping row). */
+  matchStatus: z.enum(MAPPING_MATCH_STATUSES).nullable(),
+  confidence: z.enum(MAPPING_CONFIDENCES).nullable(),
+  reviewReason: z.enum(MAPPING_REVIEW_REASON_CODES).nullable(),
+  /** The mapping is locked against automatic replacement (an Admin or writer chose it). */
+  manualLock: z.boolean(),
+  entryLemma: z.string().nullable(),
+  entryPartOfSpeech: z.string().nullable(),
+  /** Whether a batch confirmation may include it: it has a candidate, and is not confirmed already. */
+  confirmable: z.boolean(),
+  regionalStatus: z.enum(MAPPING_REGIONAL_STATUSES).nullable(),
+});
+export type AdminDictionaryRow = z.infer<typeof adminDictionaryRowSchema>;
+
+export const adminDictionaryCountsSchema = z.object({
+  unmatched: z.number().int().nonnegative(),
+  source_data_not_imported: z.number().int().nonnegative(),
+  auto_matched: z.number().int().nonnegative(),
+  review_required: z.number().int().nonnegative(),
+  manual: z.number().int().nonnegative(),
+  /** Words nothing has ever looked at. */
+  no_mapping: z.number().int().nonnegative(),
+});
+export type AdminDictionaryCounts = z.infer<typeof adminDictionaryCountsSchema>;
+
+export const adminDictionaryPageSchema = z.object({
+  items: z.array(adminDictionaryRowSchema),
+  /** How many words match the filters — the whole queue, not this page. */
+  total: z.number().int().nonnegative(),
+  /** Every status's size for the language, whatever the filters (the header's numbers). */
+  counts: adminDictionaryCountsSchema,
+  /** The region the regional column and filter refer to; `null` when the language has none. */
+  regionCode: z.string().nullable(),
+  /** The regions the language's dictionary can speak to, for the filter. */
+  regionCodes: z.array(z.string()),
+});
+export type AdminDictionaryPage = z.infer<typeof adminDictionaryPageSchema>;
+
+/* -------------------------------------------------------------------------- */
+/* Official decks (spec 26 Unit 10)                                           */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * A language has a handful of official decks, so the list is one bounded
+ * response, not a paged one — the same shape as the levels list, with the same
+ * honesty: if a language ever exceeded the bound the response says so
+ * (`truncated`) instead of quietly dropping decks.
+ */
+export const DECK_LIST_MAX = 100;
+
+/** The one ordering of the decks list: by name (the repository's, then id). Any other sort is refused. */
+export const DECK_LIST_SORT = { field: "name", order: "ASC" } as const;
+
+export const DECK_AVAILABILITIES = ["theme", "level"] as const;
+export type AdminDeckAvailability = (typeof DECK_AVAILABILITIES)[number];
+
+/**
+ * `GET /api/v1/admin/decks` query string. `language` is required (decks are
+ * read one language at a time) and the schema is `.strict()`. There is no
+ * `kind` parameter and never will be: **only official Polyglot decks are
+ * listed**; a learner's personal deck is private and has no administrative
+ * surface at all.
+ */
+export const adminDeckListQuerySchema = z
+  .object({ language: uuidLike })
+  .strict();
+export type AdminDeckListQuery = z.infer<typeof adminDeckListQuerySchema>;
+
+/**
+ * One official deck, as the list shows it. No owner, no item ids — the deck's
+ * own page holds its membership and order.
+ */
+export const adminDeckRowSchema = z.object({
+  id: z.string().min(1),
+  name: z.string(),
+  description: z.string().nullable(),
+  itemCount: z.number().int().nonnegative(),
+  /** `theme`: it reveals as the learner learns its items; `level`: hidden until the gate level. */
+  availability: z.enum(DECK_AVAILABILITIES),
+  gateLevelNumber: z.number().int().nullable(),
+});
+export type AdminDeckRow = z.infer<typeof adminDeckRowSchema>;
+
+export const adminDeckListSchema = z.object({
+  items: z.array(adminDeckRowSchema),
+  /** More decks exist than `DECK_LIST_MAX`; `items` is the first of them, by name. */
+  truncated: z.boolean(),
+});
+export type AdminDeckList = z.infer<typeof adminDeckListSchema>;
+
 /**
  * Error codes this adapter can answer with, and the HTTP status each maps
  * to (spec 26 §3 "API errors"). Domain errors (`AppError`/`AdminError`)

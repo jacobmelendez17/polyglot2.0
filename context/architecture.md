@@ -658,6 +658,101 @@ data-integrity rule stays in `domains/*`.
     Server Actions stay open to a writer (they were never publication). The model
     does not require a vocabulary item's level to equal its group's level (a bulk
     move to a group says when they differ and does not forbid it).
+- **The curriculum-import history is a read model plus three explicit commands;
+  the import pipeline is untouched** (spec 26 Unit 8).
+  `GET /api/v1/admin/imports?language=&archived=&cursor=&limit=` reads one
+  language's history — the normal one, or with `archived=true` the archived one —
+  through the existing `listActiveCurriculumImports` /
+  `listArchivedCurriculumImportsForHistory`, newest import first. It is open to
+  **Admin and writer** (`canManageCurriculum`), as the history pages always were.
+  A row is a sanitized view — file name, status, counts, attempt count, two
+  dates — with no storage bucket or key, checksum, uploader or error text; those
+  belong to the import's own page. `POST /api/v1/admin/imports/[importId]/archive`,
+  `/restore` and `/delete` are **Admin only** (`canPublishCurriculum`) and call
+  the existing services unchanged: the import is the path, the actor is the
+  session, the body is `{}` (delete: `{ confirmation: "DELETE" }`, exactly, and
+  re-checked at the endpoint). A repeat is a no-op, not an error. Only an
+  archived import can be deleted; that removes the record and its stored rows
+  (never the curriculum the import made), leaves an audit tombstone, and then,
+  best effort, deletes the source file.
+  - **Everything that works on one import stays a Server Action**
+    (`async-import-actions.ts`: watch it, review and correct its rows, confirm,
+    retry, publish what it drafted). Each re-checks `canPublishCurriculum` on every
+    call — there is no HTTP route for them, so that check is the only control —
+    and **confirming and publishing are separate commands**: an import commits what
+    it creates as Pending and what it changes in a published item as a draft, and
+    nothing goes live until an Admin presses "Publish All Eligible Imported
+    Changes".
+  - **The history is paged by exact cursors, in both directions.** The order is
+    `(created_at, id)` descending — creation never changes, so archiving or
+    retrying cannot move a row between pages. The cursor carries the instant as
+    microsecond text (a `Date` would round it and skip the rows that share its
+    millisecond — several imports made by one statement share one instant) and is
+    compared as a row value in SQL; `previousCursor` is worked out from the cursor
+    alone, so Previous works after a refresh or from a pasted link. A malformed
+    cursor is a 422 in plain words.
+  - **Commands are serialized per import, in a transaction.** Each begins by
+    locking the import's row so two requests take turns, but a row lock lasts only
+    as long as the caller's transaction: `admin-mutation-service.ts` therefore runs
+    archive, restore and delete inside `db.transaction` (run on the pool, the lock
+    was released at once and two simultaneous requests wrote the audit event
+    twice). The source file's deletion happens after the commit and cannot fail the
+    command. **Known limit, found-not-fixed:** confirm, retry, resolve, revise and
+    publish still run on the pool, and confirm and retry enqueue after the state
+    change, so two simultaneous confirms (two tabs, two Admins) could both enqueue.
+  - **A history that is still moving reads itself again.** While any listed
+    import is in a status the pipeline is working on (uploading, queued,
+    previewing, importing) the list is read every 5 s, and it stops as soon as none
+    is; the import's own page polls every 3 s on the same rule (it stops at needs
+    review, ready, completed or failed).
+- **The dictionary mapping queue is a read model with one batch command; the
+  lexicon, the matcher and the mapping panel are untouched** (spec 26 Unit 9).
+  `GET /api/v1/admin/dictionary?language=&level=&group=&status=&pos=&region=&regional=&offset=&limit=`
+  reads the existing `getMappingQueue` and `getMappingStatusCounts` through a
+  strict query. It is open to **Admin and writer** (`canManageCurriculum`), as
+  the queue always was. A `level` or `group` of another language, or a `region`
+  the language's dictionary does not cover, is a 422 and never silently ignored;
+  an unknown language is a 404. A row says where one word's mapping stands
+  (status, confidence, review reason, lock, the candidate's lemma and part of
+  speech, regional evidence) and whether it is `confirmable` — it has a
+  candidate and is not confirmed already — decided on the server; it carries no
+  entry id, source text or raw import data.
+  - **This list pages by offset because the repository counts.** Unlike the
+    keyset lists it reports a real `total` and shows "1–25 of 130" with Previous
+    and Next (whole pages of 25, at most 100); `useOffsetList` keeps every filter
+    and the offset in the page's real URL, rounds an offset to the page that
+    holds it, starts again at the first page whenever a filter changes, and
+    clears the selection whenever the URL does.
+  - **The one command is the existing batch confirmation**
+    (`bulkConfirmVocabularyMappingsAction`, unchanged, re-checking
+    `canManageCurriculum` itself). It is all-or-nothing in one transaction: a
+    word that lost its candidate behind the page refuses the whole batch and
+    nothing is confirmed. It writes one audit event per word, locks each match
+    against automatic replacement, and applies its approved fields to the item as
+    a **draft** — it never publishes. Which entry, sense or pronunciation is
+    right is decided on the word's own page; there is no bulk "choose for me".
+- **The official-decks list is a read model for Admins only** (spec 26 Unit
+  10). `GET /api/v1/admin/decks?language=` reads the existing
+  `listPolyglotDecks`, which lists decks of kind `polyglot` and nothing else.
+  The page and the endpoint are `canPublishCurriculum`, from the database role on
+  every request — for a writer the `decks` resource is _absent_ from the
+  effective permissions, not an empty list. There is no `kind` or `owner`
+  parameter (the query is strict, so asking is a 422) and the response carries
+  no owner: a learner's personal deck has no administrative surface at all. One
+  bounded response (`DECK_LIST_MAX`) that says so when it cut anything off. Adding
+  a deck, and a deck's membership, order and deletion, stay the specialist dialog
+  and editor and their Server Actions.
+- **The shell's navigation is the effective permissions, rendered** (spec 26 Unit
+  11). `app/(admin)/admin/layout.tsx` hands `buildAdminPermissions(user)` — the
+  same object `GET /api/v1/admin/me` serves every React Admin screen — to the
+  sidebar and the phone menu, and a link is offered when its resource is in
+  `resources` (or, for Logs and the Sandbox, when `canUseDeveloperTools`). A
+  writer is therefore never offered Decks or Users, and a resource added to the
+  permissions without a link (or the reverse) has to be decided on purpose — a
+  unit test pins the count. Hiding a link is still not authorization: every page
+  and endpoint re-checks. **Every `/admin` route is either a React Admin screen
+  over a typed `/api/v1/admin` endpoint or a retained specialist page**; the
+  cutover matrix in `progress-tracker.md` lists each one and why.
 
 ## `media`
 

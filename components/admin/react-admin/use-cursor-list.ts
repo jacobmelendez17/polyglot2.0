@@ -21,7 +21,7 @@ export type CursorListCodec<F> = {
   applyChange(previous: F, requested: Record<string, unknown>): F;
 };
 
-export type CursorListConfig<F> = {
+export type CursorListConfig<F, Row = unknown> = {
   resource: string;
   title: string;
   sort: { readonly field: string; readonly order: "ASC" | "DESC" };
@@ -41,6 +41,14 @@ export type CursorListConfig<F> = {
    * empty; the screen decides what to show instead. Default: always.
    */
   canFetch?: (filters: F) => boolean;
+  /**
+   * How soon to read the list again by itself, given the rows on screen (spec 26
+   * Unit 8: a history whose rows change status in the background). `false`, the
+   * default, never. It never fires while the tab is hidden, and it stops after a
+   * failed read — a person's retry, or coming back to the tab, starts it again —
+   * so an outage cannot become a request, and a warning, every few seconds.
+   */
+  refetchInterval?: (rows: readonly Row[] | undefined) => number | false;
 };
 
 type CursorMeta = {
@@ -84,7 +92,8 @@ export function useCursorList<F extends object, Row extends RaRecord>({
   codec,
   isRefinement,
   canFetch,
-}: CursorListConfig<F>) {
+  refetchInterval,
+}: CursorListConfig<F, Row>) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -107,6 +116,12 @@ export function useCursorList<F extends object, Row extends RaRecord>({
       // flashing a skeleton between every page.
       placeholderData: keepPreviousData,
       enabled: canFetch ? canFetch(state.filters) : true,
+      refetchInterval: refetchInterval
+        ? (query) =>
+            query.state.status === "error"
+              ? false
+              : refetchInterval(query.state.data?.data)
+        : false,
     },
   );
 

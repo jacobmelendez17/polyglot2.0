@@ -56,12 +56,15 @@ export function MappingStatusBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium",
+        // On a phone the badge may wrap — the label over "· High", never the
+        // label itself — rather than push its column out of sight; from `sm`
+        // up it stays on one line.
+        "inline-flex flex-wrap items-center gap-x-1 rounded-md px-2 py-0.5 text-xs font-medium sm:flex-nowrap sm:whitespace-nowrap",
         className,
       )}
     >
       <Icon className="h-3 w-3 shrink-0" aria-hidden="true" />
-      {MATCH_STATUS_LABELS[resolved]}
+      <span className="whitespace-nowrap">{MATCH_STATUS_LABELS[resolved]}</span>
       {confidence ? (
         <span className="font-normal opacity-80">
           · {MATCH_CONFIDENCE_LABELS[confidence]}

@@ -1085,6 +1085,447 @@ describe("createAdminDataProvider", () => {
     });
   });
 
+  describe("getList('imports')", () => {
+    const IMPORT_PAGE = {
+      items: [
+        {
+          id: "60000000-0000-4000-8000-000000000001",
+          originalFilename: "spanish-level-2.csv",
+          status: "needs_review" as const,
+          totalRows: 61,
+          createCount: 43,
+          updateCount: 8,
+          moveCount: 2,
+          unchangedCount: 6,
+          reviewCount: 2,
+          skippedCount: 0,
+          attemptCount: 1,
+          createdAt: "2026-09-10T11:59:00.123Z",
+          archivedAt: null,
+        },
+      ],
+      nextCursor: "next",
+      hasPreviousPage: true,
+      previousCursor: "prev",
+    };
+    const LIST_PARAMS = {
+      pagination: { page: 1, perPage: 20 },
+      sort: { field: "created_at", order: "DESC" as const },
+      filter: { language: "lang-1", cursor: "here" },
+    };
+
+    function importsProvider() {
+      const request = vi.fn<RequestFn>(async () => IMPORT_PAGE as never);
+      return {
+        request,
+        provider: createAdminDataProvider({ request: request as never }),
+      };
+    }
+
+    it("asks the imports endpoint for the normal history, with the language, the cursor and the size", async () => {
+      const { provider, request } = importsProvider();
+      await provider.getList("imports", LIST_PARAMS);
+      expect(request.mock.calls[0]?.[0]).toBe(
+        "/imports?language=lang-1&cursor=here&limit=20",
+      );
+    });
+
+    it("asks for the archived history only when the filter says so", async () => {
+      const { provider, request } = importsProvider();
+      await provider.getList("imports", {
+        ...LIST_PARAMS,
+        filter: { language: "lang-1", archived: "true" },
+      });
+      expect(request.mock.calls[0]?.[0]).toBe(
+        "/imports?language=lang-1&archived=true&limit=20",
+      );
+    });
+
+    it("validates the page against the contract", async () => {
+      const { provider, request } = importsProvider();
+      await provider.getList("imports", LIST_PARAMS);
+      const schema = request.mock.calls[0]?.[1] as {
+        safeParse: (v: unknown) => { success: boolean };
+      };
+      expect(schema.safeParse(IMPORT_PAGE).success).toBe(true);
+      expect(
+        schema.safeParse({
+          ...IMPORT_PAGE,
+          items: [{ ...IMPORT_PAGE.items[0], status: "teleporting" }],
+        }).success,
+      ).toBe(false);
+    });
+
+    it("maps the page onto partial pagination, with the server's cursors and no total", async () => {
+      const { provider } = importsProvider();
+      const result = await provider.getList("imports", LIST_PARAMS);
+      expect(result.data).toEqual(IMPORT_PAGE.items);
+      expect(result.pageInfo).toEqual({
+        hasNextPage: true,
+        hasPreviousPage: true,
+      });
+      expect(result.meta).toEqual({
+        nextCursor: "next",
+        previousCursor: "prev",
+      });
+      expect(result).not.toHaveProperty("total");
+    });
+
+    it.each([
+      ["another sort", { sort: { field: "status", order: "ASC" as const } }],
+      ["a page jump", { pagination: { page: 2, perPage: 20 } }],
+      ["a status filter", { filter: { language: "lang-1", status: "failed" } }],
+      ["a search", { filter: { language: "lang-1", search: "level" } }],
+    ])("refuses %s without calling the server", async (_name, override) => {
+      const { provider, request } = importsProvider();
+      const error = await rejection(
+        provider.getList("imports", { ...LIST_PARAMS, ...override }),
+      );
+      expect(error.kind).toBe("unsupported");
+      expect(request).not.toHaveBeenCalled();
+    });
+
+    it("propagates a denial instead of returning an empty history", async () => {
+      const denial = new AdminApiError("FORBIDDEN", 403);
+      const provider = createAdminDataProvider({
+        request: (async () => {
+          throw denial;
+        }) as never,
+      });
+      await expect(provider.getList("imports", LIST_PARAMS)).rejects.toBe(
+        denial,
+      );
+    });
+  });
+
+  describe("the import history commands (explicit commands)", () => {
+    const IMPORT_ID = "60000000-0000-4000-8000-000000000001";
+    const RESULT = { importId: IMPORT_ID };
+
+    type Provider = ReturnType<typeof createAdminDataProvider>;
+    const COMMANDS = [
+      {
+        name: "archiveImport",
+        path: `/imports/${IMPORT_ID}/archive`,
+        send: (p: Provider) => p.archiveImport(IMPORT_ID),
+        body: {},
+      },
+      {
+        name: "restoreImport",
+        path: `/imports/${IMPORT_ID}/restore`,
+        send: (p: Provider) => p.restoreImport(IMPORT_ID),
+        body: {},
+      },
+      {
+        name: "deleteImport",
+        path: `/imports/${IMPORT_ID}/delete`,
+        send: (p: Provider) =>
+          p.deleteImport(IMPORT_ID, { confirmation: "DELETE" }),
+        body: { confirmation: "DELETE" },
+      },
+    ];
+
+    function commandProvider(answer: unknown = RESULT) {
+      const request = vi.fn<RequestFn>(async () => answer as never);
+      return {
+        request,
+        provider: createAdminDataProvider({ request: request as never }),
+      };
+    }
+
+    describe.each(COMMANDS)("$name", (command) => {
+      it("posts exactly the command — the import in the path, nothing else in the body — to its own endpoint", async () => {
+        const { provider, request } = commandProvider();
+
+        await expect(command.send(provider)).resolves.toEqual(RESULT);
+
+        const [path, , options] = request.mock.calls[0] as [
+          string,
+          unknown,
+          { body: unknown; method?: string },
+        ];
+        expect(path).toBe(command.path);
+        expect(options.method ?? "POST").toBe("POST");
+        expect(options.body).toEqual(command.body);
+        for (const key of ["actorUserId", "importId", "userId", "role"]) {
+          expect(options.body).not.toHaveProperty(key);
+        }
+      });
+
+      it("validates the answer against the contract", async () => {
+        const { provider, request } = commandProvider();
+        await command.send(provider);
+        const schema = request.mock.calls[0]?.[1] as {
+          safeParse: (v: unknown) => { success: boolean };
+        };
+        expect(schema.safeParse(RESULT).success).toBe(true);
+        expect(schema.safeParse({}).success).toBe(false);
+        expect(schema.safeParse({ importId: 7 }).success).toBe(false);
+      });
+
+      it("propagates a refusal unchanged, for the screen to explain", async () => {
+        const refusal = new AdminApiError("NOT_FOUND", 404, undefined, {
+          serverMessage: "This import no longer exists.",
+        });
+        const provider = createAdminDataProvider({
+          request: (async () => {
+            throw refusal;
+          }) as never,
+        });
+        await expect(command.send(provider)).rejects.toBe(refusal);
+      });
+    });
+
+    it("encodes the id so it can only ever be one path segment", async () => {
+      const { provider, request } = commandProvider();
+      await provider.archiveImport("a/b?c");
+      expect(request.mock.calls[0]?.[0]).toBe("/imports/a%2Fb%3Fc/archive");
+    });
+
+    it("is not reachable through React Admin's generic mutations", async () => {
+      const { provider, request } = commandProvider({});
+      for (const attempt of [
+        provider.update("imports", { id: "x", data: {}, previousData: {} }),
+        provider.create("imports", { data: {} }),
+        provider.delete("imports", { id: "x" }),
+        provider.updateMany("imports", { ids: ["x"], data: {} }),
+        provider.deleteMany("imports", { ids: ["x"] }),
+        provider.getOne("imports", { id: "x" }),
+      ]) {
+        expect((await rejection(attempt)).kind).toBe("unsupported");
+      }
+      expect(request).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("getList('dictionary') (spec 26 Unit 9)", () => {
+    const WORD = {
+      id: "item-1",
+      displayWord: "el gato",
+      translation: "cat",
+      levelNumber: 1,
+      groupName: "Animals",
+      lookupForm: "gato",
+      matchStatus: "auto_matched" as const,
+      confidence: "high" as const,
+      reviewReason: null,
+      manualLock: false,
+      entryLemma: "gato",
+      entryPartOfSpeech: "noun",
+      confirmable: true,
+      regionalStatus: "recognized" as const,
+    };
+    const QUEUE = {
+      items: [WORD],
+      total: 130,
+      counts: {
+        unmatched: 3,
+        source_data_not_imported: 1,
+        auto_matched: 20,
+        review_required: 4,
+        manual: 9,
+        no_mapping: 2,
+      },
+      regionCode: "es-MX",
+      regionCodes: ["es-MX", "es"],
+    };
+    const LIST_PARAMS = {
+      pagination: { page: 1, perPage: 25 },
+      sort: { field: "level_group_term", order: "ASC" as const },
+      filter: { language: "lang-1" },
+    };
+
+    function dictionaryProvider(answer: unknown = QUEUE) {
+      const request = vi.fn<RequestFn>(async () => answer as never);
+      return {
+        request,
+        provider: createAdminDataProvider({ request: request as never }),
+      };
+    }
+
+    it("asks the dictionary endpoint for the first page of the language, at the page size", async () => {
+      const { provider, request } = dictionaryProvider();
+      await provider.getList("dictionary", LIST_PARAMS);
+      expect(request.mock.calls[0]?.[0]).toBe(
+        "/dictionary?language=lang-1&limit=25",
+      );
+    });
+
+    it("turns React Admin's page into the offset the queue pages by", async () => {
+      const { provider, request } = dictionaryProvider();
+      await provider.getList("dictionary", {
+        ...LIST_PARAMS,
+        pagination: { page: 3, perPage: 25 },
+      });
+      expect(request.mock.calls[0]?.[0]).toBe(
+        "/dictionary?language=lang-1&limit=25&offset=50",
+      );
+    });
+
+    it("sends every filter it has, in the page's order", async () => {
+      const { provider, request } = dictionaryProvider();
+      await provider.getList("dictionary", {
+        ...LIST_PARAMS,
+        filter: {
+          regional: "not_listed",
+          region: "es-MX",
+          pos: "verb",
+          status: "review_required",
+          group: "grp",
+          level: "lvl",
+          language: "lang-1",
+        },
+      });
+      expect(request.mock.calls[0]?.[0]).toBe(
+        "/dictionary?language=lang-1&level=lvl&group=grp&status=review_required&pos=verb&region=es-MX&regional=not_listed&limit=25",
+      );
+    });
+
+    it("drops a filter that is empty — an unset filter is simply absent", async () => {
+      const { provider, request } = dictionaryProvider();
+      await provider.getList("dictionary", {
+        ...LIST_PARAMS,
+        filter: { language: "lang-1", level: "", status: undefined },
+      });
+      expect(request.mock.calls[0]?.[0]).toBe(
+        "/dictionary?language=lang-1&limit=25",
+      );
+    });
+
+    it("answers the page with its real total, and carries the counts and the region in meta", async () => {
+      const { provider } = dictionaryProvider();
+      const result = await provider.getList("dictionary", LIST_PARAMS);
+      expect(result.data).toEqual([WORD]);
+      expect(result.total).toBe(130);
+      expect(result).not.toHaveProperty("pageInfo");
+      expect(result.meta).toEqual({
+        counts: QUEUE.counts,
+        regionCode: "es-MX",
+        regionCodes: ["es-MX", "es"],
+      });
+    });
+
+    it.each([
+      ["another sort", { sort: { field: "term", order: "ASC" as const } }],
+      [
+        "a descending sort",
+        { sort: { field: "level_group_term", order: "DESC" as const } },
+      ],
+      [
+        "a filter it does not have",
+        { filter: { language: "lang-1", search: "gato" } },
+      ],
+      ["no language", { filter: {} }],
+      ["a page before the first", { pagination: { page: 0, perPage: 25 } }],
+    ])("refuses %s without calling the server", async (_name, override) => {
+      const { provider, request } = dictionaryProvider();
+      const error = await rejection(
+        provider.getList("dictionary", { ...LIST_PARAMS, ...override }),
+      );
+      expect(error.kind).toBe("unsupported");
+      expect(request).not.toHaveBeenCalled();
+    });
+
+    it("propagates a denial instead of returning an empty queue", async () => {
+      const denial = new AdminApiError("FORBIDDEN", 403);
+      const provider = createAdminDataProvider({
+        request: (async () => {
+          throw denial;
+        }) as never,
+      });
+      await expect(provider.getList("dictionary", LIST_PARAMS)).rejects.toBe(
+        denial,
+      );
+    });
+  });
+
+  describe("getList('decks') (spec 26 Unit 10)", () => {
+    const DECKS = {
+      items: [
+        {
+          id: "deck-1",
+          name: "Colors",
+          description: "Colors and shapes",
+          itemCount: 8,
+          availability: "theme" as const,
+          gateLevelNumber: null,
+        },
+      ],
+      truncated: false,
+    };
+    const LIST_PARAMS = {
+      pagination: { page: 1, perPage: 100 },
+      sort: { field: "name", order: "ASC" as const },
+      filter: { language: "lang-1", cursor: undefined },
+    };
+
+    function decksProvider(answer: unknown = DECKS) {
+      const request = vi.fn<RequestFn>(async () => answer as never);
+      return {
+        request,
+        provider: createAdminDataProvider({ request: request as never }),
+      };
+    }
+
+    it("asks the decks endpoint for the language, and for nothing else", async () => {
+      const { provider, request } = decksProvider();
+      await provider.getList("decks", LIST_PARAMS);
+      expect(request.mock.calls[0]?.[0]).toBe("/decks?language=lang-1");
+    });
+
+    it("answers the one bounded response as a list whose length is its total, and says if it was cut", async () => {
+      const { provider } = decksProvider();
+      const result = await provider.getList("decks", LIST_PARAMS);
+      expect(result.data).toEqual(DECKS.items);
+      expect(result.total).toBe(1);
+      expect(result.meta).toEqual({ truncated: false });
+
+      const cut = await decksProvider({
+        ...DECKS,
+        truncated: true,
+      }).provider.getList("decks", LIST_PARAMS);
+      expect(cut.meta).toEqual({ truncated: true });
+    });
+
+    it.each([
+      ["another sort", { sort: { field: "itemCount", order: "ASC" as const } }],
+      ["a page jump", { pagination: { page: 2, perPage: 100 } }],
+      ["a cursor", { filter: { language: "lang-1", cursor: "tok" } }],
+      // There is no way to ask for another kind of deck.
+      ["a kind of deck", { filter: { language: "lang-1", kind: "personal" } }],
+      ["an owner", { filter: { language: "lang-1", owner: "someone" } }],
+    ])("refuses %s without calling the server", async (_name, override) => {
+      const { provider, request } = decksProvider();
+      const error = await rejection(
+        provider.getList("decks", { ...LIST_PARAMS, ...override }),
+      );
+      expect(error.kind).toBe("unsupported");
+      expect(request).not.toHaveBeenCalled();
+    });
+
+    it("propagates a denial instead of returning an empty list", async () => {
+      const denial = new AdminApiError("FORBIDDEN", 403);
+      const provider = createAdminDataProvider({
+        request: (async () => {
+          throw denial;
+        }) as never,
+      });
+      await expect(provider.getList("decks", LIST_PARAMS)).rejects.toBe(denial);
+    });
+
+    it("has no write at all: React Admin's create, update and delete are refused", async () => {
+      const { provider, request } = decksProvider();
+      for (const call of [
+        () => provider.create("decks", { data: {} }),
+        () => provider.update("decks", { id: "d", data: {}, previousData: {} }),
+        () => provider.delete("decks", { id: "d" }),
+      ]) {
+        expect((await rejection(call())).kind).toBe("unsupported");
+      }
+      expect(request).not.toHaveBeenCalled();
+    });
+  });
+
   describe("everything not whitelisted", () => {
     it("rejects an unknown resource with a typed UNSUPPORTED_OPERATION, never a guess", async () => {
       const { provider, request } = providerWith();
