@@ -31,9 +31,7 @@ type LearningQueuePickerProps = {
  * Save is clicked (2026-09-28 user request: every Settings card requires
  * an explicit Save).
  */
-export function LearningQueuePicker({
-  initialMode,
-}: LearningQueuePickerProps) {
+export function LearningQueuePicker({ initialMode }: LearningQueuePickerProps) {
   const [savedMode, setSavedMode] = useState<CurriculumMode>(initialMode);
   const [mode, setMode] = useState<CurriculumMode>(initialMode);
   const [state, setState] = useState<SettingSaveState>("idle");

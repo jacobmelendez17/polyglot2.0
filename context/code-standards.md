@@ -703,7 +703,7 @@ The pipeline is defined in `architecture.md`. This section covers what the repos
 `package.json` must expose stable script names, because CI depends on them:
 
 ```text
-typecheck     tsc --noEmit
+typecheck     next typegen && tsc --noEmit   (typegen writes the git-ignored route and image types a fresh checkout lacks)
 lint          eslint
 format:check  prettier --check
 test          vitest run
@@ -723,6 +723,8 @@ Renaming a script is a breaking change to CI. Update the workflow in the same co
 Anything CI will reject should be catchable locally. Typecheck, lint, and unit tests must all be runnable without network access or cloud credentials.
 
 Do not open a pull request without running typecheck, lint, and tests locally first. Discovering a type error from a CI run wastes several minutes for something that takes seconds locally.
+
+A unit test must pass on a bare checkout — no `.env.local`, no secrets, no database. `vitest.config.mts` supplies inert placeholders for what `lib/env.ts` requires; a real value from the shell or a `.env` file always wins. When a variable becomes required in `lib/env.ts`, add a placeholder there and add it to every `ci.yml` job that imports the module (integration and build), in the same commit.
 
 ---
 

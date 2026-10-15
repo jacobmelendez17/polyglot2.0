@@ -1,7 +1,4 @@
-import {
-  isStageAtLeast,
-  LEVEL_UNLOCK_MINIMUM_STAGE,
-} from "@/domains/srs";
+import { isStageAtLeast, LEVEL_UNLOCK_MINIMUM_STAGE } from "@/domains/srs";
 import type { SrsStage } from "@/domains/srs";
 
 import type {
@@ -223,7 +220,10 @@ export function buildLevelViewModel(
     master: 0,
     fluent: 0,
   };
-  for (const card of [...grammar, ...lessons.flatMap((lesson) => lesson.items)]) {
+  for (const card of [
+    ...grammar,
+    ...lessons.flatMap((lesson) => lesson.items),
+  ]) {
     if (card.displayState === "locked") stageDistribution.locked += 1;
     else if (card.displayState === "inLesson") stageDistribution.inLesson += 1;
     else if (card.srsStage) stageDistribution[STAGE_GROUP[card.srsStage]] += 1;

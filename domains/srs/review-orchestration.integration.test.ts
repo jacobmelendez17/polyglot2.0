@@ -222,6 +222,22 @@ function submitKnows(
   return submitReviewAnswer(tx, { ...input, kind: "self_graded" });
 }
 
+/**
+ * What a miss shows about gato — everything the learner can study before moving
+ * on, built from the seeded fixture's published content (`buildReviewItemInfo`),
+ * and nothing besides it: a self-graded miss carries the item's info and no
+ * expected-answer breakdown.
+ */
+const GATO_ITEM_INFO = {
+  title: "el gato",
+  meaning: "cat",
+  partOfSpeech: "noun",
+  pronunciation: null,
+  explanation: null,
+  note: null,
+  examples: [{ targetText: "El gato duerme.", translation: "The cat sleeps." }],
+};
+
 describe("startReviewSession", () => {
   it("is a success state with the soonest upcoming review time when nothing is due", async () => {
     await withTestTransaction(async (tx) => {
@@ -250,10 +266,13 @@ describe("startReviewSession", () => {
       expect(result.currentQuestion?.itemId).toBe(gatoId);
       expect(result.currentQuestion?.direction).toBe("englishToTarget");
       // "El gato duerme." is gato's seeded example sentence — the blanked word is "gato".
+      // …with the English line under the blank, the prompted word picked out.
       expect(result.currentQuestion?.presentation).toEqual({
         kind: "cloze_typed",
         sentenceBefore: "El ",
         sentenceAfter: " duerme.",
+        translation: "The cat sleeps.",
+        translationEmphasis: "cat",
       });
 
       const decoded = await verifyReviewState({
@@ -516,7 +535,10 @@ describe("submitReviewAnswer — Flashcard (self-graded, both directions — com
         knowsAnswer: false,
         idempotencyKey: crypto.randomUUID(),
       });
-      expect(result.feedback).toEqual({ kind: "self_graded_incorrect" });
+      expect(result.feedback).toEqual({
+        kind: "self_graded_incorrect",
+        itemInfo: GATO_ITEM_INFO,
+      });
     });
   });
 
@@ -543,7 +565,10 @@ describe("submitReviewAnswer — Flashcard (self-graded, both directions — com
         knowsAnswer: false,
         idempotencyKey: crypto.randomUUID(),
       });
-      expect(wrong.feedback).toEqual({ kind: "self_graded_incorrect" });
+      expect(wrong.feedback).toEqual({
+        kind: "self_graded_incorrect",
+        itemInfo: GATO_ITEM_INFO,
+      });
       // The failed question does not repeat immediately — the other direction comes next.
       expect(wrong.currentQuestion?.questionId).not.toBe(firstQuestionId);
 

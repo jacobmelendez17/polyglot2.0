@@ -24,7 +24,12 @@ vi.mock("@/components/lessons/lesson-empty-state", () => ({
 }));
 
 const THEMES: LessonThemeChoice[] = [
-  { id: "theme-numbers", name: "Numbers", remainingCount: 5, kind: "vocabulary" },
+  {
+    id: "theme-numbers",
+    name: "Numbers",
+    remainingCount: 5,
+    kind: "vocabulary",
+  },
   { id: "theme-colors", name: "Colors", remainingCount: 3, kind: "vocabulary" },
 ];
 

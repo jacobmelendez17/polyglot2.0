@@ -13,7 +13,7 @@ name: CI
 #
 # UNVERIFIED: written and reviewable, but never run for real — it needs
 # repository secrets (NEON_API_KEY, CI_CLERK_PUBLISHABLE_KEY,
-# CI_CLERK_SECRET_KEY, CI_LESSON_STATE_SECRET) and variables
+# CI_CLERK_SECRET_KEY, CI_LESSON_STATE_SECRET, CI_REVIEW_STATE_SECRET) and variables
 # (NEON_PROJECT_ID, NEON_TEST_PARENT_BRANCH — a non-production branch to
 # fork ephemeral test branches from) that only the project owner can add.
 # See progress-tracker.md's spec 23 entry for the full list and why.
@@ -47,6 +47,11 @@ jobs:
       # @vitejs/plugin-react's optional Babel 8 prerelease peer — see
       # progress-tracker.md's Environment Notes); npm ci needs it too.
       - run: npm ci --legacy-peer-deps
+      # `next-env.d.ts` and `.next/types` (the `LayoutProps` helper, the image
+      # imports) are generated and git-ignored, so a fresh checkout has none and
+      # `tsc` fails on them. `next typegen` writes them with no build and no
+      # environment variables.
+      - run: npx next typegen
       - run: npx tsc --noEmit
 
   lint:
@@ -145,6 +150,7 @@ jobs:
           NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL: /dashboard
           NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL: /dashboard
           LESSON_STATE_SECRET: ${{ secrets.CI_LESSON_STATE_SECRET }}
+          REVIEW_STATE_SECRET: ${{ secrets.CI_REVIEW_STATE_SECRET }}
           APP_ENV: preview
           DATABASE_URL: ${{ steps.neon-branch.outputs.db_url_pooled }}
 
@@ -193,5 +199,6 @@ jobs:
           NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL: /dashboard
           NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL: /dashboard
           LESSON_STATE_SECRET: ${{ secrets.CI_LESSON_STATE_SECRET }}
+          REVIEW_STATE_SECRET: ${{ secrets.CI_REVIEW_STATE_SECRET }}
           APP_ENV: preview
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_placeholder

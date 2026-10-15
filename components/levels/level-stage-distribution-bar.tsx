@@ -16,7 +16,11 @@ const SEGMENTS: {
   { key: "inLesson", label: "In Lessons", fillClassName: "bg-primary/40" },
   { key: "beginner", label: "Beginner", fillClassName: "bg-srs-beginner" },
   { key: "familiar", label: "Familiar", fillClassName: "bg-srs-familiar" },
-  { key: "intermediate", label: "Intermediate", fillClassName: "bg-srs-intermediate" },
+  {
+    key: "intermediate",
+    label: "Intermediate",
+    fillClassName: "bg-srs-intermediate",
+  },
   { key: "master", label: "Master", fillClassName: "bg-srs-master" },
   { key: "fluent", label: "Fluent", fillClassName: "bg-srs-fluent" },
 ];
@@ -49,7 +53,10 @@ type LevelStageDistributionBarProps = {
 export function LevelStageDistributionBar({
   distribution,
 }: LevelStageDistributionBarProps) {
-  const total = SEGMENTS.reduce((sum, segment) => sum + distribution[segment.key], 0);
+  const total = SEGMENTS.reduce(
+    (sum, segment) => sum + distribution[segment.key],
+    0,
+  );
   if (total === 0) return null;
 
   const summary = SEGMENTS.filter((segment) => distribution[segment.key] > 0)

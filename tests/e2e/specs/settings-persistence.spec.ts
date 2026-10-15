@@ -28,7 +28,13 @@ test.describe("Settings persistence", () => {
     // match nothing.
     await page.getByLabel("Search timezones").fill("Mexico_City");
     await page.getByRole("option", { name: /America\/Mexico_City/ }).click();
-    await expect(page.getByText("Saved")).toBeVisible();
+    // Choosing only changes the draft; nothing is applied until Save (the
+    // owner's 2026-09-28 rule for every Settings card). Only the changed card's
+    // Save is enabled, so it is the one this finds.
+    await page
+      .getByRole("button", { name: "Save", exact: true, disabled: false })
+      .click();
+    await expect(page.getByText("Saved", { exact: true })).toBeVisible();
 
     await page.reload();
     await expect(

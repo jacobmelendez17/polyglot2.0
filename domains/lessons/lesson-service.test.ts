@@ -400,11 +400,15 @@ describe("toThemeChoices", () => {
       makeGrammarItem({ id: "grammar-0" }),
       makeGrammarItem({ id: "grammar-1" }),
     ]);
-    expect(choices.map((choice) => ({ id: choice.id, kind: choice.kind }))).toEqual([
+    expect(
+      choices.map((choice) => ({ id: choice.id, kind: choice.kind })),
+    ).toEqual([
       { id: NUMBERS_THEME.id, kind: "vocabulary" },
       { id: GRAMMAR_THEME_ID, kind: "grammar" },
     ]);
-    const grammarChoice = choices.find((choice) => choice.id === GRAMMAR_THEME_ID);
+    const grammarChoice = choices.find(
+      (choice) => choice.id === GRAMMAR_THEME_ID,
+    );
     expect(grammarChoice?.remainingCount).toBe(2);
   });
 
@@ -420,7 +424,12 @@ describe("toThemeChoices", () => {
   it("offers only Grammar when no vocabulary remains", () => {
     const choices = toThemeChoices([makeGrammarItem({ id: "grammar-0" })]);
     expect(choices).toEqual([
-      { id: GRAMMAR_THEME_ID, name: "Grammar", remainingCount: 1, kind: "grammar" },
+      {
+        id: GRAMMAR_THEME_ID,
+        name: "Grammar",
+        remainingCount: 1,
+        kind: "grammar",
+      },
     ]);
   });
 });

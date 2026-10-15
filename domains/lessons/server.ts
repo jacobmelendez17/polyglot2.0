@@ -23,6 +23,4 @@ export {
 } from "./lesson-service-bindings";
 export type { LessonCompletionResult } from "./lesson-completion";
 export { getLessonItemDetail } from "./lesson-item-detail";
-export type {
-  LessonItemDetail,
-} from "./lesson-item-detail";
+export type { LessonItemDetail } from "./lesson-item-detail";

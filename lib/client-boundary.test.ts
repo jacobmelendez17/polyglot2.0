@@ -16,7 +16,9 @@ import { describe, expect, it } from "vitest";
  *
  * So this test walks the import graph instead. It is deliberately about
  * *callable* exports — a type import is erased, and a component import is the
- * supported case.
+ * supported case. Test files are not in the graph: Vitest runs them, Next never
+ * renders them, so a test may import a client module's hook to exercise it
+ * (`item-editor-guard.test.tsx` does) — the rule is about modules that ship.
  */
 
 const ROOTS = ["app", "components", "domains", "lib", "providers"];
@@ -35,6 +37,11 @@ function sourceFiles(directory: string): string[] {
     }
   }
   return found;
+}
+
+/** Vitest runs a test file; Next never renders it, so the server/client boundary does not apply to it. */
+function isTestFile(file: string): boolean {
+  return /\.test\.tsx?$/.test(file);
 }
 
 /** The directive only counts as one when it is the module's first statement, not when it appears in a comment about the rule. */
@@ -88,7 +95,7 @@ function findViolations(): Violation[] {
   const violations: Violation[] = [];
 
   for (const [file, contents] of contentsByFile) {
-    if (isClientModule(contents)) continue;
+    if (isClientModule(contents) || isTestFile(file)) continue;
 
     // Named value imports only. `import type { … }` is erased, and so is a
     // `type` specifier inside a mixed import, so both are stripped first.

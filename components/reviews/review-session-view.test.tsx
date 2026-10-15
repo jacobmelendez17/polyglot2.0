@@ -315,7 +315,9 @@ describe("ReviewSessionView", () => {
     // The full shared layout's hero headline — proves ItemDetailLayout
     // rendered, not the narrower ReviewItemInfo-based fallback panel.
     await waitFor(() =>
-      expect(screen.getByRole("heading", { name: "el gato" })).toBeInTheDocument(),
+      expect(
+        screen.getByRole("heading", { name: "el gato" }),
+      ).toBeInTheDocument(),
     );
   });
 

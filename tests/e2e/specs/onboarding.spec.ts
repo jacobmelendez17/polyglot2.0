@@ -80,6 +80,9 @@ test.describe("New Learner flow", () => {
     await page.keyboard.press("ArrowRight");
     await expect(heading(page, "Establish a foundation")).toBeVisible();
     await expect(page.getByRole("button", { name: "Back" })).toBeVisible();
+    // Navigation is locked while a slide moves, and Skip pressed inside that
+    // window is ignored by design — wait it out, as every other step here does.
+    await page.waitForTimeout(TRANSITION_MS);
     await page.getByRole("button", { name: "Skip" }).focus();
     await page.keyboard.press("Enter");
     await expect(heading(page, "Have fun!")).toBeVisible();

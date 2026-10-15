@@ -100,23 +100,27 @@ export async function getLevelUnlockBreakdown(
     getStageIndex(LEVEL_UNLOCK_MINIMUM_STAGE),
   );
 
-  const [grammarTotal, grammarQualifying, vocabularyTotal, vocabularyQualifying] =
-    await Promise.all([
-      repository.countLevelGatingItems(db, levelId, "grammar"),
-      repository.countUserItemsAtOrAboveStageInLevel(db, {
-        userId,
-        levelId,
-        qualifyingStages,
-        itemType: "grammar",
-      }),
-      repository.countLevelGatingItems(db, levelId, "vocabulary"),
-      repository.countUserItemsAtOrAboveStageInLevel(db, {
-        userId,
-        levelId,
-        qualifyingStages,
-        itemType: "vocabulary",
-      }),
-    ]);
+  const [
+    grammarTotal,
+    grammarQualifying,
+    vocabularyTotal,
+    vocabularyQualifying,
+  ] = await Promise.all([
+    repository.countLevelGatingItems(db, levelId, "grammar"),
+    repository.countUserItemsAtOrAboveStageInLevel(db, {
+      userId,
+      levelId,
+      qualifyingStages,
+      itemType: "grammar",
+    }),
+    repository.countLevelGatingItems(db, levelId, "vocabulary"),
+    repository.countUserItemsAtOrAboveStageInLevel(db, {
+      userId,
+      levelId,
+      qualifyingStages,
+      itemType: "vocabulary",
+    }),
+  ]);
 
   return {
     grammar: { qualifying: grammarQualifying, total: grammarTotal },

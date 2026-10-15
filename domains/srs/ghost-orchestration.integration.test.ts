@@ -98,10 +98,13 @@ describe("submitReviewAnswer — Ghost Reviews miss-tracking (spec 20)", () => {
         now,
       });
       if (started.kind !== "session") throw new Error("expected a session");
+      // The blank, and the English line under it with the prompted word picked out.
       expect(started.currentQuestion?.presentation).toEqual({
         kind: "cloze_typed",
         sentenceBefore: "El ",
         sentenceAfter: " duerme.",
+        translation: "The cat sleeps.",
+        translationEmphasis: "cat",
       });
 
       const response = await submitReviewAnswer(tx, {

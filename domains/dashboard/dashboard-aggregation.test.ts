@@ -129,8 +129,18 @@ describe("buildStageProgress", () => {
       "fluent",
     ]);
     expect(result).toEqual([
-      { stage: "beginner", label: "Beginner", vocabularyCount: 6, grammarCount: 1 },
-      { stage: "familiar", label: "Familiar", vocabularyCount: 5, grammarCount: 0 },
+      {
+        stage: "beginner",
+        label: "Beginner",
+        vocabularyCount: 6,
+        grammarCount: 1,
+      },
+      {
+        stage: "familiar",
+        label: "Familiar",
+        vocabularyCount: 5,
+        grammarCount: 0,
+      },
       {
         stage: "intermediate",
         label: "Intermediate",
@@ -144,8 +154,18 @@ describe("buildStageProgress", () => {
 
   it("zero-fills every group when there is no progress at all", () => {
     expect(buildStageProgress([])).toEqual([
-      { stage: "beginner", label: "Beginner", vocabularyCount: 0, grammarCount: 0 },
-      { stage: "familiar", label: "Familiar", vocabularyCount: 0, grammarCount: 0 },
+      {
+        stage: "beginner",
+        label: "Beginner",
+        vocabularyCount: 0,
+        grammarCount: 0,
+      },
+      {
+        stage: "familiar",
+        label: "Familiar",
+        vocabularyCount: 0,
+        grammarCount: 0,
+      },
       {
         stage: "intermediate",
         label: "Intermediate",

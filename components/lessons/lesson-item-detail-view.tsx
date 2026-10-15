@@ -123,7 +123,10 @@ export function LessonItemDetailView({
               className="h-9 w-9 sm:h-10 sm:w-10"
             />
           ) : (
-            <div className="h-9 w-9 shrink-0 sm:h-10 sm:w-10" aria-hidden="true" />
+            <div
+              className="h-9 w-9 shrink-0 sm:h-10 sm:w-10"
+              aria-hidden="true"
+            />
           )}
 
           <div className="flex min-w-0 flex-col items-center gap-1 text-center">
@@ -154,7 +157,10 @@ export function LessonItemDetailView({
               className="h-9 w-9 sm:h-10 sm:w-10"
             />
           ) : (
-            <div className="h-9 w-9 shrink-0 sm:h-10 sm:w-10" aria-hidden="true" />
+            <div
+              className="h-9 w-9 shrink-0 sm:h-10 sm:w-10"
+              aria-hidden="true"
+            />
           )}
         </div>
 

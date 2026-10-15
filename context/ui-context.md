@@ -89,25 +89,25 @@ The light palette is based on the existing Polyglot design shown in the referenc
 
 Dark mode should use warm charcoal and muted botanical tones.
 
-| Role                 | CSS Variable             | Value     |
-| -------------------- | ------------------------ | --------- |
-| Page background      | `--bg-base`              | `#202521` |
-| Primary surface      | `--bg-surface`           | `#292F2B` |
-| Warm surface         | `--bg-warm`              | `#3B302C` |
-| Soft neutral surface | `--bg-soft`              | `#32352F` |
-| Primary text         | `--text-primary`         | `#F3ECE4` |
-| Muted text           | `--text-muted`           | `#B8B0A6` |
-| Primary accent       | `--accent-primary`       | `#8DB5AA` |
-| Primary accent hover | `--accent-primary-hover` | `#9BC3B8` |
-| Accent foreground    | `--accent-foreground`    | `#1F2925` |
-| Border               | `--border-default`       | `#444B45` |
-| Grid line            | `--grid-line`            | `#343A35` |
-| Peach accent         | `--accent-peach`         | `#9B7061` |
-| Error                | `--state-error`          | `#D3877F` |
-| Success              | `--state-success`        | `#87B395` |
-| Warning              | `--state-warning`        | `#D8B371` |
+| Role                 | CSS Variable             | Value                                    |
+| -------------------- | ------------------------ | ---------------------------------------- |
+| Page background      | `--bg-base`              | `#202521`                                |
+| Primary surface      | `--bg-surface`           | `#292F2B`                                |
+| Warm surface         | `--bg-warm`              | `#3B302C`                                |
+| Soft neutral surface | `--bg-soft`              | `#32352F`                                |
+| Primary text         | `--text-primary`         | `#F3ECE4`                                |
+| Muted text           | `--text-muted`           | `#B8B0A6`                                |
+| Primary accent       | `--accent-primary`       | `#8DB5AA`                                |
+| Primary accent hover | `--accent-primary-hover` | `#9BC3B8`                                |
+| Accent foreground    | `--accent-foreground`    | `#1F2925`                                |
+| Border               | `--border-default`       | `#444B45`                                |
+| Grid line            | `--grid-line`            | `#343A35`                                |
+| Peach accent         | `--accent-peach`         | `#9B7061`                                |
+| Error                | `--state-error`          | `#D3877F`                                |
+| Success              | `--state-success`        | `#87B395`                                |
+| Warning              | `--state-warning`        | `#D8B371`                                |
 | Header accent        | `--header-accent`        | `#34463D` (deep muted green; 2026-10-03) |
-| Header foreground    | `--header-foreground`    | `#F3ECE4` |
+| Header foreground    | `--header-foreground`    | `#F3ECE4`                                |
 
 ### Learning-Type Colors
 
@@ -356,6 +356,19 @@ not from a second palette:
   `data-palette`/`data-font-*`/`data-color-blind` change, so every Appearance
   setting keeps working. MUI's default purple secondary and blue info colors are
   remapped onto Polyglot tokens, and its dark-mode Paper elevation tint is off.
+- **The accent is a fill, not a text color — on the light page it is too faint
+  to read** (2026-10-14). Polyglot paints its accent as a background with
+  `--accent-foreground` on top, but Material UI also paints the _text_ of
+  outlined and text buttons, links and a focused field label in the primary
+  color: for the default Sage accent that is 2.4:1 against the cream page (Amber
+  2.6, Ocean 3.2, Plum 3.5; WCAG AA asks 4.5). `readable-accent.ts` gives those
+  controls the accent moved toward the text color **only as far as needed** to
+  reach 4.5:1 on the page, on a card, and under Material UI's own hover tint
+  (black 4% in light mode, white 8% in dark) — in every palette, light and dark.
+  Fills, borders and checkboxes keep the accent itself. A new Material UI
+  control that paints the primary color as text needs the same override in
+  `polyglot-theme.ts`; `admin-palettes.spec.ts` measures a real button in all
+  four palettes.
 - The handwritten font (`--font-sans`), `rounded-lg` buttons, `rounded-xl`
   cards, soft borders instead of shadows, `prefers-reduced-motion`, and the four
   interface states (loading, empty, error, forbidden) apply here exactly as
@@ -703,10 +716,10 @@ using one of three states (`domains/curriculum/level-view.ts`'s
 grid and list mode):
 
 - **Learned** (has a real progress row) — filled solid with that item's real SRS stage color (the legend's Beginner→Fluent gradient), text color switching to light-on-dark for Master/Fluent's darker greens.
-- **In Lessons** — no progress yet, but the item belongs to the *active* lesson: the earliest vocabulary lesson (by group position) that hasn't been fully taught yet. A light, inviting accent tint with a solid accent border.
+- **In Lessons** — no progress yet, but the item belongs to the _active_ lesson: the earliest vocabulary lesson (by group position) that hasn't been fully taught yet. A light, inviting accent tint with a solid accent border.
 - **Locked** — no progress, and either the item is grammar (which has no lesson grouping to be "active" in) or it belongs to a later, not-yet-reached lesson. A muted fill with a **dashed** border — dashed reads as "nothing here yet," not a low-contrast solid color a viewer has to already know to look for.
 
-**A lesson counts as "fully taught" once every one of its items has *some*
+**A lesson counts as "fully taught" once every one of its items has _some_
 progress row** — the real fact that a lesson session enrolled its whole
 batch into SRS (architecture.md's Lesson Architecture), not a guess and not
 the Familiar+ unlock threshold (a lesson can be fully taught while every
@@ -1215,6 +1228,5 @@ When there is uncertainty about visual styling, prefer the existing Polyglot scr
 The goal is not to make Polyglot look like a standard shadcn application.
 
 shadcn supplies accessible component behavior; **Polyglot's palette, typography, spacing, surfaces, background pattern, animation, and learning-state presentation define the product's identity**.
-
 
 > **Header in dark mode (2026-10-03):** the fixed `#9AC9AE` header was too bright against the charcoal dark background, so dark mode now overrides `--header-accent` to `#34463D` and uses the new `--header-foreground` (light cream) for wordmark/nav text. Still not palette-adaptive.

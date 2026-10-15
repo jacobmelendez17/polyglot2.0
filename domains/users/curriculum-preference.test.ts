@@ -106,9 +106,7 @@ describe("isThemeSelectionRequired", () => {
       curriculumMode: "choose_group",
       selectedVocabularyGroupId: "theme-1",
     });
-    expect(isThemeSelectionRequired(chosen, ["theme-1", "theme-2"])).toBe(
-      true,
-    );
+    expect(isThemeSelectionRequired(chosen, ["theme-1", "theme-2"])).toBe(true);
   });
 
   it("asks again once the active selection has been cleared (lesson completion) and more than one group is available", () => {
@@ -184,9 +182,9 @@ describe("isThemeSelectionRequired", () => {
       curriculumMode: "choose_group",
       selectedVocabularyGroupId: GRAMMAR_THEME_ID,
     });
-    expect(isThemeSelectionRequired(chosenGrammar, ["theme-1", "theme-2"])).toBe(
-      true,
-    );
+    expect(
+      isThemeSelectionRequired(chosenGrammar, ["theme-1", "theme-2"]),
+    ).toBe(true);
   });
 });
 

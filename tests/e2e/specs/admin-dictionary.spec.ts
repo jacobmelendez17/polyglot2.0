@@ -572,7 +572,10 @@ test.describe("who may use it", () => {
     const me = await page.request.get("/api/v1/admin/me");
     const { resources } = (await me.json()).data.permissions;
     expect(resources.dictionary).toEqual(["list", "edit"]);
-    expect(resources.decks).toBeUndefined();
+    // The owner's 2026-10-14 decisions: a writer reads the official decks (and
+    // cannot manage them) and has no part of Imports.
+    expect(resources.decks).toEqual(["list"]);
+    expect(resources.imports).toBeUndefined();
     expect((await page.request.get(url)).status()).toBe(200);
 
     // A developer is let into the console — just not into curriculum.

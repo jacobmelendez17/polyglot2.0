@@ -34,11 +34,7 @@ export type StreakDay = {
 
 /** The 5 general SRS stage groups shown on the Progress card — `beginner_1`..`beginner_4` collapse to `"beginner"`, `familiar_1`/`familiar_2` collapse to `"familiar"`, and the remaining 3 stages map 1:1. */
 export type StageGroup =
-  | "beginner"
-  | "familiar"
-  | "intermediate"
-  | "master"
-  | "fluent";
+  "beginner" | "familiar" | "intermediate" | "master" | "fluent";
 
 export type StageProgressBucket = {
   stage: StageGroup;

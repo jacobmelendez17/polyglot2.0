@@ -5,7 +5,11 @@ type LevelProgressHeaderProps = {
   levelNumber: number;
   /** Admin-authored, translated level name (`levels.name`) — omitted, never fabricated, when unset. */
   levelName: string | null;
-  counts: { grammarCount: number; vocabularyCount: number; lessonCount: number };
+  counts: {
+    grammarCount: number;
+    vocabularyCount: number;
+    lessonCount: number;
+  };
   breakdown: LevelUnlockBreakdown;
 };
 

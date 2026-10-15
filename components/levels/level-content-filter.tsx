@@ -21,7 +21,10 @@ type LevelContentFilterProps = {
  * choice rather than a standing preference. Never touches the URL or
  * authoritative curriculum data.
  */
-export function LevelContentFilter({ value, onChange }: LevelContentFilterProps) {
+export function LevelContentFilter({
+  value,
+  onChange,
+}: LevelContentFilterProps) {
   return (
     <ToggleGroup
       type="single"

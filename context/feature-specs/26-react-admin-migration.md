@@ -4,13 +4,13 @@
 **Prepared:** 2026-10-12  
 **Intended repository location:** `context/feature-specs/26-react-admin-migration.md`  
 **Repository inspected:** [`jacobmelendez17/polyglot2.0`](https://github.com/jacobmelendez17/polyglot2.0), `main`, inspected commit [`d271f22`](https://github.com/jacobmelendez17/polyglot2.0/commit/d271f22abd53640df8307fa80a6ed4e2d83889f3)  
-**Supersedes:** The *presentation/integration layer* of the existing Admin screens as they are migrated. **Does not supersede** the business, security, schema, or data-integrity rules in Specs 08, 11, 12, 13, 14, 17, 19, 23, 24, or 25.
+**Supersedes:** The _presentation/integration layer_ of the existing Admin screens as they are migrated. **Does not supersede** the business, security, schema, or data-integrity rules in Specs 08, 11, 12, 13, 14, 17, 19, 23, 24, or 25.
 
 > **Implementation instruction:** Execute **one unit per Claude coding turn**, not the whole spec in a single change. At the end of every unit, delete or retire only the old UI that the new working unit replaces, run the relevant checks, and update `progress-tracker.md`. Do not report a unit complete while its old and new implementations are both live without a documented rollback reason.
 
 ## 1. Goal and user decisions
 
-Incrementally replace the majority of Polyglot's current hand-built Admin *interface* with **React Admin**, while preserving all working administrative capabilities and the existing domain services. Each unit must provide a complete, independently verifiable replacement; the old page or component is removed after parity verification. The final console should visibly use React Admin for its resource lists, data tables, filtering, pagination, selected operations, and administrative navigation while continuing to use existing specialized editors for complicated content.
+Incrementally replace the majority of Polyglot's current hand-built Admin _interface_ with **React Admin**, while preserving all working administrative capabilities and the existing domain services. Each unit must provide a complete, independently verifiable replacement; the old page or component is removed after parity verification. The final console should visibly use React Admin for its resource lists, data tables, filtering, pagination, selected operations, and administrative navigation while continuing to use existing specialized editors for complicated content.
 
 Approved choices:
 
@@ -25,7 +25,7 @@ Approved choices:
 
 ### Out of scope
 
-- Rebuilding the curriculum, publishing, import, dictionary, decks, SRS, progress, or sandbox *business logic*.
+- Rebuilding the curriculum, publishing, import, dictionary, decks, SRS, progress, or sandbox _business logic_.
 - Replacing Clerk or Neon/Drizzle; creating a second backend/deployment/database.
 - Exposing raw database tables as a general-purpose authenticated CRUD API.
 - Rewriting the `CurriculumItemForm`, `VocabularyEditor`, `GrammarEditor`, `GrammarContentBlockEditor`, `UsageContextEditor`, `LevelItemBoard`, import resolution workflow, dictionary-sense editor, or sandbox controls **unless an individual subsequent unit identifies and verifies a safe targeted migration**.
@@ -49,7 +49,7 @@ At the inspected commit:
 - The current routes include `/admin`, `/admin/curriculum`, `/admin/curriculum/review`, `/admin/curriculum/levels`, `/admin/curriculum/levels/[levelId]`, `/admin/curriculum/groups`, `/admin/curriculum/groups/[groupId]`, `/admin/curriculum/items/new`, `/admin/curriculum/items/[itemId]`, `/admin/curriculum/imports/*`, `/admin/dictionary`, `/admin/decks/*`, `/admin/logs`, and `/admin/sandbox`.
 - `components/admin/curriculum/*` already contains dedicated tables, filters, pagination, level/group dialogs and forms, item forms, reordering, review actions, and bulk actions. Each is a **migration candidate or a deliberately retained specialist**, not an invitation to rebuild domain logic.
 - `domains/admin/audit-types.ts` enumerates audit actions; `db/schema/admin.ts` persists audit events. No existing role-change audit action or general admin user-list/role-update service was located among the inspected files. Verify before Unit 6 and extend intentionally.
-- Current page access is finer-grained than the existing navigation: the shared nav gives writers several curriculum links, but *some writes* are admin-only. Preserve read access where already allowed and make destructive/publish action visibility precise; do not accidentally promote a writer's UI access into mutation authority.
+- Current page access is finer-grained than the existing navigation: the shared nav gives writers several curriculum links, but _some writes_ are admin-only. Preserve read access where already allowed and make destructive/publish action visibility precise; do not accidentally promote a writer's UI access into mutation authority.
 
 ### Spec 25 and source-of-truth reconciliation
 
@@ -112,20 +112,20 @@ Unit 2 decides between `ListBase` with the supported partial-pagination path and
 
 ## 4. Route migration matrix and final cutover definition
 
-| Current route | After Spec 26 | What remains specialized |
-|---|---|---|
-| `/admin` | **RA-integrated overview** (Unit 1) | Existing stats service |
-| `/admin/curriculum` | **RA resource table/filter/search/work queue** (Unit 2), bulk UI (Unit 7) | Reorder-specific domain service and safeguards |
-| `/admin/curriculum/review` | **RA review list/selection with explicit publish commands** (Unit 3) | Publication/version service |
-| `/admin/curriculum/levels` | **RA lists/basic forms** (Unit 4) | Level content board at `[levelId]` |
-| `/admin/curriculum/groups` | **RA lists/basic forms** (Unit 5) | Existing ordering rules and complex group edits as needed |
-| `/admin/users` | **NEW RA user list + role editor** (Unit 6) | No Clerk credential editing |
-| `/admin/curriculum/imports/*` | **RA history/status/list shell** (Unit 8) | Upload, row repair, preview, confirm, CSV/Lambda workflow |
-| `/admin/dictionary` | **RA mapping/work-queue list** (Unit 9) | Sense/pronunciation/override decisions |
-| `/admin/decks` | **RA list and standard collection chrome** (Unit 10) | Official deck membership/order editor |
-| `/admin/curriculum/items/new`, `/admin/curriculum/items/[itemId]` | **Retained existing specialized editors**; linked from RA (Units 2, 7) | Entire item-editing domain UI |
-| `/admin/curriculum/levels/[levelId]` | Existing specialist board retained; progressively RA-framed where safe | Lesson ordering and cross-level movement |
-| `/admin/logs`, `/admin/sandbox` | **Retained** | Security-sensitive logs and isolated personas |
+| Current route                                                     | After Spec 26                                                             | What remains specialized                                  |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------- |
+| `/admin`                                                          | **RA-integrated overview** (Unit 1)                                       | Existing stats service                                    |
+| `/admin/curriculum`                                               | **RA resource table/filter/search/work queue** (Unit 2), bulk UI (Unit 7) | Reorder-specific domain service and safeguards            |
+| `/admin/curriculum/review`                                        | **RA review list/selection with explicit publish commands** (Unit 3)      | Publication/version service                               |
+| `/admin/curriculum/levels`                                        | **RA lists/basic forms** (Unit 4)                                         | Level content board at `[levelId]`                        |
+| `/admin/curriculum/groups`                                        | **RA lists/basic forms** (Unit 5)                                         | Existing ordering rules and complex group edits as needed |
+| `/admin/users`                                                    | **NEW RA user list + role editor** (Unit 6)                               | No Clerk credential editing                               |
+| `/admin/curriculum/imports/*`                                     | **RA history/status/list shell** (Unit 8)                                 | Upload, row repair, preview, confirm, CSV/Lambda workflow |
+| `/admin/dictionary`                                               | **RA mapping/work-queue list** (Unit 9)                                   | Sense/pronunciation/override decisions                    |
+| `/admin/decks`                                                    | **RA list and standard collection chrome** (Unit 10)                      | Official deck membership/order editor                     |
+| `/admin/curriculum/items/new`, `/admin/curriculum/items/[itemId]` | **Retained existing specialized editors**; linked from RA (Units 2, 7)    | Entire item-editing domain UI                             |
+| `/admin/curriculum/levels/[levelId]`                              | Existing specialist board retained; progressively RA-framed where safe    | Lesson ordering and cross-level movement                  |
+| `/admin/logs`, `/admin/sandbox`                                   | **Retained**                                                              | Security-sensitive logs and isolated personas             |
 
 **Measurable completion:** by Unit 11, at least **eight pre-existing list/overview surfaces** (Overview, Curriculum, Review, Levels, Groups, Imports, Dictionary, Decks) must render actual React Admin data/list components, with their former custom list/table/pagination/filter components **removed when no longer referenced**. Add new Users as a ninth RA-driven surface. Do not count merely wrapping old markup in an unused `<AdminContext>` as a migration. Specialist editing and operational tools intentionally remain Polyglot components.
 
@@ -133,18 +133,18 @@ Unit 2 decides between `ListBase` with the supported partial-pagination path and
 
 Use a **small explicit adapter API** rooted under `/api/v1/admin/`, consistent with `code-standards.md`. Concrete first-unit routes proposed below; verify folder conventions at implementation time. Only add a route when its unit requires it.
 
-| Endpoint/command | Role | Domain service reuse | Contract |
-|---|---|---|---|
-| `GET /api/v1/admin/me` | admin, writer, developer | `requireUser`, authorization predicates | `{ id, role, permissions }`; no secrets or private Clerk user metadata |
-| `GET /api/v1/admin/overview` | admin/writer stats; developer operational view | `getAdminCurriculumStatusCounts` | Counts must be language-scoped; developer must not receive restricted curriculum data |
-| `GET /api/v1/admin/curriculum` | admin, writer | `getAdminCurriculumItems` | Required language, allowed filters, page limit and opaque cursor; `items`, `nextCursor` |
-| `GET /api/v1/admin/review` | admin, writer | `getReviewQueue`, permitted author lookup | New items and open drafts; `id`, `kind`, `version`, labels, safe author display |
-| `POST /api/v1/admin/review/publish` | admin | `publishItem` | Explicit `itemId`, `expectedVersion`, idempotency where applicable; audited |
-| `GET /api/v1/admin/levels`, `/groups` | admin, writer read | Existing language/level/group read services | Language scope; groups additionally level-scoped |
-| `POST/PATCH /api/v1/admin/levels`, `/groups` | admin | Existing create/update services | Validated and audited; no generic table update |
-| `GET /api/v1/admin/users` | admin | **new users-domain safe administrative read service** | Paginated sanitized real-user list, exclude sandbox personas by default |
-| `PATCH /api/v1/admin/users/[userId]/role` | admin | **new users-domain role assignment service** + audit | `{ role, expectedUpdatedAt, reason? }`; atomic authorization/concurrency/audit |
-| Import, dictionary, decks adapter routes | Existing appropriate roles | Existing domain services | Added only in respective later units, without new business rules |
+| Endpoint/command                             | Role                                           | Domain service reuse                                  | Contract                                                                                |
+| -------------------------------------------- | ---------------------------------------------- | ----------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `GET /api/v1/admin/me`                       | admin, writer, developer                       | `requireUser`, authorization predicates               | `{ id, role, permissions }`; no secrets or private Clerk user metadata                  |
+| `GET /api/v1/admin/overview`                 | admin/writer stats; developer operational view | `getAdminCurriculumStatusCounts`                      | Counts must be language-scoped; developer must not receive restricted curriculum data   |
+| `GET /api/v1/admin/curriculum`               | admin, writer                                  | `getAdminCurriculumItems`                             | Required language, allowed filters, page limit and opaque cursor; `items`, `nextCursor` |
+| `GET /api/v1/admin/review`                   | admin, writer                                  | `getReviewQueue`, permitted author lookup             | New items and open drafts; `id`, `kind`, `version`, labels, safe author display         |
+| `POST /api/v1/admin/review/publish`          | admin                                          | `publishItem`                                         | Explicit `itemId`, `expectedVersion`, idempotency where applicable; audited             |
+| `GET /api/v1/admin/levels`, `/groups`        | admin, writer read                             | Existing language/level/group read services           | Language scope; groups additionally level-scoped                                        |
+| `POST/PATCH /api/v1/admin/levels`, `/groups` | admin                                          | Existing create/update services                       | Validated and audited; no generic table update                                          |
+| `GET /api/v1/admin/users`                    | admin                                          | **new users-domain safe administrative read service** | Paginated sanitized real-user list, exclude sandbox personas by default                 |
+| `PATCH /api/v1/admin/users/[userId]/role`    | admin                                          | **new users-domain role assignment service** + audit  | `{ role, expectedUpdatedAt, reason? }`; atomic authorization/concurrency/audit          |
+| Import, dictionary, decks adapter routes     | Existing appropriate roles                     | Existing domain services                              | Added only in respective later units, without new business rules                        |
 
 The precise request/response DTOs must be defined once in strict TypeScript/Zod at the boundary and reused by the typed `dataProvider`. **This table is a proposed transport shape, not a claim the routes already exist.** Reject unsupported list sorts/filters and mutations explicitly. CSRF protection must rely on same-origin, authenticated session-bound requests, validated methods/content types, appropriate Origin/Fetch Metadata checks for state changes, and the project's existing defenses; no credentials in query strings. Never use an `x-user-id` request header as identity.
 
@@ -173,17 +173,17 @@ Use existing `users.id`, `users.clerk_user_id`, `users.role`, `users.is_sandbox`
 
 ### Role permission matrix
 
-| Capability | `user` | `beta-tester` | `writer` | `developer` | `admin` |
-|---|---:|---:|---:|---:|---:|
-| Enter `/admin` | No | No | Yes | Yes | Yes |
-| Browse official curriculum / editorial review | No | No | Yes | No | Yes |
-| Create/edit items, drafts, dictionary mapping | No | No | Yes | No | Yes |
-| Publish/archive/delete, level/group structural mutations, imports | No | No | No | No | Yes |
-| Official decks management | No | No | No | No | Yes |
-| Logs and isolated sandbox | No | No | No | Yes | Yes |
-| Change user role | No | No | No | No | **Yes** |
+| Capability                                                        | `user` | `beta-tester` | `writer` | `developer` | `admin` |
+| ----------------------------------------------------------------- | -----: | ------------: | -------: | ----------: | ------: |
+| Enter `/admin`                                                    |     No |            No |      Yes |         Yes |     Yes |
+| Browse official curriculum / editorial review                     |     No |            No |      Yes |          No |     Yes |
+| Create/edit items, drafts, dictionary mapping                     |     No |            No |      Yes |          No |     Yes |
+| Publish/archive/delete, level/group structural mutations, imports |     No |            No |       No |          No |     Yes |
+| Official decks management                                         |     No |            No |       No |          No |     Yes |
+| Logs and isolated sandbox                                         |     No |            No |       No |         Yes |     Yes |
+| Change user role                                                  |     No |            No |       No |          No | **Yes** |
 
-**Nuance:** Writer access to existing level/group *pages* is not proof of permission to create/update the corresponding structures. Page-level reads and action-level writes must be modeled separately; reuse `canPublishCurriculum` for the latter. This table reflects the inspected source, not a new broad user-level permission system.
+**Nuance:** Writer access to existing level/group _pages_ is not proof of permission to create/update the corresponding structures. Page-level reads and action-level writes must be modeled separately; reuse `canPublishCurriculum` for the latter. This table reflects the inspected source, not a new broad user-level permission system.
 
 ## 7. Implementation units — one complete unit per coding turn
 
@@ -260,7 +260,7 @@ Use existing `users.id`, `users.clerk_user_id`, `users.role`, `users.is_sandbox`
 
 **Outcome:** Admin import history/status/list surfaces use RA list/controller UI, but the specialized import wizard, repair and approval screens remain connected to the same routes and pipeline.
 
-- First compare current code with the *latest implementation state of Spec 25 and Spec 19*; do not implement an imagined completed importer. Reuse `listActiveCurriculumImports`, `listArchivedCurriculumImportsForHistory`, `getCurriculumImportStatus`, and current Lambda/queue/review services as applicable.
+- First compare current code with the _latest implementation state of Spec 25 and Spec 19_; do not implement an imagined completed importer. Reuse `listActiveCurriculumImports`, `listArchivedCurriculumImportsForHistory`, `getCurriculumImportStatus`, and current Lambda/queue/review services as applicable.
 - Migrate history, status badges, filters, links and archive/unarchive UI only where already backed by real services; preserve upload/review/confirm/idempotency semantics and the distinction between import commit and explicit publish.
 - Delete replaced custom import listing components only after real status transitions and navigation parity. No storage, AWS, import-worker, or schema refactor in this UI unit.
 - **Schema:** none expected. **Tests:** pending/processing/failed/complete views; admin-only confirmation; refresh/retry; imported draft not live; failure recovery.
@@ -278,7 +278,7 @@ Use existing `users.id`, `users.clerk_user_id`, `users.role`, `users.is_sandbox`
 
 **Outcome:** `/admin/decks` is an RA list/resource, backed by the existing Polyglot-deck service.
 
-- Only list admin-authored *official* decks; never expose or administrate learner-owned personal decks. Keep existing detail membership/reordering screens unless separately verified for migration.
+- Only list admin-authored _official_ decks; never expose or administrate learner-owned personal decks. Keep existing detail membership/reordering screens unless separately verified for migration.
 - Reuse `listPolyglotDecks` and current authorized/audited create/update/delete services, with canonical item references and gating preserved. Use explicit delete confirmation and rejected writes for non-admins.
 - Delete replaced old list/dialog chrome when unused; avoid rewriting personal deck workflows.
 - **Schema:** none. **Tests:** official-vs-personal isolation, publishing/content reference invariants, admin-only writes, correct navigation.
@@ -381,5 +381,5 @@ Next unit: N+1
 Added after the units shipped, so the spec above stays as it was written and what changed is on the record. Each is the owner's decision, dated.
 
 - **2026-10-14 — The Logs page moves onto React Admin, until PostHog replaces it.** §4 listed `/admin/logs` as "Retained". It is now a React Admin list (`GET /api/v1/admin/logs`, Admin and developer, read-only); `/admin/sandbox` is the one page that stays specialist. The System tab remains its placeholder. When PostHog takes over, the screen and its endpoint can be removed together.
-- **2026-10-14 — A writer may see the official decks.** §6's matrix has "Official decks management: writer No", which still holds for *managing*: creating, editing, deleting and ordering stay an Admin's. A writer now has the Decks menu link, the list, and each deck's page as a read-only view.
+- **2026-10-14 — A writer may see the official decks.** §6's matrix has "Official decks management: writer No", which still holds for _managing_: creating, editing, deleting and ordering stay an Admin's. A writer now has the Decks menu link, the list, and each deck's page as a read-only view.
 - **2026-10-14 — Imports are an Admin's end to end.** §6's matrix always said so, but the import history (list and archived list) had stayed readable by a writer. It no longer is: the history, the archived history, an import's own page and the upload page are all Admin-only, and a writer has no Imports link.

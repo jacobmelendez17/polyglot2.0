@@ -11,7 +11,10 @@ async function main() {
   const pool = new Pool({ connectionString: process.env.DATABASE_URL! });
   const db = drizzle(pool);
 
-  const allLanguages = await db.select().from(languages).orderBy(asc(languages.name));
+  const allLanguages = await db
+    .select()
+    .from(languages)
+    .orderBy(asc(languages.name));
   console.log("=== LANGUAGES ===");
   for (const l of allLanguages) {
     console.log(JSON.stringify(l));
@@ -33,7 +36,9 @@ async function main() {
       );
     }
 
-    console.log(`\n=== VOCAB GROUPS for language ${lang.name} (${lang.id}) ===`);
+    console.log(
+      `\n=== VOCAB GROUPS for language ${lang.name} (${lang.id}) ===`,
+    );
     const groups = await db
       .select()
       .from(vocabularyGroups)

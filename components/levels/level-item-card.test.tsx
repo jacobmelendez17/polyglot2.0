@@ -51,7 +51,11 @@ describe("LevelItemCard", () => {
   it("fills the whole card with the real SRS stage color once learned", () => {
     render(
       <LevelItemCard
-        item={{ ...VOCAB_ITEM, srsStage: "familiar_1", displayState: "learned" }}
+        item={{
+          ...VOCAB_ITEM,
+          srsStage: "familiar_1",
+          displayState: "learned",
+        }}
       />,
     );
     expect(screen.getByRole("link")).toHaveClass("bg-srs-familiar");
@@ -65,7 +69,9 @@ describe("LevelItemCard", () => {
   });
 
   it("uses a light accent tint for an unlearned item in the active lesson", () => {
-    render(<LevelItemCard item={{ ...VOCAB_ITEM, displayState: "inLesson" }} />);
+    render(
+      <LevelItemCard item={{ ...VOCAB_ITEM, displayState: "inLesson" }} />,
+    );
     const link = screen.getByRole("link");
     expect(link).toHaveClass("border-primary/50");
     expect(link).toHaveClass("bg-primary/10");

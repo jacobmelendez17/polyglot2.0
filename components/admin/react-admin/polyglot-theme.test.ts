@@ -8,6 +8,7 @@ import {
   usePolyglotThemeOptions,
   type PolyglotThemeSnapshot,
 } from "./polyglot-theme";
+import { readableAccentText } from "./readable-accent";
 
 const LIGHT_TOKENS = {
   "--bg-base": "#f8efe7",
@@ -148,6 +149,65 @@ describe("buildPolyglotThemeOptions", () => {
     expect(normal.transitions).toBeUndefined();
     expect(normal.components?.MuiButtonBase?.defaultProps).toEqual({
       disableRipple: false,
+    });
+  });
+
+  describe("the accent as text", () => {
+    it("paints outlined and text buttons in a readable shade of the accent, and leaves the fills and borders on the accent", () => {
+      const readable = readableAccentText(LIGHT_TOKENS);
+      expect(readable).toBeDefined();
+      // Sage on the cream page is 2.4:1: the text moves, the accent does not.
+      expect(readable).not.toBe(LIGHT_TOKENS["--accent-primary"]);
+
+      const { components, palette } = buildPolyglotThemeOptions(light);
+      expect(components?.MuiButton?.styleOverrides).toMatchObject({
+        outlinedPrimary: { color: readable },
+        textPrimary: { color: readable },
+      });
+      expect(palette?.primary).toMatchObject({ main: "#7fa69c" });
+      // Contained buttons are a fill with the accent-foreground on top: not overridden.
+      expect(components?.MuiButton?.styleOverrides).not.toHaveProperty(
+        "containedPrimary",
+      );
+    });
+
+    it("gives a link that sets no colour of its own, and a focused label, the same readable shade", () => {
+      const readable = readableAccentText(LIGHT_TOKENS);
+      const { components } = buildPolyglotThemeOptions(light);
+      expect(components?.MuiLink?.styleOverrides).toEqual({
+        root: { color: readable },
+      });
+      expect(components?.MuiFormLabel?.styleOverrides).toEqual({
+        root: { "&.Mui-focused:not(.Mui-error)": { color: readable } },
+      });
+    });
+
+    it("follows the palette: another accent gives its own readable shade", () => {
+      const ocean = {
+        ...light,
+        tokens: { ...LIGHT_TOKENS, "--accent-primary": "#4a8fa0" },
+      };
+      expect(
+        buildPolyglotThemeOptions(ocean).components?.MuiLink?.styleOverrides,
+      ).toEqual({
+        root: { color: readableAccentText(ocean.tokens) },
+      });
+      expect(readableAccentText(ocean.tokens)).not.toBe(
+        readableAccentText(LIGHT_TOKENS),
+      );
+    });
+
+    it("overrides nothing when there is no accent to read", () => {
+      const { components } = buildPolyglotThemeOptions({
+        mode: "light",
+        tokens: {},
+        reducedMotion: false,
+      });
+      expect(components).not.toHaveProperty("MuiLink");
+      expect(components).not.toHaveProperty("MuiFormLabel");
+      expect(components?.MuiButton?.styleOverrides).toEqual({
+        root: { borderRadius: "var(--radius)" },
+      });
     });
   });
 

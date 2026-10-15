@@ -98,5 +98,7 @@ const NOT_LEARNED_STYLE: Record<"locked" | "inLesson", LevelItemStyle> = {
 /** Shared by `LevelItemCard` and `LevelItemList` so the two view modes never drift apart on what a stage/state looks like. */
 export function levelItemStyle(item: LevelCardItem): LevelItemStyle {
   if (item.srsStage) return LEARNED_STYLE[item.srsStage];
-  return NOT_LEARNED_STYLE[item.displayState === "inLesson" ? "inLesson" : "locked"];
+  return NOT_LEARNED_STYLE[
+    item.displayState === "inLesson" ? "inLesson" : "locked"
+  ];
 }

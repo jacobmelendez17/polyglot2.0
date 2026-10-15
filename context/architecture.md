@@ -2372,6 +2372,14 @@ No `preview-cleanup.yml`: Neon's native Vercel preview-branching integration and
 
 A required check is only turned on in branch protection after that workflow has run successfully at least once and GitHub recognizes its status name (spec 23) — a newly-added workflow is not required from the moment its YAML is written.
 
+### A bare checkout must pass (2026-10-14)
+
+`ci.yml` was written before it ever ran, and a clean checkout exposed three things a developer's machine hides. Each is fixed where it lives, and each is a rule for what follows:
+
+- **Generated types.** `next-env.d.ts` and `.next/types` (the global `LayoutProps` helper, the image-import types) are git-ignored build output, so a fresh checkout fails `tsc` on them. The TypeScript job — and the `typecheck` script — run `next typegen` first; it needs no build and no environment variables.
+- **A hermetic unit suite.** `lib/env.ts` fails fast when a required variable is missing, and Vitest used to find them only in a developer's `.env.local`, so fifteen test files failed to import in CI. `vitest.config.mts` now supplies inert placeholders (a no-op Clerk key, test-only secrets, a database URL that points nowhere) and lets any real value from the shell or a `.env` file win. A unit test never needs a real secret, and one that tried to reach the database would fail rather than reach one.
+- **Every required variable in every job that imports `lib/env.ts`.** `REVIEW_STATE_SECRET` was added to the schema (spec 09) and never to the integration and build jobs; both now pass `secrets.CI_REVIEW_STATE_SECRET`, a new repository secret the owner creates beside `CI_LESSON_STATE_SECRET`. Adding a required variable to `lib/env.ts` means adding it to `ci.yml` in the same commit.
+
 Deployment to production is impossible while any required check is failing. This is enforced by branch protection, not by convention.
 
 ## Pipeline Requirements

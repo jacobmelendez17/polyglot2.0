@@ -44,7 +44,9 @@ export function FontSizeSelector() {
             onClick={() => setDraft(fontScale)}
             aria-pressed={draft === fontScale}
             className={`rounded-lg border px-3 py-2 text-sm font-medium ${
-              draft === fontScale ? "border-primary bg-accent/40" : "border-border"
+              draft === fontScale
+                ? "border-primary bg-accent/40"
+                : "border-border"
             }`}
           >
             {LABELS[fontScale]}
@@ -57,8 +59,8 @@ export function FontSizeSelector() {
           Example Header
         </p>
         <p className="mt-1 text-base text-foreground">
-          This is normal Polyglot body text. It changes once the selected
-          text size is saved.
+          This is normal Polyglot body text. It changes once the selected text
+          size is saved.
         </p>
       </div>
 

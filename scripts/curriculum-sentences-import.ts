@@ -183,15 +183,13 @@ async function resolveWordToItem(
       ),
     )
     .limit(1);
-  if (vocabRow) return { learningItemId: vocabRow.learningItemId, type: "vocabulary" };
+  if (vocabRow)
+    return { learningItemId: vocabRow.learningItemId, type: "vocabulary" };
 
   const [grammarRow] = await db
     .select({ learningItemId: grammarItems.learningItemId })
     .from(grammarItems)
-    .innerJoin(
-      learningItems,
-      eq(learningItems.id, grammarItems.learningItemId),
-    )
+    .innerJoin(learningItems, eq(learningItems.id, grammarItems.learningItemId))
     .where(
       and(
         eq(grammarItems.structure, word),

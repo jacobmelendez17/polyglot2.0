@@ -77,7 +77,9 @@ function currentLevelItems(eligibleItems: LearningItem[]): LearningItem[] {
  * decide whether "Grammar" belongs in the Choose Group as You Go theme list
  * (`GRAMMAR_THEME_ID`) without duplicating the level-scoping rule.
  */
-export function getRemainingGrammarCount(eligibleItems: LearningItem[]): number {
+export function getRemainingGrammarCount(
+  eligibleItems: LearningItem[],
+): number {
   return currentLevelItems(eligibleItems).filter(
     (item) => item.type === "grammar",
   ).length;

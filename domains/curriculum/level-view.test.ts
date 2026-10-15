@@ -339,9 +339,9 @@ describe("buildLevelViewModel — display state (spec 26 follow-up)", () => {
         ["v2", "master" as SrsStage],
       ]),
     );
-    expect(result.lessons.every((l) => l.items[0].displayState === "learned")).toBe(
-      true,
-    );
+    expect(
+      result.lessons.every((l) => l.items[0].displayState === "learned"),
+    ).toBe(true);
   });
 });
 

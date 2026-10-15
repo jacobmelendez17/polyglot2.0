@@ -27,7 +27,9 @@ describe("LearningQueuePicker", () => {
     await user.click(screen.getByRole("radio", { name: /theme selection/i }));
 
     expect(screen.queryByText(/which theme first/i)).not.toBeInTheDocument();
-    expect(screen.queryByRole("radio", { name: /numbers|colors/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("radio", { name: /numbers|colors/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("does not save on mode selection alone — only once Save is clicked", async () => {

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ThemeOptions } from "@mui/material/styles";
 
+import { readableAccentText } from "./readable-accent";
+
 /**
  * Themes Material UI / React Admin from Polyglot's *semantic CSS variables*
  * (`app/globals.css`) rather than a second, hardcoded palette (spec 26 §3
@@ -91,6 +93,10 @@ export function buildPolyglotThemeOptions({
 }: PolyglotThemeSnapshot): ThemeOptions {
   const t = tokens;
   const accent = t["--accent-primary"];
+  // The accent as *text* (outlined and text buttons, links, a focused label):
+  // the fill colour itself is too faint to read on the light page. See
+  // `readable-accent.ts`.
+  const accentText = readableAccentText(t);
 
   return {
     palette: {
@@ -146,11 +152,35 @@ export function buildPolyglotThemeOptions({
         },
       },
       MuiButton: {
-        styleOverrides: { root: { borderRadius: "var(--radius)" } },
+        styleOverrides: {
+          root: { borderRadius: "var(--radius)" },
+          // Material UI paints these two variants' *text* in the primary
+          // colour; their borders and hover tints keep the accent itself.
+          ...(accentText
+            ? {
+                outlinedPrimary: { color: accentText },
+                textPrimary: { color: accentText },
+              }
+            : {}),
+        },
       },
       MuiAlert: {
         styleOverrides: { root: { borderRadius: "var(--radius)" } },
       },
+      ...(accentText
+        ? {
+            // A link that sets no colour of its own, and a field label while
+            // its field has focus (an error keeps the error colour).
+            MuiLink: { styleOverrides: { root: { color: accentText } } },
+            MuiFormLabel: {
+              styleOverrides: {
+                root: {
+                  "&.Mui-focused:not(.Mui-error)": { color: accentText },
+                },
+              },
+            },
+          }
+        : {}),
     },
   };
 }

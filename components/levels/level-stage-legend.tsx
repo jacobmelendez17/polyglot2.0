@@ -13,9 +13,18 @@ type LegendItem = { label: string; dotClassName: string };
  */
 const LEGEND_ITEMS: LegendItem[] = [
   { label: "Locked", dotClassName: "border border-dashed border-border" },
-  { label: "In Lessons", dotClassName: "border border-primary/50 bg-primary/10" },
-  { label: SRS_STAGE_LABELS.beginner_1.replace(" 1", ""), dotClassName: "bg-srs-beginner" },
-  { label: SRS_STAGE_LABELS.familiar_1.replace(" 1", ""), dotClassName: "bg-srs-familiar" },
+  {
+    label: "In Lessons",
+    dotClassName: "border border-primary/50 bg-primary/10",
+  },
+  {
+    label: SRS_STAGE_LABELS.beginner_1.replace(" 1", ""),
+    dotClassName: "bg-srs-beginner",
+  },
+  {
+    label: SRS_STAGE_LABELS.familiar_1.replace(" 1", ""),
+    dotClassName: "bg-srs-familiar",
+  },
   { label: SRS_STAGE_LABELS.intermediate, dotClassName: "bg-srs-intermediate" },
   { label: SRS_STAGE_LABELS.master, dotClassName: "bg-srs-master" },
   { label: SRS_STAGE_LABELS.fluent, dotClassName: "bg-srs-fluent" },

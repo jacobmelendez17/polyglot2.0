@@ -141,7 +141,10 @@ export function LevelContentView({
               subtitle={`${lesson.items.length} word${lesson.items.length === 1 ? "" : "s"}`}
               trailing={`${lesson.qualifyingCount} of ${lesson.items.length} at Familiar+`}
             >
-              <LevelContentCollection items={lesson.items} viewMode={viewMode} />
+              <LevelContentCollection
+                items={lesson.items}
+                viewMode={viewMode}
+              />
             </LevelContentSection>
           ))
         ) : (
