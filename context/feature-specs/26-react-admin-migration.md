@@ -375,3 +375,11 @@ Next unit: N+1
 - [Clerk Next.js protecting content](https://clerk.com/docs/nextjs/guides/secure/protect-content), [Clerk route handlers](https://clerk.com/docs/reference/nextjs/app-router/route-handlers)
 
 **Internal context:** uploaded `project-overview.md`, `architecture.md`, `code-standards.md`, `ui-context.md`, `ai-workflow-rules.md`, `progress-tracker.md` (versions supplied for this task).
+
+## 12. Owner amendments after the eleven units
+
+Added after the units shipped, so the spec above stays as it was written and what changed is on the record. Each is the owner's decision, dated.
+
+- **2026-10-14 — The Logs page moves onto React Admin, until PostHog replaces it.** §4 listed `/admin/logs` as "Retained". It is now a React Admin list (`GET /api/v1/admin/logs`, Admin and developer, read-only); `/admin/sandbox` is the one page that stays specialist. The System tab remains its placeholder. When PostHog takes over, the screen and its endpoint can be removed together.
+- **2026-10-14 — A writer may see the official decks.** §6's matrix has "Official decks management: writer No", which still holds for *managing*: creating, editing, deleting and ordering stay an Admin's. A writer now has the Decks menu link, the list, and each deck's page as a read-only view.
+- **2026-10-14 — Imports are an Admin's end to end.** §6's matrix always said so, but the import history (list and archived list) had stayed readable by a writer. It no longer is: the history, the archived history, an import's own page and the upload page are all Admin-only, and a writer has no Imports link.

@@ -663,8 +663,11 @@ data-integrity rule stays in `domains/*`.
   `GET /api/v1/admin/imports?language=&archived=&cursor=&limit=` reads one
   language's history — the normal one, or with `archived=true` the archived one —
   through the existing `listActiveCurriculumImports` /
-  `listArchivedCurriculumImportsForHistory`, newest import first. It is open to
-  **Admin and writer** (`canManageCurriculum`), as the history pages always were.
+  `listArchivedCurriculumImportsForHistory`, newest import first. It is **Admin
+  only** (`canPublishCurriculum`), like every import page and command: it was
+  open to a writer until the owner's decision of 2026-10-14 made imports an
+  Admin's end to end — a writer has no menu link, no page and no endpoint for
+  them.
   A row is a sanitized view — file name, status, counts, attempt count, two
   dates — with no storage bucket or key, checksum, uploader or error text; those
   belong to the import's own page. `POST /api/v1/admin/imports/[importId]/archive`,
@@ -731,11 +734,16 @@ data-integrity rule stays in `domains/*`.
     against automatic replacement, and applies its approved fields to the item as
     a **draft** — it never publishes. Which entry, sense or pronunciation is
     right is decided on the word's own page; there is no bulk "choose for me".
-- **The official-decks list is a read model for Admins only** (spec 26 Unit
-  10). `GET /api/v1/admin/decks?language=` reads the existing
+- **The official-decks list is a read model for whoever may author; managing
+  decks stays an Admin's** (spec 26 Unit 10, widened by the owner's decision of
+  2026-10-14). `GET /api/v1/admin/decks?language=` reads the existing
   `listPolyglotDecks`, which lists decks of kind `polyglot` and nothing else.
-  The page and the endpoint are `canPublishCurriculum`, from the database role on
-  every request — for a writer the `decks` resource is _absent_ from the
+  The page and the endpoint are `canManageCurriculum`, from the database role on
+  every request: a writer may _see_ the decks — the list, and each deck's page
+  as a read-only view with the same details and items and none of the controls.
+  Creating, editing and deleting a deck are `canPublishCurriculum`, re-checked by
+  every Server Action; a writer's `decks` resource is `["list"]`, an Admin's
+  adds `create`, `edit` and `delete`, and anyone else's is _absent_ from the
   effective permissions, not an empty list. There is no `kind` or `owner`
   parameter (the query is strict, so asking is a 422) and the response carries
   no owner: a learner's personal deck has no administrative surface at all. One
@@ -746,13 +754,37 @@ data-integrity rule stays in `domains/*`.
   11). `app/(admin)/admin/layout.tsx` hands `buildAdminPermissions(user)` — the
   same object `GET /api/v1/admin/me` serves every React Admin screen — to the
   sidebar and the phone menu, and a link is offered when its resource is in
-  `resources` (or, for Logs and the Sandbox, when `canUseDeveloperTools`). A
-  writer is therefore never offered Decks or Users, and a resource added to the
-  permissions without a link (or the reverse) has to be decided on purpose — a
-  unit test pins the count. Hiding a link is still not authorization: every page
+  `resources` (or, for the Sandbox — the one link that is a tool and not a
+  resource — when `canUseDeveloperTools`). A writer is therefore offered Decks to
+  read, and never Imports, Logs, the Sandbox or Users, and a resource added to
+  the permissions without a link (or the reverse) has to be decided on purpose —
+  a unit test pins both lists against each other. Hiding a link is still not authorization: every page
   and endpoint re-checks. **Every `/admin` route is either a React Admin screen
   over a typed `/api/v1/admin` endpoint or a retained specialist page**; the
   cutover matrix in `progress-tracker.md` lists each one and why.
+- **The audit log is a read model on React Admin — until PostHog replaces it**
+  (the owner's decision of 2026-10-14; spec 26 had kept the Logs page as it
+  was). `GET /api/v1/admin/logs?actor=&action=&resourceType=&resourceId=&from=&to=&cursor=&limit=`
+  reads the existing `getAuditEvents` through a strict query, newest event first.
+  It is open to **Admin and developer** (`canUseDeveloperTools`) and never to a
+  writer, and it is read-only — nothing about an audit event can change, so
+  there is no write endpoint at all. A row names its actor (display name, else
+  username, else a short id) and carries the recorded before and after JSON as
+  the mutation wrote it; it never carries a sign-in id or an email (the page it
+  replaces fell back to the sign-in id). `from` and `to` are whole UTC days, both
+  inclusive. The System tab is still the honest placeholder it was: no
+  system-event pipeline exists (Sentry and PostHog are not wired up), and when
+  PostHog replaces this screen the endpoint and the screen can be removed
+  together.
+  - **The log's paging is exact, in both directions.** The cursor carries the
+    event's instant as microsecond text and is compared as a row value in SQL.
+    The cursor it replaced went through a JavaScript `Date`, which keeps
+    milliseconds, so a page that ended among events recorded in one transaction —
+    a bulk publish, an import's commit, all stamped with that transaction's one
+    `now()` — silently dropped the rest of the group from the log.
+    `previousCursor` is worked out from the cursor alone, so Previous works from a
+    refresh or a pasted link. A cursor that is not one of ours is a 422 in plain
+    words.
 
 ## `media`
 

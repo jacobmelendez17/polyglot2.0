@@ -34,8 +34,11 @@ function userWithRole(role: UserRole): PolyglotUser {
   };
 }
 
-/** Official decks are an Admin's end to end, reading included — a writer cannot. */
-const NOT_ADMIN = USER_ROLES.filter((role) => role !== "admin");
+/** Who may *read* the official decks: whoever may author — an Admin, and (since the owner's decision of 2026-10-14) a writer. */
+const MAY_READ = ["admin", "writer"] as const;
+const CANNOT_READ = USER_ROLES.filter(
+  (role) => !(MAY_READ as readonly string[]).includes(role),
+);
 
 /** What the service returns: the deck record, with its owner and gate level's id, plus two computed fields. */
 function deck(n: number, overrides: Record<string, unknown> = {}) {
@@ -74,14 +77,14 @@ const get = (query: Record<string, string> = { language: LANGUAGE }) =>
   );
 
 describe("GET /api/v1/admin/decks", () => {
-  describe("authorization — an Admin's alone, from the database role", () => {
+  describe("authorization — whoever may author, from the database role", () => {
     it("answers 401 with no session, and reads nothing", async () => {
       requireUser.mockRejectedValue(new AppError("UNAUTHENTICATED"));
       expect((await get()).status).toBe(401);
       expect(listPolyglotDecks).not.toHaveBeenCalled();
     });
 
-    it.each(NOT_ADMIN)(
+    it.each(CANNOT_READ)(
       "answers 403 for %s, and reads nothing",
       async (role) => {
         requireUser.mockResolvedValue(userWithRole(role));
@@ -92,19 +95,27 @@ describe("GET /api/v1/admin/decks", () => {
       },
     );
 
-    it("answers 200 for an Admin", async () => {
+    it.each(MAY_READ)("answers 200 for %s", async (role) => {
+      requireUser.mockResolvedValue(userWithRole(role));
       expect((await get()).status).toBe(200);
     });
 
     it("re-evaluates the role on every call, so a demoted Admin is refused at once", async () => {
       expect((await get()).status).toBe(200);
-      requireUser.mockResolvedValue(userWithRole("writer"));
+      requireUser.mockResolvedValue(userWithRole("developer"));
       expect((await get()).status).toBe(403);
       expect(listPolyglotDecks).toHaveBeenCalledOnce();
     });
 
-    it("does not reveal its parameters to someone who may not read", async () => {
+    it("gives a writer exactly what it gives an Admin — the list is read-only for both", async () => {
       requireUser.mockResolvedValue(userWithRole("writer"));
+      const writer = await (await get()).json();
+      requireUser.mockResolvedValue(userWithRole("admin"));
+      expect(await (await get()).json()).toEqual(writer);
+    });
+
+    it("does not reveal its parameters to someone who may not read", async () => {
+      requireUser.mockResolvedValue(userWithRole("developer"));
       expect((await get({ kind: "personal" })).status).toBe(403);
     });
   });

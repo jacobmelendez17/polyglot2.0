@@ -443,7 +443,14 @@ dictionary, decks) is held to this list:
 4. What a list shows as "can be acted on" (`confirmable`) is decided on the
    server by the same rule the command enforces, and the table's
    `isRowSelectable` reads it.
-5. In a test or a fixture, a Drizzle `select` from a single table leaves table
+5. A cursor over a timestamp travels as microsecond ISO text and is compared as
+   a row value in SQL (`(created_at, id) < (cursor::timestamptz, id::uuid)`),
+   never rounded through a `Date`: rows written in one transaction share one
+   instant, and a cursor that rounds it skips the rest of the group. Test it with
+   several rows of one instant and a page size that ends among them, and walk
+   back by the previous cursor as well as forward (the import history, the audit
+   log).
+6. In a test or a fixture, a Drizzle `select` from a single table leaves table
    names off every column, including inside a `sql` template, so a correlated
    subquery such as `(select count(*) from items where items.deck_id = decks.id)`
    compares the inner table's own columns and returns 0. Join, or run a second

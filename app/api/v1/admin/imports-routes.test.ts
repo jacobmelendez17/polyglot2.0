@@ -51,11 +51,11 @@ function userWithRole(role: UserRole, id = `user-${role}`): PolyglotUser {
   };
 }
 
-/** Who may read the history: whoever may author. */
-const CANNOT_READ = USER_ROLES.filter(
-  (role) => role !== "admin" && role !== "writer",
-);
-/** Who may act on it: an Admin, and nobody else — a writer included. */
+/**
+ * Who may read the history, and who may act on it: an Admin, and nobody else — a
+ * writer included. (A writer could read the history until the owner's decision of
+ * 2026-10-14 made imports an Admin's end to end.)
+ */
 const NOT_ADMIN = USER_ROLES.filter((role) => role !== "admin");
 
 const BROWSER = {
@@ -149,14 +149,14 @@ const get = (query: Record<string, string> = { language: LANGUAGE }) =>
   );
 
 describe("GET /api/v1/admin/imports", () => {
-  describe("authorization — whoever may author, from the database role", () => {
+  describe("authorization — an Admin's alone, from the database role", () => {
     it("answers 401 with no session, and reads nothing", async () => {
       requireUser.mockRejectedValue(new AppError("UNAUTHENTICATED"));
       expect((await get()).status).toBe(401);
       expect(listActiveCurriculumImports).not.toHaveBeenCalled();
     });
 
-    it.each(CANNOT_READ)(
+    it.each(NOT_ADMIN)(
       "answers 403 for %s, and reads nothing",
       async (role) => {
         requireUser.mockResolvedValue(userWithRole(role));
@@ -168,17 +168,13 @@ describe("GET /api/v1/admin/imports", () => {
       },
     );
 
-    it.each(["admin", "writer"] as const)(
-      "answers 200 for %s",
-      async (role) => {
-        requireUser.mockResolvedValue(userWithRole(role));
-        expect((await get()).status).toBe(200);
-      },
-    );
-
-    it("re-evaluates the role on every call", async () => {
+    it("answers 200 for an Admin", async () => {
       expect((await get()).status).toBe(200);
-      requireUser.mockResolvedValue(userWithRole("developer"));
+    });
+
+    it("re-evaluates the role on every call, so a demoted Admin is refused at once", async () => {
+      expect((await get()).status).toBe(200);
+      requireUser.mockResolvedValue(userWithRole("writer"));
       expect((await get()).status).toBe(403);
       expect(listActiveCurriculumImports).toHaveBeenCalledOnce();
     });
@@ -437,7 +433,6 @@ describe.each(COMMANDS)(
         expect(command.service).not.toHaveBeenCalled();
       });
 
-      // A writer reads the history, and nothing here is theirs to do.
       it.each(NOT_ADMIN)(
         "answers 403 for %s, and does nothing",
         async (role) => {

@@ -4,6 +4,7 @@ import { USER_ROLES, type UserRole } from "@/domains/users";
 
 import type { MappingQueueRow } from "@/domains/lexicon";
 
+import type { AdminAuditEvent, AuditEventsPage } from "./audit-types";
 import type { CurriculumImportRecord } from "./curriculum-import-types";
 import type {
   AdminCurriculumItemsPage,
@@ -23,6 +24,7 @@ import {
   adminGroupListSchema,
   adminImportPageSchema,
   adminLevelListSchema,
+  adminLogPageSchema,
   adminMeSchema,
   adminOverviewSchema,
   adminUserPageSchema,
@@ -35,6 +37,7 @@ import {
   buildAdminGroupList,
   buildAdminImportPage,
   buildAdminLevelList,
+  buildAdminLogPage,
   buildAdminMe,
   buildAdminOverview,
   buildAdminPermissions,
@@ -107,13 +110,16 @@ describe("buildAdminPermissions", () => {
       review: ["list"],
       levels: ["list", "create", "edit"],
       groups: ["list", "create", "edit"],
-      // Spec 26 Unit 8: an Admin starts an import (`create`), archives and
-      // restores one (`edit`), and permanently deletes its history (`delete`).
+      // Imports are an Admin's end to end (the owner's decision of 2026-10-14):
+      // starting one (`create`), archiving or restoring one (`edit`) and
+      // permanently deleting its history (`delete`) — and reading it.
       imports: ["list", "create", "edit", "delete"],
       // Spec 26 Unit 9: finding work and confirming reviewed mappings is authoring.
       dictionary: ["list", "edit"],
-      // Spec 26 Unit 10: official decks are an Admin's end to end.
+      // Official decks: an Admin creates, edits and deletes; a writer only reads.
       decks: ["list", "create", "edit", "delete"],
+      // The audit log is read-only, for Admin and developer.
+      logs: ["list"],
       // Spec 26 Unit 6: only an Admin has the account list at all.
       users: ["list", "edit"],
     });
@@ -123,15 +129,16 @@ describe("buildAdminPermissions", () => {
       review: ["list"],
       levels: ["list"],
       groups: ["list"],
-      // A writer reads what has been imported; none of the commands are theirs.
-      imports: ["list"],
-      // A writer authors mappings (`edit` is confirming a reviewed match) — and,
-      // unlike for an Admin, there is no `decks` at all: absent, not empty.
+      // A writer authors mappings (`edit` is confirming a reviewed match), and
+      // may *see* the official decks — `list` and nothing else. There is no
+      // `imports`, no `logs` and no `users` at all: absent, not empty.
       dictionary: ["list", "edit"],
+      decks: ["list"],
     });
-    // A developer reaches /admin but not curriculum.
+    // A developer reaches /admin and the audit log, and not curriculum.
     expect(buildAdminPermissions({ role: "developer" }).resources).toEqual({
       overview: ["show"],
+      logs: ["list"],
     });
   });
 
@@ -731,7 +738,7 @@ describe("buildAdminImportPage (spec 26 Unit 8)", () => {
   });
 });
 
-describe("who has the dictionary and decks resources (spec 26 Units 9-10)", () => {
+describe("who has the dictionary, decks, imports and logs resources", () => {
   it.each(USER_ROLES)(
     "gives %s the dictionary resource only if they may author",
     (role) => {
@@ -743,10 +750,40 @@ describe("who has the dictionary and decks resources (spec 26 Units 9-10)", () =
   );
 
   it.each(USER_ROLES)(
-    "gives %s the decks resource only if they are an Admin — absent, not empty, for anyone else",
+    "gives %s the decks resource — to read, if they may author, and to manage, only if they are an Admin",
     (role) => {
       const { resources } = buildAdminPermissions({ role });
-      expect(Object.hasOwn(resources, "decks")).toBe(role === "admin");
+      if (role === "admin") {
+        expect(resources.decks).toEqual(["list", "create", "edit", "delete"]);
+      } else if (role === "writer") {
+        // The owner's decision of 2026-10-14: a writer may see the decks.
+        expect(resources.decks).toEqual(["list"]);
+      } else {
+        // Absent — not an empty list.
+        expect(Object.hasOwn(resources, "decks")).toBe(false);
+      }
+    },
+  );
+
+  it.each(USER_ROLES)(
+    "gives %s the imports resource only if they are an Admin — absent, not empty, for anyone else",
+    (role) => {
+      const { resources } = buildAdminPermissions({ role });
+      expect(Object.hasOwn(resources, "imports")).toBe(role === "admin");
+    },
+  );
+
+  it.each(USER_ROLES)(
+    "gives %s the logs resource only if they may use developer tools — Admin and developer, never a writer",
+    (role) => {
+      const { resources, canUseDeveloperTools } = buildAdminPermissions({
+        role,
+      });
+      expect(Object.hasOwn(resources, "logs")).toBe(
+        role === "admin" || role === "developer",
+      );
+      // The resource and the flag are one decision.
+      expect(Object.hasOwn(resources, "logs")).toBe(canUseDeveloperTools);
     },
   );
 });
@@ -929,5 +966,135 @@ describe("buildAdminDeckList (spec 26 Unit 10)", () => {
       availability: "theme",
       gateLevelNumber: null,
     });
+  });
+});
+
+describe("buildAdminLogPage (the audit log on React Admin)", () => {
+  const event = (
+    n: number,
+    overrides: Partial<AdminAuditEvent> = {},
+  ): AdminAuditEvent => ({
+    id: `e0000000-0000-4000-8000-${String(n).padStart(12, "0")}`,
+    actorUserId: "a0000000-0000-4000-8000-000000000001",
+    action: "USER_ROLE_CHANGED",
+    resourceType: "user",
+    resourceId: "b0000000-0000-4000-8000-000000000002",
+    beforeData: { role: "user" },
+    afterData: { role: "writer" },
+    reason: "Reviews lessons",
+    correlationId: "c-1",
+    createdAt: new Date("2026-10-14T22:46:21.710Z"),
+    ...overrides,
+  });
+  const page = (
+    items: AdminAuditEvent[],
+    overrides: Partial<AuditEventsPage> = {},
+  ): AuditEventsPage => ({
+    items,
+    nextCursor: null,
+    hasPreviousPage: false,
+    previousCursor: null,
+    ...overrides,
+  });
+  const ADMIN = {
+    id: "a0000000-0000-4000-8000-000000000001",
+    displayName: "Ada Admin",
+    username: "ada",
+  };
+
+  it("is a page the contract accepts, field by field", () => {
+    const built = buildAdminLogPage(page([event(1)]), [ADMIN]);
+    expect(() => adminLogPageSchema.parse(built)).not.toThrow();
+    expect(built.items[0]).toEqual({
+      id: "e0000000-0000-4000-8000-000000000001",
+      createdAt: "2026-10-14T22:46:21.710Z",
+      actorId: ADMIN.id,
+      actorName: "Ada Admin",
+      action: "USER_ROLE_CHANGED",
+      resourceType: "user",
+      resourceId: "b0000000-0000-4000-8000-000000000002",
+      reason: "Reviews lessons",
+      correlationId: "c-1",
+      beforeData: { role: "user" },
+      afterData: { role: "writer" },
+    });
+  });
+
+  it("names an actor by display name, then username, then a short id — never by anything outside Polyglot", () => {
+    const named = (displayName: string | null, username: string | null) =>
+      buildAdminLogPage(page([event(1)]), [
+        {
+          ...ADMIN,
+          displayName,
+          username,
+          // What the old page fell back to: a sign-in id, which must never travel.
+          clerkUserId: "user_2abcSECRET",
+          email: "someone@example.com",
+        } as typeof ADMIN,
+      ]).items[0]!.actorName;
+
+    expect(named("Ada Admin", "ada")).toBe("Ada Admin");
+    expect(named(null, "ada")).toBe("ada");
+    expect(named(null, null)).toBe("a0000000…");
+    // An actor the lookup did not return is a short id too.
+    expect(buildAdminLogPage(page([event(1)]), []).items[0]!.actorName).toBe(
+      "a0000000…",
+    );
+    const everything = JSON.stringify(
+      buildAdminLogPage(page([event(1)]), [
+        { ...ADMIN, clerkUserId: "user_2abcSECRET" } as typeof ADMIN,
+      ]),
+    );
+    expect(everything).not.toContain("user_2abcSECRET");
+  });
+
+  it("passes the recorded before and after through, and says null when nothing was recorded", () => {
+    const [recorded, bare] = buildAdminLogPage(
+      page([
+        event(1),
+        event(2, {
+          beforeData: undefined,
+          afterData: null,
+          reason: null,
+          resourceId: null,
+          correlationId: null,
+        }),
+      ]),
+      [ADMIN],
+    ).items;
+    expect(recorded).toMatchObject({
+      beforeData: { role: "user" },
+      afterData: { role: "writer" },
+    });
+    expect(bare).toMatchObject({
+      beforeData: null,
+      afterData: null,
+      reason: null,
+      resourceId: null,
+      correlationId: null,
+    });
+  });
+
+  it("hands the server's cursors on untouched, and keeps the order it was given", () => {
+    const built = buildAdminLogPage(
+      page([event(2), event(1)], {
+        nextCursor: "next-opaque",
+        hasPreviousPage: true,
+        previousCursor: "previous-opaque",
+      }),
+      [ADMIN],
+    );
+    expect(built.items.map((row) => row.id.slice(-1))).toEqual(["2", "1"]);
+    expect(built).toMatchObject({
+      nextCursor: "next-opaque",
+      hasPreviousPage: true,
+      previousCursor: "previous-opaque",
+    });
+  });
+
+  it("builds an empty page the contract accepts", () => {
+    expect(() =>
+      adminLogPageSchema.parse(buildAdminLogPage(page([]), [])),
+    ).not.toThrow();
   });
 });

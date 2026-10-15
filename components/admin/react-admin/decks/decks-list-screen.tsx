@@ -23,10 +23,12 @@ import { useDecksList } from "./use-decks-list";
  * are edited — the specialist editor, unchanged). "Add deck" stays the page's
  * own dialog, because a deck cannot be created without choosing its items.
  *
- * Admin only, and the *server* says so: the page is closed to anyone else and
- * the endpoint answers 403, which shows here as access-denied rather than an
- * empty list. Only official decks are ever listed — a learner's personal deck
- * has no administrative surface and the endpoint has no way to ask for one.
+ * Admin and writer may read it (`canManageCurriculum`; a writer's deck page is
+ * read-only), and the *server* says who may: anyone else is answered with a 403,
+ * which shows here as access-denied rather than an empty list. The list itself
+ * carries no commands — "Add deck" is the page's, offered to an Admin alone.
+ * Only official decks are ever listed — a learner's personal deck has no
+ * administrative surface and the endpoint has no way to ask for one.
  *
  * States, per ui-context.md: loading (a skeleton shaped like the table), empty
  * (designed), error (in place, a retry only when one could help), forbidden. A

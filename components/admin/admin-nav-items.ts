@@ -10,8 +10,8 @@ export type AdminNavItem = {
  * object `GET /api/v1/admin/me` returns and every React Admin screen asks
  * (`buildAdminPermissions`), so the sidebar and the screens cannot disagree
  * about what someone may open (spec 26 Unit 11). A link is shown when its
- * *resource* is one the server lists for them, or — for the operational tools,
- * which are not React Admin resources — when they may use developer tools.
+ * *resource* is one the server lists for them, or — for the Sandbox, the one
+ * page that is not a React Admin resource — when they may use developer tools.
  */
 export type AdminNavPermissions = Pick<
   AdminPermissions,
@@ -19,14 +19,14 @@ export type AdminNavPermissions = Pick<
 >;
 
 type NavEntry = AdminNavItem & {
-  /** The resource this link opens; shown when the server lists it. Absent for the developer tools. */
+  /** The resource this link opens; shown when the server lists it. Absent for the Sandbox, the one page that is a tool and not a resource. */
   resource?: string;
 };
 
 /**
- * Every link, in the order the sidebar shows them. Curriculum, Review, Levels,
- * Groups, Imports, Dictionary and Decks, Overview and Users are React Admin
- * screens; Logs and the Sandbox are retained specialist tools (spec 26 §4).
+ * Every link, in the order the sidebar shows them. Everything but the Sandbox is
+ * a React Admin screen (Logs since the owner's decision of 2026-10-14, until
+ * PostHog replaces it); the Sandbox is a retained specialist tool (spec 26 §4).
  * Hiding a link is never authorization — each page and endpoint re-checks.
  */
 const NAV: NavEntry[] = [
@@ -36,7 +36,8 @@ const NAV: NavEntry[] = [
   { label: "Review", href: "/admin/curriculum/review", resource: "review" },
   { label: "Levels", href: "/admin/curriculum/levels", resource: "levels" },
   { label: "Groups", href: "/admin/curriculum/groups", resource: "groups" },
-  // Spec 19 §19 — asynchronous curriculum import history. Nested under
+  // Spec 19 §19 — asynchronous curriculum import history — an Admin's end to end
+  // (the owner's decision of 2026-10-14: a writer has no Imports). Nested under
   // /admin/curriculum like Levels/Groups above, so isAdminNavItemCurrent's
   // longest-prefix rule highlights this instead of falling back to
   // "Curriculum" on /admin/curriculum/imports and its sub-routes.
@@ -44,11 +45,12 @@ const NAV: NavEntry[] = [
   // Spec 12 — dictionary mapping review. A writer authors mappings; a developer
   // without the admin role must not see it.
   { label: "Dictionary", href: "/admin/dictionary", resource: "dictionary" },
-  // Spec 14 — official Polyglot decks are official content and an Admin's end
-  // to end: a writer's menu does not offer a page that would refuse them.
+  // Spec 14 — official Polyglot decks. A writer may see them (the owner's
+  // decision of 2026-10-14); an Admin creates and manages them.
   { label: "Decks", href: "/admin/decks", resource: "decks" },
-  // Operational surfaces — Admin and developer, never a writer (spec 17).
-  { label: "Logs", href: "/admin/logs" },
+  // Operational surfaces — Admin and developer, never a writer (spec 17). The
+  // audit log is a resource (read-only); the Sandbox is a tool.
+  { label: "Logs", href: "/admin/logs", resource: "logs" },
   { label: "Sandbox", href: "/admin/sandbox" },
   // Spec 26 Unit 6 — the account list and role changes. Admin only.
   { label: "Users", href: "/admin/users", resource: "users" },

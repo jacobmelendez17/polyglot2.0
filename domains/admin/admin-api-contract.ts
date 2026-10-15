@@ -3,6 +3,8 @@ import { z } from "zod";
 import { CURRICULUM_BULK_ITEM_LIMIT } from "@/domains/curriculum/curriculum-bulk-limits";
 import { ADMIN_USER_LIST_MAX_PAGE_SIZE, USER_ROLES } from "@/domains/users";
 
+import { ADMIN_AUDIT_ACTIONS } from "./audit-types";
+
 // Re-exported so a screen can say "up to N" without importing the curriculum domain.
 export { CURRICULUM_BULK_ITEM_LIMIT };
 
@@ -1045,6 +1047,92 @@ export const adminDeckListSchema = z.object({
   truncated: z.boolean(),
 });
 export type AdminDeckList = z.infer<typeof adminDeckListSchema>;
+
+/* -------------------------------------------------------------------------- */
+/* Audit log (the Logs page, on React Admin until PostHog replaces it)        */
+/* -------------------------------------------------------------------------- */
+
+/** What the log shows per page. The server caps any request at `LOG_LIST_MAX_PAGE_SIZE` (the audit service's own bound). */
+export const LOG_LIST_PAGE_SIZE = 25;
+export const LOG_LIST_MAX_PAGE_SIZE = 100;
+
+/**
+ * The log's one ordering: newest event first (creation time, then id). An audit
+ * event is never edited, so nothing moves while someone pages; new events only
+ * appear above the first page. Any other sort is refused.
+ */
+export const LOG_LIST_SORT = { field: "created_at", order: "DESC" } as const;
+
+/** A calendar day as `YYYY-MM-DD` that exists (not "2026-02-30") — what the date filters speak. */
+const calendarDay = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .refine((value) => {
+    const date = new Date(`${value}T00:00:00.000Z`);
+    return (
+      !Number.isNaN(date.getTime()) && date.toISOString().startsWith(value)
+    );
+  }, "Not a real date");
+
+/**
+ * `GET /api/v1/admin/logs` query string — the filters the Logs page always had
+ * (`actor, action, resourceType, resourceId, from, to`) and where in the log to
+ * start. Strict, like every list: a parameter nothing here honours (a sort, a
+ * language, an unknown action) is a 422, never ignored. `from` and `to` are whole
+ * days, both inclusive, in UTC.
+ */
+export const adminLogListQuerySchema = z
+  .object({
+    actor: uuidLike.optional(),
+    action: z.enum(ADMIN_AUDIT_ACTIONS).optional(),
+    resourceType: z.string().trim().min(1).max(100).optional(),
+    resourceId: z.string().trim().min(1).max(200).optional(),
+    from: calendarDay.optional(),
+    to: calendarDay.optional(),
+    cursor: z.string().trim().min(1).max(512).optional(),
+    limit: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(LOG_LIST_MAX_PAGE_SIZE)
+      .default(LOG_LIST_PAGE_SIZE),
+  })
+  .strict();
+export type AdminLogListQuery = z.infer<typeof adminLogListQuerySchema>;
+
+/**
+ * One audit event, as the log shows it: when, who, what, to what, and why — and
+ * what the resource held before and after, as the mutation recorded it. The
+ * actor is named, never identified by anything outside Polyglot: no sign-in id,
+ * no email. (`parse` strips any field this schema does not list, even if a
+ * builder forgot to leave it out.)
+ */
+export const adminLogRowSchema = z.object({
+  id: z.string().min(1),
+  createdAt: z.iso.datetime(),
+  /** The actor's Polyglot `users.id`. */
+  actorId: z.string().min(1),
+  /** Their display name, else their username, else a short form of the id. */
+  actorName: z.string(),
+  action: z.enum(ADMIN_AUDIT_ACTIONS),
+  resourceType: z.string(),
+  resourceId: z.string().nullable(),
+  reason: z.string().nullable(),
+  correlationId: z.string().nullable(),
+  /** Whatever JSON the mutation recorded; `null` when it recorded nothing. */
+  beforeData: z.unknown(),
+  afterData: z.unknown(),
+});
+export type AdminLogRow = z.infer<typeof adminLogRowSchema>;
+
+/** A cursor page; like the other lists, no total. Read `previousCursor` with `hasPreviousPage`. */
+export const adminLogPageSchema = z.object({
+  items: z.array(adminLogRowSchema),
+  nextCursor: z.string().nullable(),
+  hasPreviousPage: z.boolean(),
+  previousCursor: z.string().nullable(),
+});
+export type AdminLogPage = z.infer<typeof adminLogPageSchema>;
 
 /**
  * Error codes this adapter can answer with, and the HTTP status each maps

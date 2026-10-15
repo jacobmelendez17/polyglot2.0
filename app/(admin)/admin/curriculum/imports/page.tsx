@@ -5,7 +5,7 @@ import { forbidden } from "next/navigation";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { AdminImportsListApp } from "@/components/admin/react-admin/imports/imports-list-app";
 import { Button } from "@/components/ui/button";
-import { canManageCurriculum, canPublishCurriculum } from "@/domains/admin";
+import { canPublishCurriculum } from "@/domains/admin";
 import { getLanguages } from "@/domains/curriculum/server";
 import { requireUser } from "@/domains/users/server";
 import { env } from "@/lib/env";
@@ -28,10 +28,11 @@ type SearchParams = { language?: string };
  * that need a decision, corrections, Confirm, Retry, the explicit publish of
  * what an import drafted); "New Import" is the upload screen, unchanged.
  *
- * Visible to anyone who can author, as it always was, so a writer can see what
- * has been imported. Starting an import and managing the history need
- * `canPublishCurriculum` — the endpoints re-check it from the database role on
- * every call, and "New Import" is simply not offered to someone it would refuse.
+ * **Admin only** (`canPublishCurriculum`) since the owner's decision of
+ * 2026-10-14: imports are an Admin's end to end, as the role matrix always said,
+ * so a writer has neither this page, the pages behind it, nor a menu link to it.
+ * Every endpoint behind it re-checks the same predicate from the database role
+ * on every call.
  */
 export default async function CurriculumImportsPage({
   searchParams,
@@ -39,7 +40,7 @@ export default async function CurriculumImportsPage({
   searchParams: Promise<SearchParams>;
 }) {
   const user = await requireUser();
-  if (!canManageCurriculum(user)) {
+  if (!canPublishCurriculum(user)) {
     forbidden();
   }
 
@@ -78,15 +79,11 @@ export default async function CurriculumImportsPage({
               Archived
             </Link>
           </Button>
-          {canPublishCurriculum(user) ? (
-            <Button asChild>
-              <Link
-                href={`/admin/curriculum/imports/new?language=${languageId}`}
-              >
-                New Import
-              </Link>
-            </Button>
-          ) : null}
+          <Button asChild>
+            <Link href={`/admin/curriculum/imports/new?language=${languageId}`}>
+              New Import
+            </Link>
+          </Button>
         </div>
       </div>
 

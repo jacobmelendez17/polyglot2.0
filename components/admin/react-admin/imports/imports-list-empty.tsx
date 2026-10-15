@@ -11,14 +11,7 @@ import Typography from "@mui/material/Typography";
  * That page is empty but the history is not, and it needs a way back, not a
  * "No imports yet" that would be untrue.
  */
-export function ImportsListEmpty({
-  archived,
-  canStart,
-}: {
-  archived: boolean;
-  /** Whether the person may start an import: it decides what the next step is. */
-  canStart: boolean;
-}) {
+export function ImportsListEmpty({ archived }: { archived: boolean }) {
   const { hasPreviousPage } = useListContext();
 
   return (
@@ -50,9 +43,7 @@ export function ImportsListEmpty({
         <>
           <Typography sx={{ fontWeight: 500 }}>No imports yet</Typography>
           <Typography variant="body2" sx={{ mt: 0.5, color: "text.secondary" }}>
-            {canStart
-              ? "Start one with New Import above."
-              : "An Admin starts imports."}
+            Start one with New Import above.
           </Typography>
         </>
       )}

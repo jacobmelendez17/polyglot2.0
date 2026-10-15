@@ -1198,6 +1198,150 @@ describe("createAdminDataProvider", () => {
     });
   });
 
+  describe("getList('logs')", () => {
+    const LOG_PAGE = {
+      items: [
+        {
+          id: "e0000000-0000-4000-8000-000000000001",
+          createdAt: "2026-10-14T22:46:21.710Z",
+          actorId: "a0000000-0000-4000-8000-000000000001",
+          actorName: "Ada Admin",
+          action: "USER_ROLE_CHANGED" as const,
+          resourceType: "user",
+          resourceId: "b0000000-0000-4000-8000-000000000002",
+          reason: "Reviews lessons",
+          correlationId: "correlation-1",
+          beforeData: { role: "user" },
+          afterData: { role: "writer" },
+        },
+      ],
+      nextCursor: "next",
+      hasPreviousPage: true,
+      previousCursor: "prev",
+    };
+    const LIST_PARAMS = {
+      pagination: { page: 1, perPage: 25 },
+      sort: { field: "created_at", order: "DESC" as const },
+      filter: {},
+    };
+
+    function logsProvider() {
+      const request = vi.fn<RequestFn>(async () => LOG_PAGE as never);
+      return {
+        request,
+        provider: createAdminDataProvider({ request: request as never }),
+      };
+    }
+
+    it("asks the log endpoint for the first page at the page's size — no filter, no language", async () => {
+      const { provider, request } = logsProvider();
+      await provider.getList("logs", LIST_PARAMS);
+      expect(request.mock.calls[0]?.[0]).toBe("/logs?limit=25");
+    });
+
+    it("drops an empty filter — an unset box is simply absent", async () => {
+      const { provider, request } = logsProvider();
+      await provider.getList("logs", {
+        ...LIST_PARAMS,
+        // What the filter form and the cursor hook hand over for "nothing chosen".
+        filter: {
+          actor: "",
+          action: undefined,
+          resourceType: "",
+          cursor: undefined,
+        },
+      });
+      expect(request.mock.calls[0]?.[0]).toBe("/logs?limit=25");
+    });
+
+    it("writes the filters in the log's own order", async () => {
+      const { provider, request } = logsProvider();
+      await provider.getList("logs", {
+        ...LIST_PARAMS,
+        filter: {
+          cursor: "here",
+          to: "2026-10-14",
+          from: "2026-10-01",
+          resourceId: "r-1",
+          resourceType: "user",
+          action: "USER_ROLE_CHANGED",
+          actor: "a0000000-0000-4000-8000-000000000001",
+        },
+      });
+      expect(request.mock.calls[0]?.[0]).toBe(
+        "/logs?actor=a0000000-0000-4000-8000-000000000001&action=USER_ROLE_CHANGED&resourceType=user&resourceId=r-1&from=2026-10-01&to=2026-10-14&cursor=here&limit=25",
+      );
+    });
+
+    it("validates the page against the contract", async () => {
+      const { provider, request } = logsProvider();
+      await provider.getList("logs", LIST_PARAMS);
+      const schema = request.mock.calls[0]?.[1] as {
+        safeParse: (v: unknown) => { success: boolean };
+      };
+      expect(schema.safeParse(LOG_PAGE).success).toBe(true);
+      expect(
+        schema.safeParse({
+          ...LOG_PAGE,
+          items: [{ ...LOG_PAGE.items[0], action: "SOMETHING_ELSE" }],
+        }).success,
+      ).toBe(false);
+    });
+
+    it("maps the page onto partial pagination, with the server's cursors and no total", async () => {
+      const { provider } = logsProvider();
+      const result = await provider.getList("logs", LIST_PARAMS);
+      expect(result.data).toEqual(LOG_PAGE.items);
+      expect(result.pageInfo).toEqual({
+        hasNextPage: true,
+        hasPreviousPage: true,
+      });
+      expect(result.meta).toEqual({
+        nextCursor: "next",
+        previousCursor: "prev",
+      });
+      expect(result).not.toHaveProperty("total");
+    });
+
+    it.each([
+      ["another sort", { sort: { field: "action", order: "ASC" as const } }],
+      ["a page jump", { pagination: { page: 2, perPage: 25 } }],
+      ["a language", { filter: { language: "lang-1" } }],
+      ["a search", { filter: { search: "role" } }],
+    ])("refuses %s without calling the server", async (_name, override) => {
+      const { provider, request } = logsProvider();
+      const error = await rejection(
+        provider.getList("logs", { ...LIST_PARAMS, ...override }),
+      );
+      expect(error.kind).toBe("unsupported");
+      expect(request).not.toHaveBeenCalled();
+    });
+
+    it("propagates a denial instead of returning an empty log", async () => {
+      const denial = new AdminApiError("FORBIDDEN", 403);
+      const provider = createAdminDataProvider({
+        request: (async () => {
+          throw denial;
+        }) as never,
+      });
+      await expect(provider.getList("logs", LIST_PARAMS)).rejects.toBe(denial);
+    });
+
+    it("has no write at all: the log is read-only", async () => {
+      const { provider, request } = logsProvider();
+      const errors = await Promise.all([
+        rejection(
+          provider.update("logs", { id: "x", data: {}, previousData: {} }),
+        ),
+        rejection(provider.create("logs", { data: {} })),
+        rejection(provider.delete("logs", { id: "x" })),
+        rejection(provider.getOne("logs", { id: "x" })),
+      ]);
+      for (const error of errors) expect(error.kind).toBe("unsupported");
+      expect(request).not.toHaveBeenCalled();
+    });
+  });
+
   describe("the import history commands (explicit commands)", () => {
     const IMPORT_ID = "60000000-0000-4000-8000-000000000001";
     const RESULT = { importId: IMPORT_ID };

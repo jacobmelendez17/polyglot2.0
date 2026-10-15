@@ -272,9 +272,13 @@ describe("ImportsListScreen — the archived history", () => {
   });
 });
 
-describe("ImportsListScreen — who sees the commands (from the server's permissions)", () => {
+describe("ImportsListScreen — the commands (an Admin's alone)", () => {
+  // Imports are an Admin's end to end (the owner's decision of 2026-10-14): the
+  // page and every endpoint refuse anyone else, so the screen has no read-only
+  // form. A role that loses access is answered by the endpoint — see the
+  // "revoked" test under the error states.
   it("shows an Admin Archive on every row", async () => {
-    renderImportsList({ role: "admin" });
+    renderImportsList();
     await table();
     expect(
       await screen.findByRole("button", { name: "Archive level-1.csv" }),
@@ -284,32 +288,10 @@ describe("ImportsListScreen — who sees the commands (from the server's permiss
     ).toBeVisible();
   });
 
-  // Spec 26 §6: imports are Admin-only; a writer reads the history.
-  it("shows a writer the whole history and no command, with a note saying why", async () => {
-    renderImportsList({ role: "writer" });
-    const t = await table();
-
-    expect(within(t).getByText("level-1.csv")).toBeVisible();
-    expect(
-      within(t)
-        .getAllByRole("columnheader")
-        .map((header) => header.textContent),
-    ).toEqual(["File", "Status", "Summary", "Created"]);
-    expect(screen.queryByRole("button", { name: /^Archive/ })).toBeNull();
-    expect(
-      screen.getByText(
-        "You can see what has been imported. An Admin starts and manages imports.",
-      ),
-    ).toBeVisible();
-    // The files are still theirs to open.
-    expect(within(t).getByRole("link", { name: "level-1.csv" })).toBeVisible();
-  });
-
-  it("gives a writer no Restore or Delete in the archived history either", async () => {
+  it("shows the archived history Restore and Permanently delete on every row", async () => {
     visit("language=lang-es", ARCHIVED_PATH);
     renderImportsList({
       archived: true,
-      role: "writer",
       pages: {
         "": importPage([
           importRow(1, { archivedAt: "2026-10-01T08:30:00.000Z" }),
@@ -319,56 +301,17 @@ describe("ImportsListScreen — who sees the commands (from the server's permiss
     await archivedTable();
 
     expect(
-      screen.queryByRole("button", { name: /Restore|delete/i }),
-    ).toBeNull();
-  });
-
-  it("takes the buttons away when the role is revoked mid-session", async () => {
-    const { setRole } = renderImportsList({ role: "admin" });
-    await screen.findByRole("button", { name: "Archive level-1.csv" });
-
-    setRole("writer");
-    act(() => {
-      focusManager.setFocused(false);
-      focusManager.setFocused(true);
-    });
-
-    await waitFor(() =>
-      expect(screen.queryByRole("button", { name: /^Archive/ })).toBeNull(),
-    );
-    expect(screen.getByText("level-1.csv")).toBeVisible();
-  });
-
-  it("does not show the table until it knows the permissions — no buttons that flash and vanish", async () => {
-    let release!: () => void;
-    const gate = new Promise<void>((resolve) => (release = resolve));
-    const { request } = renderImportsList({ role: "admin", meGate: gate });
-
-    // The list itself is answered at once; the table still waits, because
-    // whether it has an actions column depends on the permissions.
-    await waitFor(() => expect(request).toHaveBeenCalled());
-    await act(async () => {});
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "Loading the import history",
-    );
-    expect(screen.queryByRole("table")).toBeNull();
-    expect(screen.queryByRole("button", { name: /^Archive/ })).toBeNull();
-
-    release();
-    await table();
+      screen.getByRole("button", { name: "Restore level-1.csv" }),
+    ).toBeVisible();
     expect(
-      screen.getByRole("button", { name: "Archive level-1.csv" }),
+      screen.getByRole("button", { name: "Permanently delete level-1.csv" }),
     ).toBeVisible();
   });
 
-  it("explains a refused permission lookup instead of guessing a role", async () => {
-    renderImportsList({ meFails: () => new AdminApiError("FORBIDDEN", 403) });
-
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "You don't have access to this part of the admin console.",
-    );
-    expect(screen.queryByRole("table")).toBeNull();
-    expect(screen.queryByRole("button", { name: /^Archive/ })).toBeNull();
+  it("does not ask who the person is — it never looked up permissions to decide what to show", async () => {
+    const { fetchMe } = renderImportsList();
+    await table();
+    expect(fetchMe).not.toHaveBeenCalled();
   });
 });
 
@@ -1057,16 +1000,9 @@ describe("ImportsListScreen — the language", () => {
 
 describe("ImportsListScreen — empty states", () => {
   it("tells an Admin to start one", async () => {
-    renderImportsList({ role: "admin", pages: { "": importPage([]) } });
+    renderImportsList({ pages: { "": importPage([]) } });
     expect(await screen.findByText("No imports yet")).toBeVisible();
     expect(screen.getByText("Start one with New Import above.")).toBeVisible();
-  });
-
-  it("does not send a writer to a button they do not have", async () => {
-    renderImportsList({ role: "writer", pages: { "": importPage([]) } });
-    expect(await screen.findByText("No imports yet")).toBeVisible();
-    expect(screen.getByText("An Admin starts imports.")).toBeVisible();
-    expect(screen.queryByText(/New Import above/)).toBeNull();
   });
 
   it("does not call a page past the end 'no imports yet'", async () => {

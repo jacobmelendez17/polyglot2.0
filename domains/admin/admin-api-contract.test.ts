@@ -9,6 +9,8 @@ import {
 } from "@/domains/lexicon";
 import { USER_ROLES } from "@/domains/users";
 
+import { ADMIN_AUDIT_ACTIONS } from "./audit-types";
+
 import {
   ADMIN_CEFR_LEVELS,
   CURRICULUM_BULK_ITEM_LIMIT,
@@ -21,6 +23,8 @@ import {
   IMPORT_LIST_MAX_PAGE_SIZE,
   IMPORT_LIST_PAGE_SIZE,
   IMPORT_STATUSES,
+  LOG_LIST_MAX_PAGE_SIZE,
+  LOG_LIST_PAGE_SIZE,
   MAPPING_CONFIDENCES,
   MAPPING_MATCH_STATUSES,
   MAPPING_PARTS_OF_SPEECH,
@@ -58,6 +62,9 @@ import {
   adminLevelCreateRequestSchema,
   adminLevelListQuerySchema,
   adminLevelPathSchema,
+  adminLogListQuerySchema,
+  adminLogPageSchema,
+  adminLogRowSchema,
   adminLevelRowSchema,
   adminLevelUpdateRequestSchema,
   adminUserListQuerySchema,
@@ -1573,5 +1580,227 @@ describe("adminDeckRowSchema and adminDeckListSchema", () => {
     expect(adminDeckListSchema.safeParse({ items: [deck] }).success).toBe(
       false,
     );
+  });
+});
+
+describe("adminLogListQuerySchema (the audit log)", () => {
+  const ACTOR = "a0000000-0000-4000-8000-000000000001";
+
+  it("needs nothing: no filter at all is the first page of the whole log", () => {
+    expect(adminLogListQuerySchema.parse({})).toEqual({
+      limit: LOG_LIST_PAGE_SIZE,
+    });
+  });
+
+  it("takes each of the page's filters, as the Logs page always spelled them", () => {
+    expect(
+      adminLogListQuerySchema.parse({
+        actor: ACTOR,
+        action: "USER_ROLE_CHANGED",
+        resourceType: "user",
+        resourceId: "any-id",
+        from: "2026-10-01",
+        to: "2026-10-14",
+        cursor: "opaque",
+        limit: "10",
+      }),
+    ).toEqual({
+      actor: ACTOR,
+      action: "USER_ROLE_CHANGED",
+      resourceType: "user",
+      resourceId: "any-id",
+      from: "2026-10-01",
+      to: "2026-10-14",
+      cursor: "opaque",
+      limit: 10,
+    });
+  });
+
+  it("knows every action the audit trail can record — and no other", () => {
+    for (const action of ADMIN_AUDIT_ACTIONS) {
+      expect(adminLogListQuerySchema.safeParse({ action }).success).toBe(true);
+    }
+    for (const action of ["", "user_role_changed", "SOMETHING_ELSE"]) {
+      expect(
+        adminLogListQuerySchema.safeParse({ action }).success,
+        action,
+      ).toBe(false);
+    }
+  });
+
+  it("wants an actor to be an id", () => {
+    for (const actor of ["", "ada", "not-a-uuid", `${ACTOR}0`]) {
+      expect(adminLogListQuerySchema.safeParse({ actor }).success, actor).toBe(
+        false,
+      );
+    }
+  });
+
+  it("wants a date to be a day that exists", () => {
+    for (const day of ["2026-10-14", "2024-02-29", "2026-12-31"]) {
+      expect(
+        adminLogListQuerySchema.safeParse({ from: day, to: day }).success,
+        day,
+      ).toBe(true);
+    }
+    for (const day of [
+      "",
+      "yesterday",
+      "2026-10-14T00:00:00Z",
+      "10/14/2026",
+      "2026-1-4",
+      // Not days at all, though each *looks* like one.
+      "2026-02-30",
+      "2026-13-01",
+      "2026-00-10",
+      "2023-02-29",
+    ]) {
+      expect(
+        adminLogListQuerySchema.safeParse({ from: day }).success,
+        day,
+      ).toBe(false);
+      expect(adminLogListQuerySchema.safeParse({ to: day }).success, day).toBe(
+        false,
+      );
+    }
+  });
+
+  it("bounds the free-text filters and the cursor", () => {
+    expect(
+      adminLogListQuerySchema.safeParse({ resourceType: "x".repeat(100) })
+        .success,
+    ).toBe(true);
+    expect(
+      adminLogListQuerySchema.safeParse({ resourceType: "x".repeat(101) })
+        .success,
+    ).toBe(false);
+    expect(
+      adminLogListQuerySchema.safeParse({ resourceId: "x".repeat(200) })
+        .success,
+    ).toBe(true);
+    expect(
+      adminLogListQuerySchema.safeParse({ resourceId: "x".repeat(201) })
+        .success,
+    ).toBe(false);
+    for (const field of ["resourceType", "resourceId", "cursor"]) {
+      for (const value of ["", "   "]) {
+        expect(
+          adminLogListQuerySchema.safeParse({ [field]: value }).success,
+          `${field}=${JSON.stringify(value)}`,
+        ).toBe(false);
+      }
+    }
+    expect(
+      adminLogListQuerySchema.safeParse({ cursor: "x".repeat(513) }).success,
+    ).toBe(false);
+  });
+
+  it("takes the query string's numbers as text, within the bounds", () => {
+    expect(adminLogListQuerySchema.parse({ limit: "50" }).limit).toBe(50);
+    expect(
+      adminLogListQuerySchema.safeParse({
+        limit: String(LOG_LIST_MAX_PAGE_SIZE + 1),
+      }).success,
+    ).toBe(false);
+    for (const limit of ["0", "-1", "1.5", "many"]) {
+      expect(adminLogListQuerySchema.safeParse({ limit }).success, limit).toBe(
+        false,
+      );
+    }
+  });
+
+  it("refuses a sort, a language or a search — nothing here would honour them", () => {
+    for (const extra of [
+      { sort: "action" },
+      { order: "ASC" },
+      { language: "5b2eb57d-acb8-4964-8af4-49a417cf227a" },
+      { search: "role" },
+      { tab: "audit" },
+      { page: "2" },
+    ]) {
+      expect(adminLogListQuerySchema.safeParse(extra).success).toBe(false);
+    }
+  });
+});
+
+describe("adminLogRowSchema and adminLogPageSchema", () => {
+  const row = {
+    id: "e0000000-0000-4000-8000-000000000001",
+    createdAt: "2026-10-14T22:46:21.710Z",
+    actorId: "a0000000-0000-4000-8000-000000000001",
+    actorName: "Ada Admin",
+    action: "USER_ROLE_CHANGED",
+    resourceType: "user",
+    resourceId: "b0000000-0000-4000-8000-000000000002",
+    reason: "Reviews lessons",
+    correlationId: "correlation-1",
+    beforeData: { role: "user" },
+    afterData: { role: "writer" },
+  };
+
+  it("accepts a row, and a page of them, with the cursors alongside", () => {
+    expect(adminLogRowSchema.parse(row)).toEqual(row);
+    expect(
+      adminLogPageSchema.parse({
+        items: [row],
+        nextCursor: "next",
+        hasPreviousPage: true,
+        previousCursor: null,
+      }).items,
+    ).toHaveLength(1);
+  });
+
+  it("lets what was recorded be any JSON, or nothing", () => {
+    for (const data of [
+      null,
+      "text",
+      3,
+      [1, 2],
+      { nested: { deep: [true] } },
+    ]) {
+      expect(
+        adminLogRowSchema.safeParse({
+          ...row,
+          beforeData: data,
+          afterData: data,
+        }).success,
+        JSON.stringify(data),
+      ).toBe(true);
+    }
+  });
+
+  it("strips anything it does not list — a sign-in id or an email cannot ride along", () => {
+    const parsed = adminLogRowSchema.parse({
+      ...row,
+      clerkUserId: "user_2abc",
+      email: "someone@example.com",
+    });
+    expect(Object.keys(parsed).sort()).toEqual(Object.keys(row).sort());
+  });
+
+  it("refuses an action that is not one the trail records, and an instant that is not one", () => {
+    expect(
+      adminLogRowSchema.safeParse({ ...row, action: "SOMETHING_ELSE" }).success,
+    ).toBe(false);
+    for (const createdAt of ["", "yesterday", "2026-10-14", 12]) {
+      expect(
+        adminLogRowSchema.safeParse({ ...row, createdAt }).success,
+        String(createdAt),
+      ).toBe(false);
+    }
+  });
+
+  it("allows only the cursors it names", () => {
+    expect(
+      adminLogPageSchema.safeParse({
+        items: [],
+        nextCursor: null,
+        hasPreviousPage: false,
+        previousCursor: null,
+      }).success,
+    ).toBe(true);
+    expect(
+      adminLogPageSchema.safeParse({ items: [], nextCursor: null }).success,
+    ).toBe(false);
   });
 });

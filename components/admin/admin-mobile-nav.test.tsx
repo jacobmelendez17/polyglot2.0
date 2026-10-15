@@ -65,15 +65,19 @@ describe("AdminMobileNav", () => {
     }
   });
 
-  it("offers a writer no link to a page that would refuse them — not Decks, Users, Logs or the Sandbox", async () => {
+  it("offers a writer no link to a page that would refuse them — not Imports, Users, Logs or the Sandbox — and does offer the decks they may see", async () => {
     await open("writer");
 
-    for (const name of ["Decks", "Users", "Logs", "Sandbox"]) {
+    for (const name of ["Imports", "Users", "Logs", "Sandbox"]) {
       expect(screen.queryByRole("link", { name })).not.toBeInTheDocument();
     }
     expect(screen.getByRole("link", { name: "Dictionary" })).toHaveAttribute(
       "href",
       "/admin/dictionary",
+    );
+    expect(screen.getByRole("link", { name: "Decks" })).toHaveAttribute(
+      "href",
+      "/admin/decks",
     );
   });
 });

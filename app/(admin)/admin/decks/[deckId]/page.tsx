@@ -4,7 +4,8 @@ import { forbidden, notFound } from "next/navigation";
 
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { PolyglotDeckEditor } from "@/components/admin/decks/polyglot-deck-editor";
-import { canPublishCurriculum } from "@/domains/admin";
+import { PolyglotDeckView } from "@/components/admin/decks/polyglot-deck-view";
+import { canManageCurriculum, canPublishCurriculum } from "@/domains/admin";
 import { getLevelsByLanguage } from "@/domains/curriculum/server";
 import { getPolyglotDeck, getPolyglotDeckItems } from "@/domains/decks/server";
 import { requireUser } from "@/domains/users/server";
@@ -17,14 +18,21 @@ export const metadata: Metadata = {
 const UUID_LIKE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** Spec 14's Admin deck editor. A personal deck reaching this route 404s — it is not administrable content. */
+/**
+ * Spec 14's Admin deck editor. A personal deck reaching this route 404s — it is
+ * not administrable content. **A writer sees the deck read-only** (the owner's
+ * decision of 2026-10-14): the same details and items, none of the controls. The
+ * editor is rendered for an Admin alone, and every action behind it re-checks
+ * `canPublishCurriculum` regardless.
+ */
 export default async function AdminDeckDetailPage({
   params,
 }: {
   params: Promise<{ deckId: string }>;
 }) {
   const user = await requireUser();
-  if (!canPublishCurriculum(user)) forbidden();
+  if (!canManageCurriculum(user)) forbidden();
+  const canEdit = canPublishCurriculum(user);
 
   const { deckId } = await params;
   if (!UUID_LIKE.test(deckId)) {
@@ -52,23 +60,39 @@ export default async function AdminDeckDetailPage({
       <div className="mt-2 mb-4">
         <AdminPageHeader
           title={deck.name}
-          description="Official deck — learners can practice it but never change it."
+          description={
+            canEdit
+              ? "Official deck — learners can practice it but never change it."
+              : "Official deck — learners can practice it but never change it. An Admin edits it."
+          }
         />
       </div>
 
-      <PolyglotDeckEditor
-        deckId={deck.id}
-        languageId={deck.languageId}
-        name={deck.name}
-        description={deck.description}
-        availability={deck.availability}
-        gateLevelId={deck.gateLevelId}
-        levels={levels.map((level) => ({
-          id: level.id,
-          levelNumber: level.levelNumber,
-        }))}
-        items={items}
-      />
+      {canEdit ? (
+        <PolyglotDeckEditor
+          deckId={deck.id}
+          languageId={deck.languageId}
+          name={deck.name}
+          description={deck.description}
+          availability={deck.availability}
+          gateLevelId={deck.gateLevelId}
+          levels={levels.map((level) => ({
+            id: level.id,
+            levelNumber: level.levelNumber,
+          }))}
+          items={items}
+        />
+      ) : (
+        <PolyglotDeckView
+          description={deck.description}
+          availability={deck.availability}
+          gateLevelNumber={
+            levels.find((level) => level.id === deck.gateLevelId)
+              ?.levelNumber ?? null
+          }
+          items={items}
+        />
+      )}
     </div>
   );
 }

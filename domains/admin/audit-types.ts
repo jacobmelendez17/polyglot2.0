@@ -158,4 +158,11 @@ export type AuditEventsPage = {
   items: AdminAuditEvent[];
   /** Opaque cursor for the next page, or `null` when this page is the last. */
   nextCursor: string | null;
+  /** Whether a page of newer events precedes this one — `true` whenever a cursor was given. */
+  hasPreviousPage: boolean;
+  /**
+   * Opaque cursor for the previous page. `null` with `hasPreviousPage` means the
+   * previous page is the *first* page, which needs no cursor.
+   */
+  previousCursor: string | null;
 };

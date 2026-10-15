@@ -1,5 +1,6 @@
 import type { AdminUsersPage, PolyglotUser } from "@/domains/users";
 
+import type { AuditEventsPage } from "./audit-types";
 import type { CurriculumImportsPage } from "./curriculum-import-types";
 import type { MappingQueuePage } from "@/domains/lexicon";
 
@@ -24,6 +25,7 @@ import {
   type AdminGroupList,
   type AdminImportPage,
   type AdminLevelList,
+  type AdminLogPage,
   type AdminReviewPage,
   type AdminUserPage,
   type AdminMe,
@@ -85,10 +87,11 @@ function resourceAccess(
     resources.groups = canPublishCurriculum(subject)
       ? ["list", "create", "edit"]
       : ["list"];
-    // The import history (spec 26 Unit 8): a writer may read it, but starting
-    // an import (`create`), archiving or restoring one (`edit`) and permanently
-    // deleting its history (`delete`) are Admin-only (spec 26 §6: "imports").
-    resources.imports = canPublishCurriculum(subject)
+    // Official decks: a writer may *read* them — the list and each deck's page —
+    // and an Admin alone creates, edits and deletes them (spec 14; the owner's
+    // decision of 2026-10-14, which widened reading from Admin-only). The edit
+    // and delete actions are the specialist editor's, reached by the page.
+    resources.decks = canPublishCurriculum(subject)
       ? ["list", "create", "edit", "delete"]
       : ["list"];
     // The dictionary mapping queue (spec 26 Unit 9): finding work and confirming
@@ -99,10 +102,19 @@ function resourceAccess(
     resources.dictionary = ["list", "edit"];
   }
   if (canPublishCurriculum(subject)) {
-    // Official decks (spec 26 Unit 10) are an Admin's end to end — reading the
-    // list included, as the page always was (spec 11 §4: "Official decks
-    // management"). For a writer the resource is absent, not an empty list.
-    resources.decks = ["list", "create", "edit", "delete"];
+    // Imports (spec 19, spec 26 Unit 8) are an Admin's end to end — the history
+    // included, the import's own page and the upload included (spec 26 §6:
+    // "imports"; the owner's decision of 2026-10-14 closed the one place a
+    // writer could still read them). For a writer the resource is absent, not an
+    // empty list. `create` is starting an import, `edit` archiving or restoring
+    // one, `delete` permanently deleting its history.
+    resources.imports = ["list", "create", "edit", "delete"];
+  }
+  if (canUseDeveloperTools(subject)) {
+    // The audit log (the Logs page, on React Admin until PostHog replaces it —
+    // the owner's decision of 2026-10-14): Admin and developer, as the page always
+    // was. Read-only; nothing in it can be changed.
+    resources.logs = ["list"];
   }
   if (canManageUsers(subject)) {
     // Spec 26 Unit 6. The `users` resource exists only for an Admin: for anyone
@@ -313,6 +325,47 @@ export function buildAdminImportPage(
       attemptCount: record.attemptCount,
       createdAt: record.createdAt.toISOString(),
       archivedAt: record.archivedAt?.toISOString() ?? null,
+    })),
+    nextCursor: page.nextCursor,
+    hasPreviousPage: page.hasPreviousPage,
+    previousCursor: page.previousCursor,
+  };
+}
+
+/** An id in a form a person can recognise and still not be handed whole: its first eight characters. */
+const shortId = (id: string) => `${id.slice(0, 8)}…`;
+
+/**
+ * The audit log's page, reduced to what the log shows — field by field. The
+ * actor is named from `actors` (display name, else username, else a short form
+ * of the id), and **never** by anything outside Polyglot: the old page fell back
+ * to the person's sign-in id, which has no business on a screen a developer
+ * reads. The recorded before and after JSON is passed through as the mutation
+ * wrote it, which is what the log is for.
+ */
+export function buildAdminLogPage(
+  page: AuditEventsPage,
+  actors: readonly Pick<PolyglotUser, "id" | "displayName" | "username">[],
+): AdminLogPage {
+  const nameOf = new Map(
+    actors.map((actor) => [
+      actor.id,
+      actor.displayName ?? actor.username ?? shortId(actor.id),
+    ]),
+  );
+  return {
+    items: page.items.map((event) => ({
+      id: event.id,
+      createdAt: event.createdAt.toISOString(),
+      actorId: event.actorUserId,
+      actorName: nameOf.get(event.actorUserId) ?? shortId(event.actorUserId),
+      action: event.action,
+      resourceType: event.resourceType,
+      resourceId: event.resourceId,
+      reason: event.reason,
+      correlationId: event.correlationId,
+      beforeData: event.beforeData ?? null,
+      afterData: event.afterData ?? null,
     })),
     nextCursor: page.nextCursor,
     hasPreviousPage: page.hasPreviousPage,

@@ -134,8 +134,15 @@ const SURFACES: Surface[] = [
     api: "/api/v1/admin/decks",
     resource: "decks",
   },
-  // Retained specialist tools: server-rendered, no React Admin.
-  { label: "Logs", href: "/admin/logs", heading: "Logs" },
+  // The audit log moved onto React Admin on 2026-10-14, until PostHog replaces it.
+  {
+    label: "Logs",
+    href: "/admin/logs",
+    heading: "Logs",
+    api: "/api/v1/admin/logs",
+    resource: "logs",
+  },
+  // The one retained specialist tool: server-rendered, no React Admin.
   { label: "Sandbox", href: "/admin/sandbox", heading: "Sandbox" },
   {
     label: "Users",
@@ -149,14 +156,15 @@ const SURFACES: Surface[] = [
 /** What each role's menu offers — the same list the unit tests pin for `getAdminNavItems`. */
 const MENUS = {
   admin: SURFACES.map((surface) => surface.label),
+  // A writer may see the decks, and has no Imports (an Admin's end to end).
   writer: [
     "Overview",
     "Curriculum",
     "Review",
     "Levels",
     "Groups",
-    "Imports",
     "Dictionary",
+    "Decks",
   ],
   developer: ["Overview", "Logs", "Sandbox"],
 } as const;

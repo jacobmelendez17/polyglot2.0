@@ -2,7 +2,7 @@ import {
   adminDeckListQuerySchema,
   adminDeckListSchema,
   buildAdminDeckList,
-  canPublishCurriculum,
+  canManageCurriculum,
 } from "@/domains/admin";
 import { listPolyglotDecks } from "@/domains/decks/server";
 
@@ -14,10 +14,11 @@ import { parseResponse } from "../_lib/response-contract";
  * `GET /api/v1/admin/decks` (spec 26 Unit 10) — the official Polyglot decks of
  * one language, with what each holds.
  *
- * **Admin only** (`canPublishCurriculum`): official decks are managed by an
- * Admin end to end, reading included — the page has always been closed to a
- * writer, and so is this endpoint, which re-checks the database role on every
- * call.
+ * **Admin and writer** (`canManageCurriculum`) may read: since the owner's
+ * decision of 2026-10-14 a writer can see the official decks, which they could
+ * not before. Creating, editing and deleting a deck stay an Admin's
+ * (`canPublishCurriculum`, re-checked by every Server Action behind the editor).
+ * The role is read from the database on every call.
  *
  * The read model is the existing `listPolyglotDecks`, which lists decks of kind
  * `polyglot` and nothing else. A learner's personal deck is private content and
@@ -30,7 +31,7 @@ import { parseResponse } from "../_lib/response-contract";
 export async function GET(request: Request): Promise<Response> {
   return handleAdminGet(request, {
     route: "admin.decks.list",
-    authorize: canPublishCurriculum,
+    authorize: canManageCurriculum,
     load: async (_user, req) => {
       const query = adminDeckListQuerySchema.parse(
         Object.fromEntries(new URL(req.url).searchParams),

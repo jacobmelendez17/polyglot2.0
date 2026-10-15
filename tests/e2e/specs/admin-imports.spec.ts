@@ -1657,7 +1657,7 @@ test.describe("archiving, restoring and deleting", () => {
 /* -------------------------------------------------------------------------- */
 
 test.describe("who may use it", () => {
-  test("an Admin may read and act, a writer may only read — and a developer, beta tester and learner are turned away from the pages and the endpoints, with nothing changed", async ({
+  test("imports are an Admin's end to end — a writer, developer, beta tester and learner are turned away from every page and endpoint, are not offered the link, and nothing changes", async ({
     page,
     baseURL,
   }) => {
@@ -1677,78 +1677,42 @@ test.describe("who may use it", () => {
       expect(await getE2EImportAuditActions(filed.id)).toEqual([]);
       expect(await countE2EImportRows(target.id)).toBe(REVIEW_ROWS.length);
     };
+    const sidebar = page.getByRole("navigation", { name: "Admin" });
 
-    // A writer: the history, the archived history and an import's own page —
-    // read-only, and each of the three commands is refused by the server.
-    await setE2EAdminRole("writer");
+    // The Admin has all of it: the pages, the endpoints, the link.
     await openHistory(page);
-    await expect(rowOf(page, target.filename)).toBeVisible();
-    await expect(
-      page.getByText(
-        "You can see what has been imported. An Admin starts and manages imports.",
-      ),
-    ).toBeVisible();
-    await expect(page.getByRole("button", { name: /^Archive / })).toHaveCount(
-      0,
-    );
-    await expect(
-      table(page).getByRole("columnheader", { name: "Actions" }),
-    ).toHaveCount(0);
-    await expect(page.getByRole("link", { name: "New Import" })).toHaveCount(0);
-    await expect(
-      page.getByRole("link", { name: "Archived", exact: true }),
-    ).toBeVisible();
-    await shot(page, "imports-list-writer");
-    await openHistory(page, { archived: true });
-    await expect(rowOf(page, filed.filename, true)).toBeVisible();
-    await expect(page.getByRole("button", { name: /^Restore / })).toHaveCount(
-      0,
-    );
-    await expect(
-      page.getByRole("button", { name: /^Permanently delete / }),
-    ).toHaveCount(0);
-    expect((await page.goto(detailUrl(target.id)))?.status()).toBe(200);
-    await clerkReady(page);
-    expect(
-      (
-        await page.request.get(`${IMPORTS_API}?language=${languageId}`)
-      ).status(),
-      "writer: the history",
-    ).toBe(200);
-    expect(
-      (
-        await page.request.get(
-          `${IMPORTS_API}?language=${languageId}&archived=true`,
-        )
-      ).status(),
-      "writer: the archived history",
-    ).toBe(200);
-    for (const command of COMMANDS) {
-      const response = await page.request.post(commandUrl(target.id, command), {
-        headers,
-        data: bodyOf(command),
-      });
-      expect(response.status(), `writer: ${command}`).toBe(403);
-    }
-    await untouched();
+    await expect(archiveButton(page, target.filename)).toBeVisible();
+    await expect(page.getByRole("link", { name: "New Import" })).toBeVisible();
+    await expect(sidebar.getByRole("link", { name: "Imports" })).toBeVisible();
 
-    // Everyone else is turned away from all of it.
-    for (const role of ["developer", "beta-tester", "user"] as const) {
+    // Everyone else is turned away from all of it — a writer included, who could
+    // read the history until the owner's decision of 2026-10-14.
+    for (const role of [
+      "writer",
+      "developer",
+      "beta-tester",
+      "user",
+    ] as const) {
       await setE2EAdminRole(role);
       for (const path of [
         `${HISTORY}?language=${languageId}`,
         `${ARCHIVED}?language=${languageId}`,
         detailUrl(target.id),
+        `${HISTORY}/new?language=${languageId}`,
       ]) {
         expect((await page.goto(path))?.status(), `${role}: ${path}`).toBe(403);
       }
       await clerkReady(page);
-      expect(
-        (
-          await page.request.get(`${IMPORTS_API}?language=${languageId}`)
-        ).status(),
-        `${role}: the history`,
-      ).toBe(403);
+      for (const query of ["", "&archived=true"]) {
+        expect(
+          (
+            await page.request.get(
+              `${IMPORTS_API}?language=${languageId}${query}`,
+            )
+          ).status(),
+          `${role}: the history${query}`,
+        ).toBe(403);
+      }
       for (const command of COMMANDS) {
         const response = await page.request.post(
           commandUrl(target.id, command),
@@ -1759,14 +1723,25 @@ test.describe("who may use it", () => {
       await untouched();
     }
 
-    // The Admin has all of it.
+    // A writer is let into the console — and is not offered what would refuse them.
+    await setE2EAdminRole("writer");
+    expect((await page.goto("/admin"))?.status()).toBe(200);
+    await expect(sidebar).toBeVisible();
+    await expect(sidebar.getByRole("link", { name: "Imports" })).toHaveCount(0);
+    await expect(
+      sidebar.getByRole("link", { name: "Dictionary" }),
+    ).toBeVisible();
+    await clerkReady(page);
+    const me = await page.request.get("/api/v1/admin/me");
+    expect(
+      Object.hasOwn((await me.json()).data.permissions.resources, "imports"),
+    ).toBe(false);
+
     await setE2EAdminRole("admin");
-    await openHistory(page);
-    await expect(archiveButton(page, target.filename)).toBeVisible();
-    await expect(page.getByRole("link", { name: "New Import" })).toBeVisible();
+    await untouched();
   });
 
-  test("a role revoked while the history is open takes the buttons away on refocus — and a role that may not read replaces it with access-denied, with no import lingering beside the denial", async ({
+  test("a role revoked while the history is open replaces it with access-denied on refocus — no import lingers beside the denial", async ({
     page,
   }) => {
     const target = await made("revoked");
@@ -1774,23 +1749,14 @@ test.describe("who may use it", () => {
     await expect(archiveButton(page, target.filename)).toBeVisible();
     await expect(page.getByRole("link", { name: "New Import" })).toBeVisible();
 
-    // Still allowed to read, no longer to act: the buttons go.
+    // No longer an Admin: there is nothing of imports left for them to read, so
+    // the denial replaces the list.
     await setE2EAdminRole("writer");
-    await refocus(page);
-    await expect(archiveButton(page, target.filename)).toHaveCount(0);
-    await expect(
-      page.getByText(
-        "You can see what has been imported. An Admin starts and manages imports.",
-      ),
-    ).toBeVisible();
-    await expect(rowOf(page, target.filename)).toBeVisible();
-
-    // Not even allowed to read: the denial replaces the list.
-    await setE2EAdminRole("developer");
     await refocus(page);
     await expect(denial(page)).toBeVisible();
     await expect(table(page)).toHaveCount(0);
     await expect(rowOf(page, target.filename)).toHaveCount(0);
+    await expect(archiveButton(page, target.filename)).toHaveCount(0);
     await shot(page, "imports-list-denied");
   });
 

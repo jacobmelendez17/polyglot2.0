@@ -2,7 +2,7 @@ import {
   adminImportListQuerySchema,
   adminImportPageSchema,
   buildAdminImportPage,
-  canManageCurriculum,
+  canPublishCurriculum,
 } from "@/domains/admin";
 import {
   listActiveCurriculumImports,
@@ -18,10 +18,10 @@ import { parseResponse } from "../_lib/response-contract";
  * language's curriculum-import history: the normal history, or the archived one
  * with `?archived=true`. Newest first.
  *
- * Admin **and writer** (`canManageCurriculum`), as the history pages always
- * were: a writer can see what has been imported. Starting, archiving, restoring
- * and deleting are separate commands with the stricter guard
- * (`canPublishCurriculum`).
+ * **Admin only** (`canPublishCurriculum`), like the commands beside it: imports
+ * are an Admin's end to end (spec 26 §6), which the owner confirmed on
+ * 2026-10-14 by closing the one place a writer could still read the history. The
+ * role is read from the database on every call.
  *
  * The read model is the existing `listActiveCurriculumImports` /
  * `listArchivedCurriculumImportsForHistory`; this only bounds and reduces it. A
@@ -32,7 +32,7 @@ import { parseResponse } from "../_lib/response-contract";
 export async function GET(request: Request): Promise<Response> {
   return handleAdminGet(request, {
     route: "admin.imports.list",
-    authorize: canManageCurriculum,
+    authorize: canPublishCurriculum,
     load: async (_user, req) => {
       const query = adminImportListQuerySchema.parse(
         Object.fromEntries(new URL(req.url).searchParams),

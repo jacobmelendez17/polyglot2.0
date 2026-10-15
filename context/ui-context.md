@@ -510,10 +510,25 @@ not from a second palette:
   "· High"), never inside the label, and stays on one line from 600 px.
 - **A navigation link offers only what would open.** The sidebar and the phone
   menu show a link when the person's effective permissions include its resource,
-  so a writer's menu has no Decks or Users, and a developer's is Overview, Logs
-  and the Sandbox. The section a nested page belongs to is marked current
+  so a writer's menu is the curriculum sections, Dictionary and Decks — no
+  Imports, Logs, Sandbox or Users — and a developer's is Overview, Logs and the
+  Sandbox. The section a nested page belongs to is marked current
   (`aria-current="page"` on exactly one link) — an import's own page marks Imports,
-  a deck's editor marks Decks.
+  a deck's page marks Decks.
+- **A row that opens to show more has a real button, with the state it
+  controls** (the audit log). "Show details" / "Hide details" is a button the
+  keyboard reaches, with `aria-expanded` and `aria-controls` pointing at the
+  panel under the row; React Admin's own expand icon is `aria-hidden` and cannot
+  be focused, so it is hidden and the button drives the same state. One row is
+  open at a time. On a phone the table keeps when and what and the button, and
+  the columns it gives up first (actor, resource, reason) are in the panel,
+  which also holds the whole ids. A scrollable block inside it (the recorded
+  JSON) is focusable, so the keyboard can scroll it.
+- **A read-only view of an editor shows the same facts and none of the
+  controls** (a writer's deck page): the details, when learners see the deck, the
+  items in their order — nothing to press, type into or reorder, and a line on the
+  page saying an Admin edits it. The editor itself is rendered for an Admin
+  alone, and each of its commands re-checks the role regardless.
 
 ---
 

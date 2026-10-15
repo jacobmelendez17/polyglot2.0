@@ -359,42 +359,113 @@ test.describe("the list", () => {
 /* -------------------------------------------------------------------------- */
 
 test.describe("who may use it", () => {
-  test("only an Admin has the page and the endpoint — a writer, a developer, a learner and a visitor do not, and a writer is not offered the link", async ({
+  test("a writer may see the decks — the list and each deck's page, read-only — and an Admin alone may change them; a developer, a learner and a visitor may not see them", async ({
     page,
     browser,
   }) => {
-    const w = await shelf(1);
-    const mine = await deck({ name: `${TAG} Mine`, itemIds: [w.items[0]!] });
+    const w = await shelf(2);
+    const mine = await deck({
+      name: `${TAG} Mine`,
+      description: "What a writer may read",
+      availability: "level",
+      gateLevelId: w.level.id,
+      itemIds: [w.items[0]!, w.items[1]!],
+    });
     const url = `${API}?language=${languageId}`;
     const sidebar = page.getByRole("navigation", { name: "Admin" });
 
+    // An Admin: the link, the list, "Add deck", and the editor on the deck's page.
     await open(page);
     await expect(sidebar.getByRole("link", { name: "Decks" })).toBeVisible();
     await expect(rowOf(page, mine)).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Add deck" }).first(),
+    ).toBeVisible();
+    await page.goto(`${PAGE}/${mine.id}`);
+    await expect(
+      page.getByRole("button", { name: "Save details" }),
+    ).toBeVisible(SLOW);
+    await expect(
+      page.getByRole("button", { name: "Delete deck" }),
+    ).toBeVisible();
 
-    for (const role of ["writer", "developer"] as const) {
-      await setE2EAdminRole(role);
-      expect((await page.goto(listUrl()))?.status(), `${role}: the page`).toBe(
-        403,
-      );
-      expect(
-        (await page.goto(`${PAGE}/${mine.id}`))?.status(),
-        `${role}: a deck's page`,
-      ).toBe(403);
-      await renewSession(page);
-      expect((await page.request.get(url)).status(), `${role}: the list`).toBe(
-        403,
-      );
-      // Let in to the console — and not offered what would refuse them.
-      expect((await page.goto("/admin"))?.status(), role).toBe(200);
-      await expect(sidebar).toBeVisible();
-      await expect(sidebar.getByRole("link", { name: "Decks" })).toHaveCount(0);
-      const me = await page.request.get("/api/v1/admin/me");
-      expect(
-        (await me.json()).data.permissions.resources.decks,
-        `${role}: the effective permissions`,
-      ).toBeUndefined();
-    }
+    // A writer: the link, the list and the same decks — and none of the commands.
+    await setE2EAdminRole("writer");
+    await page.goto("/admin");
+    await expect(sidebar.getByRole("link", { name: "Decks" })).toBeVisible();
+    await open(page);
+    await expect(rowOf(page, mine)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Add deck" })).toHaveCount(0);
+    await expect(
+      page.getByText("An Admin creates and manages them."),
+    ).toBeVisible();
+    await shot(page, "decks-list-writer");
+
+    await page.goto(`${PAGE}/${mine.id}`);
+    await expect(
+      page.getByRole("heading", { name: mine.name, level: 1 }),
+    ).toBeVisible(SLOW);
+    // What the editor holds, read-only: the details, when learners see it, and
+    // the items in their order.
+    await expect(page.getByText("What a writer may read")).toBeVisible();
+    await expect(
+      page.getByText(`Hidden until Level ${w.level.levelNumber}`),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Items (2)" }),
+    ).toBeVisible();
+    // `exact`: each item's second line reads "meaning of <word> · Vocabulary".
+    await expect(page.getByText(`${TAG}-w1`, { exact: true })).toBeVisible();
+    await expect(page.getByText(`${TAG}-w2`, { exact: true })).toBeVisible();
+    // …and none of the controls.
+    for (const name of [
+      "Save details",
+      "Save order",
+      "Add items",
+      "Delete deck",
+    ])
+      await expect(page.getByRole("button", { name })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^Move /i })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^Remove /i })).toHaveCount(
+      0,
+    );
+    await expect(page.getByRole("textbox")).toHaveCount(0);
+    await shot(page, "decks-page-writer");
+
+    await renewSession(page);
+    const read = await page.request.get(url);
+    expect(read.status()).toBe(200);
+    expect(
+      (await read.json()).data.items.map((row: { id: string }) => row.id),
+    ).toContain(mine.id);
+    const me = await page.request.get("/api/v1/admin/me");
+    expect((await me.json()).data.permissions.resources.decks).toEqual([
+      "list",
+    ]);
+
+    // A developer is let into the console, and not into curriculum — nor its decks.
+    await setE2EAdminRole("developer");
+    expect((await page.goto(listUrl()))?.status(), "developer: the page").toBe(
+      403,
+    );
+    expect(
+      (await page.goto(`${PAGE}/${mine.id}`))?.status(),
+      "developer: a deck's page",
+    ).toBe(403);
+    await renewSession(page);
+    expect((await page.request.get(url)).status(), "developer: the list").toBe(
+      403,
+    );
+    expect((await page.goto("/admin"))?.status()).toBe(200);
+    await expect(sidebar.getByRole("link", { name: "Decks" })).toHaveCount(0);
+
+    // Seeing a deck is not changing it: nothing about it moved.
+    const [after] = await getE2EDecksNamed(mine.name);
+    expect(after).toMatchObject({
+      name: mine.name,
+      description: "What a writer may read",
+      itemCount: 2,
+    });
 
     const learner = await browser.newContext({ storageState: LEARNER_AUTH });
     const learnerPage = await learner.newPage();

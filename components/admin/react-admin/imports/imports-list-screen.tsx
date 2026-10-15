@@ -6,7 +6,6 @@ import {
   ResourceContextProvider,
   useNotify,
 } from "react-admin";
-import Typography from "@mui/material/Typography";
 
 import type { AdminImportRow } from "@/domains/admin";
 
@@ -15,7 +14,6 @@ import { AdminProblem, blockingError } from "../admin-problem";
 import { CursorPagination } from "../cursor-pagination";
 import { LanguageFilter } from "../language-filter";
 import { ListSkeleton } from "../skeletons";
-import { useAdminPermissions } from "../use-admin-permissions";
 import { DeleteImportDialog } from "./delete-import-dialog";
 import { ImportsDataTable } from "./imports-data-table";
 import { useImportHistoryCommands } from "./use-import-history-commands";
@@ -27,11 +25,11 @@ import { useImportsList } from "./use-imports-list";
  * the normal history, or the archived one (`archived`) — with the row commands
  * for those allowed to use them.
  *
- * What each role sees follows the *server's* permissions, never a role name held
- * here: `canManageCurriculum` gets the list at all (the endpoint says so with a
- * 403 otherwise), and `canPublishCurriculum` additionally gets Archive, Restore
- * and Permanently delete. A writer therefore sees what has been imported, with no
- * buttons — and the endpoints would refuse them anyway.
+ * Imports are an Admin's end to end (the owner's decision of 2026-10-14): the page
+ * and every endpoint behind it are `canPublishCurriculum`, re-checked from the
+ * database role on each request, so this screen has no read-only form for anyone
+ * else — the endpoint answers a role that has lost access with a 403, and the
+ * screen says so in place of the list.
  *
  * The list reads itself again while the pipeline is working on an import, so a
  * "Processing" row becomes "Needs review" without a reload, and stops when
@@ -57,15 +55,12 @@ export function ImportsListScreen({
   const notify = useNotify();
   const lookups = useMemo(() => ({ languages }), [languages]);
   const list = useImportsList(lookups, archived, refreshMs);
-  const permissions = useAdminPermissions();
   const commands = useImportHistoryCommands();
   // The import whose permanent deletion is being confirmed. Held as a snapshot,
   // so a background refresh cannot change what the dialog is about.
   const [deleting, setDeleting] = useState<AdminImportRow | null>(null);
 
-  const problem =
-    blockingError(list.error, Boolean(list.rows)) ??
-    blockingError(permissions.error, Boolean(permissions.permissions));
+  const problem = blockingError(list.error, Boolean(list.rows));
 
   const refreshFailed = list.isRefetchError && !problem;
   const refreshError = list.error;
@@ -74,8 +69,6 @@ export function ImportsListScreen({
       notify(describeAdminError(refreshError).message, { type: "warning" });
     }
   }, [refreshFailed, refreshError, notify]);
-
-  const canAct = Boolean(permissions.permissions?.canPublishCurriculum);
 
   return (
     <ResourceContextProvider value="imports">
@@ -86,10 +79,9 @@ export function ImportsListScreen({
             error={problem}
             onRetry={() => {
               void list.refetch();
-              void permissions.refetch();
             }}
           />
-        ) : list.isPending || !permissions.permissions ? (
+        ) : list.isPending ? (
           <ListSkeleton
             label={
               archived
@@ -100,18 +92,8 @@ export function ImportsListScreen({
           />
         ) : (
           <>
-            {!canAct ? (
-              <Typography
-                variant="body2"
-                sx={{ color: "text.secondary", mb: 1.5 }}
-              >
-                You can see what has been imported. An Admin starts and manages
-                imports.
-              </Typography>
-            ) : null}
             <ImportsDataTable
               archived={archived}
-              canAct={canAct}
               pendingId={commands.pendingId}
               onArchive={commands.archive}
               onRestore={commands.restore}

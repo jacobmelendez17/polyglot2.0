@@ -39,9 +39,10 @@ function When({ iso }: { iso: string }) {
  * Each file is a link to the import's own page, where the specialist screens
  * stay — the review of rows that need a decision, the correction form, Confirm,
  * Retry, and the explicit publish of what an import drafted. The commands are
- * passed in and only rendered when the *server's* permissions say the caller may
- * (`canAct`); that is presentation only, because every endpoint re-checks the
- * database role.
+ * passed in. Imports are an Admin's end to end (the page and every endpoint are
+ * `canPublishCurriculum`, re-checked on each request), so the table has no
+ * read-only form: a role that loses access is answered by the endpoint with a
+ * 403, and the screen says so.
  *
  * No checkboxes: nothing here acts on several imports at once. No sorting: the
  * history has the one ordering its cursors depend on.
@@ -53,14 +54,12 @@ function When({ iso }: { iso: string }) {
  */
 export function ImportsDataTable({
   archived,
-  canAct,
   pendingId,
   onArchive,
   onRestore,
   onDelete,
 }: {
   archived: boolean;
-  canAct: boolean;
   /** The import a command is being sent for, so its buttons can say so. */
   pendingId: string | null;
   onArchive: (row: AdminImportRow) => void;
@@ -75,7 +74,7 @@ export function ImportsDataTable({
       // would promise something that is not there.
       hover={false}
       bulkActionButtons={false}
-      empty={<ImportsListEmpty archived={archived} canStart={canAct} />}
+      empty={<ImportsListEmpty archived={archived} />}
       sx={{
         "& .RaDataTable-tableWrapper": { overflowX: "auto" },
         "& .column-totalRows": { display: { xs: "none", md: "table-cell" } },
@@ -156,64 +155,62 @@ export function ImportsDataTable({
           }
         />
       ) : null}
-      {canAct ? (
-        <DataTable.Col<AdminImportRow>
-          label={<span className="sr-only">Actions</span>}
-          disableSort
-          align="right"
-          sx={STICKY_ACTION_SX}
-          render={(row) => {
-            const busy = pendingId === row.id;
-            return archived ? (
-              <Box
-                sx={{
-                  display: "flex",
-                  // Side by side when there is room; stacked on a phone, where
-                  // two buttons abreast would take the file's and status's room.
-                  flexDirection: { xs: "column", sm: "row" },
-                  alignItems: { xs: "stretch", sm: "center" },
-                  gap: 1,
-                  justifyContent: "flex-end",
-                }}
-              >
-                <Button
-                  size="small"
-                  variant="outlined"
-                  color="inherit"
-                  disabled={busy}
-                  // A unique accessible name per row, so a screen-reader user
-                  // can tell the buttons apart.
-                  aria-label={`Restore ${row.originalFilename}`}
-                  onClick={() => onRestore(row)}
-                >
-                  Restore
-                </Button>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  color="error"
-                  disabled={busy}
-                  aria-label={`Permanently delete ${row.originalFilename}`}
-                  onClick={() => onDelete(row)}
-                >
-                  Permanently delete
-                </Button>
-              </Box>
-            ) : (
+      <DataTable.Col<AdminImportRow>
+        label={<span className="sr-only">Actions</span>}
+        disableSort
+        align="right"
+        sx={STICKY_ACTION_SX}
+        render={(row) => {
+          const busy = pendingId === row.id;
+          return archived ? (
+            <Box
+              sx={{
+                display: "flex",
+                // Side by side when there is room; stacked on a phone, where
+                // two buttons abreast would take the file's and status's room.
+                flexDirection: { xs: "column", sm: "row" },
+                alignItems: { xs: "stretch", sm: "center" },
+                gap: 1,
+                justifyContent: "flex-end",
+              }}
+            >
               <Button
                 size="small"
                 variant="outlined"
                 color="inherit"
                 disabled={busy}
-                aria-label={`Archive ${row.originalFilename}`}
-                onClick={() => onArchive(row)}
+                // A unique accessible name per row, so a screen-reader user
+                // can tell the buttons apart.
+                aria-label={`Restore ${row.originalFilename}`}
+                onClick={() => onRestore(row)}
               >
-                Archive
+                Restore
               </Button>
-            );
-          }}
-        />
-      ) : null}
+              <Button
+                size="small"
+                variant="outlined"
+                color="error"
+                disabled={busy}
+                aria-label={`Permanently delete ${row.originalFilename}`}
+                onClick={() => onDelete(row)}
+              >
+                Permanently delete
+              </Button>
+            </Box>
+          ) : (
+            <Button
+              size="small"
+              variant="outlined"
+              color="inherit"
+              disabled={busy}
+              aria-label={`Archive ${row.originalFilename}`}
+              onClick={() => onArchive(row)}
+            >
+              Archive
+            </Button>
+          );
+        }}
+      />
     </DataTable>
   );
 }

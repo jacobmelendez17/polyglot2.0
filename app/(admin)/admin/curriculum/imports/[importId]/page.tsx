@@ -4,7 +4,7 @@ import { forbidden, notFound } from "next/navigation";
 
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { AsyncImportStatus } from "@/components/admin/curriculum/async-import-status";
-import { canManageCurriculum } from "@/domains/admin";
+import { canPublishCurriculum } from "@/domains/admin";
 import { getCurriculumImportStatus } from "@/domains/admin/server";
 import { requireUser } from "@/domains/users/server";
 
@@ -17,7 +17,9 @@ export const metadata: Metadata = {
  * real S3 → SQS → Lambda pipeline (verified end-to-end in units 1-11) and
  * lets the Admin resolve review-required rows and confirm. The initial
  * record is fetched server-side so the first render isn't a loading flash;
- * `AsyncImportStatus` takes over polling from there (spec 19 §38).
+ * `AsyncImportStatus` takes over polling from there (spec 19 §38). Admin only,
+ * like every import page: its actions (correct a row, confirm, retry, publish
+ * what the import drafted) each re-check `canPublishCurriculum` themselves.
  */
 export default async function CurriculumImportStatusPage({
   params,
@@ -25,7 +27,7 @@ export default async function CurriculumImportStatusPage({
   params: Promise<{ importId: string }>;
 }) {
   const user = await requireUser();
-  if (!canManageCurriculum(user)) {
+  if (!canPublishCurriculum(user)) {
     forbidden();
   }
 

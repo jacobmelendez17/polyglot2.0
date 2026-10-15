@@ -46,14 +46,14 @@ describe("AdminSidebarNav", () => {
     expect(screen.getByRole("link", { name: "Logs" })).toBeInTheDocument();
   });
 
-  it("offers a writer no link to a page that would refuse them — not Decks, Users, Logs or the Sandbox", () => {
+  it("offers a writer no link to a page that would refuse them — not Imports, Users, Logs or the Sandbox — and does offer the decks they may see", () => {
     mockPathname = "/admin";
     render(<AdminSidebarNav permissions={as("writer")} />);
 
-    for (const name of ["Decks", "Users", "Logs", "Sandbox"]) {
+    for (const name of ["Imports", "Users", "Logs", "Sandbox"]) {
       expect(screen.queryByRole("link", { name })).not.toBeInTheDocument();
     }
-    for (const name of ["Curriculum", "Review", "Dictionary", "Imports"]) {
+    for (const name of ["Curriculum", "Review", "Dictionary", "Decks"]) {
       expect(screen.getByRole("link", { name })).toBeInTheDocument();
     }
   });

@@ -33,17 +33,18 @@ describe("getAdminNavItems — one menu per role", () => {
     ]);
   });
 
-  it("shows a writer what they author with — and not Decks, Logs, the Sandbox or Users (spec 17, spec 26 §6)", () => {
-    // Decks are an Admin's end to end: a writer's menu does not offer a page
-    // that would refuse them.
+  it("shows a writer what they author with, and the decks they may see — and not Imports, Logs, the Sandbox or Users (spec 17, spec 26 §6)", () => {
+    // Imports are an Admin's end to end, and Logs and the Sandbox are for
+    // developers and Admins: a writer's menu does not offer a page that would
+    // refuse them. Decks they may read (the owner's decision of 2026-10-14).
     expect(labelsFor("writer")).toEqual([
       "Overview",
       "Curriculum",
       "Review",
       "Levels",
       "Groups",
-      "Imports",
       "Dictionary",
+      "Decks",
     ]);
   });
 
@@ -60,27 +61,56 @@ describe("getAdminNavItems — one menu per role", () => {
 });
 
 describe("getAdminNavItems — the menu and the screens agree", () => {
-  it("has a link for every resource the server lists for an Admin, plus the two retained tools", () => {
+  it("has a link for every resource the server lists for an Admin, plus the one retained tool", () => {
     const resources = Object.keys(
       buildAdminPermissions({ role: "admin" }).resources,
     );
     // A resource added to the effective permissions without a link (or a link
     // added without a resource) is a decision someone has to make on purpose.
-    expect(navFor("admin")).toHaveLength(resources.length + 2);
+    // The Sandbox is the only link that is a tool and not a resource.
+    expect(navFor("admin")).toHaveLength(resources.length + 1);
   });
 
+  /** The resource each link opens; the Sandbox is the one link that is a tool and not a resource. */
+  const RESOURCE_OF: Record<string, string | null> = {
+    Overview: "overview",
+    Curriculum: "curriculum",
+    Review: "review",
+    Levels: "levels",
+    Groups: "groups",
+    Imports: "imports",
+    Dictionary: "dictionary",
+    Decks: "decks",
+    Logs: "logs",
+    Sandbox: null,
+    Users: "users",
+  };
+
   it.each(["admin", "writer", "developer"] as const)(
-    "offers a %s only links to resources the server lists for them, or to tools they may use",
+    "offers a %s exactly the resources the server lists for them, and the Sandbox only if they may use developer tools",
     (role) => {
       const permissions = buildAdminPermissions({ role });
-      const tools = new Set(["Logs", "Sandbox"]);
-      for (const item of navFor(role)) {
-        if (tools.has(item.label)) {
+      const offered = navFor(role).map((item) => item.label);
+
+      // Every link is to something the server lists (or the one tool)…
+      for (const label of offered) {
+        const resource = RESOURCE_OF[label];
+        if (resource === null) {
           expect(permissions.canUseDeveloperTools).toBe(true);
         } else {
-          expect(Object.keys(permissions.resources).length).toBeGreaterThan(0);
+          expect(Object.hasOwn(permissions.resources, resource!)).toBe(true);
         }
       }
+      // …and everything the server lists has its link: neither list can drift.
+      expect(
+        offered
+          .map((label) => RESOURCE_OF[label])
+          .filter((resource) => resource !== null)
+          .sort(),
+      ).toEqual(Object.keys(permissions.resources).sort());
+      expect(offered.includes("Sandbox")).toBe(
+        permissions.canUseDeveloperTools,
+      );
     },
   );
 

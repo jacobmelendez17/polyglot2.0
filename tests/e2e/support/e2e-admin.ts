@@ -21,7 +21,10 @@ import {
   vocabularyGroups,
   vocabularyItems,
 } from "@/db/schema";
-import { getAuditEvents } from "@/domains/admin/audit-repository";
+import {
+  getAuditEvents,
+  recordAuditEvent,
+} from "@/domains/admin/audit-repository";
 import type { AdminAuditAction } from "@/domains/admin/audit-types";
 import {
   createItem,
@@ -2194,5 +2197,108 @@ export async function removeSeededDecks(ids: string[]): Promise<void> {
         ),
       );
     await db.delete(decks).where(inArray(decks.id, ids));
+  });
+}
+
+/* -------------------------------------------------------------------------- */
+/* Audit-log fixtures (the Logs page on React Admin)                          */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Audit events recorded through the real `recordAuditEvent`, all under one
+ * `resourceType` the spec invents — so a spec finds, filters and removes exactly
+ * its own among whatever the other specs' actions left in the trail.
+ *
+ * With no `createdAt`, an event takes its transaction's `now()` — one instant,
+ * to the microsecond, for every event of one call. That is how a bulk publish or
+ * an import's commit writes a group, and exactly what the log's paging must not
+ * lose; pass `createdAt` for events at distinct, known times.
+ */
+export type SeedAuditEvent = {
+  /** Default: the E2E admin. */
+  actorUserId?: string;
+  /** Default: `LEVEL_UPDATED`. */
+  action?: AdminAuditAction;
+  resourceType: string;
+  resourceId?: string | null;
+  reason?: string | null;
+  beforeData?: unknown;
+  afterData?: unknown;
+  correlationId?: string | null;
+  createdAt?: Date;
+};
+
+/** Records `events` in one transaction and returns their ids, in order. */
+export async function seedAuditEvents(
+  events: SeedAuditEvent[],
+): Promise<string[]> {
+  const adminId = await getE2EAdminUserId();
+  return withE2EDb(async (db) =>
+    db.transaction(async (tx) => {
+      const ids: string[] = [];
+      for (const event of events) {
+        const recorded = await recordAuditEvent(tx, {
+          actorUserId: event.actorUserId ?? adminId,
+          action: event.action ?? "LEVEL_UPDATED",
+          resourceType: event.resourceType,
+          resourceId: event.resourceId ?? null,
+          reason: event.reason ?? null,
+          beforeData: event.beforeData,
+          afterData: event.afterData,
+          correlationId: event.correlationId ?? null,
+          ...(event.createdAt ? { createdAt: event.createdAt } : {}),
+        });
+        ids.push(recorded.id);
+      }
+      return ids;
+    }),
+  );
+}
+
+export type E2EAuditEvent = {
+  id: string;
+  actorUserId: string;
+  action: string;
+  resourceType: string;
+  resourceId: string | null;
+  reason: string | null;
+  correlationId: string | null;
+  beforeData: unknown;
+  afterData: unknown;
+  createdAt: Date;
+};
+
+/** The events of one invented `resourceType`, newest first, read straight from the table — not through the code under test. */
+export async function getE2EAuditEventsOf(
+  resourceType: string,
+): Promise<E2EAuditEvent[]> {
+  return withE2EDb((db) =>
+    db
+      .select({
+        id: adminAuditEvents.id,
+        actorUserId: adminAuditEvents.actorUserId,
+        action: adminAuditEvents.action,
+        resourceType: adminAuditEvents.resourceType,
+        resourceId: adminAuditEvents.resourceId,
+        reason: adminAuditEvents.reason,
+        correlationId: adminAuditEvents.correlationId,
+        beforeData: adminAuditEvents.beforeData,
+        afterData: adminAuditEvents.afterData,
+        createdAt: adminAuditEvents.createdAt,
+      })
+      .from(adminAuditEvents)
+      .where(eq(adminAuditEvents.resourceType, resourceType))
+      .orderBy(desc(adminAuditEvents.createdAt), desc(adminAuditEvents.id)),
+  );
+}
+
+/** Removes the events of one invented `resourceType`. Do it before removing a user who is their actor — the actor column restricts. */
+export async function removeSeededAuditEvents(
+  resourceType: string,
+): Promise<void> {
+  await withE2EDb(async (db) => {
+    await db
+      .delete(adminAuditEvents)
+      .where(eq(adminAuditEvents.resourceType, resourceType));
   });
 }

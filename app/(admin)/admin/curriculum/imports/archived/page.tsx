@@ -5,7 +5,7 @@ import { forbidden } from "next/navigation";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { AdminImportsListApp } from "@/components/admin/react-admin/imports/imports-list-app";
 import { Button } from "@/components/ui/button";
-import { canManageCurriculum } from "@/domains/admin";
+import { canPublishCurriculum } from "@/domains/admin";
 import { getLanguages } from "@/domains/curriculum/server";
 import { requireUser } from "@/domains/users/server";
 import { env } from "@/lib/env";
@@ -20,8 +20,8 @@ type SearchParams = { language?: string };
  * Spec 19 §25/§48 step 19 — archived import history: restore, or permanently
  * delete. A React Admin list since spec 26 Unit 8; the same screen as the normal
  * history, asking for the archived one. Guard and visibility are the history
- * page's: anyone who can author may read it, and Restore and Permanently delete
- * need `canPublishCurriculum` (the endpoints re-check it on every call).
+ * page's: Admin only (`canPublishCurriculum`), and the endpoints re-check it on
+ * every call.
  */
 export default async function ArchivedCurriculumImportsPage({
   searchParams,
@@ -29,7 +29,7 @@ export default async function ArchivedCurriculumImportsPage({
   searchParams: Promise<SearchParams>;
 }) {
   const user = await requireUser();
-  if (!canManageCurriculum(user)) {
+  if (!canPublishCurriculum(user)) {
     forbidden();
   }
 

@@ -2,46 +2,28 @@ import type { Metadata } from "next";
 import { forbidden } from "next/navigation";
 
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
-import { CurriculumPagination } from "@/components/admin/curriculum/curriculum-pagination";
-import { AuditLogFilters } from "@/components/admin/logs/audit-log-filters";
-import { AuditLogTable } from "@/components/admin/logs/audit-log-table";
 import { LogsTabsNav } from "@/components/admin/logs/logs-tabs-nav";
-import {
-  ADMIN_AUDIT_ACTIONS,
-  canUseDeveloperTools,
-  type AdminAuditAction,
-} from "@/domains/admin";
-import { getAuditEvents } from "@/domains/admin/server";
-import { getUsersByIds, requireUser } from "@/domains/users/server";
+import { AdminLogsListApp } from "@/components/admin/react-admin/logs/logs-list-app";
+import { canUseDeveloperTools } from "@/domains/admin";
+import { requireUser } from "@/domains/users/server";
+import { env } from "@/lib/env";
 
 export const metadata: Metadata = {
   title: "Logs — Polyglot Admin",
 };
 
-const PAGE_SIZE = 25;
-
-type SearchParams = {
-  tab?: string;
-  actor?: string;
-  action?: string;
-  resourceType?: string;
-  resourceId?: string;
-  from?: string;
-  to?: string;
-  cursor?: string;
-};
-
-function displayNameFor(user: {
-  id: string;
-  displayName: string | null;
-  clerkUserId: string | null;
-}): string {
-  return user.displayName ?? user.clerkUserId ?? `${user.id.slice(0, 8)}…`;
-}
+type SearchParams = { tab?: string };
 
 /**
  * Audit/System logs route (spec 11 §46-§52). Available to both admin and
  * developer (spec 11 §4's "selected system logs where appropriate").
+ *
+ * The Audit tab is a React Admin list — **until PostHog replaces it** (the
+ * owner's decision of 2026-10-14; spec 26 had kept this page as it was). This
+ * page keeps the server-side guard and the tabs; the log itself, its filters and
+ * its paging are fetched by the screen from `/api/v1/admin/logs`, which reads
+ * every filter and the cursor from the real URL. The page's own `tab` parameter
+ * is the only one it reads.
  */
 export default async function AdminLogsPage({
   searchParams,
@@ -66,76 +48,8 @@ export default async function AdminLogsPage({
       {tab === "system" ? (
         <SystemLogsPanel />
       ) : (
-        <AuditLogsPanel params={params} />
+        <AdminLogsListApp signInPath={env.NEXT_PUBLIC_CLERK_SIGN_IN_URL} />
       )}
-    </div>
-  );
-}
-
-const UUID_LIKE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-async function AuditLogsPanel({ params }: { params: SearchParams }) {
-  const action = ADMIN_AUDIT_ACTIONS.includes(params.action as AdminAuditAction)
-    ? (params.action as AdminAuditAction)
-    : undefined;
-  // A malformed actor ID would otherwise reach getAuditEvents's Zod
-  // boundary and throw an uncaught error for what's just a filter typo on
-  // a read-only page (no runAdminAction-style try/catch exists here since
-  // nothing is mutated) — drop it silently instead, same as an unrecognized
-  // `action` value above.
-  const actorUserId =
-    params.actor && UUID_LIKE.test(params.actor) ? params.actor : undefined;
-  const from = params.from
-    ? new Date(`${params.from}T00:00:00.000Z`)
-    : undefined;
-  const to = params.to ? new Date(`${params.to}T23:59:59.999Z`) : undefined;
-
-  const page = await getAuditEvents({
-    actorUserId,
-    action,
-    resourceType: params.resourceType || undefined,
-    resourceId: params.resourceId || undefined,
-    from,
-    to,
-    limit: PAGE_SIZE,
-    cursor: params.cursor,
-  });
-
-  const actorIds = [...new Set(page.items.map((event) => event.actorUserId))];
-  const actors = await getUsersByIds(actorIds);
-  const actorNamesById = Object.fromEntries(
-    actors.map((actor) => [actor.id, displayNameFor(actor)]),
-  );
-
-  const nextParams = new URLSearchParams();
-  nextParams.set("tab", "audit");
-  if (params.actor) nextParams.set("actor", params.actor);
-  if (action) nextParams.set("action", action);
-  if (params.resourceType) nextParams.set("resourceType", params.resourceType);
-  if (params.resourceId) nextParams.set("resourceId", params.resourceId);
-  if (params.from) nextParams.set("from", params.from);
-  if (params.to) nextParams.set("to", params.to);
-  if (page.nextCursor) nextParams.set("cursor", page.nextCursor);
-
-  return (
-    <div>
-      <AuditLogFilters
-        value={{
-          actorUserId: params.actor,
-          action,
-          resourceType: params.resourceType,
-          resourceId: params.resourceId,
-          from: params.from,
-          to: params.to,
-        }}
-      />
-      <AuditLogTable events={page.items} actorNamesById={actorNamesById} />
-      {page.nextCursor ? (
-        <CurriculumPagination
-          nextHref={`/admin/logs?${nextParams.toString()}`}
-        />
-      ) : null}
     </div>
   );
 }

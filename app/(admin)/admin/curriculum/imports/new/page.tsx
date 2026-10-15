@@ -3,7 +3,7 @@ import { forbidden } from "next/navigation";
 
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { CreateAsyncImportForm } from "@/components/admin/curriculum/create-async-import-form";
-import { canManageCurriculum } from "@/domains/admin";
+import { canPublishCurriculum } from "@/domains/admin";
 import { getLanguages } from "@/domains/curriculum/server";
 import { requireUser } from "@/domains/users/server";
 
@@ -19,7 +19,7 @@ type SearchParams = { language?: string };
  * This never parses or previews anything itself: it only creates an import
  * record and a presigned upload slot, then hands off to
  * `/admin/curriculum/imports/[importId]` to watch the async Lambda pipeline
- * do the rest.
+ * do the rest. Admin only, like every import page.
  */
 export default async function NewCurriculumImportPage({
   searchParams,
@@ -27,7 +27,7 @@ export default async function NewCurriculumImportPage({
   searchParams: Promise<SearchParams>;
 }) {
   const user = await requireUser();
-  if (!canManageCurriculum(user)) {
+  if (!canPublishCurriculum(user)) {
     forbidden();
   }
 

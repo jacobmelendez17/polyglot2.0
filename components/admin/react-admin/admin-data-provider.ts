@@ -26,6 +26,7 @@ import {
   adminLevelCreateResultSchema,
   adminLevelListSchema,
   adminLevelUpdateResultSchema,
+  adminLogPageSchema,
   adminOverviewSchema,
   adminReviewPageSchema,
   adminReviewPublishResultSchema,
@@ -61,6 +62,7 @@ import { buildDictionaryListQuery } from "./dictionary/dictionary-list-query";
 import { buildGroupsListQuery } from "./groups/groups-list-query";
 import { buildImportsListQuery } from "./imports/imports-list-query";
 import { buildLevelsListQuery } from "./levels/levels-list-query";
+import { buildLogsListQuery } from "./logs/logs-list-query";
 import { buildReviewListQuery } from "./review/review-list-query";
 import { buildUsersListQuery } from "./users/users-list-query";
 
@@ -309,6 +311,15 @@ export function createAdminDataProvider({
           await request(
             `/imports?${buildImportsListQuery(params)}`,
             adminImportPageSchema,
+            { signal: params.signal },
+          ),
+        );
+      }
+      if (resource === "logs") {
+        return toListResult(
+          await request(
+            `/logs?${buildLogsListQuery(params)}`,
+            adminLogPageSchema,
             { signal: params.signal },
           ),
         );

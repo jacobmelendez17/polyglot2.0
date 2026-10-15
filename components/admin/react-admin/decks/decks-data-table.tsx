@@ -5,6 +5,7 @@ import { DataTable } from "react-admin";
 import Link from "@mui/material/Link";
 import Typography from "@mui/material/Typography";
 
+import { deckAvailabilityText } from "@/components/admin/decks/deck-availability-text";
 import type { AdminDeckRow } from "@/domains/admin";
 
 import { DecksListEmpty } from "./decks-list-empty";
@@ -36,13 +37,6 @@ function DeckLink({ record }: { record: AdminDeckRow }) {
       {record.name}
     </Link>
   );
-}
-
-/** When learners see the deck — the words the old list used. */
-export function deckAvailabilityText(deck: AdminDeckRow): string {
-  return deck.availability === "level"
-    ? `Hidden until Level ${deck.gateLevelNumber ?? "?"}`
-    : "Theme — reveals learned items";
 }
 
 /**

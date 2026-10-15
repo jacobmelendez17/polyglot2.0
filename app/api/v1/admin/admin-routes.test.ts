@@ -160,12 +160,25 @@ describe("GET /api/v1/admin/me — payload", () => {
           // A writer reads levels and groups; creating and editing them is Admin-only.
           levels: ["list"],
           groups: ["list"],
-          // A writer reads the import history; starting and managing imports is Admin-only.
-          imports: ["list"],
-          // A writer authors dictionary mappings; official decks are not theirs at all.
+          // A writer authors dictionary mappings, and may see the official decks
+          // (the owner's decision of 2026-10-14) — but has no imports, no logs and
+          // no users at all: those are absent, not empty.
           dictionary: ["list", "edit"],
+          decks: ["list"],
         },
       },
+    });
+  });
+
+  it("lists the audit log for a developer, and nothing curriculum-shaped", async () => {
+    requireUser.mockResolvedValue(userWithRole("developer"));
+
+    const { data } = await (await getMe(request("/api/v1/admin/me"))).json();
+
+    expect(data.permissions).toMatchObject({
+      canManageCurriculum: false,
+      canUseDeveloperTools: true,
+      resources: { overview: ["show"], logs: ["list"] },
     });
   });
 

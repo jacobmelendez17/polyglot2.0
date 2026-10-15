@@ -8,7 +8,6 @@ import {
   type AdminImportPage,
   type AdminImportRow,
 } from "@/domains/admin";
-import type { UserRole } from "@/domains/users";
 
 import { createAdminAuthProvider } from "../admin-auth-provider";
 import { createAdminDataProvider } from "../admin-data-provider";
@@ -75,7 +74,6 @@ type RenderOptions = {
   /** Pages by the cursor asked for; `""` is the first page. A test may change it while the screen is open. */
   pages?: Record<string, AdminImportPage>;
   archived?: boolean;
-  role?: UserRole;
   languages?: { id: string; name: string }[];
   /** Fails list requests while it returns an error. */
   failList?: () => Error | null;
@@ -83,22 +81,15 @@ type RenderOptions = {
   command?: (command: ImportCommand) => unknown | Promise<unknown>;
   /** How soon the screen reads itself again while an import is being worked on. */
   refreshMs?: number;
-  /** Holds the permission lookup until this settles, while the list itself is already answered. */
-  meGate?: Promise<unknown>;
-  /** Makes the permission lookup fail, as a refusal or an outage. */
-  meFails?: () => Error | null;
 };
 
 export function renderImportsList({
   pages = { "": importPage([importRow(1), importRow(2)]) },
   archived = false,
-  role = "admin",
   languages = ONE_LANGUAGE,
   failList = () => null,
   command = ({ importId }) => ({ importId }),
   refreshMs,
-  meGate,
-  meFails = () => null,
 }: RenderOptions = {}) {
   const listRequests: string[] = [];
   const commands: ImportCommand[] = [];
@@ -129,14 +120,9 @@ export function renderImportsList({
       return found;
     },
   );
-  // Mutable, so a test can change the caller's role mid-session.
-  let currentRole = role;
-  const fetchMe = vi.fn(async () => {
-    await meGate;
-    const failure = meFails();
-    if (failure) throw failure;
-    return buildAdminMe({ id: "u", role: currentRole });
-  });
+  // The screen never asks who the caller is (imports are an Admin's end to
+  // end, so there is nothing to vary); the auth provider still needs one.
+  const fetchMe = vi.fn(async () => buildAdminMe({ id: "u", role: "admin" }));
   const redirect = vi.fn();
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -176,8 +162,5 @@ export function renderImportsList({
     redirect,
     queryClient,
     invalidate,
-    setRole: (next: UserRole) => {
-      currentRole = next;
-    },
   };
 }
