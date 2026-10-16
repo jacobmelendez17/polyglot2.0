@@ -564,6 +564,34 @@ describe("AsyncImportStatus — failure and recovery", () => {
     expect(screen.getByRole("button", { name: "Retry Import" })).toBeVisible();
   });
 
+  it("says what to fix when the file's header is missing columns — and that a retry will not help", () => {
+    renderStatus(
+      failed({
+        attemptCount: 1,
+        lastErrorCode: "IMPORT_PARSE_FAILED",
+        lastErrorSummary: "Missing required column(s): level, group.",
+      }),
+    );
+    expect(screen.getByText("What to fix:")).toBeVisible();
+    expect(
+      screen.getByText(/header row is missing: level, group/),
+    ).toBeVisible();
+    expect(
+      screen.getByText(/retrying the same file will fail the same way/),
+    ).toBeVisible();
+  });
+
+  it("adds no 'what to fix' when it has nothing to say beyond the summary", () => {
+    renderStatus(
+      failed({
+        lastErrorCode: "IMPORT_PREVIEW_FAILED",
+        lastErrorSummary: "Failed query: select 1",
+      }),
+    );
+    expect(screen.queryByText("What to fix:")).toBeNull();
+    expect(screen.getByText("Failed query: select 1")).toBeVisible();
+  });
+
   it("counts a single attempt as one attempt", () => {
     renderStatus(failed({ attemptCount: 1 }));
     expect(

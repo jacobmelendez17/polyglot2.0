@@ -1771,7 +1771,11 @@ test.describe("who may use it", () => {
     // The page still shows the button; the server no longer allows it.
     await setE2EAdminRole("writer");
     await archiveButton(page, target.filename).click();
-    await expect(refusedNotice(page, NO_ACCESS)).toBeVisible();
+    // Two things say so, both in these words: the warning the refused command
+    // raises and — the history being an Admin's alone now — the access-denied the
+    // page falls back to when it reads again. Either is the message; both may be
+    // on screen at once.
+    await expect(refusedNotice(page, NO_ACCESS).first()).toBeVisible();
     expect((await getE2EImport(target.id))!.archivedAt).toBeNull();
     expect(await getE2EImportAuditActions(target.id)).toEqual([]);
   });

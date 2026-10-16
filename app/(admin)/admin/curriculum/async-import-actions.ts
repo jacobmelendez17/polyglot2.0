@@ -18,6 +18,7 @@ import type {
   CurriculumImportRecord,
   CurriculumImportRowsPage,
 } from "@/domains/admin/server";
+import { explainUnexpectedImportError } from "@/domains/admin/import-failure-messages";
 import { IMPORT_COLUMNS } from "@/domains/curriculum/vocabulary-import-parsing";
 import { requireUser } from "@/domains/users/server";
 import { AdminError } from "@/lib/errors/admin-errors";
@@ -86,13 +87,9 @@ async function runAsyncImportAction<T>(
       };
     }
     console.error("Unexpected async import action error", error);
-    return {
-      ok: false,
-      error: {
-        code: "UNKNOWN",
-        message: "Something went wrong. Please try again.",
-      },
-    };
+    // Named when the cause is known (a missing setting, AWS credentials, …) so
+    // the Admin is told what to change — never the error's own text.
+    return { ok: false, error: explainUnexpectedImportError(error) };
   }
 }
 

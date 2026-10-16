@@ -1,0 +1,47 @@
+group,article,word,translation,part_of_speech,definition
+1,,cero,zero,numeral,"zero, 0"
+1,,cinco,five,numeral,"five, 5"
+1,,cuatro,four,numeral,"four, 4"
+1,,diez,ten,numeral,"ten, 10"
+1,,dos,two,numeral,"two, 2"
+1,,nueve,nine,numeral,"nine, 9"
+1,,ocho,eight,numeral,"eight, 8"
+1,,seis,six,numeral,"six, 6"
+1,,siete,seven,numeral,"seven, 7"
+1,,tres,three,numeral,"three, 3"
+1,,uno,one,numeral,"one, 1"
+2,,adiós,goodbye,interjection,farewell used when leaving or ending a conversation.
+2,,aquí,here,adverb,at or near the place of the speaker.
+2,la,ayuda,help,noun,support given to make a task or difficulty easier.
+2,,bien,well / good,adverb,in a good or satisfactory state or manner.
+2,,disculpe,excuse me,verb (imperative),"1. polite way to get someone's attention
+2. polite way to apologize"
+2,,gracias,thank you,interjection,way to acknowledge gratitude usually after someone does something kind or helpful.
+2,,hola,hello,interjection,greeting used to begin speaking to someone.
+2,,mal,bad / badly,adverb,in a poor or unsatisfactory state or manner.
+2,el,nombre,name,proper noun,proper noun used to identify and address a person or thing.
+2,,perdón,sorry / excuse me,interjection,"1. brief apology
+2. use when interrupting someone, passing by, or need to be excused"
+2,,por favor,please,adverbial phrase,polite phrase added when making a request.
+2,,sí,yes,adverb,"way to express agreement, confirmation, or being correct to the speaker."
+3,la,abuela,grandmother,noun,the mother of someone's mother or father
+3,el,abuelo,grandfather,noun,the father of someone's mother or father
+3,el,amigo,friend,noun,a male friend
+3,la,familia,family,noun,"a group of people related through parenthood, marriage, or adoption."
+3,la,hermana,sister,noun,a female sibling
+3,el,hermano,brother,noun,a male sibling
+3,la,hija,daughter,noun,someone's female child
+3,el,hijo,son,noun,someone's male child
+3,la,madre,mother,noun,a female parent; someone's mother
+3,el,padre,father,noun,a male parent; someone's father
+3,los,padres,parents,noun,a person's parents; this plural usually refers to the mother and father of a person
+3,la,persona,person,noun,an individual human being
+4,,amarillo,yellow,adjective,the color seen in lemons or sunflower petals.
+4,,azul,blue,adjective,the color often seen in the sky and ocean.
+4,,blanco,white,adjective,the color often seen in snow or plain paper.
+4,,gris,gray,adjective,the color seen in rainy clouds or stone.
+4,,naranja,orange,"adjective, noun","1. the color seen in a sunset or autumn leaves
+2. a round citrus fruit"
+4,,negro,black,adjective,the color often seen in a dark night sky or on coal.
+4,,rojo,red,adjective,the color often seen in tomatoes and cherries.
+4,,verde,green,adjective,

@@ -114,6 +114,19 @@ jobs:
           E2E_ADMIN_EMAIL: ${{ vars.E2E_ADMIN_EMAIL }}
           E2E_LEARNER_CLERK_USER_ID: ${{ vars.E2E_LEARNER_CLERK_USER_ID }}
           E2E_ADMIN_CLERK_USER_ID: ${{ vars.E2E_ADMIN_CLERK_USER_ID }}
+          # lib/env.ts's other required variables. The suite's support code
+          # imports the domain layer, which imports lib/env.ts at load time, so
+          # Playwright lists no tests at all without them. None reaches the preview
+          # deployment (it has its own, from Vercel); DATABASE_URL is the same
+          # ephemeral branch as E2E_DATABASE_URL, so nothing else is reachable
+          # through the singleton client.
+          NEXT_PUBLIC_CLERK_SIGN_IN_URL: /sign-in
+          NEXT_PUBLIC_CLERK_SIGN_UP_URL: /sign-up
+          NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL: /dashboard
+          NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL: /dashboard
+          LESSON_STATE_SECRET: ${{ secrets.CI_LESSON_STATE_SECRET }}
+          REVIEW_STATE_SECRET: ${{ secrets.CI_REVIEW_STATE_SECRET }}
+          DATABASE_URL: ${{ steps.neon-branch.outputs.e2e-database-url }}
 
       - name: Upload Playwright report on failure
         if: failure()

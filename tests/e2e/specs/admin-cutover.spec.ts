@@ -13,6 +13,7 @@ import {
   seedLevel,
   setE2EAdminRole,
 } from "../support/e2e-admin";
+import { renewSession } from "../support/e2e-session";
 import { spendRateBudget } from "../support/rate-budget";
 
 /**
@@ -271,6 +272,10 @@ test.describe("the menu is the permissions", () => {
       // Hiding a link is never authorization — but a menu must not offer a page
       // that refuses, nor hide one that opens.
       for (const surface of SURFACES) {
+        // A cold first visit can compile for most of a minute, and Clerk's
+        // session token lives for 60 s — renew it, so a slow page cannot make
+        // the next one look signed out.
+        await renewSession(page);
         const response = await page.goto(surface.href);
         expect(response?.status(), `${role}: ${surface.label}`).toBe(
           labels.includes(surface.label) ? 200 : 403,

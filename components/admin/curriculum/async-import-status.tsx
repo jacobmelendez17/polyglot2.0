@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { NEW_HOMONYM_SENTINEL } from "@/domains/curriculum/vocabulary-import-parsing";
+import { explainImportFailure } from "@/domains/admin/import-failure-messages";
 import type {
   BulkPublishDraftedItemsResult,
   CurriculumImportRecord,
@@ -321,6 +322,11 @@ export function AsyncImportStatus({
   ).length;
   const message = statusMessage(record.status);
   const { stage } = importStatusView(record.status);
+  // What to change, when the recorded failure says what was wrong with the file.
+  const failureHint =
+    record.status === "failed"
+      ? explainImportFailure(record.lastErrorCode, record.lastErrorSummary)
+      : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -350,6 +356,11 @@ export function AsyncImportStatus({
           {record.lastErrorSummary ? (
             <p className="mt-1 text-sm text-muted-foreground">
               {record.lastErrorSummary}
+            </p>
+          ) : null}
+          {failureHint ? (
+            <p className="mt-2 text-sm text-foreground">
+              <span className="font-medium">What to fix:</span> {failureHint}
             </p>
           ) : null}
           <Button className="mt-3" disabled={retrying} onClick={handleRetry}>

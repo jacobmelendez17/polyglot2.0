@@ -4,6 +4,10 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { MAX_IMPORT_FILE_BYTES } from "@/domains/curriculum";
+import {
+  checkImportFileStart,
+  explainUploadFailure,
+} from "@/domains/admin/import-failure-messages";
 
 import { createAsyncCurriculumImportAction } from "@/app/(admin)/admin/curriculum/async-import-actions";
 
@@ -47,6 +51,22 @@ export function CreateAsyncImportForm({
 
     setError(null);
     startTransition(async () => {
+      // Only the first few KB, and only to say what is wrong with the header
+      // before anything is created: the file still goes straight to storage, and
+      // the server's own parse remains the authority.
+      const startOfFile = await file
+        .slice(0, 16 * 1024)
+        .text()
+        .catch(() => null);
+      const problem =
+        startOfFile === null
+          ? null
+          : checkImportFileStart(startOfFile, fileExtension);
+      if (problem) {
+        setError(problem);
+        return;
+      }
+
       const result = await createAsyncCurriculumImportAction({
         languageId,
         originalFilename: file.name,
@@ -70,14 +90,19 @@ export function CreateAsyncImportForm({
           body: file,
         });
         if (!uploadResponse.ok) {
-          setError("The upload failed. Please try again.");
+          setError(
+            explainUploadFailure({
+              status: uploadResponse.status,
+              body: await uploadResponse.text().catch(() => ""),
+            }),
+          );
           setPhase("idle");
           return;
         }
       } catch {
-        setError(
-          "The upload failed. Please check your connection and try again.",
-        );
+        // The request never got an answer (a lost connection, or the bucket's
+        // CORS rules refusing this site).
+        setError(explainUploadFailure(null));
         setPhase("idle");
         return;
       }

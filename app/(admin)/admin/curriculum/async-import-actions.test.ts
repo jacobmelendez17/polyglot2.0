@@ -330,11 +330,38 @@ describe("what the services say reaches the screen as words", () => {
       ok: false,
       error: {
         code: "UNKNOWN",
-        message: "Something went wrong. Please try again.",
+        message: expect.stringMatching(
+          /^Something went wrong on the server and it didn't say why\./,
+        ),
       },
     });
     expect(JSON.stringify(result)).not.toContain("arn:aws");
     expect(log).toHaveBeenCalled();
+    log.mockRestore();
+  });
+
+  it("names the missing import settings instead of 'something went wrong' — creating an upload on a site with no bucket", async () => {
+    signedInAs("admin");
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    services.createCurriculumImportUpload.mockRejectedValue(
+      new Error(
+        "IMPORT_BUCKET is not configured. Set it in .env.local — see .env.example.",
+      ),
+    );
+
+    const result = await actions.createAsyncCurriculumImportAction({
+      languageId: "lang-1",
+      originalFilename: "level-2.csv",
+      fileExtension: "csv",
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: {
+        code: "IMPORTS_NOT_CONFIGURED",
+        message: expect.stringContaining("IMPORT_BUCKET"),
+      },
+    });
     log.mockRestore();
   });
 });
