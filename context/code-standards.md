@@ -590,6 +590,8 @@ Centralize analytics event names/constants.
 
 Do not send journal text, microphone recordings, private notes, authentication secrets, raw sensitive answer content, or unnecessary personal information.
 
+Product analytics is called only through `providers/analytics` (`getAnalyticsProvider()`, spec 27). Nothing imports a vendor SDK directly, and nothing awaits analytics in a request's critical path. Whether it can send at all is decided by `telemetryConfig` — see "Telemetry settings" under Environment Variables.
+
 ### Sentry
 
 Unexpected errors should be captured through the monitoring adapter/provider.
@@ -871,6 +873,16 @@ Default/approved choices include:
 - Environment identity comes from a single `APP_ENV` value, not from `NODE_ENV`. Preview and production are both production builds and are not distinguishable by `NODE_ENV`.
 - Fail fast at startup on missing or malformed required variables. A misconfigured deployment should refuse to start rather than fail unpredictably under load.
 - Adding a variable means updating `.env.example`, the typed configuration module, and the deployment environment in the same change.
+
+### Telemetry settings (spec 27)
+
+The optional PostHog and Grafana settings are the one sanctioned exception to "fail fast", because telemetry is optional and must never be able to stop the application.
+
+- They are parsed by `lib/telemetry-config.ts` and read through `telemetryConfig` (exported by `lib/env.ts`), never from `process.env` elsewhere. `parseTelemetryConfig` is total: it never throws, and an invalid or missing value leaves that provider `blocked` (off), reported by name and never by value.
+- Every one is optional, server-only (never `NEXT_PUBLIC_`) and off by default. A provider needs its explicit `true` switch, its `*_FREE_PLAN_CONFIRMED` attestation and valid credentials, and outside production also `TELEMETRY_ALLOW_NON_PRODUCTION`.
+- A credential is a `SecretValue` and is read with `.reveal()` only where it is used. Never log, serialize or spread a config object assuming it is safe because of a key-name redactor.
+- A new switch goes in `TELEMETRY_SETTINGS` and, if it turns anything on, `TELEMETRY_SWITCHES`; then in `.env.example`, the force-off lists in `vitest.config.mts` and `vitest.integration.config.mts`, and `infra/telemetry/README.md`. Tests fail if any of them drifts.
+- Telemetry is off in every automated test environment. A test that proves "no outbound request" uses `providers/test-support/outbound-network-guard`, which refuses `fetch`, `http`, `https` and sockets.
 
 ## File Organization
 

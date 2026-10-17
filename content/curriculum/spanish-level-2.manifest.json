@@ -1,0 +1,13 @@
+{
+  "languageCode": "es-MX",
+  "levelNumber": 2,
+  "levelName": "Level 2",
+  "file": "spanish-level-2.csv",
+  "delimiter": ",",
+  "themes": [
+    { "groupNumber": 1, "name": "Core Verbs" },
+    { "groupNumber": 2, "name": "Basic Descriptions" },
+    { "groupNumber": 3, "name": "Food & Drinks" },
+    { "groupNumber": 4, "name": "Places & Locations" }
+  ]
+}

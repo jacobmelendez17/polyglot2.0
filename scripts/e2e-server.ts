@@ -7,6 +7,7 @@ config({ path: ".env.local" });
 import { spawn } from "node:child_process";
 
 import { assertSafeE2EDatabaseUrl } from "@/db/test/db-safety-guard";
+import { TELEMETRY_SWITCHES } from "@/lib/telemetry-config";
 
 /**
  * `npm run e2e:server` (spec 22). Starts the "isolated Next.js E2E server"
@@ -34,6 +35,9 @@ function main(): void {
     env: {
       ...process.env,
       DATABASE_URL: e2eDatabaseUrl,
+      // Spec 27 §13.1: E2E traffic never reaches PostHog or Grafana, whatever
+      // .env.local enables for a manual verification of the real providers.
+      ...Object.fromEntries(TELEMETRY_SWITCHES.map((name) => [name, "false"])),
       // Isolates this server's build/lock state from a normal `next dev`
       // session — see next.config.ts.
       E2E_SERVER: "1",

@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { parseTelemetryConfig } from "./telemetry-config";
+
 // Preview and production are both production Vercel builds and are not
 // distinguishable by NODE_ENV — architecture.md requires a single APP_ENV
 // value instead. Vercel sets VERCEL_ENV automatically on deployments; local
@@ -95,3 +97,16 @@ export const env = refinedEnvSchema.parse({
   UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
   UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
 });
+
+/**
+ * Spec 27 — the optional product-analytics (PostHog) and observability
+ * (Grafana Cloud) settings, resolved to `disabled` / `blocked` / `enabled`.
+ *
+ * Deliberately outside `envSchema` above, and the one place this module does
+ * not fail fast: `parseTelemetryConfig` never throws, so a malformed telemetry
+ * credential disables that provider (and is reported by the code that tries to
+ * use it) instead of stopping the application from booting. Every telemetry
+ * setting is optional and server-only — none is `NEXT_PUBLIC_`, so none is ever
+ * inlined into a browser bundle.
+ */
+export const telemetryConfig = parseTelemetryConfig(process.env, env.APP_ENV);

@@ -762,9 +762,9 @@ data-integrity rule stays in `domains/*`.
   and endpoint re-checks. **Every `/admin` route is either a React Admin screen
   over a typed `/api/v1/admin` endpoint or a retained specialist page**; the
   cutover matrix in `progress-tracker.md` lists each one and why.
-- **The audit log is a read model on React Admin — until PostHog replaces it**
-  (the owner's decision of 2026-10-14; spec 26 had kept the Logs page as it
-  was). `GET /api/v1/admin/logs?actor=&action=&resourceType=&resourceId=&from=&to=&cursor=&limit=`
+- **The audit log is a read model on React Admin** (the owner's decision of
+  2026-10-14; spec 26 had kept the Logs page as it was; on 2026-10-15 spec 27
+  decided it stays — see below). `GET /api/v1/admin/logs?actor=&action=&resourceType=&resourceId=&from=&to=&cursor=&limit=`
   reads the existing `getAuditEvents` through a strict query, newest event first.
   It is open to **Admin and developer** (`canUseDeveloperTools`) and never to a
   writer, and it is read-only — nothing about an audit event can change, so
@@ -773,9 +773,13 @@ data-integrity rule stays in `domains/*`.
   the mutation wrote it; it never carries a sign-in id or an email (the page it
   replaces fell back to the sign-in id). `from` and `to` are whole UTC days, both
   inclusive. The System tab is still the honest placeholder it was: no
-  system-event pipeline exists (Sentry and PostHog are not wired up), and when
-  PostHog replaces this screen the endpoint and the screen can be removed
-  together.
+  system-event pipeline exists (Sentry and PostHog are not wired up).
+  **Superseded 2026-10-15 (spec 27 §2.3): PostHog does not replace this
+  screen.** The owner decided to **keep the Audit tab, this endpoint, its exact
+  paging, its authorization and the audit data**, and to replace only the System
+  tab's placeholder with operational links and status explanations (Unit 27.10).
+  Do not remove the endpoint or the screen; the earlier plan to delete them
+  "when PostHog arrives" is withdrawn.
   - **The log's paging is exact, in both directions.** The cursor carries the
     event's instant as microsecond text and is compared as a row value in SQL.
     The cursor it replaced went through a JavaScript `Date`, which keeps
@@ -805,6 +809,12 @@ Owns:
 - Allowed analytics properties
 - Product usage events
 - Analytics privacy rules
+
+Product analytics is reached only through `providers/analytics`
+(`getAnalyticsProvider()`); no domain imports a vendor SDK. Spec 27 Unit 27.1
+built the boundary — the provider contract, the no-op adapter and the
+configuration gates described under "Telemetry Configuration" below. The typed
+event catalog, the consent gate and the PostHog adapter are Units 27.2–27.3.
 
 ---
 
@@ -2193,6 +2203,54 @@ Examples:
 - Import commit
 
 Logs must follow the same sensitive-data restrictions.
+
+## Telemetry Configuration (spec 27)
+
+Spec 27 adds PostHog product analytics and Grafana Cloud observability
+(OpenTelemetry metrics, sampled traces and sanitized logs) on **Free plans
+only** — $0 incremental spend is its highest-priority constraint, and a design
+that needs payment is a failed test, not a reason to raise the budget. Unit 27.1
+built the configuration contract below; the senders arrive in later units, and
+these rules are what keep each of them safe. Setup and the owner's steps are in
+`infra/telemetry/README.md`.
+
+- **One parser, and it never throws.** `lib/telemetry-config.ts`
+  (`parseTelemetryConfig`) turns the optional telemetry variables into
+  `telemetryConfig`, exported by `lib/env.ts`. This is the one deliberate
+  exception to "fail fast on malformed configuration": telemetry is optional, so
+  a bad value disables that provider and is reported instead of stopping the
+  application from booting. A missing _required_ variable still does.
+- **Default deny, fail closed.** Each provider — PostHog, and each Grafana
+  signal (metrics, traces, logs) — is `disabled`, `blocked` or `enabled`. Only
+  an exact `true` switch turns anything on, and a disabled provider's other
+  settings are not even read. A `blocked` provider (switch on, cannot run
+  safely) behaves exactly like a disabled one. Four things block it: a missing
+  or malformed setting; the owner's `*_FREE_PLAN_CONFIRMED` attestation absent,
+  which makes spec 27's "an unverified $0 gate prohibits enabling" executable;
+  a non-production `APP_ENV` without `TELEMETRY_ALLOW_NON_PRODUCTION`; and a
+  credential of the wrong kind (a PostHog personal key, a Grafana
+  service-account token) or a host outside the provider's own (PostHog's two
+  ingestion hosts, `*.grafana.net/otlp`).
+- **Diagnostics name settings, never values.** A blocked provider produces
+  `{ code, setting }` issues and one `telemetry.config.blocked` warning;
+  credentials are held as `SecretValue`, which serializes, stringifies and
+  inspects as `[REDACTED]`. A secret pasted into the wrong variable is the
+  realistic leak, so no issue ever quotes what was in a variable.
+- **Server-only.** No telemetry credential is `NEXT_PUBLIC_`. Product events
+  from the browser go through a first-party, consent-checked endpoint (Unit
+  27.2–27.3), not a browser SDK.
+- **No-op everywhere but a deliberately enabled production.** Development,
+  preview, unit, integration and E2E runs resolve to no-op adapters; Vitest's
+  two configs and the E2E server force every switch in `TELEMETRY_SWITCHES` to
+  `false` whatever `.env.local` says, and tests hold those lists to the parser.
+  Production's PostHog project therefore never receives preview or test events.
+- **Zero requests when off is a tested property**, not an assumption:
+  `providers/test-support/outbound-network-guard` refuses `fetch`, `http`,
+  `https` and raw sockets for the duration of a test and reports every attempt.
+  Later units reuse it for each real sender.
+- **Telemetry never decides anything the learner can see.** SRS, lessons,
+  progress, authorization and the audit trail stay in Neon; a PostHog or Grafana
+  outage, cap or misconfiguration can drop telemetry and nothing else.
 
 ---
 

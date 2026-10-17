@@ -3,6 +3,22 @@ import { loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import tsconfigPaths from "vite-tsconfig-paths";
 
+// Telemetry is off for the whole fast suite (spec 27 §13.1), whatever a
+// developer's .env.local enables — these win over it, below. A test that needs
+// an enabled configuration hands `parseTelemetryConfig` its own source object.
+//
+// Listed here rather than imported from `lib/telemetry-config.ts`'s
+// TELEMETRY_SWITCHES: a Vite config that imports application code is flagged by
+// Vite's planned native config loader. `lib/env.test.ts` fails if this list and
+// TELEMETRY_SWITCHES ever differ, so a new switch cannot be forgotten.
+const TELEMETRY_OFF = {
+  POSTHOG_ENABLED: "false",
+  TELEMETRY_METRICS_ENABLED: "false",
+  TELEMETRY_TRACES_ENABLED: "false",
+  TELEMETRY_LOGS_ENABLED: "false",
+  TELEMETRY_ALLOW_NON_PRODUCTION: "false",
+};
+
 // Placeholders for what `lib/env.ts` (its typed, fail-fast config accessor)
 // requires, so the fast suite runs on a bare checkout — CI has no `.env.local`,
 // and a unit test must not need a developer's secrets. A real value from the
@@ -32,7 +48,11 @@ export default defineConfig(({ mode }) => ({
   test: {
     environment: "jsdom",
     setupFiles: ["./vitest.setup.ts"],
-    env: { ...TEST_ENV_DEFAULTS, ...loadEnv(mode, process.cwd(), "") },
+    env: {
+      ...TEST_ENV_DEFAULTS,
+      ...loadEnv(mode, process.cwd(), ""),
+      ...TELEMETRY_OFF,
+    },
     // Database integration tests (spec 08 §43) live in a separate Vitest
     // project (vitest.integration.config.mts, `npm run test:integration`) so
     // this normal fast suite never requires a real database connection.

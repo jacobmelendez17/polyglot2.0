@@ -2,6 +2,17 @@ import { defineConfig } from "vitest/config";
 import { loadEnv } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 
+// Telemetry is off for the integration suite too (spec 27 §13.1), whatever
+// .env.local enables. Same list, and the same reason it is not imported, as
+// vitest.config.mts; `lib/env.test.ts` holds both to TELEMETRY_SWITCHES.
+const TELEMETRY_OFF = {
+  POSTHOG_ENABLED: "false",
+  TELEMETRY_METRICS_ENABLED: "false",
+  TELEMETRY_TRACES_ENABLED: "false",
+  TELEMETRY_LOGS_ENABLED: "false",
+  TELEMETRY_ALLOW_NON_PRODUCTION: "false",
+};
+
 /**
  * Database integration tests (spec 08 §43) are kept in a separate Vitest
  * project from the normal unit-test config so `npm run test` stays fast and
@@ -9,7 +20,7 @@ import tsconfigPaths from "vite-tsconfig-paths";
  * requires a real `TEST_DATABASE_URL`.
  */
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), "");
+  const env = { ...loadEnv(mode, process.cwd(), ""), ...TELEMETRY_OFF };
   // `test.env` (below) only injects variables into the worker processes that
   // run test files — `globalSetup` (db/test/global-setup.ts, which applies
   // migrations to TEST_DATABASE_URL before any test runs) executes in the
