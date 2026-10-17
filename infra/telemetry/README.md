@@ -13,7 +13,7 @@ Only **Unit 27.1** is built: the settings contract, the switches, the safety gat
 | Unit | Adds                                                | Until it ships                                 |
 | ---- | --------------------------------------------------- | ---------------------------------------------- |
 | 27.1 | Settings, gates, no-op adapters, this runbook       | Done — nothing is sent                         |
-| 27.2 | Account-wide analytics consent in Settings          | No learner can opt in                          |
+| 27.2 | Account-wide analytics consent in Settings          | Done — a learner can opt in; nothing is sent   |
 | 27.3 | PostHog adapter and the approved learning events    | `POSTHOG_*` has no effect                      |
 | 27.5 | OpenTelemetry metrics and sampled traces to Grafana | `TELEMETRY_METRICS_ENABLED` / `_TRACES_` no-op |
 | 27.6 | Sanitized log export to Grafana                     | `TELEMETRY_LOGS_ENABLED` has no effect         |
@@ -123,7 +123,20 @@ Spec 27 §3.3 asks you to look before you hit a limit — Polyglot cannot count 
 3. **The email address that receives alerts** (Unit 27.8). No alert counts as working until you have received a real triggered-and-resolved test email.
 4. **Account deletion and PostHog.** Withdrawing consent stops future events but does not erase delivered ones. The vendor deletion workflow gets written in Units 27.2–27.3; deleting a Polyglot account must never be blocked by a failed vendor request.
 
-## 10. Changing this contract
+## 10. Learner consent, and what withdrawing and deleting do
+
+Unit 27.2 added the learner's side. **Settings → Privacy** has one switch, "Share anonymous usage analytics". It is off for everyone until they turn it on, and it is held on the server, so it applies on every device.
+
+- **Nothing is captured about a learner who has not accepted.** Never having chosen, declining, and being a sandbox persona all mean no. The check (`resolveAnalyticsCaptureIdentity`) reads the database each time it is asked — there is no copy to go stale. Even with every switch in section 5 on, a learner who has not accepted produces no event.
+- **Withdrawing is immediate and permanent until they choose again.** It stops new events from that moment, on every device. It does **not** erase events already sent, and an event already on its way when they withdrew may still arrive. The Privacy page tells them both things.
+- **Each learner's events are filed under a random ID** created when they first accept — not their name, email, Clerk id or Polyglot id. It stays the same if they withdraw and accept again.
+- **Resetting an account withdraws the choice.** Danger Zone's "Reset Entire Account" returns the account to a fresh state, which includes this preference: the switch goes back to off and the ID is deleted, so a later acceptance starts a new one.
+- **Deleting a Polyglot account deletes that ID** (the database removes it with the account), which ends the link between the person and anything already sent. Deleting an account never contacts PostHog and cannot be blocked by it.
+- **If someone asks for their PostHog data to be erased**, do it _before_ their account is deleted, while the ID still exists: look up their ID in the `user_analytics_consent` table (`analytics_id`, by their account), then in PostHog find that person and delete them and their events (use the option that deletes the events too — check PostHog's current instructions). After the account is deleted the ID is gone, and what remains in PostHog can no longer be attributed to anyone. This is a manual step on the Free plan; nothing is automated yet, and it is listed in section 9 as a decision for you.
+- **If you change what the page promises** (what may be recorded, where it goes, what withdrawing does), change `ANALYTICS_POLICY_VERSION` in `domains/analytics/analytics-consent.ts` in the same change. Everyone who accepted under the old wording then stops counting until they choose again; the Privacy page tells them why. Declines are never affected.
+- **The `/privacy` page does not yet describe the optional analytics.** Update it before you turn live capture on (check 9 in section 4).
+
+## 11. Changing this contract
 
 A new switch, credential or limit means, in one change: `lib/telemetry-config.ts` (the parser and `TELEMETRY_SETTINGS`; a new on-switch also goes in `TELEMETRY_SWITCHES`), `.env.example`, the force-off lists in `vitest.config.mts` and `vitest.integration.config.mts`, and this runbook. Tests fail if any of those drifts apart.
 

@@ -21,6 +21,10 @@ describe("SettingsMobileNav", () => {
       "href",
       "/settings/account",
     );
+    expect(screen.getByRole("link", { name: "Privacy" })).toHaveAttribute(
+      "href",
+      "/settings/privacy",
+    );
     expect(screen.getByRole("link", { name: "Danger Zone" })).toHaveAttribute(
       "href",
       "/settings/danger",

@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { and, eq } from "drizzle-orm";
 
 import {
@@ -7,6 +9,7 @@ import {
   levels,
   userItemProgress,
   userLanguageSettings,
+  userAnalyticsConsent,
   userLevelProgress,
   users,
   vocabularyItems,
@@ -239,5 +242,62 @@ export async function makeVocabularyItemDue(
         target: [userItemProgress.userId, userItemProgress.learningItemId],
         set: { srsStage: stage, nextReviewAt: dueAt },
       });
+  });
+}
+
+/** Spec 27 Unit 27.2 — clears the learner's analytics choice, so a spec starts from "never chosen" whatever an earlier run left. */
+export async function resetLearnerAnalyticsConsent(): Promise<void> {
+  const learnerId = await getLearnerId();
+  await withE2EDb(async (db) => {
+    await db
+      .delete(userAnalyticsConsent)
+      .where(eq(userAnalyticsConsent.userId, learnerId));
+  });
+}
+
+export interface StoredLearnerAnalyticsConsent {
+  status: "accepted" | "declined";
+  policyVersion: string;
+  revision: number;
+  /** Whether a pseudonym exists — the id itself is deliberately not exposed to a spec. */
+  hasAnalyticsId: boolean;
+}
+
+/** What the server actually holds for the learner's analytics choice, or `null` when they have never chosen. */
+export async function readLearnerAnalyticsConsent(): Promise<StoredLearnerAnalyticsConsent | null> {
+  const learnerId = await getLearnerId();
+  return withE2EDb(async (db) => {
+    const [row] = await db
+      .select()
+      .from(userAnalyticsConsent)
+      .where(eq(userAnalyticsConsent.userId, learnerId))
+      .limit(1);
+    return row
+      ? {
+          status: row.status,
+          policyVersion: row.policyVersion,
+          revision: row.revision,
+          hasAnalyticsId: row.analyticsId !== null,
+        }
+      : null;
+  });
+}
+
+/** Stores an acceptance recorded under an older notice, for the "the wording changed" state the product has no fast UI path to. */
+export async function storeLearnerAcceptanceForOlderNotice(
+  policyVersion: string,
+): Promise<void> {
+  const learnerId = await getLearnerId();
+  await withE2EDb(async (db) => {
+    await db
+      .delete(userAnalyticsConsent)
+      .where(eq(userAnalyticsConsent.userId, learnerId));
+    await db.insert(userAnalyticsConsent).values({
+      userId: learnerId,
+      status: "accepted",
+      policyVersion,
+      analyticsId: randomUUID(),
+      revision: 4,
+    });
   });
 }

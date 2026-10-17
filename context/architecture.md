@@ -774,12 +774,15 @@ data-integrity rule stays in `domains/*`.
   replaces fell back to the sign-in id). `from` and `to` are whole UTC days, both
   inclusive. The System tab is still the honest placeholder it was: no
   system-event pipeline exists (Sentry and PostHog are not wired up).
-  **Superseded 2026-10-15 (spec 27 §2.3): PostHog does not replace this
-  screen.** The owner decided to **keep the Audit tab, this endpoint, its exact
-  paging, its authorization and the audit data**, and to replace only the System
-  tab's placeholder with operational links and status explanations (Unit 27.10).
-  Do not remove the endpoint or the screen; the earlier plan to delete them
-  "when PostHog arrives" is withdrawn.
+  **Spec 27 (2026-10-15, §2.3) does not make PostHog a replacement for this
+  screen.** It keeps the **Audit tab, this endpoint, its exact paging, its
+  authorization and the audit data**, and replaces only the System tab's
+  placeholder with operational links and status explanations (Unit 27.10).
+  PostHog holds consented learner events; the admin audit trail stays in Neon
+  (§1.3 excludes migrating audits). The owner's standing position (2026-10-17) is
+  that the Logs page **may be deleted once PostHog replaces it** — and since
+  nothing in Spec 27 does, it stays until the owner says something has. Do not
+  remove the endpoint or the screen as part of any Spec 27 unit.
   - **The log's paging is exact, in both directions.** The cursor carries the
     event's instant as microsecond text and is compared as a row value in SQL.
     The cursor it replaced went through a JavaScript `Date`, which keeps
@@ -2252,6 +2255,47 @@ these rules are what keep each of them safe. Setup and the owner's steps are in
   progress, authorization and the audit trail stay in Neon; a PostHog or Grafana
   outage, cap or misconfiguration can drop telemetry and nothing else.
 
+### Analytics consent (Unit 27.2)
+
+Whether product analytics may be captured about a learner is decided by the
+learner, on the server, and defaults to no. `domains/analytics` owns it.
+
+- **One row, and no row means no.** A learner's choice is a row in
+  `user_analytics_consent` (`accepted` or `declined`, the notice version it was
+  given under, a revision, and the analytics id). There is no stored "unknown":
+  **no row is unknown, and unknown captures nothing.** The choice is account-wide
+  and never lives in browser storage, so it holds on every device.
+- **A change of notice asks again.** An acceptance carries
+  `ANALYTICS_POLICY_VERSION`. Bump the constant when the notice or the wording
+  beside the switch changes materially and every earlier acceptance stops
+  counting until the learner chooses again; a decline never expires.
+- **Saving** is Settings → Privacy (`app/(app)/settings/privacy`): authenticated
+  to the session's own account (the action has no way to name another), strictly
+  validated, rate limited (`account-settings`), and refused for a sandbox
+  persona. An **acceptance must name the revision the page last showed** and is
+  answered `STALE_SETTING` if the choice has changed since, so a stale or delayed
+  request from another device cannot silently overwrite a newer decision. A
+  **withdrawal needs no revision and always applies**, and repeating one changes
+  nothing, not even the revision.
+- **The analytics id** is random — never derived from the user id or the Clerk
+  id — and is created the first time a learner accepts. It is stable across a
+  withdrawal and a re-acceptance, never leaves the server through the Settings
+  page, and is destroyed with the account by the foreign-key cascade, which is
+  what ends the link between an account and anything already sent under it.
+  Deleting an account never involves PostHog and cannot be blocked by it.
+  **Reset Entire Account** (Danger Zone) clears the choice and the id too — it
+  returns the account to a fresh state and removes "every preference", and a
+  fresh account has never chosen — so a reset can only withdraw consent, never
+  grant it, and a later acceptance starts a new id unlinked from the old one.
+- **The capture gate** is `resolveAnalyticsCaptureIdentity(userId)` (Unit 27.3
+  calls it at emission time, after commit). It reads the database on every call,
+  returns the id only for a current acceptance, and returns nothing for anyone
+  else: no choice, a decline, an acceptance under an older notice, a sandbox
+  persona, or no such account. Nothing a client sends can say "capture is
+  allowed". A withdrawal that has committed is seen by the very next call, on any
+  device; an event already accepted for delivery before it committed may still
+  arrive, and withdrawing does not erase events already sent.
+
 ---
 
 # Admin Audit Log
@@ -2814,6 +2858,8 @@ The codebase must never violate the following rules:
 63. `TEST_DATABASE_URL` and `E2E_DATABASE_URL` are never equal to `DATABASE_URL`, to each other, or reachable when `APP_ENV` is production — enforced by a fail-closed guard, not by convention.
 64. The committed E2E suite never authors, edits, or publishes the real launch curriculum; its curriculum fixture lives entirely on the `polyglot-e2e` branch.
 65. A curriculum key, once assigned, never changes for the life of the row it identifies — moving, editing, or publishing a Level/group/learning item never regenerates or reassigns its `curriculum_key`.
+66. No product-analytics event is captured about a learner unless a current acceptance is stored on the server at the moment of capture. Never having chosen, declining, an acceptance under an older notice, being a sandbox persona, and a client-supplied claim of consent all mean no. (Spec 27)
+67. A stale or replayed request cannot grant analytics consent: an acceptance must name the revision it was based on, while a withdrawal always applies. (Spec 27)
 
 ---
 

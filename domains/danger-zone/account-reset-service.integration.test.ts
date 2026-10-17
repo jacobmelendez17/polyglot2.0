@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   decks,
   reviewEvents,
+  userAnalyticsConsent,
   userDismissedNotices,
   userItemProgress,
   userLanguageSettings,
@@ -20,6 +21,11 @@ import {
 } from "@/db/schema";
 import { SENTENCE_GATO_ID, seedTestFixtures } from "@/db/seed/test-fixtures";
 import { withTestTransaction } from "@/db/test/with-test-transaction";
+import {
+  getAnalyticsConsent,
+  resolveAnalyticsCaptureIdentity,
+  setAnalyticsConsent,
+} from "@/domains/analytics/analytics-consent-service";
 import { getUnlockedLevels } from "@/domains/progress/repository";
 
 import { resetEntireAccount } from "./account-reset-service";
@@ -78,6 +84,11 @@ async function seedFullAccountState(
   await tx
     .insert(userPreferences)
     .values({ userId: learnerId, hideEnglishReviews: true });
+  await setAnalyticsConsent(tx, {
+    userId: learnerId,
+    status: "accepted",
+    expectedRevision: null,
+  });
   await tx.insert(decks).values({
     languageId,
     kind: "personal",
@@ -134,6 +145,7 @@ describe("resetEntireAccount (spec 20 Danger Zone)", () => {
         userReviewPreferences,
         userNotificationPreferences,
         userPreferences,
+        userAnalyticsConsent,
         userNotes,
         userSynonyms,
         userVacationPeriods,
@@ -157,6 +169,51 @@ describe("resetEntireAccount (spec 20 Danger Zone)", () => {
         .from(decks)
         .where(eq(decks.ownerUserId, learnerId));
       expect(ownedDecks).toHaveLength(0);
+    });
+  });
+
+  it("withdraws the analytics choice and drops its pseudonym — a fresh account has never chosen (spec 27)", async () => {
+    await withTestTransaction(async (tx) => {
+      const { learnerId, languageId, gatoId, level2Id } =
+        await seedTestFixtures(tx);
+      await seedFullAccountState(tx, {
+        learnerId,
+        languageId,
+        gatoId,
+        level2Id,
+      });
+      const before = await tx
+        .select()
+        .from(userAnalyticsConsent)
+        .where(eq(userAnalyticsConsent.userId, learnerId));
+      expect(await resolveAnalyticsCaptureIdentity(tx, learnerId)).toEqual({
+        distinctId: before[0]!.analyticsId,
+      });
+
+      await resetEntireAccount(tx, {
+        userId: learnerId,
+        idempotencyKey: crypto.randomUUID(),
+        now: new Date("2026-08-10T00:00:00Z"),
+      });
+
+      // Back to "never chosen": nothing may be captured, and the Settings page
+      // would show the switch off.
+      expect(await getAnalyticsConsent(tx, learnerId)).toEqual({
+        status: "unknown",
+        revision: null,
+        needsReview: false,
+      });
+      expect(await resolveAnalyticsCaptureIdentity(tx, learnerId)).toBeNull();
+
+      // Choosing again starts a new pseudonym, unlinked from the old one.
+      await setAnalyticsConsent(tx, {
+        userId: learnerId,
+        status: "accepted",
+        expectedRevision: null,
+      });
+      const after = await resolveAnalyticsCaptureIdentity(tx, learnerId);
+      expect(after).not.toBeNull();
+      expect(after!.distinctId).not.toBe(before[0]!.analyticsId);
     });
   });
 

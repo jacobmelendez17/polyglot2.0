@@ -592,6 +592,10 @@ Do not send journal text, microphone recordings, private notes, authentication s
 
 Product analytics is called only through `providers/analytics` (`getAnalyticsProvider()`, spec 27). Nothing imports a vendor SDK directly, and nothing awaits analytics in a request's critical path. Whether it can send at all is decided by `telemetryConfig` — see "Telemetry settings" under Environment Variables.
 
+Whether an event may be captured about a _learner_ is a separate question, answered only by `resolveAnalyticsCaptureIdentity(userId)` (`domains/analytics/server`): it reads the stored consent from the database at the moment of capture and returns the learner's pseudonymous id, or nothing. Every capture path asks it again, after the authoritative result is committed. Never decide it from a value the client sent, a cookie, a cached copy, or an earlier call; the id it returns is the only identity an event may carry — never a user id, a Clerk id, an email or a name.
+
+A setting that decides what happens to a person's data and can be changed from several devices (analytics consent is the first) carries a **revision**: granting it must name the revision the page last showed and is refused as `STALE_SETTING` if it has moved, while withdrawing it never needs one and always applies. A stale or replayed request must not be able to grant what a newer request withdrew.
+
 ### Sentry
 
 Unexpected errors should be captured through the monitoring adapter/provider.

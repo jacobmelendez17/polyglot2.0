@@ -19,6 +19,7 @@ export const APP_ERROR_CODES = [
   "IDEMPOTENCY_OPERATION_IN_PROGRESS",
   "USERNAME_TAKEN",
   "RESET_TARGET_INVALID",
+  "STALE_SETTING",
 ] as const;
 
 export type AppErrorCode = (typeof APP_ERROR_CODES)[number];
@@ -36,6 +37,8 @@ const DEFAULT_MESSAGES: Record<AppErrorCode, string> = {
   IDEMPOTENCY_OPERATION_IN_PROGRESS: "This request is already being processed.",
   USERNAME_TAKEN: "That username is already taken.",
   RESET_TARGET_INVALID: "That reset option isn't valid right now.",
+  STALE_SETTING:
+    "This setting was changed somewhere else. Reload the page to see its current value.",
 };
 
 /**

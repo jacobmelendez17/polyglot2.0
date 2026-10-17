@@ -41,6 +41,10 @@ describe("SettingsSidebarNav", () => {
       "href",
       "/settings/notifications",
     );
+    expect(screen.getByRole("link", { name: "Privacy" })).toHaveAttribute(
+      "href",
+      "/settings/privacy",
+    );
     expect(screen.getByRole("link", { name: "API" })).toHaveAttribute(
       "href",
       "/settings/api",

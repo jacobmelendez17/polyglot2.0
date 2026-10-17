@@ -605,3 +605,57 @@ export const userNotificationPreferences = pgTable(
     ...timestamps(),
   },
 );
+
+/**
+ * Spec 27 Unit 27.2 — what the learner chose about product analytics.
+ * `unknown` is deliberately not a value: **no row means unknown, and unknown
+ * means nothing is captured** (spec 27 §5.1 — "a default that denies
+ * capture"). A row exists only once someone has actually chosen, so an account
+ * that never opened the setting has nothing here at all.
+ *
+ * Account-wide (no `language_id`) and server-side by design: the choice must
+ * hold on every device, so it can never live in browser storage.
+ *
+ * - `analytics_id` is the random, analytics-only pseudonym events are filed
+ *   under (§5.3) — never derived from the user id, the Clerk id or anything
+ *   else about the person. It is created the first time the learner accepts
+ *   (so an account that never accepted has none), stays the same after a
+ *   withdrawal and a later re-acceptance, and is destroyed with the account by
+ *   the cascade below — which is also what ends any link between the account
+ *   and the events already sent under it.
+ * - `policy_version` is the version of the notice and wording the learner saw
+ *   when they chose (`domains/analytics`'s `ANALYTICS_POLICY_VERSION`). An
+ *   acceptance recorded under an older version no longer counts.
+ * - `revision` is the optimistic-concurrency token: every real change adds one,
+ *   and an acceptance must name the revision it was based on, so a stale or
+ *   delayed request from another device cannot silently overwrite a newer
+ *   decision. (An integer, not `updated_at`: Postgres keeps microseconds and a
+ *   JavaScript `Date` milliseconds, so a timestamp can never equal itself.)
+ */
+export const analyticsConsentStatusEnum = pgEnum("analytics_consent_status", [
+  "accepted",
+  "declined",
+]);
+
+export const userAnalyticsConsent = pgTable(
+  "user_analytics_consent",
+  {
+    userId: uuid("user_id")
+      .primaryKey()
+      .references(() => users.id, { onDelete: "cascade" }),
+    status: analyticsConsentStatusEnum("status").notNull(),
+    policyVersion: text("policy_version").notNull(),
+    analyticsId: uuid("analytics_id").unique(),
+    revision: integer("revision").notNull().default(1),
+    ...timestamps(),
+  },
+  (t) => [
+    // Backstop for the one rule everything downstream relies on: an accepted
+    // choice always has the pseudonym its events are filed under.
+    check(
+      "user_analytics_consent_accepted_has_id",
+      sql`${t.status} <> 'accepted' OR ${t.analyticsId} IS NOT NULL`,
+    ),
+    check("user_analytics_consent_revision_positive", sql`${t.revision} >= 1`),
+  ],
+);

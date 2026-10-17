@@ -412,6 +412,7 @@ Leaderboards and tournaments are planned future features and are not required fo
 - Users may edit their name, bio, country, and profile picture.
 - Users may reset an individual item from its item page.
 - Users may reset levels, languages, or their account from settings.
+- Users choose whether to share anonymous usage analytics (spec 27). It is off until they turn it on; the choice is held on the server, so it applies on every device; and turning it off stops new events straight away. Typed answers, journal text, notes and recordings are never part of it.
 - User data export is not part of the current product scope.
 
 ### Appearance

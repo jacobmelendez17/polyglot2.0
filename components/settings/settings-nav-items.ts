@@ -21,6 +21,7 @@ export const SETTINGS_NAV_ITEMS: SettingsNavItem[] = [
   { label: "Appearance", href: "/settings/appearance" },
   { label: "Subscription", href: "/settings/subscription" },
   { label: "Notifications", href: "/settings/notifications" },
+  { label: "Privacy", href: "/settings/privacy" },
   { label: "API", href: "/settings/api" },
   { label: "Danger Zone", href: "/settings/danger", destructive: true },
 ];

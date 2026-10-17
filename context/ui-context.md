@@ -982,6 +982,14 @@ Incorrect feedback should educate, not merely flash red.
 
 Every Settings field that stages a change (`SettingSaveControls`) keeps its Save and Cancel buttons on screen at all times and disables them until there is something to save (2026-10-04). Controls must not mount or unmount as state changes, because that moves everything below them. The button label stays constant ("Save"); progress and result text ("Saving…", "Saved", an error) appears beside the buttons without changing the row's height.
 
+### Privacy settings (spec 27, 2026-10-17)
+
+Settings → Privacy holds the analytics consent switch, built from the ordinary Settings toggle and its always-visible Save and Cancel. Three rules are specific to it:
+
+- **The switch is off for anyone who has not chosen.** A pre-checked opt-in is a defect; "unknown" and "declined" both show off.
+- **Saving can be refused as stale.** If the choice was changed from another device since the page loaded, saving an acceptance shows "changed on another device" in the usual status line beside the buttons and leaves the draft alone; a withdrawal always saves. The message is plain text, never colour alone.
+- **The wording is versioned.** The explanation beside the switch (what may and may not be recorded, what withdrawing does and does not do) is covered by `ANALYTICS_POLICY_VERSION`. When the notice changes, a short status line above the switch says the earlier choice no longer counts. A sandbox persona sees an explanation instead of a switch.
+
 ---
 
 ## Accent Input Controls

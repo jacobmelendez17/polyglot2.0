@@ -5,6 +5,7 @@ import {
   decks,
   reviewEvents,
   userDismissedNotices,
+  userAnalyticsConsent,
   userItemProgress,
   userLanguageSettings,
   userLevelProgress,
@@ -39,6 +40,12 @@ import {
  * `user_item_progress` itself, not a separate table, so it is cleared by
  * that same delete — spec 20's "Leech aggregate state" has no row of its
  * own to touch.
+ *
+ * `user_analytics_consent` (spec 27) goes too, as one of "every preference":
+ * the reset's contract is a fresh account, and a fresh account has never
+ * chosen. That can only *withdraw* consent — the safe direction — and it
+ * destroys the learner's analytics pseudonym, so anything already sent under
+ * it can no longer be linked to them; a later acceptance gets a new one.
  *
  * **Not touched, deliberately:**
  * - `idempotency_keys` — an operational safety record, not learner
@@ -82,6 +89,9 @@ export async function deleteAllLearnerApplicationData(
     .delete(userNotificationPreferences)
     .where(eq(userNotificationPreferences.userId, userId));
   await db.delete(userPreferences).where(eq(userPreferences.userId, userId));
+  await db
+    .delete(userAnalyticsConsent)
+    .where(eq(userAnalyticsConsent.userId, userId));
   await db.delete(decks).where(eq(decks.ownerUserId, userId));
   await db.delete(userNotes).where(eq(userNotes.userId, userId));
   await db.delete(userSynonyms).where(eq(userSynonyms.userId, userId));
