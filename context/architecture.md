@@ -2296,6 +2296,166 @@ learner, on the server, and defaults to no. `domains/analytics` owns it.
   device; an event already accepted for delivery before it committed may still
   arrive, and withdrawing does not erase events already sent.
 
+### Analytics events (Unit 27.3)
+
+How a learner's action becomes a PostHog event, and what stops it becoming a
+leak. Nothing in this path runs unless `telemetryConfig.analytics.state` is
+`enabled`; otherwise it costs nothing, apart from reporting a `blocked`
+configuration once (invariant 71).
+
+- **The catalog is the only list of events** (`analytics-events.ts`): the twelve
+  spec 27 §6.1 approved, each with a **strict** property schema. Every property is
+  a bounded integer, a fixed enum or a UUID — there is no free-text field, so
+  even a secret placed in a listed property fails validation. An off-list
+  property invalidates the whole event. The SRS stage is sent as a category
+  (`beginner` … `fluent`), never the exact stage. Every event also carries
+  `language`, `app_environment`, `event_schema_version` and `source`
+  (`server` | `browser_intent`), and nothing else. Seven events are emitted
+  (`onboarding_started`/`_completed`, `lesson_started`/`_completed`,
+  `review_session_started`, `review_item_completed`, `level_unlocked`); five are
+  catalogued with `emitted: false` because the product cannot produce them yet —
+  `practice_started`/`_completed` (there are no practice routes),
+  `dashboard_widget_added`/`_removed` (nothing persists widget configuration, so
+  they carry no widget property) and `review_session_completed` (the server does
+  not know when a session ends). No emitter is invented for them.
+- **Domain code records; it never sends.** `lesson-completion.ts` and
+  `review-completion.ts` call `recordLessonCompleted` / `recordReviewItemCompleted`
+  / `recordLevelUnlocked` (`record-event.ts`) **inside the first-execution
+  callback of `withIdempotency`**. A record only queues the event in a
+  per-request `AsyncLocalStorage` scope (`analytics-event-collector.ts`). Because
+  a replay returns the stored result without running that callback, a replay
+  queues nothing; because a refused or rolled-back call throws, the queue is
+  discarded with it. A level unlock is queued only when the row was newly
+  inserted (`unlockLevelReporting`, `ON CONFLICT DO NOTHING … RETURNING`), and
+  after the review that earned it.
+- **The Server Action opens the scope and emits after the response.**
+  `completeLessonAction` and `submitReviewAnswerAction` wrap their domain call in
+  `runWithAnalytics({ userId }, …)` (`capture-binding.ts`). When the call has
+  returned, the queued events go to Next's `after()` → `emitAnalyticsEvents`
+  (`analytics-emitter.ts`): the capture gate is asked **again, now**; each event
+  is validated against the catalog; accepted events are captured and delivery is
+  awaited (a serverless function can be frozen once the response ends). The
+  emitter never throws and never touches the learner's result — a failure ends in
+  a warning that names the event and the offending property _paths_, never a
+  value or an error's text. Onboarding completion is scheduled by its action only
+  when the returned `onboardingCompletedAt` equals that request's own `now`, i.e.
+  this request is what completed it.
+- **The browser reports only that a session began.** `lesson_started`,
+  `review_session_started` and `onboarding_started` are knowable only from the
+  page. A server page renders the tiny `AnalyticsIntent` client component — with
+  the Server Action passed as a prop — only when analytics is enabled **and** the
+  learner currently consents (`shouldReportAnalyticsIntents`); everyone else never
+  makes the call. `captureAnalyticsIntentAction` is authenticated, accepts a
+  closed union of three shapes (`z.strictObject`; the only datum is the session's
+  own UUID), is rate limited (`analytics-intent`, 30 a minute, fails closed),
+  takes the account and language from the session, and schedules the event, where
+  consent is checked once more. There is no browser SDK, and nothing the client
+  sends can name a person, a count, a level or content.
+- **The PostHog adapter** (`providers/analytics/posthog.ts`) is a small
+  `fetch`-based client, not the vendor SDK: one POST to `{host}/batch/` per
+  flush, a 3-second timeout, no retries, at most 50 queued events, no timers. Each
+  event is anonymous (`$process_person_profile: false`, `$geoip_disable: true`)
+  and carries a UUID derived from the analytics id and the event's dedupe key, so
+  a repeated delivery of one logical event can be recognised by PostHog (a
+  best-effort aid, not verified against PostHog's behaviour). The token and host
+  live in private fields and never appear in a log, a serialization or an error.
+- **Delivery is at-most-once and best effort.** An event is captured after the
+  work has committed, so a learner's result never depends on analytics, and an
+  event that cannot be delivered is lost rather than retried into a storm.
+
+### Observability pipeline (Units 27.5–27.6)
+
+How a request becomes Grafana metrics, sampled traces and sanitized warnings,
+and what stops any of it carrying learner data. Everything here is off unless a
+Grafana signal is `enabled` (invariant 71); with all three off, `register()`
+returns before loading the SDK, no global is registered, Next.js creates no
+span, and nothing is sent — checked against a real production server.
+
+- **Two halves, joined by OpenTelemetry's own registry.** Application code
+  (`lib/logging`, `lib/observability`, `lib/health`) uses only the
+  OpenTelemetry **API**, which is a no-op until something registers an SDK. The
+  **SDK and every exporter** live only in `providers/observability`, started once
+  by `instrumentation.ts` (`register()`, Node runtime only) through
+  `startObservability`. `instrumentation.ts` is bundled apart from the routes it
+  observes, so nothing is shared between the halves through module variables:
+  the providers are registered globally, and the few shared flags live on
+  `globalThis` under registered symbols (`lib/observability/active.ts`). A
+  context manager is registered too — without one nothing nests and a log line
+  cannot find its span. `startObservability` never throws, is idempotent, and
+  builds a provider only for a signal that is `enabled`.
+- **Three gates keep Next.js's own spans, and everything on them, out.** Once a
+  tracer provider exists Next.js emits spans of its own (a render, every
+  `fetch`), and the request root carries the raw URL with its query string. The
+  sampler (`sampler.ts`) records **only** the request root (`BaseServer.handleRequest`)
+  and the application's own operation spans, and ignores a remote parent's
+  sampled flag so a client cannot force a trace with a header; sampling is head
+  sampling at `TELEMETRY_TRACE_SAMPLE_RATIO` (5%), and unsampled spans are still
+  _recorded_ so request metrics count every request. `span-sanitizer.ts` then
+  rebuilds every exported span from an allowlist (method, route _template_,
+  status; operation, outcome, error category, request id) — no events, links,
+  status message or other attribute. The exporter guards (`exporters.ts`) apply
+  the span, metric and log allowlists again at the last step.
+- **Metrics are a closed catalog** (`lib/observability/instruments.ts`):
+  `http_server_requests_total`, `http_server_request_duration_ms`,
+  `review_submission_total`/`_duration_ms`, `lesson_completion_total`,
+  `database_operation_duration_ms`, `database_connection_failure_total` and
+  `telemetry_export_failure_total`, each with a fixed label set that the SDK also
+  enforces as views. Labels come only from `request-labels.ts` (a method from a
+  fixed list, a route template cut to three segments with dynamic segments as
+  `:param`, a status class) — never a URL, a user, an id or error text.
+  `practice_completion_total` is in the spec's catalog but not built: there is no
+  practice completion to count. HTTP metrics come from the request root span
+  (`request-lifecycle-processor.ts`): a root with no route template is **not
+  counted** — Next.js opens one for the proxy's own pass over a request (reporting
+  200 whatever the proxy then does) and a request the proxy answers itself (a
+  sign-in redirect) never reaches a route, so counting them would double every
+  request and invent an `unmatched` 2xx. The health probes are not counted either.
+- **`withTrace` is the bridge, not a second tracer.** `lib/logging/operation-telemetry.ts`
+  turns a few `withTrace` operations (the table in `lib/observability/operations.ts`:
+  `reviews.submitAnswer`, `review.transaction`, `lesson.transaction`,
+  `account.delete.finalize`) into one span and, for two of them, one metric
+  family; an unlisted operation is invisible to telemetry. While no signal runs
+  it returns `fn()` untouched. Its outcomes are `accepted`, `succeeded`,
+  `replayed`, `expected_rejected` (a domain error, labelled by its code) and
+  `unexpected_failed`; a replay is told from a success by `markOperationCommitted()`,
+  called at the same first-execution point as the analytics `record…` calls, so
+  retries are never counted as a second success.
+- **Logs are a projection, not a stream** (`lib/observability/log-projection.ts`).
+  Only warnings and worse are exported. A record starts empty and gains an
+  attribute only through a validator that accepts a value of the right _shape_
+  (a dotted event constant, a bounded integer, a UUID, a constant-style code) —
+  there is no field for a message, a stack, a user id, an email, SQL or a
+  learner's text, and a value that fails its validator is dropped, not masked.
+  A record carries the trace and span ids of the active span, plus Spec 24's own
+  request id, so a failure's log line and its trace are found together.
+- **When data is sent** (`export-coordinator.ts`): at the end of every request
+  traces and logs are flushed (empty buffers cost nothing), metrics at most every
+  30 seconds plus once shortly after the last request, one flush at a time, each
+  bounded by timeouts. The request's root span captures the platform's
+  `waitUntil` when it starts (Vercel exposes it on a registered global) and uses
+  it when the request ends, so the function is held open until delivery; outside
+  Vercel the export simply runs. A failed export increments
+  `telemetry_export_failure_total` and says nothing — no log, no retry.
+- **Cumulative counters, one series set per instance.** Each server instance
+  carries its own `service.instance.id`, because serverless instances would
+  otherwise overwrite each other's cumulative counts. Active series therefore
+  scale with the number of live instances (runbook §12 has the arithmetic).
+
+### Health endpoints (Unit 27.7)
+
+`GET /api/health` and `GET /api/health/ready` are public, never cached
+(`Cache-Control: no-store`), and answer with a single status word. **Liveness**
+imports neither `lib/env` nor the database layer — a test makes both throw on
+import — and rate limits in process memory with a bounded store, so it stays 200
+while everything behind the application fails. **Readiness** is 200 only if the
+critical settings are present and `select 1` answers within 2.5 seconds; PostHog
+and Grafana are not part of it. Both are kept out of Clerk's middleware by
+`proxy.ts`'s matcher (a probe that passes through the authentication layer
+measures that layer). Their rate-limit policies fail **open**: a limiter outage
+must not look like an application outage. A failed readiness check logs
+`health.ready.failed` with a fixed reason (`database_unreachable` or
+`configuration_missing`); the response body says nothing of which.
+
 ---
 
 # Admin Audit Log
@@ -2703,6 +2863,8 @@ Do not build for scale that has not arrived. Introduce the following only when t
 
 Health endpoints must not require authentication, must not expose version details, connection strings, or dependency internals, and must be rate limited.
 
+Implemented in spec 27 Unit 27.7 — see "Health endpoints (Unit 27.7)" under Telemetry Configuration. The external five-minute check that calls `/api/health` is created by the owner in Grafana Synthetic Monitoring (`infra/telemetry/README.md`).
+
 ## Service Level Objectives
 
 Beta targets:
@@ -2860,6 +3022,16 @@ The codebase must never violate the following rules:
 65. A curriculum key, once assigned, never changes for the life of the row it identifies — moving, editing, or publishing a Level/group/learning item never regenerates or reassigns its `curriculum_key`.
 66. No product-analytics event is captured about a learner unless a current acceptance is stored on the server at the moment of capture. Never having chosen, declining, an acceptance under an older notice, being a sandbox persona, and a client-supplied claim of consent all mean no. (Spec 27)
 67. A stale or replayed request cannot grant analytics consent: an acceptance must name the revision it was based on, while a withdrawal always applies. (Spec 27)
+68. A product-analytics event is queued only by the first-execution callback of an idempotent transaction and is sent only after the call has returned: a replay, a refusal and a rollback emit nothing, and nothing is sent from inside a transaction. (Spec 27)
+69. Every product-analytics event is validated against the strict event catalog at the moment it is sent. An off-list or out-of-bounds property drops the whole event, and no log line, error or warning names a property value. (Spec 27)
+70. What the browser may tell the server about analytics is a closed list of three "a session started" reports; the server takes the account and language from the session and decides consent itself. (Spec 27)
+71. While product analytics is not `enabled`, its code paths do no work — no collection scope, no consent read, no scheduled task, no outbound request — beyond reporting a `blocked` configuration once per server instance. (Spec 27)
+72. Nothing is exported to Grafana unless it passed an allowlist built from fixed vocabularies: a metric carries only the labels its instrument names, a span only the attributes in `span-sanitizer.ts`, a log record only the attributes in `log-projection.ts`, each through a validator for its shape. No URL, query string, user id, email, message, stack trace, SQL or learner content can be a label, an attribute or a body — and the check runs again in the exporter. (Spec 27)
+73. While no Grafana signal is `enabled`, application code does exactly what it did before spec 27: `withTrace` returns its callback untouched, the logger exports nothing, no span is created and no request is sent. (Spec 27)
+74. A request is counted once, by its route's own span: a request root with no route template (the proxy's pass over a request, or a request the proxy answered) and the health probes are never counted. (Spec 27)
+75. A replay of committed work is never counted as a second success: telemetry learns a call committed new work only from `markOperationCommitted()`, which only the first execution of an idempotent transaction reaches. (Spec 27)
+76. A failure of telemetry — an exporter, a collector, a tracer, a flush — never reaches the code it describes: it is counted and, at most, reported by a fixed word; it cannot throw into a request, delay a learner's response, or log about itself. (Spec 27)
+77. The liveness probe depends on nothing that can be down: it loads neither the environment nor the database layer and uses no network. The readiness probe fails open on its own rate limiter and closed on the database, and neither reports which dependency failed. (Spec 27)
 
 ---
 

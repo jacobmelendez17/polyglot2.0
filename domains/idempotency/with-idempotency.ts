@@ -2,8 +2,11 @@ import { and, eq, sql } from "drizzle-orm";
 
 import type { DbClient } from "@/db/client";
 import { idempotencyKeys } from "@/db/schema";
+import { env } from "@/lib/env";
 import { AppError } from "@/lib/errors/app-error";
 import { logger } from "@/lib/logging/logger";
+import { getActiveSignals } from "@/lib/observability/active";
+import { recordDatabaseOperation } from "@/lib/observability/instruments";
 
 import { computeRequestHash } from "./hash";
 import { getIdempotencyRetentionMs } from "./retention-config";
@@ -63,6 +66,40 @@ export async function withIdempotency<T>(
   input: WithIdempotencyInput,
   fn: (tx: DbClient) => Promise<T>,
   options: { lockTimeoutMs?: number } = {},
+): Promise<T> {
+  return timeTransaction(() => runIdempotently(db, input, fn, options));
+}
+
+/**
+ * Spec 27 Unit 27.5 — times the transaction as a `database_operation_duration_ms`
+ * `transaction` sample: `success` if it committed, `failure` if it rolled back
+ * or threw (a business refusal inside `fn` rolls back too, so this is the
+ * database's outcome, not the learner's). While the metrics signal is off it
+ * is `run()` and nothing else.
+ */
+async function timeTransaction<T>(run: () => Promise<T>): Promise<T> {
+  if (!getActiveSignals().metrics) return run();
+  const startedAt = performance.now();
+  let outcome: "success" | "failure" = "failure";
+  try {
+    const result = await run();
+    outcome = "success";
+    return result;
+  } finally {
+    recordDatabaseOperation({
+      environment: env.APP_ENV,
+      operation: "transaction",
+      outcome,
+      durationMs: performance.now() - startedAt,
+    });
+  }
+}
+
+async function runIdempotently<T>(
+  db: DbClient,
+  input: WithIdempotencyInput,
+  fn: (tx: DbClient) => Promise<T>,
+  options: { lockTimeoutMs?: number },
 ): Promise<T> {
   const requestHash = computeRequestHash(input.payload);
   const lockTimeoutMs = Math.max(1, Math.trunc(options.lockTimeoutMs ?? 5000));

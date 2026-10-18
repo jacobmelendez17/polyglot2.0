@@ -119,3 +119,90 @@ describe("LessonThemePicker", () => {
     );
   });
 });
+
+// Spec 27 Unit 27.3: this screen builds the lesson itself, so it is the one
+// place besides the page that can start a session and the one that reports it.
+describe("LessonThemePicker analytics report", () => {
+  const SESSION = "5d1c4a4e-2f5b-4a40-9a39-0f6f9f3b8c11";
+
+  async function pickAndStart() {
+    const user = userEvent.setup();
+    await user.click(screen.getByText("Numbers"));
+    await user.click(screen.getByRole("button", { name: "Start lesson" }));
+  }
+
+  it("reports the session it started, once, and only after the lesson exists", async () => {
+    chooseLessonThemeAction.mockResolvedValue({
+      ok: true,
+      data: { kind: "session", token: "t-numbers", sessionId: SESSION },
+    });
+    const reportIntent = vi.fn(async () => null);
+
+    render(<LessonThemePicker themes={THEMES} reportIntent={reportIntent} />);
+    expect(reportIntent).not.toHaveBeenCalled();
+
+    await pickAndStart();
+
+    await waitFor(() => expect(reportIntent).toHaveBeenCalledTimes(1));
+    expect(reportIntent).toHaveBeenCalledWith({
+      event: "lesson_started",
+      sessionKey: SESSION,
+    });
+    expect(screen.getByTestId("lesson-session-view")).toBeInTheDocument();
+  });
+
+  it("starts the lesson normally when there is nothing to report to (analytics off, or no consent)", async () => {
+    chooseLessonThemeAction.mockResolvedValue({
+      ok: true,
+      data: { kind: "session", token: "t-numbers", sessionId: SESSION },
+    });
+
+    render(<LessonThemePicker themes={THEMES} />);
+    await pickAndStart();
+
+    await waitFor(() =>
+      expect(screen.getByTestId("lesson-session-view")).toBeInTheDocument(),
+    );
+  });
+
+  it("starts the lesson even when the report itself fails", async () => {
+    chooseLessonThemeAction.mockResolvedValue({
+      ok: true,
+      data: { kind: "session", token: "t-numbers", sessionId: SESSION },
+    });
+    const reportIntent = vi.fn(() => Promise.reject(new Error("offline")));
+
+    render(<LessonThemePicker themes={THEMES} reportIntent={reportIntent} />);
+    await pickAndStart();
+
+    await waitFor(() =>
+      expect(screen.getByTestId("lesson-session-view")).toBeInTheDocument(),
+    );
+    expect(reportIntent).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    [
+      "a theme with nothing left to learn",
+      { ok: true, data: { kind: "empty" } },
+    ],
+    [
+      "a theme that emptied out in between",
+      { ok: true, data: { kind: "choose-theme", themes: THEMES } },
+    ],
+    [
+      "a refused start",
+      { ok: false, error: { code: "THEME_UNAVAILABLE", message: "Nope." } },
+    ],
+  ])("reports nothing for %s — no session began", async (_label, response) => {
+    chooseLessonThemeAction.mockResolvedValue(response);
+    const reportIntent = vi.fn(async () => null);
+
+    render(<LessonThemePicker themes={THEMES} reportIntent={reportIntent} />);
+    await pickAndStart();
+
+    await waitFor(() => expect(chooseLessonThemeAction).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(reportIntent).not.toHaveBeenCalled();
+  });
+});

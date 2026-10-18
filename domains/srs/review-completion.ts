@@ -6,14 +6,19 @@ import {
 } from "@/domains/curriculum/curriculum-repository";
 import { withIdempotency } from "@/domains/idempotency";
 import {
+  recordLevelUnlocked,
+  recordReviewItemCompleted,
+} from "@/domains/analytics/record-event";
+import {
   applyItemProgressUpdate,
   countLevelGatingItems,
   countUserItemsAtOrAboveStageInLevel,
   lockItemProgressForReview,
-  unlockLevel,
+  unlockLevelReporting,
 } from "@/domains/progress/repository";
 import { ReviewError } from "@/lib/errors/review-errors";
 import { logger } from "@/lib/logging/logger";
+import { markOperationCommitted } from "@/lib/logging/operation-telemetry";
 import { withTrace } from "@/lib/logging/operation-tracer";
 
 import {
@@ -219,6 +224,26 @@ export async function applyReviewCompletion(
             result,
           });
 
+          // Spec 27 — queued, not sent: this callback only runs for a first
+          // execution and its transaction can still be refused, so the Server
+          // Action emits after the whole call has returned (see
+          // `domains/analytics/analytics-event-collector.ts`). Only safe,
+          // coarse values: never the question, the answer, or the item. Queued
+          // before the level-unlock check so the events keep their causal order:
+          // the review, then the unlock it earned.
+          markOperationCommitted();
+          recordReviewItemCompleted({
+            languageId: input.languageId,
+            sessionKey: input.sessionId,
+            idempotencyKey: input.idempotencyKey,
+            contentType:
+              curriculumItem.type === "grammar" ? "grammar" : "vocabulary",
+            result,
+            stageBefore: locked.srsStage,
+            stageAfter,
+            level: level.levelNumber,
+          });
+
           await evaluateLevelUnlock(tx, {
             userId: input.userId,
             languageId: input.languageId,
@@ -307,5 +332,18 @@ async function evaluateLevelUnlock(
   if (totalGatingItems === 0) return;
   if (itemsAtOrAboveThreshold / totalGatingItems < LEVEL_UNLOCK_RATIO) return;
 
-  await unlockLevel(tx, { userId, levelId: nextLevel.id, now });
+  const { newlyUnlocked } = await unlockLevelReporting(tx, {
+    userId,
+    levelId: nextLevel.id,
+    now,
+  });
+  // A level the learner already had is not news; only a genuinely new unlock is
+  // reported (spec 27 `level_unlocked`).
+  if (newlyUnlocked) {
+    recordLevelUnlocked({
+      languageId,
+      levelId: nextLevel.id,
+      level: nextLevel.levelNumber,
+    });
+  }
 }

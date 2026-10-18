@@ -7,6 +7,10 @@ import Link from "next/link";
 import { chooseLessonThemeAction } from "@/app/(focus)/lessons/actions";
 import { Button } from "@/components/ui/button";
 import { LessonEmptyState } from "@/components/lessons/lesson-empty-state";
+import {
+  AnalyticsIntent,
+  type ReportAnalyticsIntent,
+} from "@/components/analytics/analytics-intent";
 import { LessonSessionView } from "@/components/lessons/lesson-session-view";
 import type { LessonSessionResult, LessonThemeChoice } from "@/domains/lessons";
 import { cn } from "@/lib/utils";
@@ -28,7 +32,19 @@ import { cn } from "@/lib/utils";
  * rather than navigating anywhere, the same way `/lessons`' own page
  * component renders whatever `startLesson` gives it.
  */
-export function LessonThemePicker({ themes }: { themes: LessonThemeChoice[] }) {
+export function LessonThemePicker({
+  themes,
+  reportIntent,
+}: {
+  themes: LessonThemeChoice[];
+  /**
+   * Spec 27: handed in by the server page only for a learner whose analytics are
+   * on and who consents. This screen builds the lesson itself (see above), so it
+   * is the one place besides the page that can start a session, and the one that
+   * reports it for "Choose Group as You Go" learners.
+   */
+  reportIntent?: ReportAnalyticsIntent;
+}) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, startSaving] = useTransition();
@@ -61,7 +77,17 @@ export function LessonThemePicker({ themes }: { themes: LessonThemeChoice[] }) {
   }
 
   if (session) {
-    return <LessonSessionView initial={session} />;
+    return (
+      <>
+        {reportIntent ? (
+          <AnalyticsIntent
+            report={reportIntent}
+            intent={{ event: "lesson_started", sessionKey: session.sessionId }}
+          />
+        ) : null}
+        <LessonSessionView initial={session} />
+      </>
+    );
   }
   if (isEmpty) {
     return <LessonEmptyState />;

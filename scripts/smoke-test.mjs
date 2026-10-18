@@ -12,13 +12,17 @@
  *   4. protected route enforcement works
  *   5. a database-backed application request succeeds
  *
- * (5) reuses the existing account-deletion finalize cron endpoint (spec 20)
- * rather than inventing a health/readiness endpoint — spec 23 explicitly
- * scopes those out, and this route already does a real, idempotent
- * database round trip authenticated by the same CRON_SECRET Vercel Cron
- * itself uses (app/api/cron/finalize-account-deletions/route.ts). Calling it
- * an extra time is harmless: it only finalizes deletion requests already
- * past their window.
+ * (5) reuses the existing account-deletion finalize cron endpoint (spec 20):
+ * a real, idempotent database round trip authenticated by the same
+ * CRON_SECRET Vercel Cron itself uses
+ * (app/api/cron/finalize-account-deletions/route.ts). Calling it an extra time
+ * is harmless: it only finalizes deletion requests already past their window.
+ *
+ * Spec 27 Unit 27.7 added the public health endpoints, which are checked
+ * first because they need no secret: liveness (`/api/health`) and readiness
+ * (`/api/health/ready`, the settings and the database). The cron check stays:
+ * it proves an authenticated, database-backed request path, which readiness —
+ * a bare `select 1` — does not.
  *
  * Usage: SMOKE_TEST_URL=https://polyglot.vercel.app CRON_SECRET=... node scripts/smoke-test.mjs
  */
@@ -66,6 +70,37 @@ async function main() {
     const response = await fetch(baseUrl, { redirect: "manual" });
     if (response.status !== 200) {
       throw new Error(`expected 200, got ${response.status}`);
+    }
+  });
+
+  await check("liveness endpoint answers and is never cached", async () => {
+    const response = await fetch(new URL("/api/health", baseUrl), {
+      redirect: "manual",
+    });
+    if (response.status !== 200) {
+      throw new Error(`expected 200, got ${response.status}`);
+    }
+    if (!/no-store/.test(response.headers.get("cache-control") ?? "")) {
+      throw new Error("expected Cache-Control: no-store");
+    }
+    const body = await response.json();
+    if (body.status !== "ok") {
+      throw new Error(`expected {"status":"ok"}, got ${JSON.stringify(body)}`);
+    }
+  });
+
+  await check("readiness endpoint reports the app ready", async () => {
+    const response = await fetch(new URL("/api/health/ready", baseUrl), {
+      redirect: "manual",
+    });
+    // A 503 here means a critical setting is missing or the database does not
+    // answer: the deployment is not able to do its work.
+    if (response.status !== 200) {
+      throw new Error(`expected 200, got ${response.status}`);
+    }
+    const body = await response.json();
+    if (body.status !== "ready") {
+      throw new Error(`expected "ready", got ${JSON.stringify(body)}`);
     }
   });
 

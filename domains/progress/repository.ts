@@ -587,14 +587,29 @@ export async function getProgressForItems(
  */
 export async function unlockLevel(
   db: DbClient,
-  { userId, levelId, now }: { userId: string; levelId: string; now: Date },
+  args: { userId: string; levelId: string; now: Date },
 ): Promise<LevelProgress> {
-  await db
+  return (await unlockLevelReporting(db, args)).progress;
+}
+
+/**
+ * `unlockLevel`, plus whether *this call* is the one that created the unlock.
+ * Needed by the one caller that has to treat a first unlock differently from a
+ * repeat — the review completion, which reports a `level_unlocked` analytics
+ * event only for a level that was genuinely just earned (spec 27) — and by
+ * nothing else: `unlockLevel` itself behaves exactly as it always has.
+ */
+export async function unlockLevelReporting(
+  db: DbClient,
+  { userId, levelId, now }: { userId: string; levelId: string; now: Date },
+): Promise<{ progress: LevelProgress; newlyUnlocked: boolean }> {
+  const inserted = await db
     .insert(userLevelProgress)
     .values({ userId, levelId, unlockedAt: now })
     .onConflictDoNothing({
       target: [userLevelProgress.userId, userLevelProgress.levelId],
-    });
+    })
+    .returning({ levelId: userLevelProgress.levelId });
 
   const [row] = await db
     .select()
@@ -611,7 +626,7 @@ export async function unlockLevel(
       `unlockLevel: row for user ${userId} / level ${levelId} missing immediately after upsert — should never happen.`,
     );
   }
-  return toLevelProgress(row);
+  return { progress: toLevelProgress(row), newlyUnlocked: inserted.length > 0 };
 }
 
 /**

@@ -34,6 +34,7 @@ import type {
   LessonItemDetail,
 } from "@/domains/lessons/server";
 import { listAvailableThemes } from "@/domains/lessons/server";
+import { runWithAnalytics } from "@/domains/analytics/server";
 import { getLanguageById } from "@/domains/curriculum/server";
 import { GRAMMAR_THEME_ID } from "@/domains/users";
 import { requireUser, setCurriculumPreference } from "@/domains/users/server";
@@ -173,7 +174,12 @@ export async function completeLessonAction(
   return runLessonAction(async () => {
     const { token, idempotencyKey } = completeLessonInputSchema.parse(input);
     const { userId, languageId } = await requireLearner();
-    return completeLesson({ token, userId, languageId, idempotencyKey });
+    // Spec 27: whatever this commits is reported only after the call has
+    // returned (and only for a learner who currently consents) — a refused or
+    // replayed completion reports nothing. The result is returned untouched.
+    return runWithAnalytics({ userId }, () =>
+      completeLesson({ token, userId, languageId, idempotencyKey }),
+    );
   });
 }
 

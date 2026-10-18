@@ -16,7 +16,7 @@ terraform {
   # that bootstrap's own outputs before the first `terraform init` — see
   # progress-tracker.md's spec 23 entry for the exact command.
   backend "s3" {
-    bucket         = "REPLACE_WITH_BOOTSTRAP_OUTPUT_state_bucket_name"
+    bucket         = "polyglot-terraform-state-205922933510"
     key            = "environments/production/terraform.tfstate"
     region         = "us-west-2"
     dynamodb_table = "polyglot-terraform-lock"

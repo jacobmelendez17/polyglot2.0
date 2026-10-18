@@ -1,5 +1,6 @@
 import { env } from "@/lib/env";
 
+import { exportLogRecord } from "./log-export";
 import { redact } from "./redact";
 import { getTraceContext } from "./trace-context";
 
@@ -118,6 +119,10 @@ function emit(level: LogLevel, fields: LogFields): void {
           ? console.warn
           : console.error;
   consoleMethod(line);
+
+  // Spec 27: warnings and worse also go, as a validated projection, to the log
+  // exporter — when one is running. Never throws, never logs.
+  exportLogRecord(level, payload);
 }
 
 export const logger = {

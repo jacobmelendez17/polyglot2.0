@@ -13,7 +13,10 @@ export type RateLimitPolicyName =
   | "account-settings"
   | "username-change"
   | "danger-zone-reset"
-  | "danger-zone-account-reset";
+  | "danger-zone-account-reset"
+  | "analytics-intent"
+  | "health-live"
+  | "health-ready";
 
 export type RateLimitPolicy = {
   windowSeconds: number;

@@ -151,4 +151,32 @@ export const RATE_LIMIT_POLICIES: Record<RateLimitPolicyName, RateLimitPolicy> =
       maxRequests: 2,
       failOpen: false,
     },
+    // Spec 27 Unit 27.3 — the browser telling the server a session started
+    // (`lesson_started`, `review_session_started`, `onboarding_started`). A
+    // learner starts a handful of sessions a minute at the very most, so this is
+    // generous for a person and tight for a script. It fails closed, which for
+    // analytics means the event is simply not recorded: nothing here is
+    // progress, and losing an analytics event costs the learner nothing.
+    "analytics-intent": {
+      windowSeconds: 60,
+      maxRequests: 30,
+      failOpen: false,
+    },
+    // Spec 27 Unit 27.7 — the public health probes, keyed by a hash of the
+    // caller's address. Both fail OPEN, unlike every policy above: a probe that
+    // is refused because the limiter's store is down would report an outage
+    // that is not there, and the point of the probe is to tell the truth. The
+    // external check calls liveness once every five minutes, so the budgets
+    // are for someone poking at it, not for the monitor.
+    "health-live": {
+      windowSeconds: 60,
+      maxRequests: 120,
+      failOpen: true,
+    },
+    // Readiness reaches the database, so it is held tighter.
+    "health-ready": {
+      windowSeconds: 60,
+      maxRequests: 30,
+      failOpen: true,
+    },
   };

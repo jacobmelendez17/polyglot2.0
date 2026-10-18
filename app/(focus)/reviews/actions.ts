@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 
+import { runWithAnalytics } from "@/domains/analytics/server";
 import { requireUser } from "@/domains/users/server";
 import { getReviewItemDetail, submitReviewAnswer } from "@/domains/srs/server";
 import type { ReviewItemDetail } from "@/domains/srs/server";
@@ -115,13 +116,18 @@ export async function submitReviewAnswerAction(
     const { token, questionId, idempotencyKey, submission } =
       submitAnswerInputSchema.parse(input);
     const user = await requireUser();
-    return submitReviewAnswer({
-      token,
-      userId: user.id,
-      languageId: user.activeLanguageId,
-      questionId,
-      idempotencyKey,
-      ...submission,
-    });
+    // Spec 27: a review item that this call completes (both directions answered,
+    // the transaction committed) is reported after the call returns; a
+    // half-answered item, a replay, or a refusal reports nothing.
+    return runWithAnalytics({ userId: user.id }, () =>
+      submitReviewAnswer({
+        token,
+        userId: user.id,
+        languageId: user.activeLanguageId,
+        questionId,
+        idempotencyKey,
+        ...submission,
+      }),
+    );
   });
 }

@@ -25,3 +25,37 @@ describe("the Admin user-management policies (spec 26 Unit 6)", () => {
     expect(maxRequests).toBeLessThanOrEqual(60);
   });
 });
+
+describe("the analytics-intent policy (spec 27 Unit 27.3)", () => {
+  it("fails closed: if the limiter cannot be reached, an analytics event is dropped rather than let through", () => {
+    expect(RATE_LIMIT_POLICIES["analytics-intent"].failOpen).toBe(false);
+  });
+
+  it("allows what a person starting sessions could do in a minute, and is tighter than ordinary Settings saves would be for a script", () => {
+    const { maxRequests, windowSeconds } =
+      RATE_LIMIT_POLICIES["analytics-intent"];
+    expect(windowSeconds).toBe(60);
+    expect(maxRequests).toBeGreaterThanOrEqual(10);
+    expect(maxRequests).toBeLessThanOrEqual(60);
+  });
+});
+
+describe("the health policies (spec 27 Unit 27.7)", () => {
+  it.each(["health-live", "health-ready"] as const)(
+    "%s fails open, so a limiter outage can never make a probe report an outage",
+    (policy) => {
+      expect(RATE_LIMIT_POLICIES[policy].failOpen).toBe(true);
+    },
+  );
+
+  it("leaves the five-minute external check far below either budget, and holds readiness tighter because it reaches the database", () => {
+    const live = RATE_LIMIT_POLICIES["health-live"];
+    const ready = RATE_LIMIT_POLICIES["health-ready"];
+    // One check every five minutes is one request per 300 seconds.
+    expect(live.maxRequests).toBeGreaterThanOrEqual(30);
+    expect(ready.maxRequests).toBeGreaterThanOrEqual(6);
+    expect(ready.maxRequests).toBeLessThan(live.maxRequests);
+    expect(live.windowSeconds).toBe(60);
+    expect(ready.windowSeconds).toBe(60);
+  });
+});

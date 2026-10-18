@@ -2,6 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 
+import {
+  buildOnboardingCompletedEvent,
+  scheduleAnalyticsEmission,
+} from "@/domains/analytics/server";
 import { completeOnboarding } from "@/domains/users/server";
 import { requireUser } from "@/domains/users/server";
 import { AppError } from "@/lib/errors/app-error";
@@ -51,7 +55,16 @@ export async function completeOnboardingAction(): Promise<ActionResult<null>> {
       );
     }
 
-    await completeOnboarding(user.id);
+    const now = new Date();
+    const updated = await completeOnboarding(user.id, now);
+    // Spec 27: only the request whose write actually landed reports the
+    // milestone. A double click or a second tab finds `onboarding_completed_at`
+    // already set — to someone else's time — and reports nothing.
+    if (updated?.onboardingCompletedAt?.getTime() === now.getTime()) {
+      scheduleAnalyticsEmission(user.id, [
+        buildOnboardingCompletedEvent({ languageId: user.activeLanguageId }),
+      ]);
+    }
     revalidatePath("/dashboard");
     return { ok: true, data: null };
   } catch (error) {

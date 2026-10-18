@@ -1,10 +1,13 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { captureAnalyticsIntentAction } from "@/app/analytics-actions";
+import { AnalyticsIntent } from "@/components/analytics/analytics-intent";
 import { LessonEmptyState } from "@/components/lessons/lesson-empty-state";
 import { LessonSessionView } from "@/components/lessons/lesson-session-view";
 import { LessonThemePicker } from "@/components/lessons/lesson-theme-picker";
 import { LessonStudySkeleton } from "@/components/lessons/lesson-study-skeleton";
 import { LessonVacationWarning } from "@/components/lessons/lesson-vacation-warning";
+import { shouldReportAnalyticsIntents } from "@/domains/analytics/server";
 import { getLanguageById } from "@/domains/curriculum/server";
 import { startLesson } from "@/domains/lessons/server";
 import { isVacationModeActive, requireUser } from "@/domains/users/server";
@@ -58,9 +61,29 @@ async function LessonPageContent({ searchParams }: LessonsPageProps) {
 
   // Theme mode with no usable theme (spec 16) — plenty left to learn, but
   // the learner has not said which part yet.
+  // Spec 27: only a learner whose analytics are on and who currently consents is
+  // asked to report that a session started; for everyone else nothing below
+  // exists. (The report endpoint checks consent again.)
+  const reportStart = await shouldReportAnalyticsIntents(user.id);
+
   if (result.kind === "choose-theme") {
-    return <LessonThemePicker themes={result.themes} />;
+    return (
+      <LessonThemePicker
+        themes={result.themes}
+        reportIntent={reportStart ? captureAnalyticsIntentAction : undefined}
+      />
+    );
   }
 
-  return <LessonSessionView initial={result} />;
+  return (
+    <>
+      {reportStart ? (
+        <AnalyticsIntent
+          report={captureAnalyticsIntentAction}
+          intent={{ event: "lesson_started", sessionKey: result.sessionId }}
+        />
+      ) : null}
+      <LessonSessionView initial={result} />
+    </>
+  );
 }

@@ -1,4 +1,5 @@
 import type { DbClient } from "@/db/client";
+import { recordLessonCompleted } from "@/domains/analytics/record-event";
 import { getEnrolledItemIds } from "@/domains/curriculum/lesson-curriculum-repository";
 import { withIdempotency } from "@/domains/idempotency";
 import { enrollLearningItems } from "@/domains/progress/repository";
@@ -13,6 +14,7 @@ import {
 } from "@/domains/users/user-repository";
 import { LessonError } from "@/lib/errors/lesson-errors";
 import { logger } from "@/lib/logging/logger";
+import { markOperationCommitted } from "@/lib/logging/operation-telemetry";
 import { withTrace } from "@/lib/logging/operation-tracer";
 
 import type { LessonCurriculumReader } from "./lesson-curriculum-reader";
@@ -218,6 +220,23 @@ export async function completeLesson(
               selectedVocabularyGroupId: null,
             });
           }
+
+          // Spec 27 — queued, not sent (see
+          // `domains/analytics/analytics-event-collector.ts`). This callback runs
+          // only for a first execution, so a replay of this completion queues
+          // nothing; the Server Action emits after the whole call returns.
+          // Counts and a percentage only: never an item, a label or an answer.
+          // Spec 27: the same first-execution point tells telemetry that new
+          // work was committed, so a replay is not counted as a second success.
+          markOperationCommitted();
+          recordLessonCompleted({
+            languageId: input.languageId,
+            sessionKey: state.sessionId,
+            idempotencyKey: input.idempotencyKey,
+            itemCount: orderedItems.length,
+            accuracyPercent: accuracyFrom(state),
+            level: Math.max(...orderedItems.map((item) => item.levelNumber)),
+          });
 
           return {
             items: orderedItems.map((item) => ({

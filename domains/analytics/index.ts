@@ -13,3 +13,4 @@ export type {
   AnalyticsConsentView,
   StoredAnalyticsConsent,
 } from "./analytics-consent";
+export type { AnalyticsIntent } from "./analytics-intent";

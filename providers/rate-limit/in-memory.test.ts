@@ -178,6 +178,21 @@ describe("InMemoryRateLimiter", () => {
           maxRequests: 5,
           failOpen: true,
         },
+        "analytics-intent": {
+          windowSeconds: 60,
+          maxRequests: 5,
+          failOpen: true,
+        },
+        "health-live": {
+          windowSeconds: 60,
+          maxRequests: 5,
+          failOpen: true,
+        },
+        "health-ready": {
+          windowSeconds: 60,
+          maxRequests: 5,
+          failOpen: true,
+        },
       },
     });
 

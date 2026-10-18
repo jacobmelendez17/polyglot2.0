@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
+import { captureAnalyticsIntentAction } from "@/app/analytics-actions";
+import { AnalyticsIntent } from "@/components/analytics/analytics-intent";
 import { OnboardingFlow } from "@/components/onboarding/onboarding-flow";
 import { resolveOnboardingReturnTo } from "@/components/onboarding/onboarding-return-to";
 import { canAccessAdminArea } from "@/domains/admin";
+import { shouldReportAnalyticsIntents } from "@/domains/analytics/server";
 import { isOnboardingRequired } from "@/domains/users";
 import { requireUser } from "@/domains/users/server";
 
@@ -75,5 +78,20 @@ export default async function OnboardingPage({
     redirect("/dashboard");
   }
 
-  return <OnboardingFlow isReplay={false} />;
+  // Spec 27: a learner who truly enters onboarding (a replay does not count) and
+  // who already consents. A brand-new account cannot have consented yet, so this
+  // reaches only someone who chose before onboarding — see progress-tracker.md.
+  const reportStart = await shouldReportAnalyticsIntents(user.id);
+
+  return (
+    <>
+      {reportStart ? (
+        <AnalyticsIntent
+          report={captureAnalyticsIntentAction}
+          intent={{ event: "onboarding_started" }}
+        />
+      ) : null}
+      <OnboardingFlow isReplay={false} />
+    </>
+  );
 }

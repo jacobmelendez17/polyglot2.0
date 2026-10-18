@@ -1,35 +1,7 @@
+import { isExpectedDomainError } from "./domain-error";
 import { logger } from "./logger";
+import { observeOperation } from "./operation-telemetry";
 import { runInTraceContext } from "./trace-context";
-
-/**
- * The codebase's own structured-error classes (`lib/errors/*.ts`) — each
- * sets a distinct `.name` and a `.code` drawn from a fixed string-literal
- * union, per code-standards.md's "Error Handling". Thrown instances of
- * these represent *expected* business rejections (`REVIEW_NOT_DUE`,
- * `LESSON_ALREADY_ENROLLED`, ...) — spec 24's "Expected vs Unexpected
- * Errors" wants these logged at WARN with their code, not treated as a
- * production incident. Anything else (a raw `Error`, a database driver
- * error, a programming mistake) is unexpected and logged at ERROR with its
- * full stack.
- */
-const DOMAIN_ERROR_NAMES = new Set([
-  "AppError",
-  "ReviewError",
-  "LessonError",
-  "DeckError",
-  "AdminError",
-  "LexiconError",
-]);
-
-function isExpectedDomainError(
-  error: unknown,
-): error is Error & { code: string } {
-  return (
-    error instanceof Error &&
-    DOMAIN_ERROR_NAMES.has(error.name) &&
-    typeof (error as { code?: unknown }).code === "string"
-  );
-}
 
 export type WithTraceOptions = {
   /** Extra fields attached to every log line this operation emits. Safe identifiers only — never raw learner content (spec's Privacy Rules). */
@@ -64,39 +36,43 @@ export async function withTrace<T>(
 ): Promise<T> {
   return runInTraceContext(
     operation,
-    async () => {
-      const level = options.level ?? "debug";
-      const startedAt = Date.now();
-      logger[level]({ event: `${operation}.started`, ...options.fields });
+    // Spec 27: one traced operation is also one span and one set of metrics,
+    // for the few operations listed in `lib/observability/operations.ts`, and
+    // only while a telemetry signal is running — otherwise this is `fn()`.
+    () =>
+      observeOperation(operation, async () => {
+        const level = options.level ?? "debug";
+        const startedAt = Date.now();
+        logger[level]({ event: `${operation}.started`, ...options.fields });
 
-      try {
-        const result = await fn();
-        logger[level]({
-          event: `${operation}.succeeded`,
-          durationMs: Date.now() - startedAt,
-          ...options.fields,
-        });
-        return result;
-      } catch (error) {
-        const durationMs = Date.now() - startedAt;
-        if (isExpectedDomainError(error)) {
-          logger.warn({
-            event: `${operation}.failed`,
-            durationMs,
-            errorCode: error.code,
+        try {
+          const result = await fn();
+          logger[level]({
+            event: `${operation}.succeeded`,
+            durationMs: Date.now() - startedAt,
             ...options.fields,
           });
-        } else {
-          logger.error({
-            event: `${operation}.failed`,
-            durationMs,
-            error,
-            ...options.fields,
-          });
+          return result;
+        } catch (error) {
+          const durationMs = Date.now() - startedAt;
+          if (isExpectedDomainError(error)) {
+            logger.warn({
+              event: `${operation}.failed`,
+              durationMs,
+              errorCode: error.code,
+              ...options.fields,
+            });
+          } else {
+            logger.error({
+              event: `${operation}.failed`,
+              durationMs,
+              error,
+              ...options.fields,
+            });
+          }
+          throw error;
         }
-        throw error;
-      }
-    },
+      }),
     { newTrace: options.newTrace, requestId: options.requestId },
   );
 }

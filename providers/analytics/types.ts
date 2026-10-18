@@ -21,6 +21,8 @@ export type AnalyticsCaptureInput = {
   properties?: AnalyticsProperties;
   /** The same logical event carries the same key, so a vendor that supports it can drop a replay (spec 27 §6.3). */
   dedupeKey?: string;
+  /** When it happened, as opposed to when it was sent: events are delivered after the response, a little later. */
+  occurredAt?: Date;
 };
 
 export interface AnalyticsProvider {

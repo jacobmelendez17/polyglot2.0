@@ -18,6 +18,7 @@ vi.mock("@/lib/logging/logger", () => ({
 
 const { createAnalyticsProvider } = await import("./create-analytics-provider");
 const { noopAnalyticsProvider } = await import("./noop");
+const { PostHogAnalyticsProvider } = await import("./posthog");
 
 // Assembled at run time so no literal here resembles a real PostHog token.
 const PROJECT_TOKEN = ["phc", "x".repeat(40)].join("_");
@@ -126,20 +127,47 @@ describe("createAnalyticsProvider", () => {
     );
   });
 
-  // The honest state of Unit 27.1: no vendor adapter exists, so even a valid,
-  // confirmed production configuration cannot send anything. Unit 27.3 returns
-  // the PostHog adapter here and replaces this test with the adapter's own
-  // (injected fake transport, after-commit and consent cases).
-  it("is still the no-op, with zero requests, when fully enabled — the PostHog adapter does not exist yet", async () => {
+  it("is the PostHog adapter, and sends to PostHog's own host and nowhere else, when fully enabled", async () => {
     const provider = createAnalyticsProvider(
       parseTelemetryConfig(ENABLED, "production").analytics,
     );
 
-    expect(provider).toBe(noopAnalyticsProvider);
-    expect(await recordOutboundAttempts(() => useProvider(provider))).toEqual(
-      [],
-    );
+    expect(provider).toBeInstanceOf(PostHogAnalyticsProvider);
     expect(warn).not.toHaveBeenCalled();
+
+    // The guard refuses every real send and reports it, so what the adapter
+    // *tried* to reach is the whole of what it would have sent.
+    const attempts = await recordOutboundAttempts(() => useProvider(provider));
+    expect(attempts).toEqual([{ via: "fetch", target: "us.i.posthog.com" }]);
+  });
+
+  it("uses the configured region's host", async () => {
+    const provider = createAnalyticsProvider(
+      parseTelemetryConfig(
+        { ...ENABLED, POSTHOG_HOST: "https://eu.i.posthog.com" },
+        "production",
+      ).analytics,
+    );
+
+    const attempts = await recordOutboundAttempts(() => useProvider(provider));
+    expect(attempts).toEqual([{ via: "fetch", target: "eu.i.posthog.com" }]);
+  });
+
+  it("hands the adapter the fetch it was given, so a test can see exactly what would be sent", async () => {
+    const sent: string[] = [];
+    const provider = createAnalyticsProvider(
+      parseTelemetryConfig(ENABLED, "production").analytics,
+      {
+        fetch: (async (url: string | URL | Request) => {
+          sent.push(String(url));
+          return new Response("{}", { status: 200 });
+        }) as typeof fetch,
+      },
+    );
+
+    await useProvider(provider);
+
+    expect(sent).toEqual(["https://us.i.posthog.com/batch/"]);
   });
 });
 
