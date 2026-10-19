@@ -33,7 +33,8 @@ export const METER_NAME = "polyglot";
 /**
  * Histogram bucket boundaries, in milliseconds. Doubling from 25 ms brackets the
  * interactive budgets of spec 27 §2 (a review submission under about 400 ms)
- * with ten boundaries, which keeps each labelled histogram to twelve series.
+ * with ten boundaries, which keeps each labelled histogram to thirteen series:
+ * one per boundary, one for +Inf, the sum and the count.
  */
 export const DURATION_BUCKETS_MS = [
   10, 25, 50, 100, 200, 400, 800, 1600, 3200, 6400,

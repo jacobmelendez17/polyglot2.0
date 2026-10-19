@@ -23,6 +23,8 @@ import { build } from "esbuild";
 import { mkdir, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 
+import { lambdaBuildOptions } from "./lambda-build-options.mjs";
+
 const OUT_DIR = resolve(process.cwd(), "dist/lambda/curriculum-import");
 const OUT_FILE = resolve(OUT_DIR, "index.js");
 
@@ -32,17 +34,6 @@ await rm(resolve(process.cwd(), "dist/lambda"), {
 });
 await mkdir(OUT_DIR, { recursive: true });
 
-await build({
-  entryPoints: ["aws/lambda/curriculum-import/handler.ts"],
-  outfile: OUT_FILE,
-  bundle: true,
-  platform: "node",
-  target: "node20",
-  format: "cjs",
-  alias: { "@": process.cwd() },
-  sourcemap: false,
-  minify: false,
-  logLevel: "info",
-});
+await build(lambdaBuildOptions(OUT_FILE));
 
 console.log(`Built ${OUT_FILE}`);

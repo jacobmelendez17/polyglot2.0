@@ -81,7 +81,9 @@ export function SystemStatusPanel({ signals, links }: SystemStatusPanelProps) {
           <Code>/api/health</Code> says the application is serving, and{" "}
           <Code>/api/health/ready</Code> says it can reach its database. Both
           are public, are never cached, and don’t depend on PostHog or Grafana.
-          Grafana’s uptime check calls the first every five minutes.
+          The uptime check you create in Grafana (steps in{" "}
+          <Code>infra/telemetry/README.md</Code>) is meant to call the first
+          every five minutes; this page can’t tell whether it exists.
         </p>
       </Section>
 

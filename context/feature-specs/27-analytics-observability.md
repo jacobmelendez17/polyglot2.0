@@ -1,7 +1,7 @@
 # Spec 27 — Product Analytics, Observability & Alerting
 
 **Project:** Polyglot  
-**Status:** Specification drafted. **Units 27.1–27.3 implemented 2026-10-17, and Units 27.5–27.7 and 27.10 implemented 2026-10-18**; Units 27.4, 27.8, 27.9 and 27.11 **not implemented** (see `progress-tracker.md`)  
+**Status:** Specification drafted. **Units 27.1–27.3 implemented 2026-10-17, and Units 27.5–27.7, 27.10 and 27.11 implemented 2026-10-18** (27.11 is the §15 release-gate record: `infra/telemetry/release-gate.md`); Units 27.4, 27.8 and 27.9 **not implemented**, so the spec as a whole is **not done** (see `progress-tracker.md`)  
 **Prepared:** 2026-10-15  
 **Highest-priority constraint:** **$0 incremental monthly spend. No paid subscriptions, no usage-based billing, no purchases, and no automatic plan upgrades.**
 

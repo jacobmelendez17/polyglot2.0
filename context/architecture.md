@@ -818,8 +818,10 @@ Owns:
 Product analytics is reached only through `providers/analytics`
 (`getAnalyticsProvider()`); no domain imports a vendor SDK. Spec 27 Unit 27.1
 built the boundary — the provider contract, the no-op adapter and the
-configuration gates described under "Telemetry Configuration" below. The typed
-event catalog, the consent gate and the PostHog adapter are Units 27.2–27.3.
+configuration gates described under "Telemetry Configuration" below. Unit 27.2
+added the server-authoritative consent gate, and Unit 27.3 the typed event
+catalog (seven of the twelve approved events can be produced today), the
+emitter and the PostHog adapter; each has its own subsection below.
 
 ---
 
@@ -2153,6 +2155,11 @@ Sentry is used for application/server error monitoring.
 
 Use the free tier initially.
 
+**Status (2026-10-18): not installed.** There is no Sentry package or configuration;
+`lib/logging/client-error.ts` is the prepared extension point. Spec 27 neither
+installs nor depends on it, and the Admin System tab shows no Sentry link because
+nothing is configured to link to.
+
 Sentry may receive:
 
 - Unexpected exceptions
@@ -2175,6 +2182,11 @@ Sentry must not intentionally receive:
 PostHog is used for product analytics.
 
 Use the free tier initially.
+
+**Status (2026-10-18): implemented, and off until the owner enables it.** Spec 27
+sends seven of the events below from the server only, only for a learner who has
+accepted in Settings → Privacy, and only through `providers/analytics`; see
+"Telemetry Configuration (spec 27)" and `infra/telemetry/release-gate.md`.
 
 Examples of allowed events:
 
@@ -2215,9 +2227,11 @@ Spec 27 adds PostHog product analytics and Grafana Cloud observability
 (OpenTelemetry metrics, sampled traces and sanitized logs) on **Free plans
 only** — $0 incremental spend is its highest-priority constraint, and a design
 that needs payment is a failed test, not a reason to raise the budget. Unit 27.1
-built the configuration contract below; the senders arrive in later units, and
-these rules are what keep each of them safe. Setup and the owner's steps are in
-`infra/telemetry/README.md`.
+built the configuration contract below, and the senders built on it since — the
+PostHog adapter (27.3) and the Grafana exporters (27.5–27.6) — are held to the
+same rules. Setup and the owner's steps are in `infra/telemetry/README.md`; the
+record of what is verified, and what only a live account can show, is
+`infra/telemetry/release-gate.md` (Unit 27.11).
 
 - **One parser, and it never throws.** `lib/telemetry-config.ts`
   (`parseTelemetryConfig`) turns the optional telemetry variables into
@@ -2252,7 +2266,10 @@ these rules are what keep each of them safe. Setup and the owner's steps are in
 - **Zero requests when off is a tested property**, not an assumption:
   `providers/test-support/outbound-network-guard` refuses `fetch`, `http`,
   `https` and raw sockets for the duration of a test and reports every attempt.
-  Later units reuse it for each real sender.
+  Each real sender's tests use it. Unit 27.11 also proved it on a real server: the
+  whole Playwright suite ran against a production build with every switch off and
+  a recorder on every outbound connection the server opened, and none went to
+  PostHog or Grafana.
 - **Telemetry never decides anything the learner can see.** SRS, lessons,
   progress, authorization and the audit trail stay in Neon; a PostHog or Grafana
   outage, cap or misconfiguration can drop telemetry and nothing else.
