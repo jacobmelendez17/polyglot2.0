@@ -111,9 +111,9 @@ function resourceAccess(
     resources.imports = ["list", "create", "edit", "delete"];
   }
   if (canUseDeveloperTools(subject)) {
-    // The audit log (the Logs page, on React Admin until PostHog replaces it —
-    // the owner's decision of 2026-10-14): Admin and developer, as the page always
-    // was. Read-only; nothing in it can be changed.
+    // The audit log (the Logs page, on React Admin since 2026-10-14; PostHog does
+    // not replace it — spec 27 keeps audits in Neon): Admin and developer, as the
+    // page always was. Read-only; nothing in it can be changed.
     resources.logs = ["list"];
   }
   if (canManageUsers(subject)) {

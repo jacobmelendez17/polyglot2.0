@@ -1,4 +1,10 @@
-import { expect, test, type Page, type Request } from "@playwright/test";
+import {
+  expect,
+  test,
+  type Locator,
+  type Page,
+  type Request,
+} from "@playwright/test";
 
 import {
   removeBulkFixtureItems,
@@ -135,7 +141,7 @@ const SURFACES: Surface[] = [
     api: "/api/v1/admin/decks",
     resource: "decks",
   },
-  // The audit log moved onto React Admin on 2026-10-14, until PostHog replaces it.
+  // The audit log moved onto React Admin on 2026-10-14 (and stays: spec 27 keeps audits in Neon).
   {
     label: "Logs",
     href: "/admin/logs",
@@ -176,6 +182,18 @@ const MENUS = {
 
 const sidebar = (page: Page) => page.getByRole("navigation", { name: "Admin" });
 const current = (page: Page) => sidebar(page).locator('[aria-current="page"]');
+
+/** The links that open a page of this application — the menu proper. */
+const pageLinks = (menu: Locator) => menu.locator("a:not([target='_blank'])");
+
+/**
+ * The links that leave the application (spec 27 Unit 27.10), by label: a screen
+ * reader hears "<label> (opens in a new tab)", and `innerText` includes it.
+ */
+async function outboundLinks(menu: Locator): Promise<string[]> {
+  const texts = await menu.locator("a[target='_blank']").allInnerTexts();
+  return texts.map((text) => text.replace(/\s*\(opens in a new tab\)\s*$/, ""));
+}
 
 async function shot(page: Page, name: string): Promise<void> {
   if (!SHOTS) return;
@@ -246,7 +264,7 @@ test.describe("the menu is the permissions", () => {
       await setE2EAdminRole(role);
       await page.goto("/admin");
       await expect(sidebar(page)).toBeVisible();
-      const labels = await sidebar(page).getByRole("link").allInnerTexts();
+      const labels = await pageLinks(sidebar(page)).allInnerTexts();
       expect(labels, `${role}: the menu`).toEqual(MENUS[role]);
 
       // The menu and `/api/v1/admin/me` are one answer, asked twice.
@@ -264,6 +282,13 @@ test.describe("the menu is the permissions", () => {
         offered.some((surface) => surface.resource === undefined),
         `${role}: the developer tools`,
       ).toBe(canUseDeveloperTools);
+      // The one link out of Polyglot (spec 27 Unit 27.10) is the same answer a
+      // third time: Analytics, for exactly those who may use developer tools (the
+      // E2E server sets PostHog's address).
+      expect(
+        await outboundLinks(sidebar(page)),
+        `${role}: the links out of Polyglot`,
+      ).toEqual(canUseDeveloperTools ? ["Analytics"] : []);
 
       if (role === "admin") {
         await shot(page, "shell-admin-light");
@@ -465,9 +490,13 @@ test.describe("on a phone", () => {
       const sheet = page.getByRole("dialog");
       await expect(sheet).toBeVisible();
       expect(
-        await sheet.getByRole("link").allInnerTexts(),
+        await pageLinks(sheet).allInnerTexts(),
         `${role}: the sheet`,
       ).toEqual(MENUS[role]);
+      expect(
+        await outboundLinks(sheet),
+        `${role}: the sheet's links out of Polyglot`,
+      ).toEqual(role === "admin" ? ["Analytics"] : []);
       await expect(sheet.locator('[aria-current="page"]')).toHaveText(
         "Overview",
       );

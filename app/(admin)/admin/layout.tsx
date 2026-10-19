@@ -2,12 +2,13 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { forbidden } from "next/navigation";
 
+import { getAdminExternalLinks } from "@/components/admin/admin-external-links";
 import { AdminMobileNav } from "@/components/admin/admin-mobile-nav";
 import { AdminSidebarNav } from "@/components/admin/admin-sidebar-nav";
 import { EnvironmentBadge } from "@/components/admin/environment-badge";
 import { buildAdminPermissions, canAccessAdminArea } from "@/domains/admin";
 import { requireUser } from "@/domains/users/server";
-import { env } from "@/lib/env";
+import { env, operationalLinks } from "@/lib/env";
 
 /**
  * Admin shell (spec 11 §5/§6). `proxy.ts` already guarantees an
@@ -36,12 +37,20 @@ export default async function AdminLayout({
   // Admin screens (spec 26 Unit 11): the navigation offers exactly what they
   // would let the person open, and nothing is decided twice.
   const permissions = buildAdminPermissions(user);
+  // Spec 27 Unit 27.10: the links out of Polyglot (today, Analytics) — kept apart
+  // from the page links (`getAdminNavItems`) because they depend on a deployment
+  // setting, leave the application, and are offered only to those who may use
+  // developer tools.
+  const externalLinks = getAdminExternalLinks(permissions, operationalLinks);
 
   return (
     <div className="flex min-h-svh flex-col bg-background">
       <header className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border px-4 sm:px-6">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-          <AdminMobileNav permissions={permissions} />
+          <AdminMobileNav
+            permissions={permissions}
+            externalLinks={externalLinks}
+          />
           {/* "Polyglot" is dropped below `sm:` — at mobile widths the full
               wordmark plus the environment badge and Exit link don't fit
               without wrapping/overlapping (found via real-browser check at
@@ -66,7 +75,10 @@ export default async function AdminLayout({
 
       <div className="flex flex-1">
         <aside className="hidden w-56 shrink-0 border-r border-border sm:block">
-          <AdminSidebarNav permissions={permissions} />
+          <AdminSidebarNav
+            permissions={permissions}
+            externalLinks={externalLinks}
+          />
         </aside>
         <main className="min-w-0 flex-1 px-4 py-6 sm:px-6">{children}</main>
       </div>

@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { parseOperationalLinks } from "./operational-links";
 import { parseTelemetryConfig } from "./telemetry-config";
 
 // Preview and production are both production Vercel builds and are not
@@ -110,3 +111,13 @@ export const env = refinedEnvSchema.parse({
  * inlined into a browser bundle.
  */
 export const telemetryConfig = parseTelemetryConfig(process.env, env.APP_ENV);
+
+/**
+ * Spec 27 Unit 27.10 — where the Admin console's links to the owner's own
+ * Grafana and PostHog dashboards point. Display only: nothing is sent to either
+ * service, nothing is a credential, and like the telemetry settings above it
+ * never throws — a malformed value costs a link, not the application. Strictly
+ * validated (https, the vendors' own hosts, no query string or token) in
+ * `lib/operational-links.ts`.
+ */
+export const operationalLinks = parseOperationalLinks(process.env);

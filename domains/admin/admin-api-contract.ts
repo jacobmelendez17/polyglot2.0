@@ -1049,7 +1049,7 @@ export const adminDeckListSchema = z.object({
 export type AdminDeckList = z.infer<typeof adminDeckListSchema>;
 
 /* -------------------------------------------------------------------------- */
-/* Audit log (the Logs page, on React Admin until PostHog replaces it)        */
+/* Audit log (the Logs page, on React Admin; audits stay in Neon, spec 27)     */
 /* -------------------------------------------------------------------------- */
 
 /** What the log shows per page. The server caps any request at `LOG_LIST_MAX_PAGE_SIZE` (the audit service's own bound). */

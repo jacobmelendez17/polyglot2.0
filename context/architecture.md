@@ -772,11 +772,13 @@ data-integrity rule stays in `domains/*`.
   username, else a short id) and carries the recorded before and after JSON as
   the mutation wrote it; it never carries a sign-in id or an email (the page it
   replaces fell back to the sign-in id). `from` and `to` are whole UTC days, both
-  inclusive. The System tab is still the honest placeholder it was: no
-  system-event pipeline exists (Sentry and PostHog are not wired up).
+  inclusive. The System tab was the honest placeholder until Spec 27 Unit 27.10
+  (2026-10-18), which replaced it with how this server sends telemetry and links
+  to the owner's own dashboards ("Admin System tab and links out", under
+  Telemetry Configuration).
   **Spec 27 (2026-10-15, §2.3) does not make PostHog a replacement for this
   screen.** It keeps the **Audit tab, this endpoint, its exact paging, its
-  authorization and the audit data**, and replaces only the System tab's
+  authorization and the audit data**, and replaced only the System tab's
   placeholder with operational links and status explanations (Unit 27.10).
   PostHog holds consented learner events; the admin audit trail stays in Neon
   (§1.3 excludes migrating audits). The owner's standing position (2026-10-17) is
@@ -2456,6 +2458,57 @@ must not look like an application outage. A failed readiness check logs
 `health.ready.failed` with a fixed reason (`database_unreachable` or
 `configuration_missing`); the response body says nothing of which.
 
+### Admin System tab and links out (Unit 27.10)
+
+What an administrator sees of all this, and where it sends them. It is display
+only: nothing here changes what telemetry does, and the Audit tab beside it —
+the endpoint, the exact timestamp cursors, the filters, the authorization — is
+untouched. Audits stay in Neon.
+
+- **The System tab explains the server; it cannot see the vendors.**
+  `/admin/logs?tab=system` is rendered on the server from two inputs only:
+  `summarizeTelemetryConfig(telemetryConfig)` (each signal's state and the
+  _names_ of the settings blocking it, never a value) and the validated links
+  below. `components/admin/system/system-status.ts` turns that into one row per
+  signal — product analytics, metrics, traces, logs — that reads On, Off or
+  Blocked, names the switch, and says in plain words what a block needs;
+  `system-status-panel.tsx` draws it. Nothing else is passed in, so a credential
+  cannot be shown, and tests render it with credentials in the configuration and
+  search the output. The page says outright that it cannot tell whether PostHog
+  or Grafana is receiving anything, or how much of a Free allowance is used, and
+  points to the vendor's own page for each (spec §11.2: text guidance, no in-app
+  meters).
+- **Two optional, display-only settings, validated as links**
+  (`lib/operational-links.ts`, exported as `operationalLinks` by `lib/env.ts`):
+  `GRAFANA_STACK_URL` and `POSTHOG_DASHBOARDS_URL`. A value becomes a link only if
+  it is `https`, carries no credentials, port, query or fragment, contains no
+  whitespace or control character, and names the vendor's own host —
+  `<stack>.grafana.net` (exactly one label) or PostHog Cloud's `us.`, `eu.` or
+  `app.posthog.com`. Grafana's pages (`/dashboards`, `/alerting/list`,
+  `/alerting/notifications`, `/explore`, the Synthetic Monitoring app) are fixed
+  paths appended to the stack's origin, never typed; a PostHog address may not
+  name a `shared`, `embedded` or `exporter` route, because those links carry their
+  own access token. A rejected setting produces no link and is reported by name
+  only. Neither is `NEXT_PUBLIC_`, neither is secret, and neither is fetched: the
+  System tab and the Admin menu make no request to either vendor.
+- **Every external link opens a new tab, cut off from this one**
+  (`components/admin/external-link.tsx`: `target="_blank"`,
+  `rel="noopener noreferrer"`, an icon, and an accessible name that ends "(opens
+  in a new tab)"). There is no iframe, no embedded dashboard, and no provider key
+  in any bundle.
+- **Analytics is a link out of the menu, not a page.**
+  `getAdminExternalLinks(permissions, operationalLinks)` offers one "Analytics"
+  entry — PostHog's dashboards — to someone who `canUseDeveloperTools` (Admin and
+  developer, never a writer or a learner), and only when `POSTHOG_DASHBOARDS_URL`
+  is valid. It is kept apart from `getAdminNavItems` because it depends on a
+  deployment setting and leaves the application; `AdminSidebarNav` and
+  `AdminMobileNav` draw it after the page links. Hiding a link is still not
+  authorization: the Logs page re-checks `canUseDeveloperTools` and calls
+  `forbidden()` for either tab, and the vendors do their own sign-in.
+- **No Sentry link.** Sentry is not installed, and the spec offers one only if
+  it is configured. Adding it later means a third validated setting, not an
+  unchecked one.
+
 ---
 
 # Admin Audit Log
@@ -3032,6 +3085,7 @@ The codebase must never violate the following rules:
 75. A replay of committed work is never counted as a second success: telemetry learns a call committed new work only from `markOperationCommitted()`, which only the first execution of an idempotent transaction reaches. (Spec 27)
 76. A failure of telemetry — an exporter, a collector, a tracer, a flush — never reaches the code it describes: it is counted and, at most, reported by a fixed word; it cannot throw into a request, delay a learner's response, or log about itself. (Spec 27)
 77. The liveness probe depends on nothing that can be down: it loads neither the environment nor the database layer and uses no network. The readiness probe fails open on its own rate limiter and closed on the database, and neither reports which dependency failed. (Spec 27)
+78. An external link in the Admin console is built only from a validated deployment setting — `https`, the vendor's own host, nothing else in the address, no token-bearing route — opens in a new tab with `rel="noopener noreferrer"`, is offered only to someone who may use developer tools, and is never an iframe. The System tab shows the state of a telemetry setting and its name, never its value. (Spec 27)
 
 ---
 

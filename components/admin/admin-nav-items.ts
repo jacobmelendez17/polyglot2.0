@@ -25,8 +25,8 @@ type NavEntry = AdminNavItem & {
 
 /**
  * Every link, in the order the sidebar shows them. Everything but the Sandbox is
- * a React Admin screen (Logs since the owner's decision of 2026-10-14, until
- * PostHog replaces it); the Sandbox is a retained specialist tool (spec 26 §4).
+ * a React Admin screen (Logs since 2026-10-14, and it stays: spec 27 keeps audits
+ * in Neon); the Sandbox is a retained specialist tool (spec 26 §4).
  * Hiding a link is never authorization — each page and endpoint re-checks.
  */
 const NAV: NavEntry[] = [

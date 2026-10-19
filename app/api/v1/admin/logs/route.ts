@@ -13,8 +13,9 @@ import { parseResponse } from "../_lib/response-contract";
 /**
  * `GET /api/v1/admin/logs` — one cursor-paginated page of the Admin audit log
  * (spec 11 §46-§52), newest event first, with the page's filters. The Logs
- * screen is on React Admin *until PostHog replaces it* (the owner's decision of
- * 2026-10-14); when it does, this endpoint and its screen can go together.
+ * screen has been on React Admin since 2026-10-14. PostHog does **not** replace
+ * it (the owner's decision of 2026-10-17, spec 27 §1.3: audits stay in Neon), so
+ * this endpoint and its screen stay.
  *
  * **Admin and developer** (`canUseDeveloperTools`), as the page always was —
  * spec 11 §4's "selected system logs where appropriate" — and **never a

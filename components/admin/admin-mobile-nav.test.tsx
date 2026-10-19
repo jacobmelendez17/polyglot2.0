@@ -81,3 +81,61 @@ describe("AdminMobileNav", () => {
     );
   });
 });
+
+describe("AdminMobileNav — links out of Polyglot (spec 27 Unit 27.10)", () => {
+  const ANALYTICS = [
+    {
+      label: "Analytics",
+      href: "https://us.posthog.com/project/12345/dashboard",
+    },
+  ];
+
+  async function openWith(
+    role: UserRole,
+    externalLinks?: { label: string; href: string }[],
+  ) {
+    const user = userEvent.setup();
+    render(
+      <AdminMobileNav permissions={as(role)} externalLinks={externalLinks} />,
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Open Admin navigation" }),
+    );
+  }
+
+  it("offers none unless it is given one", async () => {
+    await openWith("admin");
+
+    expect(
+      screen.queryByRole("link", { name: /Analytics/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows the Analytics link in the menu, opening a new tab that is cut off from this one", async () => {
+    await openWith("developer", ANALYTICS);
+
+    const analytics = screen.getByRole("link", {
+      name: "Analytics (opens in a new tab)",
+    });
+    expect(analytics).toHaveAttribute(
+      "href",
+      "https://us.posthog.com/project/12345/dashboard",
+    );
+    expect(analytics).toHaveAttribute("target", "_blank");
+    expect(analytics.getAttribute("rel")).toContain("noopener");
+    expect(analytics.getAttribute("rel")).toContain("noreferrer");
+  });
+
+  it("keeps the page links as they were", async () => {
+    await openWith("developer", ANALYTICS);
+
+    expect(screen.getByRole("link", { name: "Logs" })).toHaveAttribute(
+      "href",
+      "/admin/logs",
+    );
+    expect(screen.getByRole("link", { name: "Sandbox" })).toHaveAttribute(
+      "href",
+      "/admin/sandbox",
+    );
+  });
+});

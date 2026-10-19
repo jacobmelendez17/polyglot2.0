@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { ExternalLink } from "@/components/admin/external-link";
 import { cn } from "@/lib/utils";
+import type { AdminExternalLink } from "./admin-external-links";
 import {
   getAdminNavItems,
   isAdminNavItemCurrent,
@@ -13,6 +15,8 @@ import {
 type AdminSidebarNavProps = {
   /** The person's effective permissions — what the server says they may open (`buildAdminPermissions`). */
   permissions: AdminNavPermissions;
+  /** Links out of Polyglot (spec 27 Unit 27.10), already filtered to what this person may see. */
+  externalLinks?: readonly AdminExternalLink[];
 };
 
 /**
@@ -26,7 +30,10 @@ type AdminSidebarNavProps = {
  * equivalent — desktop is the primary Admin target (spec 11 §74), but
  * mobile must stay navigable, not merely present.
  */
-export function AdminSidebarNav({ permissions }: AdminSidebarNavProps) {
+export function AdminSidebarNav({
+  permissions,
+  externalLinks = [],
+}: AdminSidebarNavProps) {
   const pathname = usePathname();
   const items = getAdminNavItems(permissions);
 
@@ -47,6 +54,15 @@ export function AdminSidebarNav({ permissions }: AdminSidebarNavProps) {
         >
           {item.label}
         </Link>
+      ))}
+      {externalLinks.map((link) => (
+        <ExternalLink
+          key={link.href}
+          href={link.href}
+          className="justify-between rounded-md px-3 py-1.5 text-sm text-muted-foreground no-underline transition-colors hover:bg-muted hover:text-foreground"
+        >
+          {link.label}
+        </ExternalLink>
       ))}
     </nav>
   );

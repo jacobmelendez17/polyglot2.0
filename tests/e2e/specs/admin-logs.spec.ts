@@ -20,9 +20,10 @@ import {
 import { renewSession } from "../support/e2e-session";
 
 /**
- * The audit log on React Admin (the Logs page's Audit tab — until PostHog
- * replaces it, the owner's decision of 2026-10-14), against the real signed-in
- * app and the isolated E2E database.
+ * The audit log on React Admin (the Logs page's Audit tab — which stays: spec 27
+ * keeps audits in Neon, and PostHog does not replace them), against the real
+ * signed-in app and the isolated E2E database. The System tab beside it has its
+ * own spec (`admin-system.spec.ts`).
  *
  * Every event this file needs is recorded through the real `recordAuditEvent`
  * (see `support/e2e-admin.ts`) under one `resourceType` the run invents, so it
@@ -566,7 +567,7 @@ test.describe("who may use it", () => {
 /* -------------------------------------------------------------------------- */
 
 test.describe("the page", () => {
-  test("keeps its two tabs — the System tab says its pipeline is not wired up, and Audit brings the log back", async ({
+  test("keeps its two tabs — the System tab explains how telemetry is set up (its own spec covers it), and Audit brings the log back", async ({
     page,
   }) => {
     await threeEvents();
@@ -576,7 +577,7 @@ test.describe("the page", () => {
     await page.getByRole("tab", { name: "System" }).click();
     await expect(page).toHaveURL(/tab=system/);
     await expect(
-      page.getByText("System log pipeline not yet wired up"),
+      page.getByRole("heading", { level: 2, name: "Telemetry on this server" }),
     ).toBeVisible();
     await expect(table(page)).toHaveCount(0);
 

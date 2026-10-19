@@ -542,6 +542,27 @@ not from a second palette:
   items in their order — nothing to press, type into or reorder, and a line on the
   page saying an Admin edits it. The editor itself is rendered for an Admin
   alone, and each of its commands re-checks the role regardless.
+- **The Logs page's System tab is a status panel, not a log** (spec 27 Unit
+  27.10, 2026-10-18). Four sections with `h2` headings — "Telemetry on this
+  server", "Dashboards and alerts", "Health checks", "Free-plan limits" — of small
+  cards (`Card size="sm"`), two columns from `sm:` and one on a phone. A signal's
+  card has an `h3` ("Product analytics · PostHog"), a badge that **reads** On, Off
+  or Blocked (a dot and a border colour from `--state-success`, `--border-default`
+  or `--state-warning` go with the word, never replace it), one sentence of what it
+  does, the reasons a block exists — each a setting name in `code` and a plain
+  clause — and "Switch: NAME". Setting names and paths are monospace and may break
+  anywhere, so a long name cannot push a phone sideways. The panel says what it
+  cannot see (whether a vendor is receiving anything, how much of an allowance is
+  used) and links to the vendor's own page instead of drawing a meter.
+- **A link that leaves Polyglot is marked, and opens elsewhere.** `ExternalLink`
+  is underlined (a thicker underline on hover, not a colour change), ends in an
+  external-link icon (decorative, `aria-hidden`), opens a new tab with
+  `rel="noopener noreferrer"`, and carries "(opens in a new tab)" for a screen
+  reader inside the same run of text as its label, so the two are spoken as
+  words. Its focus ring is the usual one. In the sidebar and the phone menu it
+  takes the page links' look (no underline), sits **after** them, and is offered
+  only to someone who may use developer tools and only when its address setting
+  passed validation — today, "Analytics".
 
 ---
 
@@ -1194,6 +1215,7 @@ Do not mix multiple general-purpose icon libraries.
 The cozy visual style must not reduce usability.
 
 - Maintain sufficient text/background contrast.
+- **Muted text (`--text-muted`) is not for sentences that carry meaning.** In the light theme it is `#97938A`: 3.1:1 on a white card and 2.7:1 on the page, below the 4.5:1 that AA asks of body-size text (the dark theme's is 6.4:1 and 7.3:1). Where the words are the content — the System tab's explanations — use primary text and let size and weight carry the hierarchy. The idle sidebar links and page descriptions already use muted text and are below AA in the light theme; new UI should not add to them, and the System tab's own E2E fails if any of its text is under 4.5:1.
 - Do not communicate SRS stage, correctness, or learning type through color alone.
 - Preserve visible keyboard focus.
 - Review flow must be fully keyboard operable.

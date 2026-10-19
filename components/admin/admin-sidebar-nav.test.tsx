@@ -119,3 +119,74 @@ describe("AdminSidebarNav", () => {
     );
   });
 });
+
+describe("AdminSidebarNav — links out of Polyglot (spec 27 Unit 27.10)", () => {
+  const ANALYTICS = [
+    {
+      label: "Analytics",
+      href: "https://us.posthog.com/project/12345/dashboard",
+    },
+  ];
+
+  it("offers none unless it is given one", () => {
+    mockPathname = "/admin";
+    render(<AdminSidebarNav permissions={as("admin")} />);
+
+    expect(
+      screen.queryByRole("link", { name: /Analytics/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows the Analytics link last, to the given address, opening a new tab that is cut off from this one", () => {
+    mockPathname = "/admin";
+    render(
+      <AdminSidebarNav permissions={as("admin")} externalLinks={ANALYTICS} />,
+    );
+
+    const nav = screen.getByRole("navigation", { name: "Admin" });
+    const links = Array.from(nav.querySelectorAll("a"));
+    const analytics = links.at(-1)!;
+    expect(analytics).toHaveAttribute(
+      "href",
+      "https://us.posthog.com/project/12345/dashboard",
+    );
+    expect(analytics).toHaveAttribute("target", "_blank");
+    expect(analytics.getAttribute("rel")).toContain("noopener");
+    expect(analytics.getAttribute("rel")).toContain("noreferrer");
+    // It says it leaves the app, to a screen reader as well as by its icon.
+    expect(analytics).toHaveAccessibleName("Analytics (opens in a new tab)");
+    // Every other link is still a page of this application.
+    for (const link of links.slice(0, -1)) {
+      expect(link.getAttribute("href")).toMatch(/^\/admin/);
+      expect(link).not.toHaveAttribute("target");
+    }
+  });
+
+  it("never marks the external link as the current page", () => {
+    mockPathname = "/admin/logs";
+    render(
+      <AdminSidebarNav permissions={as("admin")} externalLinks={ANALYTICS} />,
+    );
+
+    expect(screen.getByRole("link", { name: /Analytics/ })).not.toHaveAttribute(
+      "aria-current",
+    );
+  });
+
+  it("does not disturb the page links or their order", () => {
+    mockPathname = "/admin";
+    render(
+      <AdminSidebarNav
+        permissions={as("developer")}
+        externalLinks={ANALYTICS}
+      />,
+    );
+
+    const nav = screen.getByRole("navigation", { name: "Admin" });
+    expect(
+      Array.from(nav.querySelectorAll("a")).map((link) =>
+        link.textContent?.replace(" (opens in a new tab)", ""),
+      ),
+    ).toEqual(["Overview", "Logs", "Sandbox", "Analytics"]);
+  });
+});

@@ -569,6 +569,7 @@ Accessibility is required.
 - Form controls require accessible labels.
 - Images require meaningful alt text unless decorative.
 - Preserve visible focus states.
+- Text that carries meaning must reach 4.5:1 against what is behind it in both themes. `--text-muted` does not in the light theme (about 3:1 on a white card), so sentences are set in primary text and only supplementary labels use muted text. Prove contrast with a measurement over all of a view's text, not a sample (`tests/e2e/support/contrast.ts`).
 - Respect reduced-motion preferences.
 - Prefer accessible Radix/shadcn primitives for dialogs, menus, popovers, tabs, and related components.
 
@@ -902,6 +903,16 @@ The optional PostHog and Grafana settings are the one sanctioned exception to "f
 - A credential is a `SecretValue` and is read with `.reveal()` only where it is used. Never log, serialize or spread a config object assuming it is safe because of a key-name redactor.
 - A new switch goes in `TELEMETRY_SETTINGS` and, if it turns anything on, `TELEMETRY_SWITCHES`; then in `.env.example`, the force-off lists in `vitest.config.mts` and `vitest.integration.config.mts`, and `infra/telemetry/README.md`. Tests fail if any of them drifts.
 - Telemetry is off in every automated test environment. A test that proves "no outbound request" uses `providers/test-support/outbound-network-guard`, which refuses `fetch`, `http`, `https` and sockets.
+
+### Links out of the Admin console (spec 27 Unit 27.10)
+
+Two display-only settings, `GRAFANA_STACK_URL` and `POSTHOG_DASHBOARDS_URL`, let the Admin console link to the owner's own dashboards. A setting that becomes an `href` is a place for a mistake or a hostile value to become a link someone clicks, so:
+
+- They are parsed by `lib/operational-links.ts` and read through `operationalLinks` (exported by `lib/env.ts`), never from `process.env` elsewhere. `parseOperationalLinks` is total, and a rejected value yields no link and is reported by **name only**.
+- A link is shown only if it is `https`, has no credentials, port, query or fragment, no whitespace or control character, and its host is the vendor's own (`<stack>.grafana.net`; `us.`, `eu.` or `app.posthog.com`). Grafana's paths are fixed in the validator, never typed; a PostHog address naming `shared`, `embedded` or `exporter` is refused because those links carry an access token. A new vendor or path is a change to the validator and its adversarial tests, not a new unchecked variable.
+- They are not secret and not `NEXT_PUBLIC_`; a page that renders them is a Server Component, and only someone who may use developer tools is ever sent one. No page fetches from either vendor, and none embeds one in an iframe.
+- Render every link that leaves the application through `ExternalLink` (`components/admin/external-link.tsx`): a new tab, `rel="noopener noreferrer"`, an icon, and "(opens in a new tab)" for a screen reader. Never put an unvalidated string in an `href` beside it.
+- A new link setting goes in `lib/operational-links.ts` (and its tests), `.env.example`, `scripts/e2e-server.ts` (a test holds its value to the validator) and `infra/telemetry/README.md`.
 
 ## File Organization
 

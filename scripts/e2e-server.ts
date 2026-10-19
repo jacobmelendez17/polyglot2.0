@@ -38,6 +38,12 @@ function main(): void {
       // Spec 27 §13.1: E2E traffic never reaches PostHog or Grafana, whatever
       // .env.local enables for a manual verification of the real providers.
       ...Object.fromEntries(TELEMETRY_SWITCHES.map((name) => [name, "false"])),
+      // Spec 27 Unit 27.10: the Admin console's links out to Grafana and PostHog
+      // are display-only, so E2E fixes them (valid, but to accounts that do not
+      // exist) to test the configured state the same way every run. Nothing here
+      // is ever fetched: specs read the `href`s, and stub the host if they click.
+      GRAFANA_STACK_URL: "https://e2e-polyglot.grafana.net",
+      POSTHOG_DASHBOARDS_URL: "https://us.posthog.com/project/0/dashboard",
       // Isolates this server's build/lock state from a normal `next dev`
       // session — see next.config.ts.
       E2E_SERVER: "1",

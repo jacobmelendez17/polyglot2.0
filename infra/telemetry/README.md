@@ -8,16 +8,17 @@ How to turn on Polyglot's product analytics (PostHog) and observability (Grafana
 
 ## 2. What exists today
 
-Units **27.1, 27.2, 27.3, 27.5, 27.6 and 27.7** are built: the settings contract and safety gates, the learner's consent switch, the PostHog sender with the approved learning events, the Grafana senders (metrics, sampled traces, sanitized warnings) and the two health endpoints. **Nothing is sent until you turn a provider on** (sections 4, 5, 11 and 12): PostHog only for a learner who has accepted in Settings → Privacy, and Grafana only what section 12 lists.
+Units **27.1, 27.2, 27.3, 27.5, 27.6, 27.7 and 27.10** are built: the settings contract and safety gates, the learner's consent switch, the PostHog sender with the approved learning events, the Grafana senders (metrics, sampled traces, sanitized warnings), the two health endpoints, and the Admin console's System tab and Analytics link. **Nothing is sent until you turn a provider on** (sections 4, 5, 11 and 12): PostHog only for a learner who has accepted in Settings → Privacy, and Grafana only what section 12 lists.
 
-| Unit | Adds                                                | Until it ships                                  |
-| ---- | --------------------------------------------------- | ----------------------------------------------- |
-| 27.1 | Settings, gates, no-op adapters, this runbook       | Done — nothing is sent                          |
-| 27.2 | Account-wide analytics consent in Settings          | Done — a learner can opt in; nothing is sent    |
-| 27.3 | PostHog adapter and the approved learning events    | Done — sends only if you enable it (section 11) |
-| 27.5 | OpenTelemetry metrics and sampled traces to Grafana | Done — sends only if you enable it (section 12) |
-| 27.6 | Sanitized log export to Grafana                     | Done — sends only if you enable it (section 12) |
-| 27.7 | `/api/health` and `/api/health/ready`               | Done — the endpoints exist; the check is yours  |
+| Unit  | Adds                                                | Until it ships                                                                    |
+| ----- | --------------------------------------------------- | --------------------------------------------------------------------------------- |
+| 27.1  | Settings, gates, no-op adapters, this runbook       | Done — nothing is sent                                                            |
+| 27.2  | Account-wide analytics consent in Settings          | Done — a learner can opt in; nothing is sent                                      |
+| 27.3  | PostHog adapter and the approved learning events    | Done — sends only if you enable it (section 11)                                   |
+| 27.5  | OpenTelemetry metrics and sampled traces to Grafana | Done — sends only if you enable it (section 12)                                   |
+| 27.6  | Sanitized log export to Grafana                     | Done — sends only if you enable it (section 12)                                   |
+| 27.7  | `/api/health` and `/api/health/ready`               | Done — the endpoints exist; the check is yours                                    |
+| 27.10 | Admin Logs → System tab, and an Analytics link      | Done — display only; links appear once you set the two link variables (section 5) |
 
 Accounts, dashboards, the uptime check and alert emails (27.4, 27.8, and the external check for 27.7 — section 12) are things only you can create. Nothing in the repository creates an account or contacts a provider.
 
@@ -78,6 +79,15 @@ All optional, all **server-only** (none is `NEXT_PUBLIC_`, so none can reach a b
 
 **Where to set them.** Vercel → the project → Settings → Environment Variables, and tick **Production only**. Leave Preview and Development empty. Vercel applies a changed variable only to the _next_ deployment, so redeploy after changing one. Do not put production credentials in `.env.local` or in Preview (`architecture.md` invariant 40).
 
+**Display-only link settings (Unit 27.10).** Two more optional variables, which are **not** telemetry settings: they switch nothing on, send nothing and hold no secret, so they are not parsed by `lib/telemetry-config.ts` and are not part of the checks above. They are parsed by `lib/operational-links.ts`, and they only let the Admin console link to your own dashboards.
+
+| Variable                 | Default | What it is and what is checked                                                                                                                                                                                              |
+| ------------------------ | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GRAFANA_STACK_URL`      | empty   | Your Grafana Cloud stack's address and nothing after it: `https://<stack>.grafana.net`. The links to its dashboards, alert rules, email contact points, Explore and the uptime check are built from it; you never type them |
+| `POSTHOG_DASHBOARDS_URL` | empty   | Your dashboards page on PostHog Cloud, for example `https://us.posthog.com/project/<id>/dashboard` (`us.`, `eu.` or `app.posthog.com`). A shared, embedded or exported link is refused: its address carries an access token |
+
+Empty shows no link, and the System tab says which variable to set. A value that is set but not exactly what is described (`http`, another host, a port, a query string or fragment, a login in the address, a shared link) is ignored, and the System tab names the variable and what it must be — never the value. Set them in Vercel → **Production only**, like the rest; redeploy after changing them. Nothing here is ever fetched by Polyglot: each link only opens, in a new tab, a page that asks you to sign in to that service.
+
 ## 6. What the switches do
 
 Every provider (and each Grafana signal) is always in one of three states:
@@ -116,6 +126,7 @@ Spec 27 §3.3 asks you to look before you hit a limit — Polyglot cannot count 
 - **Warn at 50% and 75%** of any allowance (series, GB of logs, GB of traces, test executions, PostHog events, Vercel Active CPU and invocations). At 50%, note it; at 75%, switch the biggest optional signal off or lower the sampling ratio.
 - **What to watch for Grafana:** active metric series (the one that grows with the number of live server instances — section 12), log and trace ingest, and Synthetic Monitoring executions.
 - **Where:** PostHog's billing/usage page, Grafana Cloud's usage view for your stack, and Vercel's usage page for the project. Locations move — find them from your account when you sign in rather than from this document.
+- **A shortcut:** with the two link variables set (section 5), Admin → Logs → **System** links to PostHog's billing and usage page and to your Grafana stack, and says in plain words that it cannot show usage itself.
 
 ## 9. Open decisions that are yours
 
@@ -228,5 +239,7 @@ Labels in Grafana move; find the equivalent if a name above has changed. The dep
 ## 13. Changing this contract
 
 A new switch, credential or limit means, in one change: `lib/telemetry-config.ts` (the parser and `TELEMETRY_SETTINGS`; a new on-switch also goes in `TELEMETRY_SWITCHES`), `.env.example`, the force-off lists in `vitest.config.mts` and `vitest.integration.config.mts`, and this runbook. Tests fail if any of those drifts apart.
+
+A new link out of the Admin console is a different change: `lib/operational-links.ts` (its validator and tests — the host, the path and what is refused), `.env.example`, `scripts/e2e-server.ts` (a test holds its value to the validator), and section 5 here. Nothing is linked that did not pass the validator.
 
 Later units add their exports beside this file (Grafana dashboards and alert rules, PostHog dashboard definitions) so everything needed to rebuild the setup on a Free account is in version control.
