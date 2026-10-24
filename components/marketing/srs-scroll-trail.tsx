@@ -92,8 +92,8 @@ export function SrsScrollTrail({
         An SRS schedule for everything you learn
       </h2>
       <p className="mt-4 max-w-xl text-center text-balance text-muted-foreground">
-        Vocabulary and grammar move through the same nine stages. Answer
-        correctly and an item advances; miss it and it comes back sooner.
+        Vocabulary and grammar move through scheduled stages. Correct answers move on while 
+        missed ones get a little extra review.
       </p>
 
       <div className="mt-6 w-full max-w-4xl pr-12 pl-4 sm:mt-10 sm:pr-20 sm:pl-8">

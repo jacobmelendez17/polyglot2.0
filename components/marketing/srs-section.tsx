@@ -23,10 +23,9 @@ export function SrsSection() {
 
       <Reveal className="mx-auto max-w-2xl px-4 pb-16 sm:px-6 sm:pb-20">
         <p className="rounded-xl border border-border bg-muted/40 p-5 text-sm text-muted-foreground">
-          A level unlocks once about five out of every six of its vocabulary and
-          grammar items reach at least Familiar 1 — for a standard 60-item
-          level, that&apos;s 50 items. Once a level is earned it stays unlocked,
-          even if an item&apos;s stage later slips back below Familiar 1.
+          A learning system designed for everyone. Stages are made in a way where
+          you can learn right before you forget. If you're someone who likes the addition
+          study, there's options for that, too!
         </p>
       </Reveal>
     </section>
