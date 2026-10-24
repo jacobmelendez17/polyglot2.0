@@ -8,6 +8,8 @@ Implementation / feature specs
 
 ## Current Goal
 
+**Latest change (2026-10-24, owner request): the landing page's "What you study" section is now six flip cards — Vocabulary, Grammar, Speaking, Reading, Testing, Listening — in a 3 × 2 grid (`components/marketing/pillars-section.tsx`).** Hover, focus or tap turns a card to its description; reduced motion crossfades instead. CSS only, no new dependency, no migration. Verified: unit tests (new `pillars-section.test.tsx`, landing page test), `tsc`, ESLint, Prettier, and screenshots at 1280, 800 and 390 px under `next dev`. Not run: the full suite, E2E, `npm run build`. Spec 03's "What You Study" section updated. (Not committed — the owner commits.)
+
 **Most recent change (2026-10-18, owner: "lets do 27.11 before adding things"): Spec 27 Unit 27.11 of 11 — the release gate, and a consolidated regression, cost and privacy sign-off, done before any provider account is created or variable set. Every §15 item is recorded in the new `infra/telemetry/release-gate.md`: eight PASS, five NOT VERIFIED, none BLOCKED. Spec 27 is not "done": 27.4 and 27.8 need your accounts and 27.9 waits on a Grafana API check.** (Not committed — the owner commits.) **Nothing is sent by default and nothing about what is sent changed.** No migration, no dependency, no account.
 
 - **How the request was read.** "Before adding things" = before you create the PostHog and Grafana accounts and set variables; spec 27 §15 says the gate is recorded _before configuring any live provider_. So this unit built no feature: it ran everything CI runs that can run here, proved the privacy and zero-traffic properties on a real server, audited the cost, and made the documents say what is true.

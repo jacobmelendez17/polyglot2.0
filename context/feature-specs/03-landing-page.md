@@ -58,9 +58,9 @@ Create `components/marketing/pillars-section.tsx`.
 
 Requirements:
 
-- two equal cards side by side at `md` and above, stacked on mobile
-- vocabulary card uses `--learning-vocabulary` for its label; grammar card uses `--learning-grammar`
-- each card carries a short paragraph and a list of what the item pages contain
+- six equal flip cards (2026-10-24): Vocabulary, Grammar, Speaking, Reading, Testing, Listening — a 3 × 2 grid from `lg`, two columns at `sm`, one on mobile; every card has the same fixed height
+- the front shows an icon, the label and a one-line teaser; hovering (or focusing/tapping) turns the card to its back, which carries the description and a short list. Under reduced motion the turn is a crossfade. Both faces stay in the DOM for assistive technology
+- vocabulary card uses `--learning-vocabulary` for its label; grammar card uses `--learning-grammar`; the other four use primary text (no new learning-type colors, per `ui-context.md`)
 - the section's argument is that grammar is a first-class study item with its own review schedule, not supplementary reading
 
 Item counts per level come from `project-overview.md`. Do not state counts that aren't documented there.
