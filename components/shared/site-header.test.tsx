@@ -19,7 +19,19 @@ vi.mock("@clerk/nextjs", () => ({
   }) => ((when === "signed-in") === mockAuthState.signedIn ? children : null),
   SignInButton: ({ children }: { children: ReactNode }) => children,
   SignUpButton: ({ children }: { children: ReactNode }) => children,
-  UserButton: () => <div data-testid="user-button" />,
+  UserButton: ({
+    userProfileUrl,
+    userProfileMode,
+  }: {
+    userProfileUrl?: string;
+    userProfileMode?: string;
+  }) => (
+    <div
+      data-testid="user-button"
+      data-user-profile-url={userProfileUrl}
+      data-user-profile-mode={userProfileMode}
+    />
+  ),
 }));
 
 describe("SiteHeader", () => {
@@ -57,6 +69,27 @@ describe("SiteHeader", () => {
     expect(
       screen.queryByRole("button", { name: "Sign up" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("opens this app's own Settings from the account menu, in the header and in the mobile menu", async () => {
+    const user = userEvent.setup();
+    mockAuthState.signedIn = true;
+    render(<SiteHeader />);
+    await user.click(screen.getByRole("button", { name: "Open menu" }));
+
+    // One in the header bar, one in the mobile menu's own account row.
+    const userButtons = screen.getAllByTestId("user-button");
+    expect(userButtons).toHaveLength(2);
+    for (const userButton of userButtons) {
+      expect(userButton).toHaveAttribute(
+        "data-user-profile-url",
+        "/settings/account",
+      );
+      expect(userButton).toHaveAttribute(
+        "data-user-profile-mode",
+        "navigation",
+      );
+    }
   });
 
   it("toggles aria-expanded on the mobile trigger when opened", async () => {

@@ -58,7 +58,7 @@ describe("AppHeader", () => {
     expect(screen.getByTestId("user-button")).toBeInTheDocument();
   });
 
-  it("points the account menu's \"Manage account\" at this app's own Settings instead of Clerk's hosted profile UI", () => {
+  it("points the account menu's Settings entry at this app's own Settings instead of Clerk's hosted profile UI", () => {
     render(<AppHeader />);
 
     const userButton = screen.getByTestId("user-button");

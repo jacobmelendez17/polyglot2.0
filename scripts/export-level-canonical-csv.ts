@@ -82,6 +82,7 @@ const HEADER = [
   "part_of_speech",
   "context",
   "creator_notes",
+  "register",
 ];
 
 /** RFC 4180-ish: quote a field only when it needs it, doubling embedded quotes. */
@@ -131,6 +132,7 @@ async function main() {
       ipa: vocabularyItems.ipa,
       context: vocabularyItems.context,
       creatorNotes: vocabularyItems.creatorNotes,
+      register: vocabularyItems.register,
       groupPosition: vocabularyGroups.position,
       groupName: vocabularyGroups.name,
     })
@@ -157,6 +159,7 @@ async function main() {
       structure: grammarItems.structure,
       primaryMeaning: grammarItems.primaryMeaning,
       creatorNotes: grammarItems.creatorNotes,
+      register: grammarItems.register,
     })
     .from(learningItems)
     .innerJoin(grammarItems, eq(grammarItems.learningItemId, learningItems.id))
@@ -214,6 +217,7 @@ async function main() {
         csvField(row.partOfSpeech),
         csvField(row.context),
         csvField(row.creatorNotes),
+        csvField(row.register),
       ].join(","),
     );
   }
@@ -248,6 +252,7 @@ async function main() {
         csvField(""),
         csvField(""),
         csvField(row.creatorNotes),
+        csvField(row.register),
       ].join(","),
     );
   }

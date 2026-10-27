@@ -13,11 +13,14 @@ import {
   dictionaryEntries,
   dictionaryPronunciations,
   dictionarySenses,
+  grammarItems,
   learningItems,
   lexicalSources,
   vocabularyDictionaryMappings,
+  vocabularyItems,
   vocabularySelectedSenses,
 } from "@/db/schema";
+import type { Register } from "@/db/schema";
 import {
   archiveLearningItem,
   createVocabularyGroup as repoCreateVocabularyGroup,
@@ -25,6 +28,7 @@ import {
   getDraft,
   getVocabularyDictionaryFields,
   lockLearningItemForEdit,
+  publishDraft,
   setDictionaryFieldOverrides,
   updateVocabularyFieldsFromImport,
 } from "@/domains/curriculum/curriculum-mutation-repository";
@@ -1857,6 +1861,206 @@ describe("spec 25 Unit 4 — key-based matching and explicit clearing", () => {
 
       expect(preview[0]!.changes).toEqual([]);
       expect(preview[0]!.action).toBe("unchanged");
+    });
+  });
+});
+
+describe("register column (2026-10-24)", () => {
+  function importRow(
+    fields: ParsedVocabularyFields | ParsedGrammarFields,
+  ): ImportRowDecision {
+    return { fields, decision: "import" };
+  }
+
+  async function registerOf(
+    tx: TestTx,
+    learningItemId: string,
+    type: "vocabulary" | "grammar" = "vocabulary",
+  ): Promise<Register | null | undefined> {
+    const table = type === "vocabulary" ? vocabularyItems : grammarItems;
+    const [row] = await tx
+      .select({ register: table.register })
+      .from(table)
+      .where(eq(table.learningItemId, learningItemId));
+    return row?.register;
+  }
+
+  async function setRegister(
+    tx: TestTx,
+    learningItemId: string,
+    register: Register | null,
+  ): Promise<void> {
+    await tx
+      .update(vocabularyItems)
+      .set({ register })
+      .where(eq(vocabularyItems.learningItemId, learningItemId));
+  }
+
+  it("stores the register of a new vocabulary item and a new grammar item", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+
+      const result = await bulkImportVocabulary(tx, {
+        languageId,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+        rows: [
+          importRow(
+            vocabFields({
+              term: "chamaco",
+              primaryMeaning: "kid",
+              register: "slang",
+            }),
+          ),
+          importRow(vocabFields({ term: "murcielago", primaryMeaning: "bat" })),
+          importRow(
+            grammarFields({
+              structure: "usted",
+              primaryMeaning: "formal you",
+              register: "formal",
+            }),
+          ),
+        ],
+      });
+
+      const [slangId, unsetId] = result.createdVocabularyItemIds;
+      expect(await registerOf(tx, slangId!)).toBe("slang");
+      // A file that says nothing leaves a word "unclassified", never "neutral".
+      expect(await registerOf(tx, unsetId!)).toBeNull();
+      expect(
+        await registerOf(tx, result.createdGrammarItemIds[0]!, "grammar"),
+      ).toBe("formal");
+    });
+  });
+
+  it("sets, keeps and clears the register of a pending item on re-import", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      const reimport = (fields: Partial<ParsedVocabularyFields>) =>
+        bulkImportVocabulary(tx, {
+          languageId,
+          actorUserId: DEVELOPER_ID,
+          idempotencyKey: crypto.randomUUID(),
+          rows: [
+            importRow(
+              vocabFields({
+                term: "chamaco",
+                primaryMeaning: "kid",
+                ...fields,
+              }),
+            ),
+          ],
+        });
+
+      const created = await reimport({});
+      const id = created.createdVocabularyItemIds[0]!;
+      expect(await registerOf(tx, id)).toBeNull();
+
+      await reimport({ register: "colloquial" });
+      expect(await registerOf(tx, id)).toBe("colloquial");
+
+      // The register column left blank, with another field changed: untouched.
+      await reimport({ primaryMeaning: "kid, child" });
+      expect(await registerOf(tx, id)).toBe("colloquial");
+
+      await reimport({ register: null });
+      expect(await registerOf(tx, id)).toBeNull();
+    });
+  });
+
+  it("previews a register change as a field change, and an identical register as no change", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      const curriculumKey = await getCurriculumKey(tx, ITEM_GATO_ID);
+      const previewRegister = async (register: Register | null | undefined) =>
+        (
+          await previewVocabularyImport(tx, {
+            languageId,
+            validatedRows: [
+              {
+                rowNumber: 2,
+                raw: {},
+                fields: vocabFields({
+                  term: "gato",
+                  primaryMeaning: "cat",
+                  curriculumKey,
+                  register,
+                }),
+                fieldIssues: [],
+              },
+            ],
+          })
+        )[0]!;
+
+      const proposed = await previewRegister("informal");
+      expect(proposed.changes).toEqual([
+        { field: "register", from: null, to: "informal" },
+      ]);
+
+      await setRegister(tx, ITEM_GATO_ID, "informal");
+      expect((await previewRegister("informal")).action).toBe("unchanged");
+      expect((await previewRegister(undefined)).action).toBe("unchanged");
+      expect((await previewRegister(null)).changes).toEqual([
+        { field: "register", from: "informal", to: null },
+      ]);
+    });
+  });
+
+  it("puts a published item's register change in its draft, and keeps its live register until publish", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      await setRegister(tx, ITEM_GATO_ID, "neutral");
+
+      const result = await bulkImportVocabulary(tx, {
+        languageId,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+        rows: [
+          importRow(
+            vocabFields({
+              term: "gato",
+              primaryMeaning: "cat",
+              register: "informal",
+            }),
+          ),
+        ],
+      });
+
+      expect(result.draftedItemIds).toEqual([ITEM_GATO_ID]);
+      const draft = await getDraft(tx, ITEM_GATO_ID);
+      expect(draft?.data).toMatchObject({
+        type: "vocabulary",
+        fields: { register: "informal" },
+      });
+      expect(await registerOf(tx, ITEM_GATO_ID)).toBe("neutral");
+    });
+  });
+
+  it("does not wipe a published item's register when a file changes something else", async () => {
+    await withTestTransaction(async (tx) => {
+      const { languageId } = await seedTestFixtures(tx);
+      await setRegister(tx, ITEM_GATO_ID, "formal");
+
+      // The file has no register column at all. A draft that left the key out
+      // would write `register ?? null` when published and erase the value.
+      await bulkImportVocabulary(tx, {
+        languageId,
+        actorUserId: DEVELOPER_ID,
+        idempotencyKey: crypto.randomUUID(),
+        rows: [
+          importRow(
+            vocabFields({ term: "gato", primaryMeaning: "cat, revised" }),
+          ),
+        ],
+      });
+
+      const draft = await getDraft(tx, ITEM_GATO_ID);
+      expect(draft?.data).toMatchObject({
+        type: "vocabulary",
+        fields: { register: "formal", primaryMeaning: "cat, revised" },
+      });
+      await publishDraft(tx, ITEM_GATO_ID, draft!.data);
+      expect(await registerOf(tx, ITEM_GATO_ID)).toBe("formal");
     });
   });
 });

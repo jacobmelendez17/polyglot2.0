@@ -64,7 +64,10 @@ export function SiteNavMobile() {
           </Show>
           <Show when="signed-in">
             <div className="flex items-center gap-2 px-3 py-2">
-              <UserButton />
+              <UserButton
+                userProfileUrl="/settings/account"
+                userProfileMode="navigation"
+              />
               <span className="text-sm font-medium text-foreground">
                 Account
               </span>

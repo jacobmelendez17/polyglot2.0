@@ -1,4 +1,5 @@
 import type { DbClient } from "@/db/client";
+import type { Register } from "@/db/schema";
 import { findDuplicateCandidates } from "@/domains/curriculum/curriculum-duplicate-detection";
 import {
   createLearningItem as repoCreateLearningItem,
@@ -24,6 +25,7 @@ import type {
   GrammarFieldsInput,
   VocabularyFieldsInput,
 } from "@/domains/curriculum/curriculum-mutation-types";
+import { isRegister } from "@/domains/curriculum/vocabulary-import-parsing";
 import type {
   ImportRowFieldIssue,
   ParsedImportFields,
@@ -176,6 +178,7 @@ const IMPORTABLE_FIELDS = {
     "ipa",
     "context",
     "creatorNotes",
+    "register",
   ],
   grammar: [
     "structure",
@@ -184,6 +187,7 @@ const IMPORTABLE_FIELDS = {
     "explanation",
     "category",
     "creatorNotes",
+    "register",
   ],
 } as const;
 
@@ -215,6 +219,7 @@ function importedValues(
       ipa: fields.ipa,
       context: fields.context,
       creatorNotes: fields.creatorNotes,
+      register: fields.register,
     };
   }
   return {
@@ -224,6 +229,7 @@ function importedValues(
     explanation: fields.explanation || undefined,
     category: fields.category ?? undefined,
     creatorNotes: fields.creatorNotes,
+    register: fields.register,
   };
 }
 
@@ -242,6 +248,23 @@ function resolvedValue(
   currentValue: string | null,
 ): string | null {
   return field in changed ? changed[field] : currentValue;
+}
+
+/**
+ * `resolvedValue` for `register`, typed as the enum. A draft is later applied
+ * with `updateLearningItemDirect`, which writes `register ?? null` — so a
+ * draft that left the key out would erase a register an author had set in
+ * the editor. The draft therefore always carries one: the file's, or the
+ * item's own current value. Both are enum words (the file's was validated by
+ * the parser, the item's by the database), and anything else becomes "not
+ * set" rather than reaching the column.
+ */
+function resolvedRegister(
+  changed: Record<string, string | null>,
+  current: Record<string, string | null>,
+): Register | null {
+  const value = resolvedValue(changed, "register", current.register ?? null);
+  return isRegister(value) ? value : null;
 }
 
 /**
@@ -1166,6 +1189,7 @@ async function applyImportCreate(
       ipa: fields.ipa,
       context: fields.context,
       creatorNotes: fields.creatorNotes,
+      register: fields.register,
       acceptedAnswers: fields.acceptedAnswers,
     };
     learningItemId = await repoCreateLearningItem(tx, {
@@ -1193,6 +1217,7 @@ async function applyImportCreate(
       explanation: fields.explanation,
       category: fields.category,
       creatorNotes: fields.creatorNotes,
+      register: fields.register,
       requiredQuestions: fields.requiredQuestions,
       acceptedAnswers: fields.acceptedAnswers,
     };
@@ -1383,6 +1408,7 @@ async function applyImportUpdate(
                 "creatorNotes",
                 target.current.creatorNotes,
               ),
+              register: resolvedRegister(changed, target.current),
               acceptedAnswers: acceptedAnswers.map((answer) => ({
                 side: answer.side,
                 value: answer.value,
@@ -1418,6 +1444,7 @@ async function applyImportUpdate(
                 "creatorNotes",
                 target.current.creatorNotes,
               ),
+              register: resolvedRegister(changed, target.current),
               requiredQuestions: fields.requiredQuestions,
               acceptedAnswers: acceptedAnswers.map((answer) => ({
                 side: answer.side,

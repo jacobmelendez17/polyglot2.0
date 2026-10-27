@@ -1,3 +1,5 @@
+import type { Register } from "@/db/schema";
+
 import type {
   AcceptedAnswerInput,
   GrammarFieldsInput,
@@ -94,6 +96,13 @@ import type {
  *   itself, so `term`/`structure` need to be diffable like any other field —
  *   see `bulk-import-service.ts`'s `IMPORTABLE_FIELDS`.
  *
+ * `register` (2026-10-24, owner request) is the one column added after the
+ * canonical schema: spec 18's formality value, for vocabulary and grammar
+ * alike, validated against `REGISTER_VALUES` (case-insensitive). It follows
+ * the clearable-cell rule — blank/`N/A` says nothing, `__CLEAR__` sets the
+ * item back to "unclassified" (`null`), never to "neutral" — and an
+ * unrecognized word is a field issue on the row, not a silent drop.
+ *
  * Spec 25 Unit 5 (2026-09-28) adds one more `curriculum_key` behavior, also
  * database-free: a cell holding exactly `NEW_HOMONYM_SENTINEL` parses to
  * `forceNewHomonym: true` (and `curriculumKey: null`, never both) — spec
@@ -119,6 +128,7 @@ const OPTIONAL_IMPORT_COLUMNS = [
   "ipa",
   "context",
   "creator_notes",
+  "register",
   // Spec 25 Unit 2's canonical-schema extension — see this file's own
   // top-of-file docstring for what each one does.
   "item_type",
@@ -164,6 +174,29 @@ export const IMPORT_COLUMN_ALIASES: Readonly<Record<string, ImportColumn>> = {
   batch_name: "group_name",
   type: "item_type",
 };
+
+/**
+ * Mirrors `registerEnum` (`db/schema/curriculum.ts`) as a literal list, the
+ * way `curriculum-mutation-schemas.ts` does: this file must stay safe for a
+ * client component to import, which rules out a value import of the Drizzle
+ * schema. A test holds the two lists equal.
+ */
+export const REGISTER_VALUES = [
+  "neutral",
+  "formal",
+  "informal",
+  "colloquial",
+  "slang",
+  "vulgar",
+  "literary",
+] as const satisfies readonly Register[];
+
+export function isRegister(value: unknown): value is Register {
+  return (
+    typeof value === "string" &&
+    (REGISTER_VALUES as readonly string[]).includes(value)
+  );
+}
 
 /**
  * The highest group number this file format treats as a vocabulary group
@@ -324,6 +357,21 @@ function parseClearableCell(
 }
 
 /**
+ * One `register` cell: `undefined` for blank/`N/A` (say nothing), `null` for
+ * `__CLEAR__`, the register itself, or `"invalid"` for any other word — kept
+ * apart from `undefined` so the caller can report it instead of treating a
+ * typo like an empty cell.
+ */
+function parseRegisterCell(
+  value: string | undefined,
+): Register | null | undefined | "invalid" {
+  const cell = parseClearableCell(value);
+  if (cell === undefined || cell === null) return cell;
+  const normalized = cell.toLowerCase();
+  return isRegister(normalized) ? normalized : "invalid";
+}
+
+/**
  * Row 1-indexed and offset by 1 to account for the header row, so
  * `rowNumber` matches what a spreadsheet editor would call it — the number
  * an admin actually sees when they go fix row 14 in their own file.
@@ -400,6 +448,16 @@ export function validateVocabularyImportRow(
     }
   }
 
+  const registerCell = parseRegisterCell(raw.register);
+  if (registerCell === "invalid") {
+    fieldIssues.push({
+      field: "register",
+      message: `"${raw.register?.trim()}" isn't a valid register — use ${REGISTER_VALUES.join(", ")}.`,
+    });
+  }
+
+  const register = registerCell === "invalid" ? undefined : registerCell;
+
   if (fieldIssues.length > 0) {
     return { rowNumber, raw, fields: null, fieldIssues };
   }
@@ -433,6 +491,7 @@ export function validateVocabularyImportRow(
       explanation: "",
       category: null,
       creatorNotes: parseClearableCell(raw.creator_notes),
+      register,
       requiredQuestions: [
         { format: "translation", direction: "targetToEnglish" },
       ],
@@ -472,6 +531,7 @@ export function validateVocabularyImportRow(
     ipa: parseClearableCell(raw.ipa),
     context: parseClearableCell(raw.context),
     creatorNotes: parseClearableCell(raw.creator_notes),
+    register,
     acceptedAnswers,
   };
 

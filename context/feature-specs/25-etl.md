@@ -267,7 +267,10 @@ article
 part_of_speech
 context
 tags
+register
 ```
+
+`register` (2026-10-24) is optional on vocabulary and grammar rows: `neutral`, `formal`, `informal`, `colloquial`, `slang`, `vulgar` or `literary`, case-insensitive. Blank says nothing, `__CLEAR__` returns the item to "unclassified" (never "neutral"), and any other word is a row error.
 
 Vocabulary and grammar share one file.
 

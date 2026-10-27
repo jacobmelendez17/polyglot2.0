@@ -40,7 +40,7 @@ export function AppHeader() {
             ))}
           </nav>
 
-          {/* Spec 20 "Routes": Settings lives in the existing account menu rather than a new top-level nav link — "Manage account" itself now opens this app's own /settings/account instead of Clerk's hosted profile UI, so there is one entry point, not two. */}
+          {/* Spec 20 "Routes": Settings lives in the existing account menu rather than a new top-level nav link. Clerk's "Manage account" entry opens this app's own /settings/account instead of its hosted profile UI, so there is one entry point, not two — and `lib/clerk-localization.ts` relabels it "Settings" to match. */}
           <UserButton
             userProfileUrl="/settings/account"
             userProfileMode="navigation"

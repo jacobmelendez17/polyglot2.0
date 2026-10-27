@@ -6,6 +6,7 @@ import "@/lib/env";
 import { AppearanceProvider } from "@/lib/appearance/appearance-context";
 import { getAppearanceBootstrapScript } from "@/lib/appearance/appearance-bootstrap";
 import { clerkAppearance } from "@/lib/clerk-appearance";
+import { clerkLocalization } from "@/lib/clerk-localization";
 
 // Spec 20 Appearance — Font Family's three curated choices. Each gets its
 // own CSS variable rather than sharing `--font-sans` directly, so
@@ -57,7 +58,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body className="min-h-full flex flex-col">
         <AppearanceProvider>
-          <ClerkProvider appearance={clerkAppearance}>{children}</ClerkProvider>
+          <ClerkProvider
+            appearance={clerkAppearance}
+            localization={clerkLocalization}
+          >
+            {children}
+          </ClerkProvider>
         </AppearanceProvider>
       </body>
     </html>

@@ -28,7 +28,9 @@ grammar sentinel — grammar items have no vocabulary group at all, so one
 out-of-range group number doubles as the item type.
 
 Optional columns (`part_of_speech`, `article`, `definition`,
-`pronunciation`, `ipa`, `context`, `creator_notes`) may be added per row;
+`pronunciation`, `ipa`, `context`, `creator_notes`, `register`) may be added per
+row (`register` is one of neutral, formal, informal, colloquial, slang, vulgar,
+literary);
 everything left blank is authored afterwards in Admin.
 
 ## The manifest

@@ -9,7 +9,11 @@ import {
 } from "drizzle-orm";
 
 import type { DbClient } from "@/db/client";
-import type { CefrLevel, DictionaryOverridableField } from "@/db/schema";
+import type {
+  CefrLevel,
+  DictionaryOverridableField,
+  Register,
+} from "@/db/schema";
 import {
   acceptedAnswers,
   curriculumItemDrafts,
@@ -458,6 +462,7 @@ export async function getImportMatchTargets(
         ipa: vocabularyItems.ipa,
         context: vocabularyItems.context,
         creatorNotes: vocabularyItems.creatorNotes,
+        register: vocabularyItems.register,
       })
       .from(learningItems)
       .innerJoin(
@@ -486,6 +491,7 @@ export async function getImportMatchTargets(
         ipa,
         context,
         creatorNotes,
+        register,
         ...row
       }) => ({
         ...row,
@@ -503,6 +509,7 @@ export async function getImportMatchTargets(
           ipa,
           context,
           creatorNotes,
+          register,
         },
       }),
     );
@@ -522,6 +529,7 @@ export async function getImportMatchTargets(
       explanation: grammarItems.explanation,
       category: grammarItems.category,
       creatorNotes: grammarItems.creatorNotes,
+      register: grammarItems.register,
     })
     .from(learningItems)
     .innerJoin(grammarItems, eq(grammarItems.learningItemId, learningItems.id))
@@ -540,6 +548,7 @@ export async function getImportMatchTargets(
       explanation,
       category,
       creatorNotes,
+      register,
       ...row
     }) => ({
       ...row,
@@ -557,6 +566,7 @@ export async function getImportMatchTargets(
         explanation,
         category,
         creatorNotes,
+        register,
       },
     }),
   );
@@ -597,7 +607,7 @@ export async function updateVocabularyFieldsFromImport(
         | "creatorNotes",
         string | null
       >
-    >,
+    > & { register?: Register | null },
 ): Promise<void> {
   if (Object.keys(fields).length === 0) return;
   await db
@@ -613,7 +623,9 @@ export async function updateGrammarFieldsFromImport(
   fields: Partial<
     Record<"structure" | "primaryMeaning" | "explanation", string>
   > &
-    Partial<Record<"title" | "category" | "creatorNotes", string | null>>,
+    Partial<Record<"title" | "category" | "creatorNotes", string | null>> & {
+      register?: Register | null;
+    },
 ): Promise<void> {
   if (Object.keys(fields).length === 0) return;
   await db

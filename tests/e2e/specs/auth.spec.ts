@@ -54,6 +54,43 @@ test.describe("authenticated learner", () => {
     await expect(page).not.toHaveURL(/sign-in/);
   });
 
+  // Clerk's own <UserButton> menu: its "Manage account" entry is relabelled
+  // "Settings" (lib/clerk-localization.ts) and opens this app's Settings, in
+  // both the signed-in app header and the signed-in marketing header.
+  for (const [startPage, header] of [
+    ["/dashboard", "app header"],
+    ["/", "landing-page header"],
+  ] as const) {
+    test(`the ${header}'s account menu offers Settings instead of Manage account, and opens this app's Settings`, async ({
+      page,
+    }) => {
+      await page.goto(startPage);
+
+      // Lead with a polling expect, not a bare click: right after a fresh
+      // navigation the <UserButton> can remount once (see reset-account.spec).
+      const trigger = page.getByRole("button", { name: "Open user menu" });
+      await expect(trigger).toBeVisible();
+      // Clerk renders the menu entries as plain buttons inside this dialog.
+      const menu = page.getByRole("dialog", { name: "Account panel" });
+      const settings = menu.getByRole("button", {
+        name: "Settings",
+        exact: true,
+      });
+      await expect(async () => {
+        if (!(await menu.isVisible())) await trigger.click();
+        await expect(settings).toBeVisible({ timeout: 2_000 });
+      }).toPass();
+
+      await expect(
+        menu.getByRole("button", { name: "Sign out", exact: true }),
+      ).toBeVisible();
+      await expect(menu.getByText("Manage account")).toHaveCount(0);
+
+      await settings.click();
+      await expect(page).toHaveURL(/\/settings\/account$/);
+    });
+  }
+
   test("is denied access to the Admin area", async ({ page }) => {
     const response = await page.goto("/admin");
     // Next.js's forbidden() boundary (app/(admin)/forbidden.tsx) renders in

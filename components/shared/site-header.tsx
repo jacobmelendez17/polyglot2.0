@@ -56,7 +56,11 @@ export function SiteHeader() {
               </SignUpButton>
             </Show>
             <Show when="signed-in">
-              <UserButton />
+              {/* Same props as AppHeader's: the menu's "Settings" entry opens this app's own Settings, not Clerk's hosted profile UI. */}
+              <UserButton
+                userProfileUrl="/settings/account"
+                userProfileMode="navigation"
+              />
             </Show>
 
             <SiteNavMobile />

@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 
+import { registerEnum } from "@/db/schema";
+
 import {
   CLEAR_SENTINEL,
   GRAMMAR_GROUP_NUMBER,
+  IMPORT_COLUMNS,
   NEW_HOMONYM_SENTINEL,
+  REGISTER_VALUES,
   parseMultiValueList,
   validateVocabularyImportRow,
 } from "./vocabulary-import-parsing";
@@ -478,6 +482,89 @@ describe("validateVocabularyImportRow", () => {
         0,
       );
       expect(result.fields).toMatchObject({ term: CLEAR_SENTINEL });
+    });
+  });
+
+  describe("register column (2026-10-24)", () => {
+    const base = { word: "gato", translation: "cat", level: "1", group: "1" };
+
+    it("is a recognised, optional column", () => {
+      expect(IMPORT_COLUMNS).toContain("register");
+    });
+
+    it("lists exactly the database enum's values", () => {
+      expect([...REGISTER_VALUES]).toEqual([...registerEnum.enumValues]);
+    });
+
+    it.each(REGISTER_VALUES)("accepts %s", (register) => {
+      const result = validateVocabularyImportRow({ ...base, register }, 0);
+      expect(result.fieldIssues).toEqual([]);
+      expect(result.fields).toMatchObject({ register });
+    });
+
+    it("ignores case and surrounding whitespace", () => {
+      const result = validateVocabularyImportRow(
+        { ...base, register: "  Colloquial " },
+        0,
+      );
+      expect(result.fields).toMatchObject({ register: "colloquial" });
+    });
+
+    it.each(["", "  ", "N/A", "n/a"])(
+      "treats %j as saying nothing, never as a register",
+      (register) => {
+        const result = validateVocabularyImportRow({ ...base, register }, 0);
+        expect(result.fieldIssues).toEqual([]);
+        expect(
+          result.fields && "register" in result.fields
+            ? result.fields.register
+            : "absent",
+        ).toBeUndefined();
+      },
+    );
+
+    it("is undefined when the column is absent", () => {
+      const result = validateVocabularyImportRow(base, 0);
+      expect(result.fields).toMatchObject({ register: undefined });
+    });
+
+    it("parses __CLEAR__ as null (unclassified), distinct from absent and from neutral", () => {
+      const result = validateVocabularyImportRow(
+        { ...base, register: CLEAR_SENTINEL },
+        0,
+      );
+      expect(result.fields).toMatchObject({ register: null });
+    });
+
+    it("reports an unrecognised word as a field issue naming the valid ones, and builds no fields", () => {
+      const result = validateVocabularyImportRow(
+        { ...base, register: "casual" },
+        0,
+      );
+      expect(result.fields).toBeNull();
+      expect(result.fieldIssues).toHaveLength(1);
+      expect(result.fieldIssues[0]).toMatchObject({ field: "register" });
+      expect(result.fieldIssues[0]!.message).toContain('"casual"');
+      for (const value of REGISTER_VALUES) {
+        expect(result.fieldIssues[0]!.message).toContain(value);
+      }
+    });
+
+    it("applies to a grammar row the same way", () => {
+      const result = validateVocabularyImportRow(
+        {
+          word: "por vs para",
+          translation: "for",
+          level: "3",
+          group: String(GRAMMAR_GROUP_NUMBER),
+          register: "Formal",
+        },
+        0,
+      );
+      expect(result.fields).toMatchObject({
+        itemType: "grammar",
+        register: "formal",
+      });
     });
   });
 
