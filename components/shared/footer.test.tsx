@@ -12,7 +12,7 @@ describe("Footer", () => {
       "/",
     );
     expect(
-      screen.getByText("Learn a little. Remember a lot."),
+      screen.getByText("Learn your way."),
     ).toBeInTheDocument();
 
     expect(screen.getByRole("link", { name: "Levels" })).toHaveAttribute(

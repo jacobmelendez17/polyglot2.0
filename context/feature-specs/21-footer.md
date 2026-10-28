@@ -50,7 +50,7 @@ Include:
 
 Use:
 
-**Learn a little. Remember a lot.**
+**Learn your way.**
 
 The brand section should be the visually strongest part of the footer without overpowering the page.
 

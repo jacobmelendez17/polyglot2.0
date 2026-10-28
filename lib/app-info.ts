@@ -6,7 +6,7 @@
  */
 export const APP_NAME = "Polyglot";
 
-export const APP_TAGLINE = "Learn a little. Remember a lot.";
+export const APP_TAGLINE = "Learn your way.";
 
 /**
  * Public-facing version label shown in the footer. Beta status and the
