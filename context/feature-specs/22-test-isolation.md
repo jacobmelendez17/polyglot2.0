@@ -4,7 +4,7 @@ Read `AGENTS.md`, `architecture.md`, `code-standards.md`, `project-overview.md`,
 
 ## Goal
 
-Make Polyglot's automated testing environment isolated, deterministic, repeatable, and safe enough to serve as a deployment gate.
+Make Polyglot's automated testing environment isolated, deterministic, repeatable, and safe enough to serve as a deployment gate
 
 This spec has two primary goals:
 
